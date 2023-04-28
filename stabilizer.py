@@ -94,7 +94,6 @@ class AOMPowerStabilizer:
                     self.print(measured_power)
                     self.print("error:")
                     self.print(err)
-                    delay(0.1*ms)
                     ampl = self.amplitudes[ch] + self.p[ch]*err
                     # self.print("ampl:")
                     # self.print(ampl)
@@ -104,6 +103,7 @@ class AOMPowerStabilizer:
                         self.amplitudes[ch] = 0.9
                     #     # todo print some warning to alert the user we couldn't reach the setpt,
                          # then break out of the loop
+                    delay(0.1 * ms)
 
                     # update the dds amplitude
                     self.dds_list[ch].set(self.frequencies[ch], amplitude=self.amplitudes[ch])
@@ -122,7 +122,7 @@ class AOMPowerStabilizerTest(EnvExperiment):
 
     def prepare(self):
 
-        # todo: eventually read functions such as this from a config file
+        # todo: eventually read conversion functions such as this from a config file
         def volts_to_optical_mW(x: TFloat) -> TFloat:
             """
             the conversion of PD voltage to cooling light power at the switchyard MOT 1 path
@@ -155,14 +155,13 @@ class AOMPowerStabilizerTest(EnvExperiment):
         self.core.reset()
         self.core.break_realtime()
         self.urukul0_cpld.init()
-        self.urukul0_ch2.init() # the dds we're going to feedback on
+        self.urukul0_ch2.init()  # the dds we're going to feedback on
         self.urukul0_ch2.set_att(float(0))
         self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
         self.urukul0_ch1.init()  # this drives an AOM upstream but is unrelated to the feedback
         self.urukul0_ch1.set_att(float(0))
         self.urukul0_ch1.set(self.dds1_freq, amplitude=self.dds1_ampl)
         self.sampler0.init()
-
 
         self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
 
@@ -178,6 +177,5 @@ class AOMPowerStabilizerTest(EnvExperiment):
 
         # this would normally go inside your experiment loop
         self.AOMservo.run()
-
 
         print("experiment finished")
