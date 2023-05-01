@@ -30,9 +30,11 @@ class AOMPowerStabilizer:
     # Todo: add option to set which channels are used with a cfg file.
 
     def __init__(self, experiment, dds_names, sampler_name, sampler_channels, transfer_functions,
-                 setpoints, proportionals, iters=10):
+                 setpoints, proportionals, iters=10, t_thermalize=10*ms):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
+
+        #todo add parameter descriptions in this docstring
 
         :param experiment: a class inheriting from artiq.experiment.EnvExperiment. It is
         assumed that any hardware objects that are referenced in this class are bound to
@@ -50,6 +52,7 @@ class AOMPowerStabilizer:
         self.xfer_funcs = transfer_functions # translates a measured voltage to the setpoint units
         self.p = proportionals # the proportionality coeffs for feedback
         self.setpoints = setpoints # one for each channel
+        self.t_thermalize = t_thermalize
         self.sample_buffer = [0.0]*8
 
         # get hardware references by name from the parent experiment
@@ -82,12 +85,9 @@ class AOMPowerStabilizer:
         for i in range(self.n_iterations):
             with sequential:
                 self.sampler.sample(self.sample_buffer)
-
+                delay(self.t_thermalize)
                 for ch in range(self.n_channels):
 
-                    delay(0.5*ms)
-
-                    # update the amplitudes record
                     measured_power = self.xfer_funcs[ch](self.sample_buffer[self.sampler_channels[ch]])
                     err = self.setpoints[ch] - measured_power
                     self.print("power:")
@@ -95,15 +95,16 @@ class AOMPowerStabilizer:
                     self.print("error:")
                     self.print(err)
                     ampl = self.amplitudes[ch] + self.p[ch]*err
-                    # self.print("ampl:")
-                    # self.print(ampl)
-                    if ampl <= 0.9:
-                        self.amplitudes[ch] = ampl
-                    else:
+                    self.print("ampl:")
+                    self.print(ampl)
+
+                    # todo print some warning to alert the user if we couldn't reach the setpt,
+                    if ampl < 0:
+                        self.amplitudes[ch] = 0.0
+                    elif ampl > 0.9:
                         self.amplitudes[ch] = 0.9
-                    #     # todo print some warning to alert the user we couldn't reach the setpt,
-                         # then break out of the loop
-                    delay(0.1 * ms)
+                    else: # valid amplitude for DDS
+                        self.amplitudes[ch] = ampl
 
                     # update the dds amplitude
                     self.dds_list[ch].set(self.frequencies[ch], amplitude=self.amplitudes[ch])
@@ -132,50 +133,65 @@ class AOMPowerStabilizerTest(EnvExperiment):
             return -0.195395 + 17.9214 * x
 
         self.AOMservo = AOMPowerStabilizer(experiment=self,
-                                           dds_names=["urukul0_ch2"],
+                                           dds_names=["urukul0_ch1"],
                                            sampler_name="sampler0",
                                            sampler_channels=[7],
                                            transfer_functions=[volts_to_optical_mW],
-                                           setpoints=[0.8],
-                                           proportionals=[0.4],
-                                           iters=10)
+                                           setpoints=[0.7],# in mW
+                                           proportionals=[0.2],
+                                           iters=10,
+                                           t_thermalize=500*ms)
 
-        # the cooling single pass AOM - this is the laser power stabilizer
-        dBm = -2
+        # the cooling double pass AOM - this is the laser power stabilizer
+        dBm = -4 # corresponds to about 70% of the max diff. eff., so we can increase power to compensate drift
+        self.dds1_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
+        self.dds1_freq = 115 * MHz
+
+        # the cooling single pass AOM -  we'll use this to fake a power drift
+        dBm = 1
         self.dds2_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
         self.dds2_freq = 130 * MHz
-
-        # the cooling double pass AOM - we'll use this to fake a power drift
-        dBm = -0.2
-        self.dds1_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
-        self.dds1_freq = 111 * MHz
 
     @kernel
     def run(self):
         self.core.reset()
         self.core.break_realtime()
         self.urukul0_cpld.init()
-        self.urukul0_ch2.init()  # the dds we're going to feedback on
+        self.urukul0_ch2.init()  # this drives an AOM upstream (cooling single pass)
         self.urukul0_ch2.set_att(float(0))
         self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
-        self.urukul0_ch1.init()  # this drives an AOM upstream but is unrelated to the feedback
+        self.urukul0_ch1.init()  # the dds we're going to feedback on (cooling double pass)
         self.urukul0_ch1.set_att(float(0))
         self.urukul0_ch1.set(self.dds1_freq, amplitude=self.dds1_ampl)
         self.sampler0.init()
 
         self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
 
+        self.core.break_realtime()
+
         # change the upstream AOM's RF to simulate drift from the set point
         drift = 0.04  # ~ 1 dBm change
-        self.urukul0_ch1.set(self.dds1_freq, amplitude=self.dds1_ampl - drift)
+        self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl - drift)
+
+        # allow the upstream AOM to re-thermalize, then run the feedback
+        print("faking power drift with upstream AOM")
+        start_mu = now_mu()
+        dt = 2000*ms
+        delay(dt)
+        at_mu(start_mu + self.core.seconds_to_mu(dt))
+        print("running feedback")
+        self.AOMservo.run()
+
+        # reset the upstream AOM
+        print("resetting the upstream AOM")
+        self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
 
         start_mu = now_mu()
-
-        # allow the upstream AOM to re-thermalize
-        delay(500*ms)
-        at_mu(start_mu + self.core.seconds_to_mu(500*ms))
-
-        # this would normally go inside your experiment loop
+        dt = 2000 * ms
+        delay(dt)
+        at_mu(start_mu + self.core.seconds_to_mu(dt))
+        # adjust the stabilizer AOM again
+        print("running feedback")
         self.AOMservo.run()
 
         print("experiment finished")
