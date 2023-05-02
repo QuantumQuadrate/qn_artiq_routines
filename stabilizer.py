@@ -80,38 +80,35 @@ class AOMPowerStabilizer:
         :return:
         """
 
-        self.exp.core.break_realtime()
-        start_mu = now_mu()
+        # self.exp.core.break_realtime()
+
+        # start_mu = now_mu()
 
         # in each iteration, measure the sampler and set the dds amplitude accordingly
         for i in range(self.n_iterations):
-            # delay(500*ms) # the smaller this delay, the more quickly we run into an RTIO underflow error
-            at_mu(i * self.exp.core.seconds_to_mu(10 * ms) + start_mu)
+            # at_mu(i * self.exp.core.seconds_to_mu(10 * ms) + start_mu)
             with sequential:
                 self.sampler.sample(self.sample_buffer)
-                # delay(self.t_meas_delay)
-                for ch in range(self.n_channels):
+                delay(10*ms)
+                with parallel:  # update all the dds channels simultaneously
+                    for ch in range(self.n_channels):
 
-                    measured_power = self.xfer_funcs[ch](self.sample_buffer[self.sampler_channels[ch]])
-                    err = self.setpoints[ch] - measured_power
-                    # self.print("power:")
-                    # self.print(measured_power)
-                    # self.print("error:")
-                    # self.print(err)
-                    ampl = self.amplitudes[ch] + self.p[ch]*err
-                    # self.print("ampl:")
-                    # self.print(ampl)
+                        measured_power = self.xfer_funcs[ch](self.sample_buffer[self.sampler_channels[ch]])
+                        err = self.setpoints[ch] - measured_power
+                        ampl = self.amplitudes[ch] + self.p[ch]*err
 
-                    # todo print some warning to alert the user if we couldn't reach the setpt,
-                    if ampl < 0:
-                        self.amplitudes[ch] = 0.0
-                    elif ampl > 0.9:
-                        self.amplitudes[ch] = 0.9
-                    else:  # valid amplitude for DDS
-                        self.amplitudes[ch] = ampl
+                        # todo print some warning to alert the user if we couldn't reach the setpt,
+                        if ampl < 0:
+                            self.amplitudes[ch] = 0.0
+                        elif ampl > 0.9:
+                            self.amplitudes[ch] = 0.9
+                        else:  # valid amplitude for DDS
+                            self.amplitudes[ch] = ampl
 
-                    # update the dds amplitude
-                    self.dds_list[ch].set(self.frequencies[ch], amplitude=self.amplitudes[ch])
+                        # update the dds amplitude
+                        self.dds_list[ch].set(self.frequencies[ch], amplitude=self.amplitudes[ch])
+                        rtio_log(self.dds_names[ch], "i", i)
+            delay(self.t_meas_delay)  # the smaller this delay, the more quickly we run into an RTIO underflow error
 
 
 class AOMPowerStabilizerTest(EnvExperiment):
@@ -143,8 +140,8 @@ class AOMPowerStabilizerTest(EnvExperiment):
                                            transfer_functions=[volts_to_optical_mW],
                                            setpoints=[0.7],  # in mW
                                            proportionals=[0.07],
-                                           iters=5,
-                                           t_meas_delay=2*ms)
+                                           iters=5, # if > x you'll underflow the rtio counter
+                                           t_meas_delay=20*ms)
 
         # the cooling double pass AOM - this is the laser power stabilizer
         dBm = -4 # corresponds to about 70% of the max diff. eff., so we can increase power to compensate drift
@@ -181,9 +178,8 @@ class AOMPowerStabilizerTest(EnvExperiment):
 
         # allow the upstream AOM to re-thermalize, then run the feedback
         print("faking power drift with upstream AOM")
-        dt = 2000 * ms
-        # delay(dt)  # this delay just gets ignored
-        at_mu(start_mu + self.core.seconds_to_mu(dt))
+
+        delay(1000 * ms)
         print("running feedback")
         self.AOMservo.run()
 
@@ -191,10 +187,7 @@ class AOMPowerStabilizerTest(EnvExperiment):
         print("resetting the upstream AOM")
         self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
 
-        start_mu = now_mu()
-        dt = 2000 * ms
-        delay(dt)
-        at_mu(start_mu + self.core.seconds_to_mu(dt))
+        delay(2000 * ms)
         # adjust the stabilizer AOM again
         print("running feedback")
         self.AOMservo.run()
