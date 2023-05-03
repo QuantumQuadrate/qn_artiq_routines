@@ -28,6 +28,7 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_device("core")
         self.setattr_device("urukul0_cpld")
         self.setattr_device("urukul1_cpld")
+        self.setattr_device("urukul2_cpld")
         self.setattr_device("urukul0_ch0")
         self.setattr_device("urukul0_ch1")
         self.setattr_device("urukul0_ch2")
@@ -36,6 +37,9 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_device("urukul1_ch1")
         self.setattr_device("urukul1_ch2")
         self.setattr_device("urukul1_ch3")
+        self.setattr_device("urukul2_ch0")
+        self.setattr_device("urukul2_ch1")
+
         self.setattr_device("sampler0")  # for reading photodetector for laser power monitoring
         self.setattr_device("zotino0")  # for controlling coils
         self.setattr_device("ttl0")  # input for counting SPCM clicks
@@ -67,17 +71,17 @@ class CoilScanSPCMCount(EnvExperiment):
         #                       "AOM1, FORT switching AOM")
         # self.setattr_argument("p_FORT_PGC", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
         #                       "AOM1, FORT switching AOM")
-        self.setattr_argument("f_780DP_MOT", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_780DP_MOT", NumberValue(111.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM2, MOT cooling double pass")
         self.setattr_argument("f_780DP_PGC", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM2, MOT cooling double pass")
         self.setattr_argument("f_780DP_imaging", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_780DP_MOT", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_PGC", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_780DP_PGC", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_imaging", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_780DP_imaging", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
                               "AOM2, MOT cooling double pass")
         # self.setattr_argument("AOM2_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
 
@@ -92,25 +96,41 @@ class CoilScanSPCMCount(EnvExperiment):
         # self.setattr_argument("AOM4_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
 
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
+        self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
+        self.setattr_argument("AOM_A1_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A1")
+        self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
+
         self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
-        self.setattr_argument("AOM_A2_power", NumberValue(-5, unit="dBm", scale=1, ndecimals=1), "AOM A2")
-        # self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
+        self.setattr_argument("AOM_A2_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A2")
+        self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
 
         self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
         self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
-        # self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
+        self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
+
+        self.setattr_argument("AOM_A4_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A4")
+        self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
+        self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
 
         self.setattr_argument("AOM_A5_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A5")
-        self.setattr_argument("AOM_A5_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A5")
-        # self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
+        self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
+        self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
 
         self.setattr_argument("AOM_A6_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A6")
         self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
-        # self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
+        self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
-        self.setattr_argument("xsteps", NumberValue(30, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
-        self.setattr_argument("ysteps", NumberValue(30, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
-        self.setattr_argument("zsteps", NumberValue(45, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
+        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.01),
+                              "A-Z shim/quad bottom coils")
+        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.5, unit="V", ndecimals=3, step=0.01),
+                              "A-Z shim/quad top coil")
+        self.setattr_argument("AX_volts_MOT", NumberValue(-0.19, unit="V", ndecimals=3, step=0.01), "A-X shim coils")
+        self.setattr_argument("AY_volts_MOT", NumberValue(-0.25, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
+        self.setattr_argument("disable_coils", BooleanValue(default=False))
+
+        self.setattr_argument("xsteps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
+        self.setattr_argument("ysteps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
+        self.setattr_argument("zsteps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit="ms", ndecimals=0, step=10 * ms))
@@ -158,8 +178,10 @@ class CoilScanSPCMCount(EnvExperiment):
         self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM3_power / 10 - 3))
         self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM4_power / 10 - 3))
 
+        self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
         self.AOM_A3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A3_power / 10 - 3))
+        self.AOM_A4_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A4_power / 10 - 3))
         self.AOM_A5_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A5_power / 10 - 3))
         self.AOM_A6_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A6_power / 10 - 3))
 
@@ -177,15 +199,17 @@ class CoilScanSPCMCount(EnvExperiment):
             # the multimeter that I used for the fit reads
             return -0.195395 + 17.9214 * x
 
-        # self.AOMservo = AOMPowerStabilizer(experiment=self,
-        #                                    dds_names=["urukul0_ch1"],
-        #                                    sampler_name="sampler0",
-        #                                    sampler_channels=[7],
-        #                                    transfer_functions=[volts_to_optical_mW],
-        #                                    setpoints=[0.7],  # in mW
-        #                                    proportionals=[0.07],
-        #                                    iters=5,  # keep iters/t_meas_delay small or rtio underflow
-        #                                    t_meas_delay=20 * ms)
+        self.sampler_buffer = [0.0]*8
+        self.cooling_volts_ch = 7
+        self.AOMservo = AOMPowerStabilizer(experiment=self,
+                                           dds_names=["urukul0_ch1"],
+                                           sampler_name="sampler0",
+                                           sampler_channels=[self.cooling_volts_ch],
+                                           transfer_functions=[volts_to_optical_mW],
+                                           setpoints=[0.7],  # in mW
+                                           proportionals=[0.07],
+                                           iters=5,  # keep iters/t_meas_delay small or rtio underflow
+                                           t_meas_delay=20 * ms)
 
         print("prepare - done")
 
@@ -195,7 +219,7 @@ class CoilScanSPCMCount(EnvExperiment):
 
         # self.AOMservo.get_dds_settings()
 
-        self.file_setup(rowheaders=['counts','AZ_bottom V','AZ_top V','AY V','AX V'])
+        self.file_setup(rowheaders=['counts','AZ_bottom V','AZ_top V','AY V','AX V','cooling PD V'])
 
         # Turn on the magnetic fields
         if self.coils_enabled:
@@ -217,6 +241,8 @@ class CoilScanSPCMCount(EnvExperiment):
         self.urukul1_ch1.sw.on()
         self.urukul1_ch2.sw.on()
         self.urukul1_ch3.sw.on()
+        self.urukul2_ch0.sw.on()
+        self.urukul2_ch1.sw.on()
         delay(1 * ms)
 
         print("estimated duration of scan:",
@@ -224,16 +250,17 @@ class CoilScanSPCMCount(EnvExperiment):
               "hours")
 
         for i in range(self.zsteps):
-            print(i, "out of ", self.zsteps)
+            print(i, "out of ", self.zsteps, "outer loop steps")
             for j in range(self.xsteps):
                 for k in range(self.ysteps):
 
                     self.core.break_realtime()
 
-                    # if i*self.zsteps + j*self.xsteps + k % self.AOM_feedback_period_cycles == 0:
-                    #     print("running feedback")
-                    #     self.AOMservo.run()
-                    #     delay(10*ms)
+                    if i*self.zsteps + j*self.xsteps + k % self.AOM_feedback_period_cycles == 0:
+                        print("running feedback")
+                        self.core.break_realtime()
+                        self.AOMservo.run()
+                        delay(10*ms)
 
                     # do the experiment sequence
                     self.ttl7.pulse(self.t_exp_trigger)
@@ -272,25 +299,35 @@ class CoilScanSPCMCount(EnvExperiment):
                     delay(1 * ms)
                     if self.save_data:
                         # all items in the list must be the same type
-                        self.file_write([counts+0.0, coil_volts[0], coil_volts[1], coil_volts[2], coil_volts[3]])
+                        self.sampler0.sample(self.sampler_buffer) # check cooling laser power
+                        self.file_write([counts+0.0,
+                                         coil_volts[0],
+                                         coil_volts[1],
+                                         coil_volts[2],
+                                         coil_volts[3],
+                                         self.sampler_buffer[self.cooling_volts_ch]])
                     delay(1 * ms)
 
-                    self.urukul0_ch1.sw.off() # cooling/RP AOMs off
-                    self.urukul0_ch2.sw.off()
-                    self.urukul0_ch3.sw.off()
-                    self.urukul1_ch0.sw.off()  # fiber AOMs off
-                    self.urukul1_ch1.sw.off()
-                    self.urukul1_ch2.sw.off()
-                    self.urukul1_ch3.sw.off()
-                    delay(10*ms)
-                    self.urukul0_ch1.sw.on()
-                    self.urukul0_ch2.sw.on()
-                    self.urukul0_ch3.sw.on()
-                    self.urukul1_ch0.sw.on()
-                    self.urukul1_ch1.sw.on()
-                    self.urukul1_ch2.sw.on()
-                    self.urukul1_ch3.sw.on()
-                    delay(1*ms)
+                    # self.urukul0_ch1.sw.off() # cooling/RP AOMs off
+                    # self.urukul0_ch2.sw.off()
+                    # self.urukul0_ch3.sw.off()
+                    # self.urukul1_ch0.sw.off()  # fiber AOMs off
+                    # self.urukul1_ch1.sw.off()
+                    # self.urukul1_ch2.sw.off()
+                    # self.urukul1_ch3.sw.off()
+                    # self.urukul2_ch0.sw.off()
+                    # self.urukul2_ch1.sw.off()
+                    # delay(10*ms)
+                    # self.urukul0_ch1.sw.on()
+                    # self.urukul0_ch2.sw.on()
+                    # self.urukul0_ch3.sw.on()
+                    # self.urukul1_ch0.sw.on()
+                    # self.urukul1_ch1.sw.on()
+                    # self.urukul1_ch2.sw.on()
+                    # self.urukul1_ch3.sw.on()
+                    # self.urukul2_ch0.sw.on()
+                    # self.urukul2_ch1.sw.on()
+                    # delay(1*ms)
 
         ### reset parameters
         delay(10*ms)
@@ -301,6 +338,8 @@ class CoilScanSPCMCount(EnvExperiment):
         self.urukul1_ch1.sw.off()
         self.urukul1_ch2.sw.off()
         self.urukul1_ch3.sw.off()
+        self.urukul2_ch0.sw.off()
+        self.urukul2_ch1.sw.off()
         self.urukul0_ch0.sw.off()  # FORT AOM off
         self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
                              channels=[0, 1, 2, 3])
@@ -312,15 +351,6 @@ class CoilScanSPCMCount(EnvExperiment):
     @rpc(flags={"async"})  # means this code runs asynchronously; won't block the rtio counter
     def cleanup(self):
         self.file_obj.close()
-
-    # todo delete
-    # @rpc(flags={"async"})
-    # def get_xyz_steps(self, xsteps, ysteps, zsteps):
-    #     """the voltage steps to output with the zotino"""
-    #     Vz_steps = np.linspace(-1.5, -3.3, zsteps)
-    #     Vx_steps = np.linspace(-0.15, -0.8, xsteps)
-    #     Vy_steps = np.linspace(0.025, -0.9, ysteps)
-    #     return Vx_steps, Vy_steps, Vz_steps
 
     @rpc(flags={"async"})
     def file_setup(self, rowheaders=[]):
@@ -347,6 +377,8 @@ class CoilScanSPCMCount(EnvExperiment):
 
         self.urukul0_cpld.init()
         self.urukul1_cpld.init()
+        self.urukul2_cpld.init()
+
         self.urukul0_ch0.init()
         self.urukul0_ch1.init()
         self.urukul0_ch2.init()
@@ -355,6 +387,8 @@ class CoilScanSPCMCount(EnvExperiment):
         self.urukul1_ch1.init()
         self.urukul1_ch2.init()
         self.urukul1_ch3.init()
+        self.urukul2_ch0.init()
+        self.urukul2_ch1.init()
 
         self.urukul0_ch0.set_att(float(0))
         self.urukul0_ch1.set_att(float(0))
@@ -364,9 +398,9 @@ class CoilScanSPCMCount(EnvExperiment):
         self.urukul1_ch1.set_att(float(0))
         self.urukul1_ch2.set_att(float(0))
         self.urukul1_ch3.set_att(float(0))
+        self.urukul2_ch0.set_att(float(0))
+        self.urukul2_ch1.set_att(float(0))
         self.zotino0.init()
-        self.urukul0_cpld.init()
-        self.urukul1_cpld.init()
 
         self.core.break_realtime()
 
@@ -381,17 +415,47 @@ class CoilScanSPCMCount(EnvExperiment):
         delay(1 * ms)
         self.urukul0_ch3.set(frequency=self.AOM4_freq, amplitude=self.AOM4_ampl)
 
-        # URUKUL 1 - MOT arm fiber AOMs:
+        # URUKUL 1 and 2 - MOT arm fiber AOMs:
         delay(1 * ms)
         self.urukul1_ch0.set(frequency=self.AOM_A2_freq, amplitude=self.AOM_A2_ampl)
+        if self.AOM_A2_ON == True:
+            self.urukul1_ch0.sw.on()
+        else:
+            self.urukul1_ch0.sw.off()
 
         delay(1 * ms)
         self.urukul1_ch1.set(frequency=self.AOM_A3_freq, amplitude=self.AOM_A3_ampl)
+        if self.AOM_A3_ON == True:
+            self.urukul1_ch1.sw.on()
+        else:
+            self.urukul1_ch1.sw.off()
 
         delay(1 * ms)
-        self.urukul1_ch2.set(frequency=self.AOM_A6_freq, amplitude=self.AOM_A6_ampl)
+        self.urukul1_ch2.set(frequency=self.AOM_A1_freq, amplitude=self.AOM_A1_ampl)
+        if self.AOM_A1_ON == True:
+            self.urukul1_ch2.sw.on()
+        else:
+            self.urukul1_ch2.sw.off()
 
         delay(1 * ms)
-        self.urukul1_ch3.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
+        self.urukul1_ch3.set(frequency=self.AOM_A6_freq, amplitude=self.AOM_A6_ampl)
+        if self.AOM_A6_ON == True:
+            self.urukul1_ch3.sw.on()
+        else:
+            self.urukul1_ch3.sw.off()
+
+        delay(1 * ms)
+        self.urukul2_ch0.set(frequency=self.AOM_A4_freq, amplitude=self.AOM_A4_ampl)
+        if self.AOM_A4_ON == True:
+            self.urukul2_ch0.sw.on()
+        else:
+            self.urukul2_ch0.sw.off()
+
+        delay(1 * ms)
+        self.urukul2_ch1.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
+        if self.AOM_A5_ON == True:
+            self.urukul2_ch1.sw.on()
+        else:
+            self.urukul2_ch1.sw.off()
 
         print("init_hardware - done")
