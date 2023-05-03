@@ -112,11 +112,11 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
         self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
 
-        self.setattr_argument("AOM_A5_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A5")
+        self.setattr_argument("AOM_A5_freq", NumberValue(78.47 * MHz, unit="MHz", ndecimals=2), "AOM A5")
         self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
         self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
 
-        self.setattr_argument("AOM_A6_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A6")
+        self.setattr_argument("AOM_A6_freq", NumberValue(78.52 * MHz, unit="MHz", ndecimals=2), "AOM A6")
         self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
@@ -130,7 +130,8 @@ class CoilScanSPCMCount(EnvExperiment):
 
         self.setattr_argument("xsteps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
         self.setattr_argument("ysteps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
-        self.setattr_argument("zsteps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
+        self.setattr_argument("ztop_steps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
+        self.setattr_argument("zbottom_steps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit="ms", ndecimals=0, step=10 * ms))
@@ -246,88 +247,89 @@ class CoilScanSPCMCount(EnvExperiment):
         delay(1 * ms)
 
         print("estimated duration of scan:",
-              self.xsteps*self.ysteps*self.zsteps*(self.t_MOT_loading+self.t_SPCM_exposure)/3600,
+              self.xsteps*self.ysteps*self.ztop_steps*(self.t_MOT_loading+self.t_SPCM_exposure)/3600,
               "hours")
 
-        for i in range(self.zsteps):
-            print(i, "out of ", self.zsteps, "outer loop steps")
+        for i in range(self.ztop_steps):
+            print(i, "out of ", self.ztop_steps, "outer loop steps")
             for j in range(self.xsteps):
                 for k in range(self.ysteps):
+                    for l in range(self.zbottom_steps):
 
-                    self.core.break_realtime()
-
-                    if i*self.zsteps + j*self.xsteps + k % self.AOM_feedback_period_cycles == 0:
-                        print("running feedback")
                         self.core.break_realtime()
-                        self.AOMservo.run()
-                        delay(10*ms)
 
-                    # do the experiment sequence
-                    self.ttl7.pulse(self.t_exp_trigger)
+                        if i*self.ztop_steps + j*self.xsteps + k % self.AOM_feedback_period_cycles == 0:
+                            print("running feedback")
+                            self.core.break_realtime()
+                            self.AOMservo.run()
+                            delay(10*ms)
 
-                    # update coil values
-                    delay(1 * ms)
+                        # do the experiment sequence
+                        self.ttl7.pulse(self.t_exp_trigger)
 
-                    Vz = -1.5 - i * (3.3-1.5)/self.zsteps
-                    Vx = 0.15 - j * (0.8 + 0.15) / self.xsteps
-                    Vy = 0.025 - k * (0.9 + 0.025) / self.ysteps
+                        # update coil values
+                        delay(1 * ms)
 
-                    coil_volts = [self.AZ_bottom_volts_MOT,
-                                  Vz,
-                                  Vx,
-                                  Vy]
+                        Vz = -1.5 - i * (3.3-1.5)/self.ztop_steps
+                        Vx = 0.15 - j * (0.8 + 0.15) / self.xsteps
+                        Vy = 0.025 - k * (0.9 + 0.025) / self.ysteps
 
-                    delay(1*ms)
-                    # print(coil_volts)
-                    self.zotino0.set_dac(
-                        coil_volts,
-                        channels=self.coil_channels)
-                    delay(1*ms)
+                        coil_volts = [self.AZ_bottom_volts_MOT,
+                                      Vz,
+                                      Vx,
+                                      Vy]
 
-                    # wait for the MOT to load
-                    delay_mu(self.t_MOT_loading_mu)
-                    # print("i,j,k=",i,j,k)
+                        delay(1*ms)
+                        # print(coil_volts)
+                        self.zotino0.set_dac(
+                            coil_volts,
+                            channels=self.coil_channels)
+                        delay(1*ms)
 
-                    # take the shot
-                    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-                    counts = self.ttl0.count(t_gate_end)
-                    # print(counts)  # To-do print value to file instead.
-                    # delay(10 * ms)
+                        # wait for the MOT to load
+                        delay_mu(self.t_MOT_loading_mu)
+                        # print("i,j,k=",i,j,k)
 
-                    if self.print_meas_result:
-                        print("counts", counts)
-                    delay(1 * ms)
-                    if self.save_data:
-                        # all items in the list must be the same type
-                        self.sampler0.sample(self.sampler_buffer) # check cooling laser power
-                        self.file_write([counts+0.0,
-                                         coil_volts[0],
-                                         coil_volts[1],
-                                         coil_volts[2],
-                                         coil_volts[3],
-                                         self.sampler_buffer[self.cooling_volts_ch]])
-                    delay(1 * ms)
+                        # take the shot
+                        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+                        counts = self.ttl0.count(t_gate_end)
+                        # print(counts)  # To-do print value to file instead.
+                        # delay(10 * ms)
 
-                    # self.urukul0_ch1.sw.off() # cooling/RP AOMs off
-                    # self.urukul0_ch2.sw.off()
-                    # self.urukul0_ch3.sw.off()
-                    # self.urukul1_ch0.sw.off()  # fiber AOMs off
-                    # self.urukul1_ch1.sw.off()
-                    # self.urukul1_ch2.sw.off()
-                    # self.urukul1_ch3.sw.off()
-                    # self.urukul2_ch0.sw.off()
-                    # self.urukul2_ch1.sw.off()
-                    # delay(10*ms)
-                    # self.urukul0_ch1.sw.on()
-                    # self.urukul0_ch2.sw.on()
-                    # self.urukul0_ch3.sw.on()
-                    # self.urukul1_ch0.sw.on()
-                    # self.urukul1_ch1.sw.on()
-                    # self.urukul1_ch2.sw.on()
-                    # self.urukul1_ch3.sw.on()
-                    # self.urukul2_ch0.sw.on()
-                    # self.urukul2_ch1.sw.on()
-                    # delay(1*ms)
+                        if self.print_meas_result:
+                            print("counts", counts)
+                        delay(1 * ms)
+                        if self.save_data:
+                            # all items in the list must be the same type
+                            self.sampler0.sample(self.sampler_buffer) # check cooling laser power
+                            self.file_write([counts+0.0,
+                                             coil_volts[0],
+                                             coil_volts[1],
+                                             coil_volts[2],
+                                             coil_volts[3],
+                                             self.sampler_buffer[self.cooling_volts_ch]])
+                        delay(1 * ms)
+
+                        # self.urukul0_ch1.sw.off() # cooling/RP AOMs off
+                        # self.urukul0_ch2.sw.off()
+                        # self.urukul0_ch3.sw.off()
+                        # self.urukul1_ch0.sw.off()  # fiber AOMs off
+                        # self.urukul1_ch1.sw.off()
+                        # self.urukul1_ch2.sw.off()
+                        # self.urukul1_ch3.sw.off()
+                        # self.urukul2_ch0.sw.off()
+                        # self.urukul2_ch1.sw.off()
+                        # delay(10*ms)
+                        # self.urukul0_ch1.sw.on()
+                        # self.urukul0_ch2.sw.on()
+                        # self.urukul0_ch3.sw.on()
+                        # self.urukul1_ch0.sw.on()
+                        # self.urukul1_ch1.sw.on()
+                        # self.urukul1_ch2.sw.on()
+                        # self.urukul1_ch3.sw.on()
+                        # self.urukul2_ch0.sw.on()
+                        # self.urukul2_ch1.sw.on()
+                        # delay(1*ms)
 
         ### reset parameters
         delay(10*ms)

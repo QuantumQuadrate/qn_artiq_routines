@@ -11,6 +11,7 @@ class AOMsCoils(EnvExperiment):
         self.setattr_device("core")
         self.setattr_device("urukul0_cpld")
         self.setattr_device("urukul1_cpld")
+        self.setattr_device("urukul2_cpld")
         self.setattr_device("urukul0_ch0")
         self.setattr_device("urukul0_ch1")
         self.setattr_device("urukul0_ch2")
@@ -64,11 +65,11 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
         self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
 
-        self.setattr_argument("AOM_A5_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A5")
+        self.setattr_argument("AOM_A5_freq", NumberValue(78.47 * MHz, unit="MHz", ndecimals=2), "AOM A5")
         self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
         self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
 
-        self.setattr_argument("AOM_A6_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A6")
+        self.setattr_argument("AOM_A6_freq", NumberValue(78.52 * MHz, unit="MHz", ndecimals=2), "AOM A6")
         self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
