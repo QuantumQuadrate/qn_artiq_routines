@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 import importlib
 from subroutines.stabilizer import *
 
-class CoilScan_SPCMCount(EnvExperiment):
 
+class CoilScanSPCMCount(EnvExperiment):
 
     def build(self):
         """
@@ -108,9 +108,9 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
         # self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
-        self.setattr_argument("xsteps", NumberValue(45, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
+        self.setattr_argument("xsteps", NumberValue(30, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
         self.setattr_argument("ysteps", NumberValue(30, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
-        self.setattr_argument("zsteps", NumberValue(30, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
+        self.setattr_argument("zsteps", NumberValue(45, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit="ms", ndecimals=0, step=10 * ms))
@@ -127,7 +127,7 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.setattr_argument("print_meas_result", BooleanValue(False), "Developer options")
         self.setattr_argument("save_data", BooleanValue(True), "Developer options")
 
-
+        print("build - done")
 
     def prepare(self):
         """
@@ -177,21 +177,23 @@ class CoilScan_SPCMCount(EnvExperiment):
             # the multimeter that I used for the fit reads
             return -0.195395 + 17.9214 * x
 
-        self.AOMservo = AOMPowerStabilizer(experiment=self,
-                                           dds_names=["urukul0_ch1"],
-                                           sampler_name="sampler0",
-                                           sampler_channels=[7],
-                                           transfer_functions=[volts_to_optical_mW],
-                                           setpoints=[0.7],  # in mW
-                                           proportionals=[0.07],
-                                           iters=5,  # keep iters/t_meas_delay small or rtio underflow
-                                           t_meas_delay=20 * ms)
+        # self.AOMservo = AOMPowerStabilizer(experiment=self,
+        #                                    dds_names=["urukul0_ch1"],
+        #                                    sampler_name="sampler0",
+        #                                    sampler_channels=[7],
+        #                                    transfer_functions=[volts_to_optical_mW],
+        #                                    setpoints=[0.7],  # in mW
+        #                                    proportionals=[0.07],
+        #                                    iters=5,  # keep iters/t_meas_delay small or rtio underflow
+        #                                    t_meas_delay=20 * ms)
+
+        print("prepare - done")
 
     @kernel
     def run(self):
         self.init_hardware()
 
-        self.AOMservo.get_dds_settings()
+        # self.AOMservo.get_dds_settings()
 
         self.file_setup(rowheaders=['counts','AZ_bottom V','AZ_top V','AY V','AX V'])
 
@@ -228,10 +230,10 @@ class CoilScan_SPCMCount(EnvExperiment):
 
                     self.core.break_realtime()
 
-                    if i*self.zsteps + j*self.xsteps + k % self.AOM_feedback_period_cycles == 0:
-                        print("running feedback")
-                        self.AOMservo.run()
-                        delay(10*ms)
+                    # if i*self.zsteps + j*self.xsteps + k % self.AOM_feedback_period_cycles == 0:
+                    #     print("running feedback")
+                    #     self.AOMservo.run()
+                    #     delay(10*ms)
 
                     # do the experiment sequence
                     self.ttl7.pulse(self.t_exp_trigger)
@@ -292,10 +294,10 @@ class CoilScan_SPCMCount(EnvExperiment):
 
         ### reset parameters
         delay(10*ms)
-        self.urukul0_ch1.sw.off() # cooling/RP AOMs off
+        self.urukul0_ch1.sw.off()  # cooling/RP AOMs off
         self.urukul0_ch2.sw.off()
         self.urukul0_ch3.sw.off()
-        self.urukul1_ch0.sw.off() # fiber AOMs off
+        self.urukul1_ch0.sw.off()  # fiber AOMs off
         self.urukul1_ch1.sw.off()
         self.urukul1_ch2.sw.off()
         self.urukul1_ch3.sw.off()
@@ -303,7 +305,7 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
                              channels=[0, 1, 2, 3])
 
-        self.cleanup() # asynchronous stuff like closing files
+        self.cleanup()  # asynchronous stuff like closing files
         print("Experiment finished.")
 
 
@@ -321,13 +323,12 @@ class CoilScan_SPCMCount(EnvExperiment):
     #     return Vx_steps, Vy_steps, Vz_steps
 
     @rpc(flags={"async"})
-    def file_setup(self,rowheaders=[]):
+    def file_setup(self, rowheaders=[]):
         # open file once, then close it at end of the experiment
         self.file_obj = open(self.datafile, 'a', newline='')
         self.csvwriter = csv.writer(self.file_obj)
         if rowheaders != []:
             self.csvwriter.writerow(rowheaders)
-
 
     @rpc(flags={"async"})
     def file_write(self, data):
@@ -344,6 +345,8 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.ttl0.input()  # for reading pulses from SPCM
         self.ttl7.output()  # for outputting a trigger each cycle
 
+        self.urukul0_cpld.init()
+        self.urukul1_cpld.init()
         self.urukul0_ch0.init()
         self.urukul0_ch1.init()
         self.urukul0_ch2.init()
@@ -364,11 +367,6 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.zotino0.init()
         self.urukul0_cpld.init()
         self.urukul1_cpld.init()
-
-        self.core.break_realtime()
-
-        self.urukul0_cpld.set_profile(0)
-        self.urukul1_cpld.set_profile(0)
 
         self.core.break_realtime()
 
@@ -395,3 +393,5 @@ class CoilScan_SPCMCount(EnvExperiment):
 
         delay(1 * ms)
         self.urukul1_ch3.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
+
+        print("init_hardware - done")

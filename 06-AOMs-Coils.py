@@ -1,13 +1,12 @@
 """
 This code turns on the MOT AOMs and also the MOT coils.
-
 """
 from artiq.experiment import *
 import math
 import numpy as np
 
 
-class AOMs_Coils(EnvExperiment):
+class AOMsCoils(EnvExperiment):
     def build(self):
         self.setattr_device("core")
         self.setattr_device("urukul0_cpld")
@@ -20,6 +19,8 @@ class AOMs_Coils(EnvExperiment):
         self.setattr_device("urukul1_ch1")
         self.setattr_device("urukul1_ch2")
         self.setattr_device("urukul1_ch3")
+        self.setattr_device("urukul2_ch0")
+        self.setattr_device("urukul2_ch1")
         self.setattr_device("zotino0")  # for controlling coils
         self.setattr_device("ttl6")
         self.setattr_device("ttl1")
@@ -34,7 +35,7 @@ class AOMs_Coils(EnvExperiment):
         self.setattr_argument("AOM1_ON", BooleanValue(default=False), "AOM1, FORT")
 
         # -0.2 gives the maximum diffraction efficiency. -4 gives about 70% so we can increase to compensate for drift
-        self.setattr_argument("AOM2_freq", NumberValue(115.0 * MHz, unit="MHz",ndecimals=1), "AOM2, MOT cooling double pass")
+        self.setattr_argument("AOM2_freq", NumberValue(111.0 * MHz, unit="MHz",ndecimals=1), "AOM2, MOT cooling double pass")
         self.setattr_argument("AOM2_power", NumberValue(-4, unit="dBm", scale=1, ndecimals=1), "AOM2, MOT cooling double pass")
         self.setattr_argument("AOM2_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
 
@@ -46,6 +47,11 @@ class AOMs_Coils(EnvExperiment):
         self.setattr_argument("AOM4_power", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
         self.setattr_argument("AOM4_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
+
+        self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
+        self.setattr_argument("AOM_A1_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A1")
+        self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
+
         self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
         self.setattr_argument("AOM_A2_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A2")
         self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
@@ -53,6 +59,10 @@ class AOMs_Coils(EnvExperiment):
         self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
         self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
         self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
+
+        self.setattr_argument("AOM_A4_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A4")
+        self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
+        self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
 
         self.setattr_argument("AOM_A5_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A5")
         self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
@@ -78,10 +88,13 @@ class AOMs_Coils(EnvExperiment):
         self.AOM3_ampl = math.sqrt(2*50*10**(self.AOM3_power/10-3))
         self.AOM4_ampl = math.sqrt(2*50*10**(self.AOM4_power/10-3))
 
+        self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2*50*10**(self.AOM_A2_power/10-3))
         self.AOM_A3_ampl = math.sqrt(2*50*10**(self.AOM_A3_power/10-3))
+        self.AOM_A4_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A4_power / 10 - 3))
         self.AOM_A5_ampl = math.sqrt(2*50*10**(self.AOM_A5_power/10-3))
         self.AOM_A6_ampl = math.sqrt(2*50*10**(self.AOM_A6_power/10-3))
+
 
         self.coil_channels = [0, 1, 2, 3]
 
@@ -92,6 +105,7 @@ class AOMs_Coils(EnvExperiment):
         self.core.reset()
         self.urukul0_cpld.init()
         self.urukul1_cpld.init()
+        self.urukul2_cpld.init()
 
         self.urukul0_ch0.init()
         self.urukul0_ch1.init()
@@ -101,6 +115,8 @@ class AOMs_Coils(EnvExperiment):
         self.urukul1_ch1.init()
         self.urukul1_ch2.init()
         self.urukul1_ch3.init()
+        self.urukul2_ch0.init()
+        self.urukul2_ch1.init()
 
         self.urukul0_ch0.set_att(float(0))
         self.urukul0_ch1.set_att(float(0))
@@ -154,7 +170,7 @@ class AOMs_Coils(EnvExperiment):
         else:
             self.urukul0_ch3.sw.off()
 
-        # URUKUL 1 - MOT arm fiber AOMs:
+        # URUKUL 1 and 2 - MOT arm fiber AOMs:
         delay(1 * ms)
         self.urukul1_ch0.set(frequency=self.AOM_A2_freq, amplitude=self.AOM_A2_ampl)
         if self.AOM_A2_ON == True:
@@ -170,18 +186,32 @@ class AOMs_Coils(EnvExperiment):
             self.urukul1_ch1.sw.off()
 
         delay(1 * ms)
-        self.urukul1_ch2.set(frequency=self.AOM_A6_freq, amplitude=self.AOM_A6_ampl)
-        if self.AOM_A6_ON == True:
+        self.urukul1_ch2.set(frequency=self.AOM_A1_freq, amplitude=self.AOM_A1_ampl)
+        if self.AOM_A1_ON == True:
             self.urukul1_ch2.sw.on()
         else:
             self.urukul1_ch2.sw.off()
 
         delay(1 * ms)
-        self.urukul1_ch3.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
-        if self.AOM_A5_ON == True:
+        self.urukul1_ch3.set(frequency=self.AOM_A6_freq, amplitude=self.AOM_A6_ampl)
+        if self.AOM_A6_ON == True:
             self.urukul1_ch3.sw.on()
         else:
             self.urukul1_ch3.sw.off()
+
+        delay(1 * ms)
+        self.urukul2_ch0.set(frequency=self.AOM_A4_freq, amplitude=self.AOM_A4_ampl)
+        if self.AOM_A4_ON == True:
+            self.urukul2_ch0.sw.on()
+        else:
+            self.urukul2_ch0.sw.off()
+
+        delay(1 * ms)
+        self.urukul2_ch1.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
+        if self.AOM_A5_ON == True:
+            self.urukul2_ch1.sw.on()
+        else:
+            self.urukul2_ch1.sw.off()
 
 
 
