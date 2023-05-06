@@ -219,9 +219,9 @@ class CoilScanSPCMCount(EnvExperiment):
         step = 0
         for i in range(self.ztop_steps):
             print(i, "out of ", self.ztop_steps, "outer loop steps")
-            for j in range(self.xsteps):
-                for k in range(self.ysteps):
-                    for l in range(self.zbottom_steps):
+            for l in range(self.zbottom_steps):
+                for j in range(self.xsteps):
+                    for k in range(self.ysteps):
 
                         self.core.break_realtime()
 
