@@ -4,8 +4,8 @@ from matplotlib import pyplot as plt
 import csv
 import numpy as np
 
-plot_type = '2D' # '1D' or '2D'
-datafile = "./20230417_164351_coil_scan_zmax_250mV_xmax_ymax_300mV.csv"
+plot_type = '3D' # '1D' or '2D' if the scan was 3 dimensional. use '3D' for 4-d data
+datafile = "C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\20230504_093318_coil_scan.csv"
 has_header = True
 with open(datafile, 'r', newline='') as f:
     reader = csv.reader(f)
@@ -74,5 +74,71 @@ elif plot_type == '2D':
         plt.savefig(datafile[:-4] + '_2D_' + str(k) + '.png', bbox_inches='tight')
         # plt.show()
         plt.close()
+
+elif plot_type == '3D':
+    counts = data[0]
+    pd_data = data[-1] # the cooling laser power monitor
+    coil_data = data[1:-1][:12800] # just as a check. should make two figures
+
+    # sort data so that the zbottom loop which was the inner-most loop is now effectively the second loop
+    coil_data = sorted(coil_data,key=lambda x: x[3])
+    coil_data = sorted(coil_data,key=lambda x: x[0])
+
+    zbottom_data, ztop_data, xdata, ydata = coil_data
+
+    zbottom_steps = len(list(set(zbottom_data)))
+    ztop_steps = len(list(set(zbottom_data)))
+    xsteps = len(list(set(xdata)))
+    ysteps = len(list(set(ydata)))
+    nrows = 4
+    ncols = 4
+    assert zbottom_steps % nrows == 0, "zbottom_steps should be divisible by nrows for the grid of plots"
+    assert ztop_steps % ncols == 0, "ztop_steps should be divisible by ncols for the grid of plots"
+
+    sigma = np.std(counts)
+    for k in range(ztop_steps//ncols):
+        for l in range(zbottom_steps//nrows):
+
+            fig, axes = plt.subplots(nrows=nrows,ncols=ncols)
+
+            for col in range(ncols):
+                for row in range(nrows):
+
+                    ax = axes[row,col]
+
+                    ztop_step = col*ztop_steps
+                    zbottom_steps = row*zbottom_steps
+                    imdata = [[counts[i*xsteps + j + k*xsteps*ysteps*col + l*k*xsteps*ysteps*ztop_steps*col*row]
+                               for i in range(xsteps)] for j in range(ysteps)]
+
+                    maxcounts = np.amax(imdata)
+
+                    im = ax.imshow(imdata, extent=[min(xdata), max(xdata), max(ydata), min(ydata)])
+                    ax.set_aspect((max(xdata) - min(xdata)) / (max(ydata) - min(ydata)))
+
+                    # this part depends on the ordering of the loops in the scan.
+                    # this assumes z_top is the outer-most loop and z_bottom is the inner most
+                    # title = "Z_top = {:.3f}V, Z_bottom = {:.3f}V".format(ztop_data[k * xsteps * ysteps * zbottom_steps],
+                    #                                                      zbottom_data[l]) \
+                    #         + " (step " + str(k + 1) + '/' + str(
+                    #     zsteps) + ')' + \
+                    #         '\n Max counts = {}, {:.2f}sigma'.format(maxcounts, maxcounts / sigma)
+                    # ax.set_title(title)
+                    ax.set_xlabel("X volts")
+                    ax.set_ylabel("Y volts")
+
+                    # test to make sure I understand the axes orientation
+                    # imdata = np.array([[i*(j+10) for i in range(xsteps)] for j in range(ysteps)])
+                    # cax = ax.imshow(imdata, extent=[0,xsteps,ysteps+10,10])
+
+            fig.subplots_adjust(right=0.8)
+            cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+            fig.colorbar(im, cax=cbar_ax)
+
+            # fig.colorbar(cax)
+            # plt.savefig(datafile[:-4] + '_3D_' + str(k) + '.png', bbox_inches='tight')
+            plt.show()
+            # plt.close()
+
 else:
-    print("sorry,", plot_type," is not a valid plot type. try '1D' or '2D'.")
+    print("sorry,", plot_type," is not a valid plot type.")
