@@ -1,6 +1,6 @@
 """
 This code scans the coils to find the optimum coil parameters that put the MOT at the focus of the
-parabolic mirror. It saves the photon counts on a file.
+parabolic mirror. It saves the photon counts in a file.
 
 """
 
@@ -46,79 +46,46 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_device("ttl7")  # output for experiment trigger
 
         self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
-        # self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
-        # self.setattr_argument("AZ_bottom_volts_imaging", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
+
         self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.9, unit="V", ndecimals=3, step=0.025),
                               "A-Z shim/quad top coil")
-        # self.setattr_argument("AZ_top_volts_PGC", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025),
-        #                       "A-Z shim/quad top coil")
-        # self.setattr_argument("AZ_top_volts_imaging", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025),
-        #                       "A-Z shim/quad top coil")
         self.setattr_argument("AX_volts_MOT", NumberValue(-0.35, unit="V", ndecimals=3, step=0.025),"A-X shim coils")
-        # self.setattr_argument("AX_volts_PGC", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
-        # self.setattr_argument("AX_volts_imaging", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
         self.setattr_argument("AY_volts_MOT", NumberValue(-0.43, unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-        # self.setattr_argument("AY_volts_PGC", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-        # self.setattr_argument("AY_volts_imaging", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-
-        # define user-configurable independent variables in human-readable units
-        # these will show up in the GUI
-        # self.setattr_argument("f_FORT", NumberValue(100.0 * MHz, unit="MHz", ndecimals=1),
-        #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_loading", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_imaging", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_PGC", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM1, FORT switching AOM")
         self.setattr_argument("f_780DP_MOT", NumberValue(111.0 * MHz, unit="MHz", ndecimals=1),
-                              "AOM2, MOT cooling double pass")
-        self.setattr_argument("f_780DP_PGC", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
-                              "AOM2, MOT cooling double pass")
-        self.setattr_argument("f_780DP_imaging", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM2, MOT cooling double pass")
         self.setattr_argument("p_780DP_MOT", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_PGC", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
-                              "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_imaging", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
-                              "AOM2, MOT cooling double pass")
-        # self.setattr_argument("AOM2_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
-
         self.setattr_argument("AOM3_freq", NumberValue(130.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM3, MOT cooling single pass")
         self.setattr_argument("AOM3_power", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
                               "AOM3, MOT cooling single pass")
-        # self.setattr_argument("AOM3_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
-
         self.setattr_argument("AOM4_freq", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
         self.setattr_argument("AOM4_power", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
-        # self.setattr_argument("AOM4_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
 
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
         self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
         self.setattr_argument("AOM_A1_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A1")
-        self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
+        # self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
 
         self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
         self.setattr_argument("AOM_A2_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A2")
-        self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
+        # self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
 
         self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
         self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
-        self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
+        # self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
 
         self.setattr_argument("AOM_A4_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A4")
         self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
-        self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
+        # self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
 
         self.setattr_argument("AOM_A5_freq", NumberValue(78.47 * MHz, unit="MHz", ndecimals=2), "AOM A5")
         self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
-        self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
+        # self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
 
         self.setattr_argument("AOM_A6_freq", NumberValue(78.52 * MHz, unit="MHz", ndecimals=2), "AOM A6")
         self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
-        self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
+        # self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
         self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.01),
                               "A-Z shim/quad bottom coils")
@@ -136,8 +103,8 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_argument("coils_enabled", BooleanValue(True))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit="ms", ndecimals=0, step=10 * ms))
         self.setattr_argument("t_SPCM_exposure", NumberValue(50 * ms, unit="ms", ndecimals=1, step=5 * ms))
-        self.setattr_argument("datadir", StringValue('/home/fiber-cavity/NetworkExperimentData/CoilScanSPCMCount/'),"File to save data")
-        self.setattr_argument("datafile", StringValue('coil_scan_zmax_---mV_xmax_ymax_---mV.csv'),"File to save data")
+        self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
+        self.setattr_argument("datafile", StringValue('coil_scan.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
 
         # when to run the AOM feedback
@@ -174,8 +141,8 @@ class CoilScanSPCMCount(EnvExperiment):
 
         # converts RF power in dBm to amplitudes in V
         self.ampl_780DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_780DP_MOT / 10 - 3))
-        self.ampl_780DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_780DP_PGC / 10 - 3))
-        self.ampl_780DP_imaging = math.sqrt(2 * 50 * 10 ** (self.p_780DP_imaging / 10 - 3))
+        # self.ampl_780DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_780DP_PGC / 10 - 3))
+        # self.ampl_780DP_imaging = math.sqrt(2 * 50 * 10 ** (self.p_780DP_imaging / 10 - 3))
         self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM3_power / 10 - 3))
         self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM4_power / 10 - 3))
 
@@ -208,7 +175,7 @@ class CoilScanSPCMCount(EnvExperiment):
                                            sampler_channels=[self.cooling_volts_ch],
                                            transfer_functions=[volts_to_optical_mW],
                                            setpoints=[0.7],  # in mW
-                                           proportionals=[0.07],
+                                           proportionals=[0.04],
                                            iters=5,  # keep iters/t_meas_delay small or rtio underflow
                                            t_meas_delay=20 * ms)
 
@@ -217,8 +184,6 @@ class CoilScanSPCMCount(EnvExperiment):
     @kernel
     def run(self):
         self.init_hardware()
-
-        # self.AOMservo.get_dds_settings()
 
         self.file_setup(rowheaders=['counts','AZ_bottom V','AZ_top V','AY V','AX V','cooling PD V'])
 
@@ -230,7 +195,7 @@ class CoilScanSPCMCount(EnvExperiment):
                                  channels=self.coil_channels)
         else:
             self.zotino0.set_dac(
-                [0.0,0.0,0.0,0.0],
+                [0.0, 0.0, 0.0, 0.0],
                 channels=self.coil_channels)
         delay(1 * ms)  # avoid RTIOSequence error
 
@@ -244,12 +209,14 @@ class CoilScanSPCMCount(EnvExperiment):
         self.urukul1_ch3.sw.on()
         self.urukul2_ch0.sw.on()
         self.urukul2_ch1.sw.on()
-        delay(1 * ms)
+
+        # wait for AOMs to thermalize
+        delay(4000 * ms)
 
         print("estimated duration of scan:",
-              self.xsteps*self.ysteps*self.ztop_steps*(self.t_MOT_loading+self.t_SPCM_exposure)/3600,
+              self.xsteps*self.ysteps*self.ztop_steps*self.zbottom_steps*(self.t_MOT_loading+self.t_SPCM_exposure)/3600,
               "hours")
-
+        step = 0
         for i in range(self.ztop_steps):
             print(i, "out of ", self.ztop_steps, "outer loop steps")
             for j in range(self.xsteps):
@@ -258,7 +225,7 @@ class CoilScanSPCMCount(EnvExperiment):
 
                         self.core.break_realtime()
 
-                        if i*self.ztop_steps + j*self.xsteps + k % self.AOM_feedback_period_cycles == 0:
+                        if (step % self.AOM_feedback_period_cycles) == 0:
                             print("running feedback")
                             self.core.break_realtime()
                             self.AOMservo.run()
@@ -270,12 +237,13 @@ class CoilScanSPCMCount(EnvExperiment):
                         # update coil values
                         delay(1 * ms)
 
-                        Vz = -1.5 - i * (3.3-1.5)/self.ztop_steps
+                        Vz_top = -1.5 - i * (3.3 - 1.5)/self.ztop_steps
                         Vx = 0.15 - j * (0.8 + 0.15) / self.xsteps
                         Vy = 0.025 - k * (0.9 + 0.025) / self.ysteps
+                        Vz_bottom = 0.6 - l * (0.6 - 1) /self.zbottom_steps
 
-                        coil_volts = [self.AZ_bottom_volts_MOT,
-                                      Vz,
+                        coil_volts = [Vz_bottom,
+                                      Vz_top,
                                       Vx,
                                       Vy]
 
@@ -288,13 +256,10 @@ class CoilScanSPCMCount(EnvExperiment):
 
                         # wait for the MOT to load
                         delay_mu(self.t_MOT_loading_mu)
-                        # print("i,j,k=",i,j,k)
 
                         # take the shot
                         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
                         counts = self.ttl0.count(t_gate_end)
-                        # print(counts)  # To-do print value to file instead.
-                        # delay(10 * ms)
 
                         if self.print_meas_result:
                             print("counts", counts)
@@ -309,42 +274,13 @@ class CoilScanSPCMCount(EnvExperiment):
                                              coil_volts[3],
                                              self.sampler_buffer[self.cooling_volts_ch]])
                         delay(1 * ms)
-
-                        # self.urukul0_ch1.sw.off() # cooling/RP AOMs off
-                        # self.urukul0_ch2.sw.off()
-                        # self.urukul0_ch3.sw.off()
-                        # self.urukul1_ch0.sw.off()  # fiber AOMs off
-                        # self.urukul1_ch1.sw.off()
-                        # self.urukul1_ch2.sw.off()
-                        # self.urukul1_ch3.sw.off()
-                        # self.urukul2_ch0.sw.off()
-                        # self.urukul2_ch1.sw.off()
-                        # delay(10*ms)
-                        # self.urukul0_ch1.sw.on()
-                        # self.urukul0_ch2.sw.on()
-                        # self.urukul0_ch3.sw.on()
-                        # self.urukul1_ch0.sw.on()
-                        # self.urukul1_ch1.sw.on()
-                        # self.urukul1_ch2.sw.on()
-                        # self.urukul1_ch3.sw.on()
-                        # self.urukul2_ch0.sw.on()
-                        # self.urukul2_ch1.sw.on()
-                        # delay(1*ms)
+                        step += 1
 
         ### reset parameters
         delay(10*ms)
-        self.urukul0_ch1.sw.off()  # cooling/RP AOMs off
-        self.urukul0_ch2.sw.off()
-        self.urukul0_ch3.sw.off()
-        self.urukul1_ch0.sw.off()  # fiber AOMs off
-        self.urukul1_ch1.sw.off()
-        self.urukul1_ch2.sw.off()
-        self.urukul1_ch3.sw.off()
-        self.urukul2_ch0.sw.off()
-        self.urukul2_ch1.sw.off()
-        self.urukul0_ch0.sw.off()  # FORT AOM off
+
         self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
-                             channels=[0, 1, 2, 3])
+                             channels=self.coil_channels)
 
         self.cleanup()  # asynchronous stuff like closing files
         print("Experiment finished.")
@@ -420,44 +356,12 @@ class CoilScanSPCMCount(EnvExperiment):
         # URUKUL 1 and 2 - MOT arm fiber AOMs:
         delay(1 * ms)
         self.urukul1_ch0.set(frequency=self.AOM_A2_freq, amplitude=self.AOM_A2_ampl)
-        if self.AOM_A2_ON == True:
-            self.urukul1_ch0.sw.on()
-        else:
-            self.urukul1_ch0.sw.off()
-
-        delay(1 * ms)
         self.urukul1_ch1.set(frequency=self.AOM_A3_freq, amplitude=self.AOM_A3_ampl)
-        if self.AOM_A3_ON == True:
-            self.urukul1_ch1.sw.on()
-        else:
-            self.urukul1_ch1.sw.off()
-
-        delay(1 * ms)
         self.urukul1_ch2.set(frequency=self.AOM_A1_freq, amplitude=self.AOM_A1_ampl)
-        if self.AOM_A1_ON == True:
-            self.urukul1_ch2.sw.on()
-        else:
-            self.urukul1_ch2.sw.off()
-
-        delay(1 * ms)
         self.urukul1_ch3.set(frequency=self.AOM_A6_freq, amplitude=self.AOM_A6_ampl)
-        if self.AOM_A6_ON == True:
-            self.urukul1_ch3.sw.on()
-        else:
-            self.urukul1_ch3.sw.off()
-
-        delay(1 * ms)
         self.urukul2_ch0.set(frequency=self.AOM_A4_freq, amplitude=self.AOM_A4_ampl)
-        if self.AOM_A4_ON == True:
-            self.urukul2_ch0.sw.on()
-        else:
-            self.urukul2_ch0.sw.off()
-
-        delay(1 * ms)
         self.urukul2_ch1.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
-        if self.AOM_A5_ON == True:
-            self.urukul2_ch1.sw.on()
-        else:
-            self.urukul2_ch1.sw.off()
+
+        self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
 
         print("init_hardware - done")
