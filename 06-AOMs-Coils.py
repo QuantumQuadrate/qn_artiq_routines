@@ -73,12 +73,13 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.01),
+        # settings used to get a MOT on 5/03/2023
+        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.9, unit="V", ndecimals=3, step=0.01),
                               "A-Z shim/quad bottom coils")
         self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.5, unit="V", ndecimals=3, step=0.01),
                               "A-Z shim/quad top coil")
         self.setattr_argument("AX_volts_MOT", NumberValue(-0.19, unit="V", ndecimals=3, step=0.01), "A-X shim coils")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.25, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
+        self.setattr_argument("AY_volts_MOT", NumberValue(-0.2, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
         self.setattr_argument("disable_coils", BooleanValue(default=False))
 
 
