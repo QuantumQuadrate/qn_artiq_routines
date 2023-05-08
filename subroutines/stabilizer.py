@@ -177,7 +177,7 @@ class AOMPowerStabilizerTest(EnvExperiment):
 
         self.core.break_realtime()
 
-        if "run_with_fake_drift":
+        if self.run_with_fake_drift:
             # change the upstream AOM's RF to simulate drift from the set point
             drift = 0.04  # ~ 2 dBm change
             start_mu = now_mu()
