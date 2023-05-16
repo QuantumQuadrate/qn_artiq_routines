@@ -94,10 +94,14 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_argument("AY_volts_MOT", NumberValue(-0.25, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
         self.setattr_argument("disable_coils", BooleanValue(default=False))
 
-        self.setattr_argument("xsteps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
-        self.setattr_argument("ysteps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
-        self.setattr_argument("ztop_steps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
-        self.setattr_argument("zbottom_steps", NumberValue(20, type='int', ndecimals=0, step=1, scale=1), "Coil steps")
+        self.setattr_argument("Vz_bottom_array", StringValue(
+            'np.array([0.6 - l*(0.6 - 1)/zbottom_steps for l in range(zbottom_steps)])'), "Coil steps")
+        self.setattr_argument("Vz_top_array", StringValue(
+            'np.array([-1.5 - i*(3.3 - 1.5)/ztop_steps for i in range(ztop_steps)])'), "Coil steps")
+        self.setattr_argument("Vx_array", StringValue(
+            'np.array([0.15 - j*(0.8 + 0.15)/xsteps for j in range(xsteps)])'), "Coil steps")
+        self.setattr_argument("Vy_array", StringValue(
+            'np.array([0.025 - k*(0.9 + 0.025)/ysteps for k in range(ysteps)])'), "Coil steps")
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit="ms", ndecimals=0, step=10 * ms))
@@ -153,7 +157,13 @@ class CoilScanSPCMCount(EnvExperiment):
         self.AOM_A6_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A6_power / 10 - 3))
 
         self.coil_channels = [0,1,2,3]
-        # convert frequencies to frequency-tuning-words... when is this necessary?
+
+        # evaluate the strings we used to define the coil steps in the GUI.
+        self.Vz_bottom_array = eval(self.Vz_bottom_array) #.replace('zbottom_steps','self.zbottom_steps'))
+        self.Vz_top_array = eval(self.Vz_top_array)
+        self.Vx_array = eval(self.Vx_array)
+        self.Vy_array = eval(self.Vy_array)
+        print(self.Vz_bottom_array)
 
         # setup stabilization for the cooling laser power
 
@@ -216,11 +226,17 @@ class CoilScanSPCMCount(EnvExperiment):
               self.xsteps*self.ysteps*self.ztop_steps*self.zbottom_steps*(self.t_MOT_loading+self.t_SPCM_exposure)/3600,
               "hours")
         step = 0
-        for i in range(self.ztop_steps):
-            print(i, "out of ", self.ztop_steps, "outer loop steps")
-            for l in range(self.zbottom_steps):
-                for j in range(self.xsteps):
-                    for k in range(self.ysteps):
+        i_vz_step = 0
+        # for i in range(self.ztop_steps):
+        #     print(i, "out of ", self.ztop_steps, "outer loop steps")
+        #     for l in range(self.zbottom_steps):
+        #         for j in range(self.xsteps):
+        #             for k in range(self.ysteps):
+        for Vz_top in self.Vz_top_array:
+            print(i_vz_step, "out of ", len(self.Vz_top_array), "outer loop steps")
+            for Vz_bottom in self.Vz_bottom_array:
+                for Vx in self.Vx_array:
+                    for Vy in self.Vy_array:
 
                         self.core.break_realtime()
 
@@ -236,10 +252,10 @@ class CoilScanSPCMCount(EnvExperiment):
                         # update coil values
                         delay(1 * ms)
 
-                        Vz_top = -1.5 - i * (3.3 - 1.5)/self.ztop_steps
-                        Vx = 0.15 - j * (0.8 + 0.15) / self.xsteps
-                        Vy = 0.025 - k * (0.9 + 0.025) / self.ysteps
-                        Vz_bottom = 0.6 - l * (0.6 - 1) /self.zbottom_steps
+                        # Vz_top = -1.5 - i * (3.3 - 1.5)/self.ztop_steps
+                        # Vx = 0.15 - j * (0.8 + 0.15) / self.xsteps
+                        # Vy = 0.025 - k * (0.9 + 0.025) / self.ysteps
+                        # Vz_bottom = 0.6 - l * (0.6 - 1) /self.zbottom_steps
 
                         coil_volts = [Vz_bottom,
                                       Vz_top,
@@ -274,7 +290,7 @@ class CoilScanSPCMCount(EnvExperiment):
                                              self.sampler_buffer[self.cooling_volts_ch]])
                         delay(1 * ms)
                         step += 1
-
+            i_vz_step += 1 # the outer loop counter
         ### reset parameters
         delay(10*ms)
 
