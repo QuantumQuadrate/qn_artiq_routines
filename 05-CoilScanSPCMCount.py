@@ -23,7 +23,6 @@ class CoilScanSPCMCount(EnvExperiment):
         """
         declare hardware and user-configurable independent variables
         """
-
         # declare the hardwire devices/channels we will use
         self.setattr_device("core")
         self.setattr_device("urukul0_cpld")
@@ -107,7 +106,7 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_argument("datafile", StringValue('coil_scan.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
 
-        # when to run the AOM feedback
+        # when to run the AOM feedback (after how many iterations in the for loops)
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(30))
 
         # dev ops
@@ -265,7 +264,7 @@ class CoilScanSPCMCount(EnvExperiment):
                             print("counts", counts)
                         delay(1 * ms)
                         if self.save_data:
-                            # all items in the list must be the same type
+                            ### all items in the list must be the same type that is why 0.0 is added to counts
                             self.sampler0.sample(self.sampler_buffer) # check cooling laser power
                             self.file_write([counts+0.0,
                                              coil_volts[0],
