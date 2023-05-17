@@ -94,6 +94,9 @@ class AOMPowerStabilizer:
                     for ch in range(self.n_channels):
 
                         measured_power = self.xfer_funcs[ch](self.sample_buffer[self.sampler_channels[ch]])
+                        # self.print(self.sample_buffer[self.sampler_channels[ch]])
+                        # self.print("mW:")
+                        # self.print(measured_power)
                         err = self.setpoints[ch] - measured_power
                         ampl = self.amplitudes[ch] + self.p[ch]*err
 
