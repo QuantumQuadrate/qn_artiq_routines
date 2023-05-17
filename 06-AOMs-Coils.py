@@ -4,6 +4,7 @@ This code turns on the MOT AOMs and also the MOT coils.
 from artiq.experiment import *
 import math
 import numpy as np
+from subroutines.stabilizer import AOMPowerStabilizer
 
 
 class AOMsCoils(EnvExperiment):
@@ -23,6 +24,7 @@ class AOMsCoils(EnvExperiment):
         self.setattr_device("urukul2_ch0")
         self.setattr_device("urukul2_ch1")
         self.setattr_device("zotino0")  # for controlling coils
+        self.setattr_device("sampler0") # for measuring laser power PD
         self.setattr_device("ttl6")
         self.setattr_device("ttl1")
 
@@ -73,15 +75,16 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
-        # settings used to get a MOT on 5/03/2023
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.9, unit="V", ndecimals=3, step=0.01),
+        # settings used to get a MOT on 5/09/2023
+        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.85, unit="V", ndecimals=3, step=0.01),
                               "A-Z shim/quad bottom coils")
-        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.5, unit="V", ndecimals=3, step=0.01),
+        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.3, unit="V", ndecimals=3, step=0.01),
                               "A-Z shim/quad top coil")
-        self.setattr_argument("AX_volts_MOT", NumberValue(-0.19, unit="V", ndecimals=3, step=0.01), "A-X shim coils")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.2, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
+        self.setattr_argument("AX_volts_MOT", NumberValue(-0.15, unit="V", ndecimals=3, step=0.01), "A-X shim coils")
+        self.setattr_argument("AY_volts_MOT", NumberValue(-0.1, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
         self.setattr_argument("disable_coils", BooleanValue(default=False))
-
+        self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
+        self.setattr_argument("cooling_setpoint_mW", NumberValue(0.7),"Laser power stabilization")
 
     def prepare(self):
         # converts RF power in dBm to amplitudes in V
@@ -100,10 +103,28 @@ class AOMsCoils(EnvExperiment):
 
         self.coil_channels = [0, 1, 2, 3]
 
+        # todo: eventually read conversion functions such as this from a config file
+        def volts_to_optical_mW(x: TFloat) -> TFloat:
+            """
+            the conversion of PD voltage to cooling light power at the switchyard MOT 1 path
+            """
+            x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
+            # the multimeter that I used for the fit reads
+            return -0.195395 + 17.9214 * x
+
+        self.AOMservo = AOMPowerStabilizer(experiment=self,
+                                           dds_names=["urukul0_ch1"],
+                                           sampler_name="sampler0",
+                                           sampler_channels=[7],
+                                           transfer_functions=[volts_to_optical_mW],
+                                           setpoints=[self.cooling_setpoint_mW],  # in mW
+                                           proportionals=[0.07],
+                                           iters=5,  # if > x you'll underflow the rtio counter
+                                           t_meas_delay=20 * ms)
 
     @kernel
     def run(self):
-    #     #initializes the hardware and resets attenuators to 0 dB
+        # initializes the hardware and resets attenuators to 0 dB
         self.core.reset()
         self.urukul0_cpld.init()
         self.urukul1_cpld.init()
@@ -138,6 +159,7 @@ class AOMsCoils(EnvExperiment):
 
         self.ttl6.output()  # for outputting a trigger
         self.ttl1.input()
+        self.sampler0.init()
 
         # delay(1000 * ms)
 
@@ -224,5 +246,12 @@ class AOMsCoils(EnvExperiment):
             self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
 
-        delay(1*ms)
+        if self.enable_laser_feedback:
+            self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
+            print("waiting for AOMs to thermalize")
+            delay(2000 * ms)
+            print("running feedback")
+            self.AOMservo.run()
+
+            delay(1*ms)
         print("Coils and AOMs done!")
