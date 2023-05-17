@@ -4,23 +4,23 @@ from artiq.experiment import *
 
 class Card_Tests(EnvExperiment):
 
-## Testing TTLs:
-    def build(self):
-        self.setattr_device("core")
-        self.setattr_device("ttl4")
-
-    @kernel
-    def run(self):
-        self.core.reset()
-        self.ttl4.output()
-
-        delay(1 * us)
-
-        for x in range(500):
-            self.ttl4.pulse(10*ms)
-            delay(10*ms)
-
-        print("code done!")
+# ### Testing TTLs:
+#     def build(self):
+#         self.setattr_device("core")
+#         self.setattr_device("ttl4")
+#
+#     @kernel
+#     def run(self):
+#         self.core.reset()
+#         self.ttl4.output()
+#
+#         delay(1 * us)
+#
+#         for x in range(500):
+#             self.ttl4.pulse(10*ms)
+#             delay(10*ms)
+#
+#         print("code done!")
 
 
 # #### Testing DDSs:
@@ -106,6 +106,30 @@ class Card_Tests(EnvExperiment):
 # #        print("code done!")
 
 
+
+
+#### Sending a series of triggering signals to the Thorcam
+    def build(self):
+        self.setattr_device("core")
+        self.setattr_device("zotino0")
+
+    @kernel
+    def run(self):
+        self.core.reset()
+        self.core.break_realtime()
+        self.zotino0.init()
+        delay(10 * ms)
+
+        self.zotino0.write_dac(6, 4.0)
+        self.zotino0.load()
+        delay(5 * ms)
+        self.zotino0.write_dac(6, 0.0)
+        self.zotino0.load()
+
+
+        delay(10 * ms)
+
+        print("code done!")
 
 
 
