@@ -39,7 +39,7 @@ class SPCMCount(EnvExperiment):
         self.setattr_device("ttl0")
         self.setattr_device("zotino0")
 
-        self.setattr_argument("n_steps", NumberValue(100))  # exposure time of the SPCM
+        self.setattr_argument("n_steps", NumberValue(100, type='int', ndecimals=0, scale=1, step=1))  # exposure time of the SPCM
         self.setattr_argument("dt_exposure", NumberValue(300*ms))  # saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
         self.setattr_argument("sat1s", NumberValue(1*10**5)) # saturation limit in counts/dt.
         self.setattr_argument("print_counts", BooleanValue(True))
