@@ -1,1 +1,6 @@
+*.txt*pycache*
+*/*pycache*
+*/*ipynb_checkpoints*
+__pycache__/
 *.txt
+*/__pycache__/*
