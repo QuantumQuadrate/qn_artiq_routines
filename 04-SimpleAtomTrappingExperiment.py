@@ -12,6 +12,11 @@ Experiment cycle (repeats n times)
 8. Store the number of counts registered by the SPCM in an array
 End of experiment
 9. Save the array of counts to a file
+
+
+* Tested that all the delays and timings are functioning as expected by pulsing TTLs at different points and monitoring
+    with an oscilloscope.
+
 """
 
 from artiq.experiment import *
@@ -112,27 +117,27 @@ class SimpleAtomTrapping(EnvExperiment):
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency
         self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
         self.setattr_argument("AOM_A1_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A1")
-        self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
+        # self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
 
         self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
         self.setattr_argument("AOM_A2_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A2")
-        self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
+        # self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
 
         self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
         self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
-        self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
+        # self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
 
         self.setattr_argument("AOM_A4_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A4")
         self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
-        self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
+        # self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
 
         self.setattr_argument("AOM_A5_freq", NumberValue(78.47 * MHz, unit="MHz", ndecimals=2), "AOM A5")
         self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
-        self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
+        # self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
 
         self.setattr_argument("AOM_A6_freq", NumberValue(78.52 * MHz, unit="MHz", ndecimals=2), "AOM A6")
         self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
-        self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
+        # self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("t_MOT_loading", NumberValue(350 * ms, unit="ms", ndecimals=0, step=10 * ms))
@@ -226,77 +231,8 @@ class SimpleAtomTrapping(EnvExperiment):
     @kernel
     def run(self):
         self.init_hardware()
-        # self.core.break_realtime()
         self.expt()
         print("Experiment finished.")
-
-    @kernel
-    def mot_and_shot(self) -> TInt32: # this ARTIQ type declaration means the function returns a float
-        """
-        Load a MOT, load the dipole trap, then collect photons (the "shot")
-
-        In more complicated experiment, this function should be decomposed into
-        the constituent experiment phases: load the MOT, etc.
-
-        :return:
-        """
-
-        # Turn on the magnetic fields
-        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                             channels=self.coil_channels)
-        delay(1*ms)  # avoid RTIOSequence error
-
-        # Set and turn on fiber AOMs to load the MOT. The MOT AOMs upstream are assumed to be on.
-        self.urukul1_ch0.sw.on()
-        self.urukul1_ch1.sw.on()
-        self.urukul1_ch2.sw.on()
-        self.urukul1_ch3.sw.on()
-        self.urukul2_ch0.sw.on()
-        self.urukul2_ch1.sw.on()
-        delay(1*ms)
-
-        # wait for the MOT to load
-        delay_mu(self.t_MOT_loading_mu)
-
-        # change the magnetic fields for loading the dipole trap
-        self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                             channels=self.coil_channels)
-
-        # change double pass power and frequency to PGC settings
-        self.urukul1_ch1.set(frequency=self.f_780DP_PGC, amplitude=self.ampl_780DP_PGC)
-
-        # turn on the dipole trap and wait to load atoms
-        # self.urukul0_ch0.sw.on()
-        delay_mu(self.t_FORT_loading_mu)
-
-        # change AOMs to "imaging" settings
-        # self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_imaging)
-        self.urukul0_ch1.set(frequency=self.f_780DP_imaging, amplitude=self.ampl_780DP_imaging)
-
-        # change the magnetic fields for imaging
-        self.zotino0.set_dac([self.AZ_bottom_volts_imaging, self.AZ_top_volts_imaging, self.AX_volts_imaging, self.AY_volts_imaging],
-                             channels=self.coil_channels)
-
-        # take the shot
-        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-        counts = self.ttl0.count(t_gate_end)
-        if self.print_counts:
-            print(counts)
-        delay(10*ms)
-
-        # reset parameters
-        self.urukul1_ch0.sw.off()  # fiber AOMs off
-        self.urukul1_ch1.sw.off()
-        self.urukul1_ch2.sw.off()
-        self.urukul1_ch3.sw.off()
-        self.urukul2_ch0.sw.off()
-        self.urukul2_ch1.sw.off()
-        # self.urukul0_ch0.sw.off()  # FORT AOM off
-        self.urukul1_ch1.set(frequency=self.f_780DP_MOT, amplitude=self.ampl_780DP_MOT)
-        self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], # voltages must be floats or ARTIQ complains
-                             channels=self.coil_channels)
-
-        return counts
 
     @rpc(flags={"async"}) # means this code runs asynchronously; won't block the rtio counter
     def file_setup(self, rowheaders=[]):
@@ -334,8 +270,11 @@ class SimpleAtomTrapping(EnvExperiment):
 
         :return:
         """
+        self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
+                             channels=self.coil_channels)
 
         self.set_dataset("photocounts", self.hist_bins, broadcast=True)
+        # self.set_dataset("mot_photocounts", self.hist_bins, broadcast=True)
 
         self.file_setup(rowheaders=['counts'])
 
@@ -351,8 +290,67 @@ class SimpleAtomTrapping(EnvExperiment):
         # loop the experiment sequence
         for measurement in range(self.n_measurements):
 
-            self.ttl7.pulse(self.t_exp_trigger)
-            counts = self.mot_and_shot()
+            self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
+
+            # Set magnetic fields for MOT loading
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                channels=self.coil_channels)
+            delay(1 * ms)  # avoid RTIOSequence error
+
+            # Set and turn on fiber AOMs to load the MOT. The MOT AOMs upstream are assumed to be on.
+            self.urukul1_ch0.sw.on()
+            self.urukul1_ch1.sw.on()
+            self.urukul1_ch2.sw.on()
+            self.urukul1_ch3.sw.on()
+            self.urukul2_ch0.sw.on()
+            self.urukul2_ch1.sw.on()
+            delay(1 * ms)
+
+            # wait for the MOT to load
+            delay_mu(self.t_MOT_loading_mu)
+
+            # change the magnetic fields for loading the dipole trap
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                channels=self.coil_channels)
+
+            # change double pass power and frequency to PGC settings
+            # self.urukul1_ch1.set(frequency=self.f_780DP_PGC, amplitude=self.ampl_780DP_PGC)
+
+            # turn on the dipole trap and wait to load atoms
+            self.urukul0_ch0.sw.on()
+            delay_mu(self.t_FORT_loading_mu)
+
+            # change AOMs to "imaging" settings
+            # self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_imaging)
+            # self.urukul0_ch1.set(frequency=self.f_780DP_imaging, amplitude=self.ampl_780DP_imaging)
+
+            # change the magnetic fields for imaging
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_imaging, self.AZ_top_volts_imaging, self.AX_volts_imaging, self.AY_volts_imaging],
+                channels=self.coil_channels)
+            # delay(1*ms)
+
+            # # take the shot
+            # t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+            counts = self.ttl0.count(t_gate_end)
+            if self.print_counts:
+                print(counts)
+            delay(10 * ms)
+
+            # reset parameters
+            # self.urukul1_ch0.sw.off()  # fiber AOMs off
+            # self.urukul1_ch1.sw.off()
+            # self.urukul1_ch2.sw.off()
+            # self.urukul1_ch3.sw.off()
+            # self.urukul2_ch0.sw.off()
+            # self.urukul2_ch1.sw.off()
+            self.urukul0_ch0.sw.off()  # FORT AOM off
+            # self.urukul1_ch1.set(frequency=self.f_780DP_MOT, amplitude=self.ampl_780DP_MOT)
+            # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
+            #                      channels=self.coil_channels)
 
             bin_idx = int(counts / self.counts_per_bin)
             if bin_idx < self.bins:
@@ -366,7 +364,17 @@ class SimpleAtomTrapping(EnvExperiment):
             if self.save_data:
                 self.file_write([counts])
 
-        # self.plot_data()
+        delay(1*ms)
+        # leave MOT on at end of experiment, but turn off the FORT
+        self.urukul0_ch0.sw.off()
+        self.urukul1_ch0.sw.on()
+        self.urukul1_ch1.sw.on()
+        self.urukul1_ch2.sw.on()
+        self.urukul1_ch3.sw.on()
+        self.urukul2_ch0.sw.on()
+        self.urukul2_ch1.sw.on()
+        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                             channels=self.coil_channels)
 
     @kernel
     def init_hardware(self):
@@ -408,17 +416,17 @@ class SimpleAtomTrapping(EnvExperiment):
         self.core.break_realtime()
 
         # URUKUL 0 - FORT, MOT and D2 state prep AOMs:
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul0_ch1.set(frequency=self.f_780DP_MOT, amplitude=self.ampl_780DP_MOT)
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul0_ch2.set(frequency=self.AOM3_freq, amplitude=self.AOM3_ampl)
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul0_ch3.set(frequency=self.AOM4_freq, amplitude=self.AOM4_ampl)
 
         # URUKUL 1 - MOT arm fiber AOMs:
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul1_ch0.set(frequency=self.AOM_A2_freq, amplitude=self.AOM_A2_ampl)
         self.urukul1_ch1.set(frequency=self.AOM_A3_freq, amplitude=self.AOM_A3_ampl)
         self.urukul1_ch2.set(frequency=self.AOM_A1_freq, amplitude=self.AOM_A1_ampl)
@@ -427,6 +435,6 @@ class SimpleAtomTrapping(EnvExperiment):
         self.urukul2_ch1.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
 
         self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
-        delay(100*ms)
+        delay(100 * ms)
 
         print("init_hardware - done")
