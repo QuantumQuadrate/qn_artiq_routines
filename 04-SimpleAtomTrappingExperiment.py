@@ -26,6 +26,7 @@ import numpy as np
 from datetime import datetime as dt
 import matplotlib.pyplot as plt
 from subroutines.stabilizer import AOMPowerStabilizer
+from ExperimentVariables import setattr_variables
 
 
 class SimpleAtomTrapping(EnvExperiment):
@@ -57,127 +58,31 @@ class SimpleAtomTrapping(EnvExperiment):
 
         # import variables by name from datasets created by ExperimentVariables
         self.variables = [
-            "f_FORT",
-            "p_FORT_loading",
-            "f_cooling_DP_MOT",
-            "p_cooling_DP_MOT",
-            "f_cooling_SP",
-            "p_cooling_SP",
-            "f_cooling_RP",
-            "p_cooling_RP",
-            "AOM_A1_freq",
-            "AOM_A1_power",
-            "AOM_A2_freq",
-            "AOM_A2_power",
-            "AOM_A3_freq",
-            "AOM_A3_power",
-            "AOM_A4_freq",
-            "AOM_A4_power",
-            "AOM_A5_freq",
-            "AOM_A5_power",
-            "AOM_A6_freq",
-            "AOM_A6_power",
-            "AZ_bottom_volts_MOT",
-            "AZ_top_volts_MOT",
-            "AX_volts_MOT",
-            "AY_volts_MOT",
+            "f_FORT", "p_FORT_loading", "p_FORT_RO", "p_FORT_PGC",
+            "f_cooling_DP_MOT", "p_cooling_DP_MOT",
+            "f_cooling_DP_PGC", "p_cooling_DP_PGC",
+            "f_cooling_DP_RO", "p_cooling_DP_RO",
+            "f_cooling_SP", "p_cooling_SP",
+            "f_MOT_RP", "p_MOT_RP",
+            "AOM_A1_freq", "AOM_A1_power",
+            "AOM_A2_freq", "AOM_A2_power",
+            "AOM_A3_freq", "AOM_A3_power",
+            "AOM_A4_freq", "AOM_A4_power",
+            "AOM_A5_freq", "AOM_A5_power",
+            "AOM_A6_freq", "AOM_A6_power",
+            "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
+            "AZ_bottom_volts_PGC", "AZ_top_volts_PGC", "AX_volts_PGC", "AY_volts_PGC",
+            "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
             "cooling_setpoint_mW",
             "t_MOT_loading",
             "t_FORT_loading",
             "t_SPCM_exposure"
         ]
 
-        # # MOT coil settings
-        # self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.92, unit="V", ndecimals=3, step=0.025),
-        #                       "MOT coil settings")
-        # self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.76, unit="V", ndecimals=3, step=0.025),
-        #                       "MOT coil settings")
-        # self.setattr_argument("AX_volts_MOT", NumberValue(-0.135, unit="V", ndecimals=3, step=0.025),
-        #                       "MOT coil settings")
-        # self.setattr_argument("AY_volts_MOT", NumberValue(-0.021, unit="V", ndecimals=3, step=0.025),
-        #                       "MOT coil settings")
-        #
-        # # dipole trap loading/PGC coil settings
-        # self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0, unit="V", ndecimals=3, step=0.025),
-        #                       "PGC coil settings")
-        # self.setattr_argument("AZ_top_volts_PGC", NumberValue(0, unit="V", ndecimals=3, step=0.025),
-        #                       "PGC coil settings")
-        # self.setattr_argument("AX_volts_PGC", NumberValue(-0.135, unit="V", ndecimals=3, step=0.025),
-        #                       "PGC coil settings")
-        # self.setattr_argument("AY_volts_PGC", NumberValue(-0.021, unit="V", ndecimals=3, step=0.025),
-        #                       "PGC coil settings")
-        #
-        # # imaging coil settings
-        # self.setattr_argument("AZ_bottom_volts_RO", NumberValue(0, unit="V", ndecimals=3, step=0.025),
-        #                       "Imaging coil settings")
-        # self.setattr_argument("AZ_top_volts_RO", NumberValue(0, unit="V", ndecimals=3, step=0.025),
-        #                       "Imaging coil settings")
-        # self.setattr_argument("AX_volts_RO", NumberValue(-0.135, unit="V", ndecimals=3, step=0.025),
-        #                       "Imaging coil settings")
-        # self.setattr_argument("AY_volts_RO", NumberValue(-0.021, unit="V", ndecimals=3, step=0.025),
-        #                       "Imaging coil settings")
-        #
-        # self.setattr_argument("f_FORT", NumberValue(210.0 * MHz, unit="MHz", ndecimals=1),
-        #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_loading", NumberValue(3, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_RO", NumberValue(3, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_PGC", NumberValue(3, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("f_cooling_DP_MOT", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
-        #                       "AOM2, MOT cooling double pass")
-        # self.setattr_argument("f_cooling_DP_PGC", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
-        #                       "AOM2, MOT cooling double pass")
-        # self.setattr_argument("f_cooling_DP_RO", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
-        #                       "AOM2, MOT cooling double pass")
-        # self.setattr_argument("p_cooling_DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM2, MOT cooling double pass")
-        # self.setattr_argument("p_cooling_DP_PGC", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM2, MOT cooling double pass")
-        # self.setattr_argument("p_cooling_DP_RO", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM2, MOT cooling double pass")
-        #
-        # self.setattr_argument("f_cooling_SP", NumberValue(130.0 * MHz, unit="MHz", ndecimals=1),
-        #                       "AOM3, MOT cooling single pass")
-        # self.setattr_argument("p_cooling_SP", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
-        #                       "AOM3, MOT cooling single pass")
-        #
-        # self.setattr_argument("f_cooling_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        # self.setattr_argument("p_cooling_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
-        #
-        # # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency
-        # self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
-        # self.setattr_argument("AOM_A1_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A1")
-        # # self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
-        #
-        # self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
-        # self.setattr_argument("AOM_A2_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A2")
-        # # self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
-        #
-        # self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
-        # self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
-        # # self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
-        #
-        # self.setattr_argument("AOM_A4_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A4")
-        # self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
-        # # self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
-        #
-        # self.setattr_argument("AOM_A5_freq", NumberValue(78.47 * MHz, unit="MHz", ndecimals=2), "AOM A5")
-        # self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
-        # # self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
-        #
-        # self.setattr_argument("AOM_A6_freq", NumberValue(78.52 * MHz, unit="MHz", ndecimals=2), "AOM A6")
-        # self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
-        # # self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
-        #
-        # self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
-        # self.setattr_argument("t_MOT_loading", NumberValue(350 * ms, unit="ms", ndecimals=0, step=10 * ms))
-        # self.setattr_argument("t_FORT_loading", NumberValue(100 * ms, unit="ms", ndecimals=1, step=10 * ms))
-        # self.setattr_argument("t_SPCM_exposure", NumberValue(50 * ms, unit="ms", ndecimals=1, step=5 * ms))
-        #
-        # self.setattr_argument("cooling_setpoint_mW", NumberValue(0.7), "Laser power stabilization")
-        #
+        setattr_variables(self)
+
+        # this adds the variables above as attributes in this experiment and gets their values.
+        self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("datadir",
                               StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
         self.setattr_argument("datafile", StringValue('atom_loading_counts.csv'),"File to save data")
@@ -223,7 +128,7 @@ class SimpleAtomTrapping(EnvExperiment):
         self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
         self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
         self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_SP / 10 - 3))
-        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_RP / 10 - 3))
+        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_MOT_RP / 10 - 3))
 
         self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
@@ -455,7 +360,7 @@ class SimpleAtomTrapping(EnvExperiment):
         delay(1 * ms)
         self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_cooling_RP, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
 
         # URUKUL 1 - MOT arm fiber AOMs:
         delay(1 * ms)
