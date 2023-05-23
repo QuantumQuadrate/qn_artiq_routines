@@ -37,8 +37,8 @@ class AOMsCoils(EnvExperiment):
             "p_cooling_DP_MOT",
             "f_cooling_SP",
             "p_cooling_SP",
-            "f_cooling_RP",
-            "p_cooling_RP",
+            "f_MOT_RP",
+            "p_MOT_RP",
             "AOM_A1_freq",
             "AOM_A1_power",
             "AOM_A2_freq",
@@ -81,7 +81,7 @@ class AOMsCoils(EnvExperiment):
         self.AOM1_ampl = math.sqrt(2*50*10**(self.p_FORT_loading/10-3))
         self.AOM2_ampl = math.sqrt(2*50*10**(self.p_cooling_DP_MOT/10-3))
         self.AOM3_ampl = math.sqrt(2*50*10**(self.p_cooling_SP/10-3))
-        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_cooling_RP/10-3))
+        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_MOT_RP/10-3))
 
         self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2*50*10**(self.AOM_A2_power/10-3))
@@ -172,7 +172,7 @@ class AOMsCoils(EnvExperiment):
             self.urukul0_ch2.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_cooling_RP, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
         if self.MOT_RP_AOM_ON == True:
             self.urukul0_ch3.sw.on()
         else:

@@ -116,8 +116,8 @@ class AtomTrappingCoilScan(EnvExperiment):
         self.setattr_argument("p_cooling_SP", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
                               "AOM3, MOT cooling single pass")
 
-        self.setattr_argument("f_cooling_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("p_cooling_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("f_MOT_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("p_MOT_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
 
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency
         self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
@@ -196,7 +196,7 @@ class AtomTrappingCoilScan(EnvExperiment):
         self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
         self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
         self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_SP / 10 - 3))
-        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_RP / 10 - 3))
+        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_MOT_RP / 10 - 3))
 
         self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
@@ -425,7 +425,7 @@ class AtomTrappingCoilScan(EnvExperiment):
         delay(1*ms)
         self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
         delay(1*ms)
-        self.urukul0_ch3.set(frequency=self.f_cooling_RP, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
 
         # URUKUL 1 - MOT arm fiber AOMs:
         delay(1*ms)

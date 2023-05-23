@@ -81,9 +81,9 @@ class ExperimentVariables(EnvExperiment):
                      "Cooling single pass AOM"),
 
             # Repump
-            Variable("f_cooling_RP", 150.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+            Variable("f_MOT_RP", 150.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling repump"),
-            Variable("p_cooling_RP", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_MOT_RP", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling repump"),
 
             # Fiber AOMs

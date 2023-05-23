@@ -45,8 +45,8 @@ class MOT_Load_Time(EnvExperiment):
         self.setattr_argument("p_cooling_SP", NumberValue(1, unit="dBm", scale=1, ndecimals=1), "AOM3, MOT cooling single pass")
         self.setattr_argument("Cooling_SP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
 
-        self.setattr_argument("f_cooling_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("p_cooling_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("f_MOT_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("p_MOT_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
         self.setattr_argument("MOT_RP_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
         self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
@@ -77,7 +77,7 @@ class MOT_Load_Time(EnvExperiment):
         self.AOM1_ampl = math.sqrt(2*50*10**(self.p_FORT_loading/10-3))
         self.AOM2_ampl = math.sqrt(2*50*10**(self.p_cooling_DP_MOT/10-3))
         self.AOM3_ampl = math.sqrt(2*50*10**(self.p_cooling_SP/10-3))
-        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_cooling_RP/10-3))
+        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_MOT_RP/10-3))
 
         self.AOM_A2_ampl = math.sqrt(2*50*10**(self.AOM_A2_power/10-3))
         self.AOM_A3_ampl = math.sqrt(2*50*10**(self.AOM_A3_power/10-3))
@@ -150,7 +150,7 @@ class MOT_Load_Time(EnvExperiment):
             self.urukul0_ch2.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_cooling_RP, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
         if self.MOT_RP_AOM_ON == True:
             self.urukul0_ch3.sw.on()
         else:
