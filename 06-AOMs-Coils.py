@@ -8,6 +8,7 @@ from subroutines.stabilizer import AOMPowerStabilizer
 
 
 class AOMsCoils(EnvExperiment):
+
     def build(self):
         self.setattr_device("core")
         self.setattr_device("urukul0_cpld")
@@ -28,70 +29,66 @@ class AOMsCoils(EnvExperiment):
         self.setattr_device("ttl6")
         self.setattr_device("ttl1")
 
+        # import variables by name from datasets created by ExperimentVariables
+        self.variables = [
+            "f_FORT",
+            "p_FORT_loading",
+            "f_cooling_DP_MOT",
+            "p_cooling_DP_MOT",
+            "f_cooling_SP",
+            "p_cooling_SP",
+            "f_cooling_RP",
+            "p_cooling_RP",
+            "AOM_A1_freq",
+            "AOM_A1_power",
+            "AOM_A2_freq",
+            "AOM_A2_power",
+            "AOM_A3_freq",
+            "AOM_A3_power",
+            "AOM_A4_freq",
+            "AOM_A4_power",
+            "AOM_A5_freq",
+            "AOM_A5_power",
+            "AOM_A6_freq",
+            "AOM_A6_power",
+            "AZ_bottom_volts_MOT",
+            "AZ_top_volts_MOT",
+            "AX_volts_MOT",
+            "AY_volts_MOT",
+            "cooling_setpoint_mW"
+        ]
 
-        # self.setattr_argument("AOM1_freq", NumberValue(345.1 * MHz, unit="MHz", ndecimals=1), "AOM1, pumping repumper")
-        # self.setattr_argument("AOM1_power", NumberValue(-5, unit="dBm", scale=1, ndecimals=1), "AOM1, pumping repumper")
-        # self.setattr_argument("AOM1_ON", BooleanValue(default=False), "AOM1, pumping repumper")
+        for var in self.variables:
+            try:  # get the value of the variable from the dataset, if it exists
+                value = self.get_dataset(var)
+                setattr(self, var, value)
+            except Exception as e:
+                if type(e) == KeyError:  # if the variable does not exist
+                    print(f"Couldn't find variable {e}! Did you define it in vars_list in ExperimentVariables?")
+                else:
+                    print(f"Exception {e}")
 
-        self.setattr_argument("AOM1_freq", NumberValue(210 * MHz, unit="MHz", ndecimals=1), "AOM1, FORT")
-        self.setattr_argument("AOM1_power", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM1, FORT")
-        self.setattr_argument("AOM1_ON", BooleanValue(default=False), "AOM1, FORT")
-
-        # -0.2 gives the maximum diffraction efficiency. -4 gives about 70% so we can increase to compensate for drift
-        self.setattr_argument("AOM2_freq", NumberValue(111.0 * MHz, unit="MHz",ndecimals=1), "AOM2, MOT cooling double pass")
-        self.setattr_argument("AOM2_power", NumberValue(-4, unit="dBm", scale=1, ndecimals=1), "AOM2, MOT cooling double pass")
-        self.setattr_argument("AOM2_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
-
-        self.setattr_argument("AOM3_freq", NumberValue(130.0 * MHz, unit="MHz",ndecimals=1), "AOM3, MOT cooling single pass")
-        self.setattr_argument("AOM3_power", NumberValue(1, unit="dBm", scale=1, ndecimals=1), "AOM3, MOT cooling single pass")
-        self.setattr_argument("AOM3_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
-
-        self.setattr_argument("AOM4_freq", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("AOM4_power", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("AOM4_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
-        # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
-
-        self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
-        self.setattr_argument("AOM_A1_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A1")
-        self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
-
-        self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
-        self.setattr_argument("AOM_A2_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A2")
-        self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
-
-        self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
-        self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
-        self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
-
-        self.setattr_argument("AOM_A4_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A4")
-        self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
-        self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
-
-        self.setattr_argument("AOM_A5_freq", NumberValue(78.47 * MHz, unit="MHz", ndecimals=2), "AOM A5")
-        self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
-        self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
-
-        self.setattr_argument("AOM_A6_freq", NumberValue(78.52 * MHz, unit="MHz", ndecimals=2), "AOM A6")
-        self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
-        self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
-
-        # settings used to get a MOT on 5/09/2023
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.85, unit="V", ndecimals=3, step=0.01),
-                              "A-Z shim/quad bottom coils")
-        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.3, unit="V", ndecimals=3, step=0.01),
-                              "A-Z shim/quad top coil")
-        self.setattr_argument("AX_volts_MOT", NumberValue(-0.15, unit="V", ndecimals=3, step=0.01), "A-X shim coils")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.1, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
+        # experiment variables which are specific to this experiment
+        self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("Cooling_SP_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("MOT_RP_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "Fiber AOMs")
+        self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "Fiber AOMs")
+        self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "Fiber AOMs")
+        self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "Fiber AOMs")
+        self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "Fiber AOMs")
+        self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
-        self.setattr_argument("cooling_setpoint_mW", NumberValue(0.7),"Laser power stabilization")
 
     def prepare(self):
+
         # converts RF power in dBm to amplitudes in V
-        self.AOM1_ampl = math.sqrt(2*50*10**(self.AOM1_power/10-3))
-        self.AOM2_ampl = math.sqrt(2*50*10**(self.AOM2_power/10-3))
-        self.AOM3_ampl = math.sqrt(2*50*10**(self.AOM3_power/10-3))
-        self.AOM4_ampl = math.sqrt(2*50*10**(self.AOM4_power/10-3))
+        self.AOM1_ampl = math.sqrt(2*50*10**(self.p_FORT_loading/10-3))
+        self.AOM2_ampl = math.sqrt(2*50*10**(self.p_cooling_DP_MOT/10-3))
+        self.AOM3_ampl = math.sqrt(2*50*10**(self.p_cooling_SP/10-3))
+        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_cooling_RP/10-3))
 
         self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2*50*10**(self.AOM_A2_power/10-3))
@@ -100,8 +97,9 @@ class AOMsCoils(EnvExperiment):
         self.AOM_A5_ampl = math.sqrt(2*50*10**(self.AOM_A5_power/10-3))
         self.AOM_A6_ampl = math.sqrt(2*50*10**(self.AOM_A6_power/10-3))
 
-
         self.coil_channels = [0, 1, 2, 3]
+
+        print("prepare - done!")
 
         # todo: eventually read conversion functions such as this from a config file
         def volts_to_optical_mW(x: TFloat) -> TFloat:
@@ -152,44 +150,37 @@ class AOMsCoils(EnvExperiment):
 
         self.core.break_realtime()
 
-        # self.urukul0_cpld.set_profile(0)  #### We had this in Ubuntu/Garret system. We have to comment out in new Artiq7 PC.
-        # self.urukul1_cpld.set_profile(0)
-
         self.zotino0.init()
 
         self.ttl6.output()  # for outputting a trigger
         self.ttl1.input()
         self.sampler0.init()
 
-        # delay(1000 * ms)
-
-        # self.ttl6.pulse(100 * ms)
-
         # URUKUL 0 - MOT and D2 state prep AOMs:
         delay(1*ms)
-        self.urukul0_ch0.set(frequency=self.AOM1_freq, amplitude=self.AOM1_ampl)
-        if self.AOM1_ON == True:
+        self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.AOM1_ampl)
+        if self.FORT_AOM_ON == True:
             self.urukul0_ch0.sw.on()
         else:
             self.urukul0_ch0.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch1.set(frequency=self.AOM2_freq, amplitude=self.AOM2_ampl)
-        if self.AOM2_ON == True:
+        self.urukul0_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.AOM2_ampl)
+        if self.Cooling_DP_AOM_ON == True:
             self.urukul0_ch1.sw.on()
         else:
             self.urukul0_ch1.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch2.set(frequency=self.AOM3_freq, amplitude=self.AOM3_ampl)
-        if self.AOM3_ON == True:
+        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
+        if self.Cooling_SP_AOM_ON == True:
             self.urukul0_ch2.sw.on()
         else:
             self.urukul0_ch2.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.AOM4_freq, amplitude=self.AOM4_ampl)
-        if self.AOM4_ON == True:
+        self.urukul0_ch3.set(frequency=self.f_cooling_RP, amplitude=self.AOM4_ampl)
+        if self.MOT_RP_AOM_ON == True:
             self.urukul0_ch3.sw.on()
         else:
             self.urukul0_ch3.sw.off()
