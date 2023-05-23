@@ -5,6 +5,28 @@ from collections import namedtuple
 # todo:
 # compute AOM amplitudes here so we can import them in other files?
 
+def setattr_variables(experiment):
+    """
+    Set variables in your experiment from existing datasets of the same names.
+
+    Usage: in the build method of your experiment, declare a list of variables
+    then call this method (having imported it at the top) with experiment=self.
+
+    :param experiment: an ARTIQ Experiment object with an attribute variables which is a list
+        of strings which are the variables names we want. It is assumed that the variables
+        have already been defined in ExperimentVariables.
+    :return:
+    """
+    for var in experiment.variables:
+        try:  # get the value of the variable from the dataset, if it exists
+            value = experiment.get_dataset(var)
+            setattr(experiment, var, value)
+        except Exception as e:
+            if type(e) == KeyError:  # if the variable does not exist
+                print(f"Couldn't find variable {e}! Did you define it in vars_list in ExperimentVariables?")
+            else:
+                print(f"Exception {e}") # todo: replace with raise statement
+
 class ExperimentVariables(EnvExperiment):
 
     def build(self):
@@ -110,7 +132,8 @@ class ExperimentVariables(EnvExperiment):
 
             # Timing
             Variable("t_MOT_loading", 500*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
-            Variable("t_SPCM_exposure", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_FORT_loading", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
             # Setpoints
             Variable("cooling_setpoint_mW", 0.7, NumberValue, {'type': 'float'}, "Setpoints")
