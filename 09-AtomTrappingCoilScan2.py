@@ -1,5 +1,5 @@
 """
-A simple experiment to look for a trapped single atom signal
+A simple experiment to look for a trapped single atom signal with a coil scan
 
 1. Turn on cooling and RP AOMs
 Experiment cycle (repeats n times)
@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from subroutines.stabilizer import AOMPowerStabilizer
 
 
-class AtomTrappingCoilScan(EnvExperiment):
+class AtomTrappingCoilScan2(EnvExperiment):
 
     def build(self):
         """
@@ -54,11 +54,6 @@ class AtomTrappingCoilScan(EnvExperiment):
         self.setattr_device("zotino0")  # for controlling coils
         self.setattr_device("ttl0")  # input for counting SPCM clicks
         self.setattr_device("ttl7")  # output for experiment trigger
-
-        self.setattr_argument("Vx_array", StringValue(
-            '[0.15 - j*(0.8 + 0.15)/20 for j in range(20)]'), "MOT coil steps")
-        self.setattr_argument("Vy_array", StringValue(
-            '[0.025 - k*(0.9 + 0.025)/20 for k in range(20)]'), "MOT coil steps")
 
         # MOT coil settings
         self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.92, unit="V", ndecimals=3, step=0.025),
@@ -147,7 +142,7 @@ class AtomTrappingCoilScan(EnvExperiment):
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("t_MOT_loading", NumberValue(350 * ms, unit="ms", ndecimals=0, step=10 * ms))
         self.setattr_argument("t_FORT_loading", NumberValue(100 * ms, unit="ms", ndecimals=1, step=10 * ms))
-        self.setattr_argument("t_SPCM_exposure", NumberValue(50.0 * ms, unit="ms", ndecimals=1, step=5 * ms))
+        self.setattr_argument("t_SPCM_exposure", NumberValue(50 * ms, unit="ms", ndecimals=1, step=5 * ms))
 
         self.setattr_argument("cooling_setpoint_mW", NumberValue(0.7), "Laser power stabilization")
 
@@ -230,20 +225,12 @@ class AtomTrappingCoilScan(EnvExperiment):
 
         self.coil_channels = [0, 1, 2, 3]
 
-        # evaluate the strings we used to define the coil steps in the GUI.
-        self.Vx_array = eval(self.Vx_array)
-        self.Vy_array = eval(self.Vy_array)
-
-        self.xsteps = len(self.Vx_array)
-        self.ysteps = len(self.Vy_array)
-
         self.hist_bins = np.zeros(self.bins, dtype=int)
         print("prepare - done")
 
     @kernel
     def run(self):
         self.init_hardware()
-        # self.core.break_realtime()
         self.expt()
         print("Experiment finished.")
 
@@ -261,6 +248,21 @@ class AtomTrappingCoilScan(EnvExperiment):
             writer.writerow(data)
             f.close()
 
+    # plot with the applet plot_hist instead
+    # @rpc(flags={"async"})
+    # def plot_data(self):
+    #     """assumes one numeric datum per row"""
+    #     with open(self.datafile, 'r', newline='') as f:
+    #         reader = csv.reader(f)
+    #         reader.__next__() # skip the header
+    #         data = [int(row[0]) for row in reader]
+    #         f.close()
+    #     # xpts = range(len(data))
+    #     plt.hist(data) # to-do set up some binning?
+    #     plt.xlabel("Measurement index")
+    #     plt.ylabel("Counts")
+    #     plt.show()
+
     @kernel
     def expt(self):
         """
@@ -272,8 +274,9 @@ class AtomTrappingCoilScan(EnvExperiment):
                              channels=self.coil_channels)
 
         self.set_dataset("photocounts", self.hist_bins, broadcast=True)
+        # self.set_dataset("mot_photocounts", self.hist_bins, broadcast=True)
 
-        self.file_setup(rowheaders=['counts','MOT_Vx','MOT_Vy'])
+        self.file_setup(rowheaders=['counts'])
 
         # turn on cooling/RP AOMs
         self.urukul0_ch1.sw.on() # cooling double pass
@@ -281,12 +284,6 @@ class AtomTrappingCoilScan(EnvExperiment):
         self.urukul0_ch3.sw.on()  # MOT repump
 
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
-
-        # for MOT_Vx in self.Vx_array:
-        #     for MOT_Vy in self.Vy_array:
-
-        MOT_Vx = -0.14
-        MOT_Vy = -0.02
 
         self.AOMservo.run()
 
@@ -297,7 +294,7 @@ class AtomTrappingCoilScan(EnvExperiment):
 
             # Set magnetic fields for MOT loading
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, MOT_Vx, MOT_Vy],
+                [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                 channels=self.coil_channels)
             delay(1 * ms)  # avoid RTIOSequence error
 
@@ -336,7 +333,8 @@ class AtomTrappingCoilScan(EnvExperiment):
                 channels=self.coil_channels)
             # delay(1*ms)
 
-            # take the shot
+            # # take the shot
+            # t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
             counts = self.ttl0.count(t_gate_end)
             if self.print_counts:
                 print(counts)
@@ -364,7 +362,7 @@ class AtomTrappingCoilScan(EnvExperiment):
             if self.print_meas_result:
                 print("counts", counts)
             if self.save_data:
-                self.file_write([counts, MOT_Vx, MOT_Vy])
+                self.file_write([counts])
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT
@@ -418,17 +416,17 @@ class AtomTrappingCoilScan(EnvExperiment):
         self.core.break_realtime()
 
         # URUKUL 0 - FORT, MOT and D2 state prep AOMs:
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul0_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul0_ch3.set(frequency=self.f_cooling_RP, amplitude=self.AOM4_ampl)
 
         # URUKUL 1 - MOT arm fiber AOMs:
-        delay(1*ms)
+        delay(1 * ms)
         self.urukul1_ch0.set(frequency=self.AOM_A2_freq, amplitude=self.AOM_A2_ampl)
         self.urukul1_ch1.set(frequency=self.AOM_A3_freq, amplitude=self.AOM_A3_ampl)
         self.urukul1_ch2.set(frequency=self.AOM_A1_freq, amplitude=self.AOM_A1_ampl)
@@ -437,6 +435,6 @@ class AtomTrappingCoilScan(EnvExperiment):
         self.urukul2_ch1.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
 
         self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
-        delay(100*ms)
+        delay(100 * ms)
 
         print("init_hardware - done")

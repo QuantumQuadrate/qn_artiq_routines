@@ -50,16 +50,16 @@ class CoilScanSPCMCount(EnvExperiment):
                               "A-Z shim/quad top coil")
         self.setattr_argument("AX_volts_MOT", NumberValue(-0.35, unit="V", ndecimals=3, step=0.025),"A-X shim coils")
         self.setattr_argument("AY_volts_MOT", NumberValue(-0.43, unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-        self.setattr_argument("f_780DP_MOT", NumberValue(111.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_DP_MOT", NumberValue(111.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_MOT", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_DP_MOT", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("AOM3_freq", NumberValue(130.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_SP", NumberValue(130.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM3, MOT cooling single pass")
-        self.setattr_argument("AOM3_power", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_SP", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
                               "AOM3, MOT cooling single pass")
-        self.setattr_argument("AOM4_freq", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("AOM4_power", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("f_cooling_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("p_cooling_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
 
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
         self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
@@ -150,11 +150,11 @@ class CoilScanSPCMCount(EnvExperiment):
         self.t_SPCM_exposure_mu = self.core.seconds_to_mu(self.t_SPCM_exposure)
 
         # converts RF power in dBm to amplitudes in V
-        self.ampl_780DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_780DP_MOT / 10 - 3))
-        # self.ampl_780DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_780DP_PGC / 10 - 3))
-        # self.ampl_780DP_imaging = math.sqrt(2 * 50 * 10 ** (self.p_780DP_imaging / 10 - 3))
-        self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM3_power / 10 - 3))
-        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM4_power / 10 - 3))
+        self.ampl_cooling_DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_MOT / 10 - 3))
+        # self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
+        # self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
+        self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_SP / 10 - 3))
+        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_RP / 10 - 3))
 
         self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
@@ -382,13 +382,13 @@ class CoilScanSPCMCount(EnvExperiment):
         # URUKUL 0 - FORT, MOT and D2 state prep AOMs:
 
         delay(1 * ms)
-        self.urukul0_ch1.set(frequency=self.f_780DP_MOT, amplitude=self.ampl_780DP_MOT)
+        self.urukul0_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
         delay(1 * ms)
-        self.urukul0_ch2.set(frequency=self.AOM3_freq, amplitude=self.AOM3_ampl)
+        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
 
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.AOM4_freq, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_cooling_RP, amplitude=self.AOM4_ampl)
 
         # URUKUL 1 and 2 - MOT arm fiber AOMs:
         delay(1 * ms)
