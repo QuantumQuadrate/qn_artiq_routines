@@ -5,7 +5,7 @@ from artiq.experiment import *
 import math
 import numpy as np
 from subroutines.stabilizer import AOMPowerStabilizer
-
+from ExperimentVariables import setattr_variables
 
 class AOMsCoils(EnvExperiment):
 
@@ -58,15 +58,8 @@ class AOMsCoils(EnvExperiment):
             "cooling_setpoint_mW"
         ]
 
-        for var in self.variables:
-            try:  # get the value of the variable from the dataset, if it exists
-                value = self.get_dataset(var)
-                setattr(self, var, value)
-            except Exception as e:
-                if type(e) == KeyError:  # if the variable does not exist
-                    print(f"Couldn't find variable {e}! Did you define it in vars_list in ExperimentVariables?")
-                else:
-                    print(f"Exception {e}")
+        # this adds the variables above as attributes in this experiment and gets their values.
+        setattr_variables(self)
 
         # experiment variables which are specific to this experiment
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
