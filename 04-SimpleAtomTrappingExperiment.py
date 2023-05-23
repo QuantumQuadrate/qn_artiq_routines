@@ -79,9 +79,9 @@ class SimpleAtomTrapping(EnvExperiment):
             "t_SPCM_exposure"
         ]
 
+        # this adds the variables above as attributes in this experiment and gets their values.
         setattr_variables(self)
 
-        # this adds the variables above as attributes in this experiment and gets their values.
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("datadir",
                               StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")

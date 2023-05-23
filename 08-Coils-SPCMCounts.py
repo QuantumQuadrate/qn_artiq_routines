@@ -6,6 +6,7 @@ from artiq.experiment import *
 import math
 import numpy as np
 from subroutines.stabilizer import AOMPowerStabilizer
+from ExperimentVariables import setattr_variables
 
 
 class CoilsSPCMCounts(EnvExperiment):
@@ -24,17 +25,20 @@ class CoilsSPCMCounts(EnvExperiment):
             300 * ms))
         self.setattr_argument("print_count_rate", BooleanValue(True))
 
+        # import variables by name from datasets created by ExperimentVariables
+        self.variables = [
+            "AZ_bottom_volts_MOT",
+            "AZ_top_volts_MOT",
+            "AX_volts_MOT",
+            "AY_volts_MOT",
+            "cooling_setpoint_mW"
+        ]
 
-        # settings used to get a MOT on 5/09/2023
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(1.02, unit="V", ndecimals=3, step=0.01),
-                              "A-Z shim/quad bottom coils")
-        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-3.5, unit="V", ndecimals=3, step=0.01),
-                              "A-Z shim/quad top coil")
-        self.setattr_argument("AX_volts_MOT", NumberValue(-0.14, unit="V", ndecimals=3, step=0.01), "A-X shim coils")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.01, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
+        # this adds the variables above as attributes in this experiment and gets their values.
+        setattr_variables(self)
+
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
-        self.setattr_argument("cooling_setpoint_mW", NumberValue(0.7),"Laser power stabilization")
 
     def prepare(self):
 

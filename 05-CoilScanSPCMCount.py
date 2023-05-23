@@ -13,8 +13,8 @@ import numpy as np
 from datetime import datetime as dt
 import matplotlib.pyplot as plt
 
-import importlib
 from subroutines.stabilizer import AOMPowerStabilizer
+from ExperimentVariables import setattr_variables
 
 
 class CoilScanSPCMCount(EnvExperiment):
@@ -44,54 +44,30 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_device("ttl0")  # input for counting SPCM clicks
         self.setattr_device("ttl7")  # output for experiment trigger
 
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
+        # import variables by name from datasets created by ExperimentVariables
+        self.variables = [
+            "f_FORT", "p_FORT_loading", "p_FORT_RO", "p_FORT_PGC",
+            "f_cooling_DP_MOT", "p_cooling_DP_MOT",
+            "f_cooling_SP", "p_cooling_SP",
+            "f_MOT_RP", "p_MOT_RP",
+            "AOM_A1_freq", "AOM_A1_power",
+            "AOM_A2_freq", "AOM_A2_power",
+            "AOM_A3_freq", "AOM_A3_power",
+            "AOM_A4_freq", "AOM_A4_power",
+            "AOM_A5_freq", "AOM_A5_power",
+            "AOM_A6_freq", "AOM_A6_power",
+            "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
+            "AZ_bottom_volts_PGC", "AZ_top_volts_PGC", "AX_volts_PGC", "AY_volts_PGC",
+            "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
+            "cooling_setpoint_mW",
+            "t_MOT_loading",
+            "t_FORT_loading",
+            "t_SPCM_exposure"
+        ]
 
-        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.9, unit="V", ndecimals=3, step=0.025),
-                              "A-Z shim/quad top coil")
-        self.setattr_argument("AX_volts_MOT", NumberValue(-0.35, unit="V", ndecimals=3, step=0.025),"A-X shim coils")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.43, unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-        self.setattr_argument("f_cooling_DP_MOT", NumberValue(111.0 * MHz, unit="MHz", ndecimals=1),
-                              "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_cooling_DP_MOT", NumberValue(-4, unit="dBm", scale=1, ndecimals=1),
-                              "AOM2, MOT cooling double pass")
-        self.setattr_argument("f_cooling_SP", NumberValue(130.0 * MHz, unit="MHz", ndecimals=1),
-                              "AOM3, MOT cooling single pass")
-        self.setattr_argument("p_cooling_SP", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
-                              "AOM3, MOT cooling single pass")
-        self.setattr_argument("f_MOT_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("p_MOT_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        # this adds the variables above as attributes in this experiment and gets their values.
+        setattr_variables(self)
 
-        # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
-        self.setattr_argument("AOM_A1_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A1")
-        self.setattr_argument("AOM_A1_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A1")
-        # self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A1")
-
-        self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
-        self.setattr_argument("AOM_A2_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A2")
-        # self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
-
-        self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
-        self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
-        # self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
-
-        self.setattr_argument("AOM_A4_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A4")
-        self.setattr_argument("AOM_A4_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A4")
-        # self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "AOM A4")
-
-        self.setattr_argument("AOM_A5_freq", NumberValue(78.47 * MHz, unit="MHz", ndecimals=2), "AOM A5")
-        self.setattr_argument("AOM_A5_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A5")
-        # self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
-
-        self.setattr_argument("AOM_A6_freq", NumberValue(78.52 * MHz, unit="MHz", ndecimals=2), "AOM A6")
-        self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
-        # self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
-
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.01),
-                              "A-Z shim/quad bottom coils")
-        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.5, unit="V", ndecimals=3, step=0.01),
-                              "A-Z shim/quad top coil")
-        self.setattr_argument("AX_volts_MOT", NumberValue(-0.19, unit="V", ndecimals=3, step=0.01), "A-X shim coils")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.25, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
         self.setattr_argument("disable_coils", BooleanValue(default=False))
 
         self.setattr_argument("Vz_bottom_array", StringValue(
@@ -102,17 +78,9 @@ class CoilScanSPCMCount(EnvExperiment):
             '[0.15 - j*(0.8 + 0.15)/20 for j in range(20)]'), "Coil steps")
         self.setattr_argument("Vy_array", StringValue(
             '[0.025 - k*(0.9 + 0.025)/20 for k in range(20)]'), "Coil steps")
-
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(1, unit="V", ndecimals=3, step=0.01),
-                              "Default coils volts")
-        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-3, unit="V", ndecimals=3, step=0.01),
-                              "Default coils volts")
-        self.setattr_argument("AX_volts_MOT", NumberValue(-0.25, unit="V", ndecimals=3, step=0.01), "Default coils volts")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.25, unit="V", ndecimals=3, step=0.01), "Default coils volts")
+        # todo: save these string values as datasets
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
-        self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit="ms", ndecimals=0, step=10 * ms))
-        self.setattr_argument("t_SPCM_exposure", NumberValue(50 * ms, unit="ms", ndecimals=1, step=5 * ms))
         self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
         self.setattr_argument("datafile", StringValue('coil_scan.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
@@ -151,8 +119,6 @@ class CoilScanSPCMCount(EnvExperiment):
 
         # converts RF power in dBm to amplitudes in V
         self.ampl_cooling_DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_MOT / 10 - 3))
-        # self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
-        # self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
         self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_SP / 10 - 3))
         self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_MOT_RP / 10 - 3))
 
