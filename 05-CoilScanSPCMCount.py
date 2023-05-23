@@ -14,7 +14,7 @@ from datetime import datetime as dt
 import matplotlib.pyplot as plt
 
 import importlib
-from subroutines.stabilizer import *
+from subroutines.stabilizer import AOMPowerStabilizer
 
 
 class CoilScanSPCMCount(EnvExperiment):
