@@ -77,6 +77,7 @@ class DeviceAliases:
     def initialize(self):
 
         # we'll assume that each experiment will want to use these
+        # todo: could put these as defaults in a keyword arg
         self.experiment.core.reset()
         self.experiment.urukul0_cpld.init()
         self.experiment.urukul1_cpld.init()
