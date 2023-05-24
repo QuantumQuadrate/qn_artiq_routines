@@ -6,44 +6,14 @@ import math
 import numpy as np
 from subroutines.stabilizer import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
-from DeviceAliases import DeviceAliases, init_devices
+from DeviceAliases import DeviceAliases
 
 class AOMsCoils(EnvExperiment):
 
     def build(self):
-        self.setattr_device("core")
-        self.setattr_device("urukul0_cpld")
-        self.setattr_device("urukul1_cpld")
-        self.setattr_device("urukul2_cpld")
 
-        # map the hardware channels. urukul support only for now.
-        DeviceAliases(
-            experiment=self,
-            device_aliases=[
-                'dds_FORT',
-                'dds_cooling_SP',
-                'dds_cooling_DP',
-                'dds_MOT_RP',
-                *[f'dds_AOM_A{i+1}' for i in range(6)]
-            ]
-        )
-
-        # self.setattr_device("urukul0_ch0")
-        # self.setattr_device("urukul0_ch1")
-        # self.setattr_device("urukul0_ch2")
-        # self.setattr_device("urukul0_ch3")
-        # self.setattr_device("urukul1_ch0")
-        # self.setattr_device("urukul1_ch1")
-        # self.setattr_device("urukul1_ch2")
-        # self.setattr_device("urukul1_ch3")
-        # self.setattr_device("urukul2_ch0")
-        # self.setattr_device("urukul2_ch1")
-        self.setattr_device("zotino0")  # for controlling coils
-        self.setattr_device("sampler0") # for measuring laser power PD
-        self.setattr_device("ttl6")
-        self.setattr_device("ttl1")
-
-        # import variables by name from datasets created by ExperimentVariables
+        # import variables by name from datasets created by ExperimentVariables.
+        # must come before we set the named devices
         self.variables = [
             "f_FORT", "p_FORT_loading",
             "f_cooling_DP_MOT", "p_cooling_DP_MOT",
@@ -62,6 +32,39 @@ class AOMsCoils(EnvExperiment):
         # this adds the variables above as attributes in this experiment and gets their values.
         setattr_variables(self)
 
+        self.setattr_device("core")
+        self.setattr_device("urukul0_cpld")
+        self.setattr_device("urukul1_cpld")
+        self.setattr_device("urukul2_cpld")
+
+        # map the hardware channels. urukul support only for now.
+        self.named_devices = DeviceAliases(
+            experiment=self,
+            device_aliases=[
+                'dds_FORT',
+                'dds_cooling_SP',
+                'dds_cooling_DP',
+                'dds_MOT_RP',
+                *[f'dds_AOM_A{i+1}' for i in range(6)] # the fiber AOMs
+            ]
+        )
+        print("setattr by device aliases")
+
+        # self.setattr_device("urukul0_ch0")
+        # self.setattr_device("dds_cooling_DP")
+        # self.setattr_device("dds_cooling_SP")
+        # self.setattr_device("dds_MOT_RP")
+        # self.setattr_device("dds_AOM_A2")
+        # self.setattr_device("dds_AOM_A3")
+        # self.setattr_device("dds_AOM_A1")
+        # self.setattr_device("dds_AOM_A6")
+        # self.setattr_device("dds_AOM_A4")
+        # self.setattr_device("dds_AOM_A5")
+        self.setattr_device("zotino0")  # for controlling coils
+        self.setattr_device("sampler0") # for measuring laser power PD
+        self.setattr_device("ttl6")
+        self.setattr_device("ttl1")
+
         # experiment variables which are specific to this experiment
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))
@@ -78,19 +81,6 @@ class AOMsCoils(EnvExperiment):
 
     def prepare(self):
 
-        # converts RF power in dBm to amplitudes in V
-        self.AOM1_ampl = math.sqrt(2*50*10**(self.p_FORT_loading/10-3))
-        self.AOM2_ampl = math.sqrt(2*50*10**(self.p_cooling_DP_MOT/10-3))
-        self.AOM3_ampl = math.sqrt(2*50*10**(self.p_cooling_SP/10-3))
-        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_MOT_RP/10-3))
-
-        self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
-        self.AOM_A2_ampl = math.sqrt(2*50*10**(self.AOM_A2_power/10-3))
-        self.AOM_A3_ampl = math.sqrt(2*50*10**(self.AOM_A3_power/10-3))
-        self.AOM_A4_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A4_power / 10 - 3))
-        self.AOM_A5_ampl = math.sqrt(2*50*10**(self.AOM_A5_power/10-3))
-        self.AOM_A6_ampl = math.sqrt(2*50*10**(self.AOM_A6_power/10-3))
-
         self.coil_channels = [0, 1, 2, 3]
 
         print("prepare - done!")
@@ -105,7 +95,7 @@ class AOMsCoils(EnvExperiment):
             return -0.195395 + 17.9214 * x
 
         self.AOMservo = AOMPowerStabilizer(experiment=self,
-                                           dds_names=["urukul0_ch1"],
+                                           dds_names=["dds_cooling_DP"],
                                            sampler_name="sampler0",
                                            sampler_channels=[7],
                                            transfer_functions=[volts_to_optical_mW],
@@ -118,103 +108,75 @@ class AOMsCoils(EnvExperiment):
     def run(self):
 
         # initializes the hardware and resets dds attenuators to 0 dB
-        init_devices(experiment=self)
+        self.named_devices.initialize()
 
-        # self.urukul0_ch0.init()
-        # self.urukul0_ch1.init()
-        # self.urukul0_ch2.init()
-        # self.urukul0_ch3.init()
-        # self.urukul1_ch0.init()
-        # self.urukul1_ch1.init()
-        # self.urukul1_ch2.init()
-        # self.urukul1_ch3.init()
-        # self.urukul2_ch0.init()
-        # self.urukul2_ch1.init()
-        #
-        # self.urukul0_ch0.set_att(float(0))
-        # self.urukul0_ch1.set_att(float(0))
-        # self.urukul0_ch2.set_att(float(0))
-        # self.urukul0_ch3.set_att(float(0))
-        # self.urukul1_ch0.set_att(float(0))
-        # self.urukul1_ch1.set_att(float(0))
-        # self.urukul1_ch2.set_att(float(0))
-        # self.urukul1_ch3.set_att(float(0))
+        self.core.break_realtime()
 
         self.ttl6.output()  # for outputting a trigger
         self.ttl1.input()
         self.sampler0.init()
 
-        # URUKUL 0 - MOT and D2 state prep AOMs:
-        # delay(1*ms)
-        # self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.AOM1_ampl)
+        # # URUKUL 0 - MOT and D2 state prep AOMs:
+        delay(1*ms)
         if self.FORT_AOM_ON == True:
-            self.urukul0_ch0.sw.on()
+            self.dds_FORT.sw.on()
         else:
-            self.urukul0_ch0.sw.off()
-
-        # delay(1 * ms)
-        # self.urukul0_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.AOM2_ampl)
+            self.dds_FORT.sw.off()
+        #
+        delay(1 * ms)
         if self.Cooling_DP_AOM_ON == True:
-            self.urukul0_ch1.sw.on()
+            self.dds_cooling_DP.sw.on()
         else:
-            self.urukul0_ch1.sw.off()
+            self.dds_cooling_DP.sw.off()
 
-        # delay(1 * ms)
-        # self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
+        delay(1 * ms)
         if self.Cooling_SP_AOM_ON == True:
-            self.urukul0_ch2.sw.on()
+            self.dds_cooling_SP.sw.on()
         else:
-            self.urukul0_ch2.sw.off()
+            self.dds_cooling_SP.sw.off()
 
-        # delay(1 * ms)
-        # self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
+        delay(1 * ms)
         if self.MOT_RP_AOM_ON == True:
-            self.urukul0_ch3.sw.on()
+            self.dds_MOT_RP.sw.on()
         else:
-            self.urukul0_ch3.sw.off()
+            self.dds_MOT_RP.sw.off()
 
         # URUKUL 1 and 2 - MOT arm fiber AOMs:
-        # delay(1 * ms)
-        # self.urukul1_ch0.set(frequency=self.AOM_A2_freq, amplitude=self.AOM_A2_ampl)
+        delay(1 * ms)
         if self.AOM_A2_ON == True:
-            self.urukul1_ch0.sw.on()
+            self.dds_AOM_A2.sw.on()
         else:
-            self.urukul1_ch0.sw.off()
+            self.dds_AOM_A2.sw.off()
 
-        # delay(1 * ms)
-        # self.urukul1_ch1.set(frequency=self.AOM_A3_freq, amplitude=self.AOM_A3_ampl)
+        delay(1 * ms)
         if self.AOM_A3_ON == True:
-            self.urukul1_ch1.sw.on()
+            self.dds_AOM_A3.sw.on()
         else:
-            self.urukul1_ch1.sw.off()
+            self.dds_AOM_A3.sw.off()
 
-        # delay(1 * ms)
-        # self.urukul1_ch2.set(frequency=self.AOM_A1_freq, amplitude=self.AOM_A1_ampl)
+        delay(1 * ms)
         if self.AOM_A1_ON == True:
-            self.urukul1_ch2.sw.on()
+            self.dds_AOM_A1.sw.on()
         else:
-            self.urukul1_ch2.sw.off()
+            self.dds_AOM_A1.sw.off()
 
-        # delay(1 * ms)
-        # self.urukul1_ch3.set(frequency=self.AOM_A6_freq, amplitude=self.AOM_A6_ampl)
+        delay(1 * ms)
         if self.AOM_A6_ON == True:
-            self.urukul1_ch3.sw.on()
+            self.dds_AOM_A6.sw.on()
         else:
-            self.urukul1_ch3.sw.off()
+            self.dds_AOM_A6.sw.off()
 
-        # delay(1 * ms)
-        # self.urukul2_ch0.set(frequency=self.AOM_A4_freq, amplitude=self.AOM_A4_ampl)
+        delay(1 * ms)
         if self.AOM_A4_ON == True:
-            self.urukul2_ch0.sw.on()
+            self.dds_AOM_A4.sw.on()
         else:
-            self.urukul2_ch0.sw.off()
+            self.dds_AOM_A4.sw.off()
 
-        # delay(1 * ms)
-        # self.urukul2_ch1.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
+        delay(1 * ms)
         if self.AOM_A5_ON == True:
-            self.urukul2_ch1.sw.on()
+            self.dds_AOM_A5.sw.on()
         else:
-            self.urukul2_ch1.sw.off()
+            self.dds_AOM_A5.sw.off()
 
         if self.disable_coils:
             self.zotino0.set_dac([0.0,0.0,0.0,0.0],
