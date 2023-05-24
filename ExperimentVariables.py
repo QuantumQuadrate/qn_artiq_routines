@@ -27,6 +27,7 @@ def setattr_variables(experiment):
             else:
                 print(f"Exception {e}") # todo: replace with raise statement
 
+
 class ExperimentVariables(EnvExperiment):
 
     def build(self):
