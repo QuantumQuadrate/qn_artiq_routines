@@ -8,7 +8,7 @@ Could be extended to measure the MOT loading rate.
 from artiq.experiment import *
 import math
 import numpy as np
-
+from ExperimentVariables import setattr_variables
 
 class MOT_Load_Time(EnvExperiment):
     def build(self):
@@ -30,39 +30,22 @@ class MOT_Load_Time(EnvExperiment):
 
         # import variables by name from datasets created by ExperimentVariables
         self.variables = [
-            "f_FORT",
-            "p_FORT_loading",
-            "f_cooling_DP_MOT",
-            "p_cooling_DP_MOT",
-            "f_cooling_SP",
-            "p_cooling_SP",
-            "f_MOT_RP",
-            "p_MOT_RP",
-            "AOM_A1_freq",
-            "AOM_A1_power",
-            "AOM_A2_freq",
-            "AOM_A2_power",
-            "AOM_A3_freq",
-            "AOM_A3_power",
-            "AOM_A4_freq",
-            "AOM_A4_power",
-            "AOM_A5_freq",
-            "AOM_A5_power",
-            "AOM_A6_freq",
-            "AOM_A6_power",
-            "AZ_bottom_volts_MOT",
-            "AZ_top_volts_MOT",
-            "AX_volts_MOT",
-            "AY_volts_MOT",
+            "f_FORT", "p_FORT_loading",
+            "f_cooling_DP_MOT", "p_cooling_DP_MOT",
+            "f_cooling_SP", "p_cooling_SP",
+            "f_MOT_RP", "p_MOT_RP",
+            "AOM_A1_freq", "AOM_A1_power",
+            "AOM_A2_freq", "AOM_A2_power",
+            "AOM_A3_freq", "AOM_A3_power",
+            "AOM_A4_freq", "AOM_A4_power",
+            "AOM_A5_freq", "AOM_A5_power",
+            "AOM_A6_freq", "AOM_A6_power",
+            "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
             "cooling_setpoint_mW"
         ]
 
         # this adds the variables above as attributes in this experiment and gets their values.
         setattr_variables(self)
-
-        # self.setattr_argument("f_FORT", NumberValue(345.1 * MHz, unit="MHz", ndecimals=1), "AOM1, pumping repumper")
-        # self.setattr_argument("p_FORT_loading", NumberValue(-5, unit="dBm", scale=1, ndecimals=1), "AOM1, pumping repumper")
-        # self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False), "AOM1, pumping repumper")
 
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False), "AOM1, FORT")
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")

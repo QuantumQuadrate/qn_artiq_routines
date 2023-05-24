@@ -37,7 +37,7 @@ class AOMsCoils(EnvExperiment):
         self.setattr_device("urukul1_cpld")
         self.setattr_device("urukul2_cpld")
 
-        # map the hardware channels. urukul support only for now.
+        # initialize named channels. urukul support only for now.
         self.named_devices = DeviceAliases(
             experiment=self,
             device_aliases=[
@@ -48,18 +48,7 @@ class AOMsCoils(EnvExperiment):
                 *[f'dds_AOM_A{i+1}' for i in range(6)] # the fiber AOMs
             ]
         )
-        print("setattr by device aliases")
 
-        # self.setattr_device("urukul0_ch0")
-        # self.setattr_device("dds_cooling_DP")
-        # self.setattr_device("dds_cooling_SP")
-        # self.setattr_device("dds_MOT_RP")
-        # self.setattr_device("dds_AOM_A2")
-        # self.setattr_device("dds_AOM_A3")
-        # self.setattr_device("dds_AOM_A1")
-        # self.setattr_device("dds_AOM_A6")
-        # self.setattr_device("dds_AOM_A4")
-        # self.setattr_device("dds_AOM_A5")
         self.setattr_device("zotino0")  # for controlling coils
         self.setattr_device("sampler0") # for measuring laser power PD
         self.setattr_device("ttl6")
