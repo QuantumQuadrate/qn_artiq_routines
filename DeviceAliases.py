@@ -5,7 +5,6 @@ This class also contains the defaults for devices such as urukul channels.
 """
 
 from artiq.experiment import *
-from math import sqrt
 
 # we assume the dds settings will always start out being those that we
 # would use first, e.g. the cooling DDS will default to the MOT settings
@@ -16,29 +15,28 @@ dds_defaults = {
     "dds_cooling_DP": {"frequency":"f_cooling_DP_MOT", "power":"p_cooling_DP_MOT"},
     "dds_cooling_SP": {"frequency": "f_cooling_SP", "power": "p_cooling_SP"},
     "dds_MOT_RP": {"frequency": "f_MOT_RP", "power": "p_MOT_RP"},
-    "dds_AOM_A1": {"frequency": "AOM_A1_freq", "power": "AOM_A1_freq"},
-    "dds_AOM_A2": {"frequency": "AOM_A2_freq", "power": "AOM_A2_freq"},
-    "dds_AOM_A3": {"frequency": "AOM_A3_freq", "power": "AOM_A3_freq"},
-    "dds_AOM_A4": {"frequency": "AOM_A4_freq", "power": "AOM_A4_freq"},
-    "dds_AOM_A5": {"frequency": "AOM_A5_freq", "power": "AOM_A5_freq"},
-    "dds_AOM_A6": {"frequency": "AOM_A6_freq", "power": "AOM_A6_freq"},
+    "dds_AOM_A1": {"frequency": "AOM_A1_freq", "power": "AOM_A1_power"},
+    "dds_AOM_A2": {"frequency": "AOM_A2_freq", "power": "AOM_A2_power"},
+    "dds_AOM_A3": {"frequency": "AOM_A3_freq", "power": "AOM_A3_power"},
+    "dds_AOM_A4": {"frequency": "AOM_A4_freq", "power": "AOM_A4_power"},
+    "dds_AOM_A5": {"frequency": "AOM_A5_freq", "power": "AOM_A5_power"},
+    "dds_AOM_A6": {"frequency": "AOM_A6_freq", "power": "AOM_A6_power"},
 }
 
-def init_devices(experiment):
 
-    # we'll assume that each experiment will want to use these
-    experiment.core.reset()
-    experiment.urukul0_cpld.init()
-    experiment.urukul1_cpld.init()
-    experiment.urukul2_cpld.init()
-    experiment.core.break_realtime()
-    experiment.zotino0.init()
+class SwitchWrapper:
+    # almost certainly a better way to do this
 
-    for dds_name in experiment.dds_list:
-        dds = getattr(experiment, dds_name)
-        dds.init()
-        dds.set_att() # set attenuator to 0
-        dds.set() # set power/freq to defaults
+    def __init__(self, urukul):
+        self.urukul = urukul
+
+    @kernel
+    def on(self):
+        self.urukul.sw.on()
+
+    @kernel
+    def off(self):
+        self.urukul.sw.off()
 
 
 class UrukulWrapper:
@@ -48,30 +46,22 @@ class UrukulWrapper:
         """
         A wrapper for an urukul dds object.
 
-        Instantiation takes care of initialization, and setting the attenuation,
-        power, and frequency.
+        The conversion from power in dB to volts is done under the hood.
 
         :param urukul: an urukul dds object
         :param power: power in dB
         :param frequency: frequency in Hz
         """
         self.urukul = urukul
-        self._power = power
-        self._frequency = power
+        self.sw = SwitchWrapper(urukul) # so we can turn the dds on/off as usual
+        self.power_default = power
+        self.frequency_default = frequency
 
-    @property
-    def power(self):
-        """Return the power"""
-        return self._power
-
-    @property
-    def frequency(self):
-        """Return the power"""
-        return self._frequency
-
+    @kernel
     def init(self):
         self.urukul.init()
 
+    @kernel
     def set_att(self, x=0.0):
         """
         :param x: float value. 0.0 by default
@@ -79,32 +69,33 @@ class UrukulWrapper:
         """
         self.urukul.set_att(x)
 
-    def dB_to_V(self, dB):
+    @kernel
+    def dB_to_V(self, dB: TFloat) -> TFloat:
         """
         convert dB to volt amplitude for the dds
         :param dB:
         :return:
         """
-        return sqrt(2 * 50 * 10 ** (dB / 10 - 3))
+        return (2 * 50 * 10 ** (dB / 10 - 3))**(1/2) # can't use math.sqrt in a kernel function
 
-    def set(self, frequency=None, power=None):
+    @kernel
+    def set(self, frequency=0.0, power=0.0):
         """
-        A set method that allows only setting the parameter we want to change
+        A wrapper for the urukul's set method that allows setting power in dB
 
-        Just a wrapper for the urukul's set method. The actual call is:
-            urukul.set(frequency=frequency, amplitude=dB_to_V(power))s
+        The actual call is:
+            urukul.set(frequency=frequency, amplitude=self.dB_to_V(power))
+
+        :param frequency: optional. if not supplied, default from dds_defaults used
+        :return power: optional. if not supplied, default from dds_defaults used
         """
-        frequency = frequency if frequency != None else self.frequency
-        power = power if power != None else self.power
 
-        self.urukul.set(frequency=frequency, amplitude=dB_to_V(power))
-        delay(1*ms)
+        # might be good to remove this, so we just use set the same way
+        # we always use set
+        frequency = frequency if frequency != 0.0 else self.frequency_default
+        power = power if power != 0.0 else self.power_default
 
-    def on(self):
-        self.urukul.sw.on()
-
-    def off(self):
-        self.urukul.sw.off()
+        self.urukul.set(frequency=frequency, amplitude=self.dB_to_V(power))
 
 
 class DeviceAliases:
@@ -124,9 +115,8 @@ class DeviceAliases:
 
     def __init__(self, experiment, device_aliases):
 
-        # todo: handle the urukul cpld's. what even are they
-
-        experiment.dds_list = [] # aliases of the dds channels
+        self.experiment = experiment
+        self.dds_list = [] # internal list of references to the dds objects
 
         for alias in device_aliases:
             if alias in self.alias_map.keys():
@@ -134,7 +124,9 @@ class DeviceAliases:
 
                     dev_name = self.alias_map[alias]
 
-                    # setattr for the device, using the device name from device_db.py
+                    # setattr for the device, using the device name from device_db.py.
+                    # not self.experiment because we are adding the device to the
+                    # experiment we passed by reference.
                     experiment.setattr_device(dev_name)
 
                     # make an attribute named alias which points to the device object
@@ -142,10 +134,10 @@ class DeviceAliases:
 
                     if dev_name[:6] == 'urukul':
                         # setup the urukul. initialize and set the power/freq later
-                        dev_ref = UrukulWrapper(dev_name,
-                                                power=dds_defaults[alias]['power'],
-                                                frequency=dds_defaults[alias]['frequency'])
-                        experiment.dds_list.append(alias)
+                        dev_ref = UrukulWrapper(getattr(experiment, dev_name),
+                                                power=getattr(experiment, dds_defaults[alias]['power']),
+                                                frequency=getattr(experiment, dds_defaults[alias]['frequency']))
+                        self.dds_list.append(dev_ref)
                     else:
                         dev_ref = getattr(experiment, dev_name)
 
@@ -153,3 +145,19 @@ class DeviceAliases:
 
                 except KeyError:
                     print(f"KeyError: {alias} not defined in alias map. Please define it.")
+
+    @kernel
+    def initialize(self):
+
+        # we'll assume that each experiment will want to use these
+        self.experiment.core.reset()
+        self.experiment.urukul0_cpld.init()
+        self.experiment.urukul1_cpld.init()
+        self.experiment.urukul2_cpld.init()
+        self.experiment.core.break_realtime()
+        self.experiment.zotino0.init()
+
+        for dds in self.dds_list:
+            dds.init()
+            dds.set_att()  # set attenuator to 0
+            dds.set()  # set power/freq to defaults
