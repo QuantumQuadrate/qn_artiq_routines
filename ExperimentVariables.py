@@ -2,8 +2,6 @@ from artiq.experiment import *
 import numpy as np
 from collections import namedtuple
 
-# todo:
-# compute AOM amplitudes here so we can import them in other files?
 
 def setattr_variables(experiment):
     """
