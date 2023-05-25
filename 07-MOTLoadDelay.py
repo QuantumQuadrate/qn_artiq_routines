@@ -63,8 +63,8 @@ class MOT_Load_Time(EnvExperiment):
         # converts RF power in dBm to amplitudes in V
         self.AOM1_ampl = math.sqrt(2*50*10**(self.p_FORT_loading/10-3))
         self.AOM2_ampl = math.sqrt(2*50*10**(self.p_cooling_DP_MOT/10-3))
-        self.AOM3_ampl = math.sqrt(2*50*10**(self.p_cooling_SP/10-3))
-        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_MOT_RP/10-3))
+        self.ampl_cooling_SP = math.sqrt(2*50*10**(self.p_cooling_SP/10-3))
+        self.ampl_MOT_RP = math.sqrt(2*50*10**(self.p_MOT_RP/10-3))
 
         self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A3_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2*50*10**(self.AOM_A2_power/10-3))
@@ -132,14 +132,14 @@ class MOT_Load_Time(EnvExperiment):
             self.urukul0_ch1.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
+        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.ampl_cooling_SP)
         if self.Cooling_SP_AOM_ON == True:
             self.urukul0_ch2.sw.on()
         else:
             self.urukul0_ch2.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.ampl_MOT_RP)
         if self.MOT_RP_AOM_ON == True:
             self.urukul0_ch3.sw.on()
         else:

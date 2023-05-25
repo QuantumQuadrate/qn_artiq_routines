@@ -126,8 +126,8 @@ class BaseExperiment:
         self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
         self.experiment.ampl_cooling_DP_PGC =  dB_to_V(self.experiment.p_cooling_DP_PGC)
         self.experiment.ampl_cooling_DP_RO = dB_to_V(self.experiment.p_cooling_DP_RO)
-        self.experiment.AOM3_ampl = dB_to_V(self.experiment.p_cooling_SP)
-        self.experiment.AOM4_ampl = dB_to_V(self.experiment.p_MOT_RP)
+        self.experiment.ampl_cooling_SP = dB_to_V(self.experiment.p_cooling_SP)
+        self.experiment.ampl_MOT_RP = dB_to_V(self.experiment.p_MOT_RP)
 
         self.experiment.AOM_A1_ampl = dB_to_V(self.experiment.AOM_A1_power)
         self.experiment.AOM_A2_ampl = dB_to_V(self.experiment.AOM_A2_power)

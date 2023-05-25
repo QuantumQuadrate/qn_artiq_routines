@@ -190,8 +190,8 @@ class AtomTrappingCoilScan2(EnvExperiment):
         self.ampl_cooling_DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_MOT / 10 - 3))
         self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
         self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
-        self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_SP / 10 - 3))
-        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_MOT_RP / 10 - 3))
+        self.ampl_cooling_SP = math.sqrt(2 * 50 * 10 ** (self.p_cooling_SP / 10 - 3))
+        self.ampl_MOT_RP = math.sqrt(2 * 50 * 10 ** (self.p_MOT_RP / 10 - 3))
 
         self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
         self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
@@ -421,9 +421,9 @@ class AtomTrappingCoilScan2(EnvExperiment):
         delay(1 * ms)
         self.urukul0_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(1 * ms)
-        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
+        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.ampl_cooling_SP)
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.ampl_MOT_RP)
 
         # URUKUL 1 - MOT arm fiber AOMs:
         delay(1 * ms)
