@@ -87,7 +87,7 @@ class BaseExperiment:
                             "sampler0",  # for measuring laser power PD
                             *[f"ttl{i}" for i in range(8)]]
         for dev in devices_no_alias:
-            print(f"setting {dev}")
+            # print(f"setting {dev}")
             self.experiment.setattr_device(dev)
 
         # initialize named channels.
@@ -173,6 +173,8 @@ class BaseExperiment:
             self.experiment.AOMservo.get_dds_settings()
 
         print("base initialize_hardware - done")
+
+        self.experiment.core.break_realtime()
 
 
 # do this so the code above will not actually run when ARTIQ scans the repository

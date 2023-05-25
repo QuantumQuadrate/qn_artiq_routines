@@ -6,6 +6,7 @@ This class also contains the defaults for devices such as urukul channels.
 
 from artiq.experiment import *
 
+
 # we assume the dds settings will always start out being those that we
 # would use first, e.g. the cooling DDS will default to the MOT settings
 # not the readout settings. the variable names for power and frequency must
@@ -36,6 +37,11 @@ ALIAS_MAP = {
         "dds_AOM_A5": "urukul2_ch1"
 }
 
+@rpc(flags={"async"})  # means this code runs asynchronously; won't block the rtio counter
+def print_async(x):
+    print(*x)
+
+
 class DeviceAliases:
 
     def __init__(self, experiment, device_aliases):
@@ -44,6 +50,7 @@ class DeviceAliases:
         self.dds_list = [] # internal list of references to the dds objects
         self.dds_powers = []
         self.dds_frequencies = []
+        self.dds_names_aliases = []
 
         for alias in device_aliases:
             if alias in ALIAS_MAP.keys():
@@ -62,6 +69,8 @@ class DeviceAliases:
 
                     if dev_name[:6] == 'urukul':
                         self.dds_list.append(dev_ref)
+                        self.dds_names_aliases.append((alias,dev_name))
+
                         # print(dev_name, alias, DDS_DEFAULTS[alias]['power'], DDS_DEFAULTS[alias]['frequency'])
                         self.dds_powers.append(getattr(experiment, DDS_DEFAULTS[alias]['power']))
                         self.dds_frequencies.append(getattr(experiment, DDS_DEFAULTS[alias]['frequency']))
@@ -80,7 +89,6 @@ class DeviceAliases:
     def initialize(self):
 
         # we'll assume that each experiment will want to use these
-        # todo: could put these as defaults in a keyword arg
         self.experiment.core.reset()
         self.experiment.urukul0_cpld.init()
         self.experiment.urukul1_cpld.init()
@@ -90,8 +98,10 @@ class DeviceAliases:
 
         for i in range(len(self.dds_list)):
             self.dds_list[i].init()
-            self.dds_list[i].set_att(0.0)  # set attenuator to 0
+            self.dds_list[i].set_att(float(0))  # set attenuator to 0
+            # print_async(self.dds_names_aliases[i])
             ampl = (2*50*10**(self.dds_powers[i]/10 - 3))**(1/2) # convert dBm to volts
-            print(self.dds_powers[i], ampl)
+            # print_async([self.dds_powers[i], ampl])
             self.dds_list[i].set(frequency=self.dds_frequencies[i],
                     amplitude=ampl)
+            delay(1*ms)
