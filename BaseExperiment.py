@@ -17,36 +17,44 @@ class MyExp(EnvExperiment):
 
     def build:
         # gets variables and devices
-        base = BaseExperiment(experiment=self)
-        base.build()
+        self.base = BaseExperiment(experiment=self)
+        self.base.build()
 
     def prepare:
-        base.prepare()
+        self.base.prepare()
 
     @kernel
     def run:
-        base.initialize_hardware()
+        self.base.initialize_hardware()
         # now we can do physics
 ----
 """
-
+from artiq.experiment import *
+from subroutines.stabilizer import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 from DeviceAliases import DeviceAliases
 
-# base functions - import these and pass them your experiment.
+
+def dB_to_V(dB: float) -> float:
+    """
+    convert power in dB to volts for setting DDS amplitudes
+    :return amplitude: float in volts
+    """
+    return (2 * 50 * 10 ** (dB / 10 - 3)) ** (1 / 2)
+
 
 class BaseExperiment:
 
-    def __init__(self):
+    def __init__(self, experiment):
+        self.experiment = experiment
 
-    def build(self, experiment):
+    def build(self):
         """
         Put this in your experiment's build method with experiment=self
 
         :param experiment: your experiment.
         :return:
         """
-        self.experiment=experiment
 
         self.experiment.variables = [
             "f_FORT", "p_FORT_loading", "p_FORT_RO", "p_FORT_PGC",
@@ -77,13 +85,14 @@ class BaseExperiment:
                             "urukul0_cpld", "urukul1_cpld", "urukul2_cpld",
                             "zotino0",  # for controlling coils
                             "sampler0",  # for measuring laser power PD
-                            *[f"ttl{i+1}" for i in range(8)]]
+                            *[f"ttl{i}" for i in range(8)]]
         for dev in devices_no_alias:
+            print(f"setting {dev}")
             self.experiment.setattr_device(dev)
 
-        # initialize named channels. urukul support only for now.
+        # initialize named channels.
         self.experiment.named_devices = DeviceAliases(
-            experiment=self,
+            experiment=self.experiment,
             device_aliases=[
                 'dds_FORT',
                 'dds_cooling_SP',
@@ -94,6 +103,8 @@ class BaseExperiment:
         )
 
         self.experiment.coil_channels = [0, 1, 2, 3]
+        print("base build - done")
+
 
     def prepare(self):
         """
@@ -103,26 +114,27 @@ class BaseExperiment:
         """
 
         # convert times to machine units
-        self.experiment.t_MOT_loading_mu = experiment.core.seconds_to_mu(experiment.t_MOT_loading)
-        self.experiment.t_FORT_loading_mu = experiment.core.seconds_to_mu(experiment.t_FORT_loading)
-        self.experiment.t_SPCM_exposure_mu = experiment.core.seconds_to_mu(experiment.t_SPCM_exposure)
+        seconds_to_mu = self.experiment.core.seconds_to_mu
+        self.experiment.t_MOT_loading_mu = seconds_to_mu(self.experiment.t_MOT_loading)
+        self.experiment.t_FORT_loading_mu = seconds_to_mu(self.experiment.t_FORT_loading)
+        self.experiment.t_SPCM_exposure_mu = seconds_to_mu(self.experiment.t_SPCM_exposure)
 
         # converts RF power in dBm to amplitudes in V
-        self.experiment.ampl_FORT_loading = math.sqrt(2 * 50 * 10 ** (experiment.p_FORT_loading / 10 - 3))
-        self.experiment.ampl_FORT_RO = math.sqrt(2 * 50 * 10 ** (experiment.p_FORT_RO / 10 - 3))
-        self.experiment.ampl_FORT_PGC = math.sqrt(2 * 50 * 10 ** (experiment.p_FORT_PGC / 10 - 3))
-        self.experiment.ampl_cooling_DP_MOT = math.sqrt(2 * 50 * 10 ** (experiment.p_cooling_DP_MOT / 10 - 3))
-        self.experiment.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (experiment.p_cooling_DP_PGC / 10 - 3))
-        self.experiment.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (experiment.p_cooling_DP_RO / 10 - 3))
-        self.experiment.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (experiment.p_cooling_SP / 10 - 3))
-        self.experiment.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (experiment.p_MOT_RP / 10 - 3))
+        self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
+        self.experiment.ampl_FORT_RO = dB_to_V(self.experiment.p_FORT_RO)
+        self.experiment.ampl_FORT_PGC = dB_to_V(self.experiment.p_FORT_PGC)
+        self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
+        self.experiment.ampl_cooling_DP_PGC =  dB_to_V(self.experiment.p_cooling_DP_PGC)
+        self.experiment.ampl_cooling_DP_RO = dB_to_V(self.experiment.p_cooling_DP_RO)
+        self.experiment.AOM3_ampl = dB_to_V(self.experiment.p_cooling_SP)
+        self.experiment.AOM4_ampl = dB_to_V(self.experiment.p_MOT_RP)
 
-        self.experiment.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (experiment.AOM_A1_power / 10 - 3))
-        self.experiment.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (experiment.AOM_A2_power / 10 - 3))
-        self.experiment.AOM_A3_ampl = math.sqrt(2 * 50 * 10 ** (experiment.AOM_A3_power / 10 - 3))
-        self.experiment.AOM_A4_ampl = math.sqrt(2 * 50 * 10 ** (experiment.AOM_A4_power / 10 - 3))
-        self.experiment.AOM_A5_ampl = math.sqrt(2 * 50 * 10 ** (experiment.AOM_A5_power / 10 - 3))
-        self.experiment.AOM_A6_ampl = math.sqrt(2 * 50 * 10 ** (experiment.AOM_A6_power / 10 - 3))
+        self.experiment.AOM_A1_ampl = dB_to_V(self.experiment.AOM_A1_power)
+        self.experiment.AOM_A2_ampl = dB_to_V(self.experiment.AOM_A2_power)
+        self.experiment.AOM_A3_ampl = dB_to_V(self.experiment.AOM_A3_power)
+        self.experiment.AOM_A4_ampl = dB_to_V(self.experiment.AOM_A4_power)
+        self.experiment.AOM_A5_ampl = dB_to_V(self.experiment.AOM_A5_power)
+        self.experiment.AOM_A6_ampl = dB_to_V(self.experiment.AOM_A6_power)
 
         # todo: eventually read conversion functions such as this from a config file
         def volts_to_optical_mW(x: TFloat) -> TFloat:
@@ -133,16 +145,19 @@ class BaseExperiment:
             # the multimeter that I used for the fit reads
             return -0.195395 + 17.9214 * x
 
-        self.experiment.AOMservo = AOMPowerStabilizer(experiment=experiment,
+        self.experiment.AOMservo = AOMPowerStabilizer(experiment=self.experiment,
                                         dds_names=["dds_cooling_DP"],
                                         sampler_name="sampler0",
                                         sampler_channels=[7],
                                         transfer_functions=[volts_to_optical_mW],
-                                        setpoints=[experiment.cooling_setpoint_mW],  # in mW
+                                        setpoints=[self.experiment.cooling_setpoint_mW],  # in mW
                                         proportionals=[0.07],
                                         iters=5,  # if > x you'll underflow the rtio counter
                                         t_meas_delay=20 * ms)
 
+        print("base prepare - done")
+
+    @kernel
     def initialize_hardware(self):
         """
         what it sounds like
@@ -150,11 +165,18 @@ class BaseExperiment:
         """
         self.experiment.named_devices.initialize()
 
-        self.ttl6.output()  # for outputting a trigger
-        self.ttl1.input()
-        self.sampler0.init() # for reading laser feedback
+        self.experiment.ttl6.output()  # for outputting a trigger
+        self.experiment.ttl1.input()
+        self.experiment.sampler0.init() # for reading laser feedback
 
         if self.experiment.enable_laser_feedback:
             self.experiment.AOMservo.get_dds_settings()
+
+        print("base initialize_hardware - done")
+
+
+# do this so the code above will not actually run when ARTIQ scans the repository
+if __name__ == '__main__':
+    pass
 
 
