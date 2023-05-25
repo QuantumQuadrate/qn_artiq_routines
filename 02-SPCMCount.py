@@ -41,8 +41,8 @@ class SPCMCount(EnvExperiment):
 
         self.setattr_argument("n_steps", NumberValue(100, type='int', ndecimals=0, scale=1, step=1))  # exposure time of the SPCM
         self.setattr_argument("dt_exposure", NumberValue(300*ms))  # saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
-        self.setattr_argument("sat1s", NumberValue(1*10**5)) # saturation limit in counts/dt.
-        self.setattr_argument("print_counts", BooleanValue(True))
+        self.setattr_argument("sat1s", NumberValue(1*10**5), "# of counts giving 5V output. do not set above 10**7") # saturation limit in counts/dt.
+        self.setattr_argument("print_count_rate", BooleanValue(True))
 
     @kernel
     def run(self):
@@ -67,8 +67,8 @@ class SPCMCount(EnvExperiment):
         for x in range(self.n_steps):
             tend1 = self.ttl0.gate_rising(self.dt_exposure)
             count1 = self.ttl0.count(tend1)
-            if self.print_counts:
-                print(count1)
+            if self.print_count_rate:
+                print(round(count1/self.dt_exposure))
             delay(10 * ms)
             volt1 = count1 * 5/Satdt # the voltage from zotino0, port 7. Saturation limit corresponds to 5V.
             self.zotino0.write_dac(ch, volt1)

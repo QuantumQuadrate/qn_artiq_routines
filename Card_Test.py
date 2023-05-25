@@ -108,7 +108,8 @@ class Card_Tests(EnvExperiment):
 
 
 
-#### Sending a series of triggering signals to the Thorcam
+#### Sending a series of triggering signals to the Thorcam. Since the TTL signal is too fast,
+#### we are using zotino
     def build(self):
         self.setattr_device("core")
         self.setattr_device("zotino0")

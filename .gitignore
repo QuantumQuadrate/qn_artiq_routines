@@ -4,3 +4,13 @@
 __pycache__/
 *.txt
 */__pycache__/*
+examples/old_experiments/__pycache__/*
+subroutines/__pycache__/*
+examples/old_experiments/__pycache__/*
+subroutines/__pycache__/*
+examples/old_experiments/__pycache__/*
+subroutines/__pycache__/*
+examples/old_experiments/__pycache__/*
+subroutines/__pycache__/*
+*/*/__pycache__/*
+*/__pycache__/*

@@ -63,16 +63,16 @@ class SimpleAtomTrapping(EnvExperiment):
 
         self.setattr_argument("AZ_top_volts_MOT", NumberValue(1.8*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
         self.setattr_argument("AZ_top_volts_PGC", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
-        self.setattr_argument("AZ_top_volts_imaging", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
+        self.setattr_argument("AZ_top_volts_RO", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
         self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(-1.75*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
         self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
-        self.setattr_argument("AZ_bottom_volts_imaging", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
+        self.setattr_argument("AZ_bottom_volts_RO", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
         self.setattr_argument("AX_volts_MOT", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
         self.setattr_argument("AX_volts_PGC", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
-        self.setattr_argument("AX_volts_imaging", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
+        self.setattr_argument("AX_volts_RO", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
         self.setattr_argument("AY_volts_MOT", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
         self.setattr_argument("AY_volts_PGC", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-        self.setattr_argument("AY_volts_imaging", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
+        self.setattr_argument("AY_volts_RO", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
 
         # define user-configurable independent variables in human-readable units
         # these will show up in the GUI
@@ -80,33 +80,33 @@ class SimpleAtomTrapping(EnvExperiment):
                               "AOM1, FORT switching AOM")
         self.setattr_argument("p_FORT_loading", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
                               "AOM1, FORT switching AOM")
-        self.setattr_argument("p_FORT_imaging", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_FORT_RO", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
                               "AOM1, FORT switching AOM")
         self.setattr_argument("p_FORT_PGC", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
                               "AOM1, FORT switching AOM")
-        self.setattr_argument("f_780DP_MOT", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_DP_MOT", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("f_780DP_PGC", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_DP_PGC", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("f_780DP_imaging", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_DP_RO", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_PGC", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_DP_PGC", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_780DP_imaging", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_DP_RO", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
                               "AOM2, MOT cooling double pass")
-        # self.setattr_argument("AOM2_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
+        # self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
 
-        self.setattr_argument("AOM3_freq", NumberValue(130.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_SP", NumberValue(130.0 * MHz, unit="MHz", ndecimals=1),
                               "AOM3, MOT cooling single pass")
-        self.setattr_argument("AOM3_power", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_SP", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
                               "AOM3, MOT cooling single pass")
-        # self.setattr_argument("AOM3_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
+        # self.setattr_argument("Cooling_SP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
 
-        self.setattr_argument("AOM4_freq", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("AOM4_power", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
-        # self.setattr_argument("AOM4_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
+        self.setattr_argument("f_MOT_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("p_MOT_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        # self.setattr_argument("MOT_RP_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
 
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
         self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
@@ -160,16 +160,16 @@ class SimpleAtomTrapping(EnvExperiment):
         self.t_SPCM_exposure_mu = self.core.seconds_to_mu(self.t_SPCM_exposure)
 
         # converts RF power in dBm to amplitudes in V
-        # self.AOM1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM1_power / 10 - 3))
-        # self.AOM2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM2_power / 10 - 3))
+        # self.AOM1_ampl = math.sqrt(2 * 50 * 10 ** (self.p_FORT_loading / 10 - 3))
+        # self.AOM2_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_MOT / 10 - 3))
         self.ampl_FORT_loading = math.sqrt(2 * 50 * 10 ** (self.p_FORT_loading / 10 - 3))
-        self.ampl_FORT_imaging = math.sqrt(2 * 50 * 10 ** (self.p_FORT_imaging / 10 - 3))
+        self.ampl_FORT_RO = math.sqrt(2 * 50 * 10 ** (self.p_FORT_RO / 10 - 3))
         self.ampl_FORT_PGC = math.sqrt(2 * 50 * 10 ** (self.p_FORT_PGC / 10 - 3))
-        self.ampl_780DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_780DP_MOT / 10 - 3))
-        self.ampl_780DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_780DP_PGC / 10 - 3))
-        self.ampl_780DP_imaging = math.sqrt(2 * 50 * 10 ** (self.p_780DP_imaging / 10 - 3))
-        self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM3_power / 10 - 3))
-        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM4_power / 10 - 3))
+        self.ampl_cooling_DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_MOT / 10 - 3))
+        self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
+        self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
+        self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_SP / 10 - 3))
+        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_MOT_RP / 10 - 3))
 
         self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
         self.AOM_A3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A3_power / 10 - 3))
@@ -219,19 +219,19 @@ class SimpleAtomTrapping(EnvExperiment):
                              channels=[0, 1, 2, 3])
 
         # change double pass power and frequency to PGC settings
-        self.urukul1_ch1.set(frequency=self.f_780DP_PGC, amplitude=self.ampl_780DP_PGC)
+        self.urukul1_ch1.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
 
         # turn on the dipole trap and wait to load atoms
         # self.urukul0_ch0.sw.on() # todo: this channel is currently connected to the pumping RP AOM.
         delay_mu(self.t_FORT_loading_mu)
 
         # change AOMs to imaging settings
-        self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_imaging)
-        self.urukul0_ch1.set(frequency=self.f_780DP_imaging, amplitude=self.ampl_780DP_imaging)
+        self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
+        self.urukul0_ch1.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
 
 
         # change the magnetic fields for imaging
-        self.zotino0.set_dac([self.AZ_top_volts_imaging, self.AZ_bottom_volts_imaging, self.AX_volts_imaging, self.AY_volts_imaging],
+        self.zotino0.set_dac([self.AZ_top_volts_RO, self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
                              channels=[0, 1, 2, 3])
 
         # take the shot
@@ -246,7 +246,7 @@ class SimpleAtomTrapping(EnvExperiment):
         self.urukul1_ch2.sw.off()
         self.urukul1_ch3.sw.off()
         self.urukul0_ch0.sw.off() # FORT AOM off
-        self.urukul1_ch1.set(frequency=self.f_780DP_MOT, amplitude=self.ampl_780DP_MOT)
+        self.urukul1_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], # voltages must be floats or ARTIQ complains
                              channels=[0, 1, 2, 3])
 
@@ -358,13 +358,13 @@ class SimpleAtomTrapping(EnvExperiment):
         self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
 
         delay(1 * ms)
-        self.urukul0_ch1.set(frequency=self.f_780DP_MOT, amplitude=self.ampl_780DP_MOT)
+        self.urukul0_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
         delay(1 * ms)
-        self.urukul0_ch2.set(frequency=self.AOM3_freq, amplitude=self.AOM3_ampl)
+        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
 
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.AOM4_freq, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
 
         # URUKUL 1 - MOT arm fiber AOMs:
         delay(1 * ms)
