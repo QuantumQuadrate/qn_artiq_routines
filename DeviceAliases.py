@@ -56,17 +56,21 @@ class DeviceAliases:
                     # experiment we passed by reference.
                     experiment.setattr_device(dev_name)
 
-                    # make an attribute named alias which points to the device object
-                    # print(f"setattr self.{alias} = self.{dev_name}")
+                    # make an attribute named alias which points to the device object, e.g.
+                    # dev_ref = gettattr(experiment, "urukul0_ch0")
                     dev_ref = getattr(experiment, dev_name)
 
                     if dev_name[:6] == 'urukul':
                         self.dds_list.append(dev_ref)
+                        # print(dev_name, alias, DDS_DEFAULTS[alias]['power'], DDS_DEFAULTS[alias]['frequency'])
                         self.dds_powers.append(getattr(experiment, DDS_DEFAULTS[alias]['power']))
                         self.dds_frequencies.append(getattr(experiment, DDS_DEFAULTS[alias]['frequency']))
                     else:
                         pass
 
+                    # set an experiment attribute with the name alias that points to the
+                    # device object, e.g.
+                    # settattr(experiment, "dds_FORT", getattr(experiment,"urukul0_ch0"))
                     setattr(experiment, alias, dev_ref)
 
                 except KeyError:
@@ -87,5 +91,7 @@ class DeviceAliases:
         for i in range(len(self.dds_list)):
             self.dds_list[i].init()
             self.dds_list[i].set_att(0.0)  # set attenuator to 0
+            ampl = (2*50*10**(self.dds_powers[i]/10 - 3))**(1/2) # convert dBm to volts
+            print(self.dds_powers[i], ampl)
             self.dds_list[i].set(frequency=self.dds_frequencies[i],
-                    amplitude=(2*5*10**(self.dds_powers[i]/10 - 3))**(1/2))
+                    amplitude=ampl)
