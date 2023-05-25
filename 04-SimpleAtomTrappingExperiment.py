@@ -25,8 +25,8 @@ import math # for math
 import numpy as np
 from datetime import datetime as dt
 import matplotlib.pyplot as plt
-from subroutines.stabilizer import AOMPowerStabilizer
-from ExperimentVariables import setattr_variables
+
+from BaseExperiment import BaseExperiment
 
 
 class SimpleAtomTrapping(EnvExperiment):
@@ -35,52 +35,8 @@ class SimpleAtomTrapping(EnvExperiment):
         """
         declare hardware and user-configurable independent variables
         """
-
-        # declare the hardwire devices/channels we will use
-        self.setattr_device("core")
-        self.setattr_device("urukul0_cpld")
-        self.setattr_device("urukul1_cpld")
-        self.setattr_device("urukul2_cpld")
-        self.setattr_device("urukul0_ch0")
-        self.setattr_device("urukul0_ch1")
-        self.setattr_device("urukul0_ch2")
-        self.setattr_device("urukul0_ch3")
-        self.setattr_device("urukul1_ch0")
-        self.setattr_device("urukul1_ch1")
-        self.setattr_device("urukul1_ch2")
-        self.setattr_device("urukul1_ch3")
-        self.setattr_device("urukul2_ch0")
-        self.setattr_device("urukul2_ch1")
-        self.setattr_device("sampler0")  # for laser feedback
-        self.setattr_device("zotino0")  # for controlling coils
-        self.setattr_device("ttl0")  # input for counting SPCM clicks
-        self.setattr_device("ttl7")  # output for experiment trigger
-
-        # import variables by name from datasets created by ExperimentVariables
-        self.variables = [
-            "f_FORT", "p_FORT_loading", "p_FORT_RO", "p_FORT_PGC",
-            "f_cooling_DP_MOT", "p_cooling_DP_MOT",
-            "f_cooling_DP_PGC", "p_cooling_DP_PGC",
-            "f_cooling_DP_RO", "p_cooling_DP_RO",
-            "f_cooling_SP", "p_cooling_SP",
-            "f_MOT_RP", "p_MOT_RP",
-            "AOM_A1_freq", "AOM_A1_power",
-            "AOM_A2_freq", "AOM_A2_power",
-            "AOM_A3_freq", "AOM_A3_power",
-            "AOM_A4_freq", "AOM_A4_power",
-            "AOM_A5_freq", "AOM_A5_power",
-            "AOM_A6_freq", "AOM_A6_power",
-            "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
-            "AZ_bottom_volts_PGC", "AZ_top_volts_PGC", "AX_volts_PGC", "AY_volts_PGC",
-            "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
-            "cooling_setpoint_mW",
-            "t_MOT_loading",
-            "t_FORT_loading",
-            "t_SPCM_exposure"
-        ]
-
-        # this adds the variables above as attributes in this experiment and gets their values.
-        setattr_variables(self)
+        self.base = BaseExperiment(experiment=self)
+        self.base.build()
 
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("datadir",
@@ -94,6 +50,7 @@ class SimpleAtomTrapping(EnvExperiment):
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup")
         self.setattr_argument("counts_per_bin", NumberValue(10, ndecimals=0, step=1), "Histogram setup")
         self.setattr_argument("print_counts", BooleanValue(True))
+        self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
 
         print("build - done")
 
@@ -104,6 +61,7 @@ class SimpleAtomTrapping(EnvExperiment):
 
         any conversions from human-readable units to machine units (mu) are done here
         """
+        self.base.prepare()
 
         # where to store the data
         self.t_experiment_run = dt.now().strftime("%Y%m%d_%H%M%S")
@@ -115,59 +73,15 @@ class SimpleAtomTrapping(EnvExperiment):
         # experiment trigger pulse width
         self.t_exp_trigger = 1*ms
 
-        # convert times to machine units
-        self.t_MOT_loading_mu = self.core.seconds_to_mu(self.t_MOT_loading)
-        self.t_FORT_loading_mu = self.core.seconds_to_mu(self.t_FORT_loading)
-        self.t_SPCM_exposure_mu = self.core.seconds_to_mu(self.t_SPCM_exposure)
-
-        # converts RF power in dBm to amplitudes in V
-        self.ampl_FORT_loading = math.sqrt(2 * 50 * 10 ** (self.p_FORT_loading / 10 - 3))
-        self.ampl_FORT_RO = math.sqrt(2 * 50 * 10 ** (self.p_FORT_RO / 10 - 3))
-        self.ampl_FORT_PGC = math.sqrt(2 * 50 * 10 ** (self.p_FORT_PGC / 10 - 3))
-        self.ampl_cooling_DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_MOT / 10 - 3))
-        self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
-        self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
-        self.ampl_cooling_SP = math.sqrt(2 * 50 * 10 ** (self.p_cooling_SP / 10 - 3))
-        self.ampl_MOT_RP = math.sqrt(2 * 50 * 10 ** (self.p_MOT_RP / 10 - 3))
-
-        self.AOM_A1_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A1_power / 10 - 3))
-        self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
-        self.AOM_A3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A3_power / 10 - 3))
-        self.AOM_A4_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A4_power / 10 - 3))
-        self.AOM_A5_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A5_power / 10 - 3))
-        self.AOM_A6_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A6_power / 10 - 3))
-
-        # setup stabilization for the cooling laser power
-
-        # todo: eventually read conversion functions such as this from a config file
-        def volts_to_optical_mW(x: TFloat) -> TFloat:
-            """
-            the conversion of PD voltage to cooling light power at the switchyard MOT 1 path
-            """
-            x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
-            # the multimeter that I used for the fit reads
-            return -0.195395 + 17.9214 * x
-
         self.sampler_buffer = [0.0] * 8
         self.cooling_volts_ch = 7
-        self.AOMservo = AOMPowerStabilizer(experiment=self,
-                                           dds_names=["urukul0_ch1"],
-                                           sampler_name="sampler0",
-                                           sampler_channels=[self.cooling_volts_ch],
-                                           transfer_functions=[volts_to_optical_mW],
-                                           setpoints=[self.cooling_setpoint_mW],  # in mW
-                                           proportionals=[0.04],
-                                           iters=5,  # keep iters/t_meas_delay small or rtio underflow
-                                           t_meas_delay=20 * ms)
-
-        self.coil_channels = [0, 1, 2, 3]
 
         self.hist_bins = np.zeros(self.bins, dtype=int)
         print("prepare - done")
 
     @kernel
     def run(self):
-        self.init_hardware()
+        self.base.initialize_hardware()
         self.expt()
         print("Experiment finished.")
 
@@ -185,21 +99,6 @@ class SimpleAtomTrapping(EnvExperiment):
             writer.writerow(data)
             f.close()
 
-    # plot with the applet plot_hist instead
-    # @rpc(flags={"async"})
-    # def plot_data(self):
-    #     """assumes one numeric datum per row"""
-    #     with open(self.datafile, 'r', newline='') as f:
-    #         reader = csv.reader(f)
-    #         reader.__next__() # skip the header
-    #         data = [int(row[0]) for row in reader]
-    #         f.close()
-    #     # xpts = range(len(data))
-    #     plt.hist(data) # to-do set up some binning?
-    #     plt.xlabel("Measurement index")
-    #     plt.ylabel("Counts")
-    #     plt.show()
-
     @kernel
     def expt(self):
         """
@@ -216,9 +115,9 @@ class SimpleAtomTrapping(EnvExperiment):
         self.file_setup(rowheaders=['counts'])
 
         # turn on cooling/RP AOMs
-        self.urukul0_ch1.sw.on() # cooling double pass
-        self.urukul0_ch2.sw.on()  # cooling single pass
-        self.urukul0_ch3.sw.on()  # MOT repump
+        self.dds_cooling_DP.sw.on() # cooling double pass
+        self.dds_cooling_SP.sw.on()  # cooling single pass
+        self.dds_MOT_RP.sw.on()  # MOT repump
 
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
 
@@ -236,12 +135,12 @@ class SimpleAtomTrapping(EnvExperiment):
             delay(1 * ms)  # avoid RTIOSequence error
 
             # Set and turn on fiber AOMs to load the MOT. The MOT AOMs upstream are assumed to be on.
-            self.urukul1_ch0.sw.on()
-            self.urukul1_ch1.sw.on()
-            self.urukul1_ch2.sw.on()
-            self.urukul1_ch3.sw.on()
-            self.urukul2_ch0.sw.on()
-            self.urukul2_ch1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A6.sw.on()
+            self.dds_AOM_A4.sw.on()
+            self.dds_AOM_A5.sw.on()
             delay(1 * ms)
 
             # wait for the MOT to load
@@ -253,15 +152,15 @@ class SimpleAtomTrapping(EnvExperiment):
                 channels=self.coil_channels)
 
             # change double pass power and frequency to PGC settings
-            # self.urukul1_ch1.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
 
             # turn on the dipole trap and wait to load atoms
-            self.urukul0_ch0.sw.on()
+            self.dds_FORT.sw.on()
             delay_mu(self.t_FORT_loading_mu)
 
             # change AOMs to "imaging" settings
-            # self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
-            # self.urukul0_ch1.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
+            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
 
             # change the magnetic fields for imaging
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
@@ -278,14 +177,14 @@ class SimpleAtomTrapping(EnvExperiment):
             delay(10 * ms)
 
             # reset parameters
-            # self.urukul1_ch0.sw.off()  # fiber AOMs off
-            # self.urukul1_ch1.sw.off()
-            # self.urukul1_ch2.sw.off()
-            # self.urukul1_ch3.sw.off()
-            # self.urukul2_ch0.sw.off()
-            # self.urukul2_ch1.sw.off()
-            self.urukul0_ch0.sw.off()  # FORT AOM off
-            # self.urukul1_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            # self.dds_AOM_A2.sw.off()  # fiber AOMs off
+            # self.dds_AOM_A3.sw.off()
+            # self.dds_AOM_A1.sw.off()
+            # self.dds_AOM_A6.sw.off()
+            # self.dds_AOM_A4.sw.off()
+            # self.dds_AOM_A5.sw.off()
+            self.dds_FORT.sw.off()  # FORT AOM off
+            # self.dds_AOM_A3.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
             #                      channels=self.coil_channels)
 
@@ -303,75 +202,12 @@ class SimpleAtomTrapping(EnvExperiment):
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT
-        self.urukul0_ch0.sw.off()
-        self.urukul1_ch0.sw.on()
-        self.urukul1_ch1.sw.on()
-        self.urukul1_ch2.sw.on()
-        self.urukul1_ch3.sw.on()
-        self.urukul2_ch0.sw.on()
-        self.urukul2_ch1.sw.on()
+        self.dds_FORT.sw.off()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A6.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
-
-    @kernel
-    def init_hardware(self):
-        """
-        Sets amplitudes and frequencies for the Urukul0 channels
-        :return:
-        """
-
-        self.core.reset()
-        self.ttl0.input()  # for reading pulses from SPCM
-        self.ttl7.output()  # for outputting a trigger each cycle
-
-        self.urukul0_cpld.init()
-        self.urukul1_cpld.init()
-        self.urukul2_cpld.init()
-        self.urukul0_ch0.init()
-        self.urukul0_ch1.init()
-        self.urukul0_ch2.init()
-        self.urukul0_ch3.init()
-        self.urukul1_ch0.init()
-        self.urukul1_ch1.init()
-        self.urukul1_ch2.init()
-        self.urukul1_ch3.init()
-        self.urukul2_ch0.init()
-        self.urukul2_ch1.init()
-
-        self.urukul0_ch0.set_att(float(0))
-        self.urukul0_ch1.set_att(float(0))
-        self.urukul0_ch2.set_att(float(0))
-        self.urukul0_ch3.set_att(float(0))
-        self.urukul1_ch0.set_att(float(0))
-        self.urukul1_ch1.set_att(float(0))
-        self.urukul1_ch2.set_att(float(0))
-        self.urukul1_ch3.set_att(float(0))
-        self.urukul2_ch0.set_att(float(0))
-        self.urukul2_ch1.set_att(float(0))
-        self.zotino0.init()
-
-        self.core.break_realtime()
-
-        # URUKUL 0 - FORT, MOT and D2 state prep AOMs:
-        delay(1 * ms)
-        self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-        delay(1 * ms)
-        self.urukul0_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(1 * ms)
-        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.ampl_cooling_SP)
-        delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.ampl_MOT_RP)
-
-        # URUKUL 1 - MOT arm fiber AOMs:
-        delay(1 * ms)
-        self.urukul1_ch0.set(frequency=self.AOM_A2_freq, amplitude=self.AOM_A2_ampl)
-        self.urukul1_ch1.set(frequency=self.AOM_A3_freq, amplitude=self.AOM_A3_ampl)
-        self.urukul1_ch2.set(frequency=self.AOM_A1_freq, amplitude=self.AOM_A1_ampl)
-        self.urukul1_ch3.set(frequency=self.AOM_A6_freq, amplitude=self.AOM_A6_ampl)
-        self.urukul2_ch0.set(frequency=self.AOM_A4_freq, amplitude=self.AOM_A4_ampl)
-        self.urukul2_ch1.set(frequency=self.AOM_A5_freq, amplitude=self.AOM_A5_ampl)
-
-        self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
-        delay(100 * ms)
-
-        print("init_hardware - done")
