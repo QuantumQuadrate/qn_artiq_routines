@@ -36,14 +36,6 @@ class AOMsCoils(EnvExperiment):
     @kernel
     def run(self):
         self.base.initialize_hardware()
-        # initializes the hardware and resets dds attenuators to 0 dB
-        # self.named_devices.initialize()
-        #
-        # self.core.break_realtime()
-        #
-        # self.ttl6.output()  # for outputting a trigger
-        # self.ttl1.input()
-        # self.sampler0.init()
 
         # # URUKUL 0 - MOT and D2 state prep AOMs:
         delay(1*ms)
