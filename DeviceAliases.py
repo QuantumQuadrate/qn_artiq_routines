@@ -57,8 +57,7 @@ class DeviceAliases:
                     experiment.setattr_device(dev_name)
 
                     # make an attribute named alias which points to the device object
-                    print(f"setattr self.{alias} = self.{dev_name}")
-
+                    # print(f"setattr self.{alias} = self.{dev_name}")
                     dev_ref = getattr(experiment, dev_name)
 
                     if dev_name[:6] == 'urukul':
