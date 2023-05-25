@@ -89,8 +89,6 @@ class CoilScanSPCMCount(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
-        # self.init_hardware()
-
         self.file_setup(rowheaders=['counts','AZ_bottom V','AZ_top V','AY V','AX V','cooling PD V'])
 
         # Turn on the magnetic fields
