@@ -94,6 +94,6 @@ class SamplerMOTCoilTune(EnvExperiment):
         if self.update_coil_volts_at_finish:
             volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
             for i in range(4):
-                self.set_dataset(volt_datasets[i], control_volts[i])
+                self.set_dataset(volt_datasets[i], control_volts[i], broadcast=True)
 
         print("Experiment finished.")
