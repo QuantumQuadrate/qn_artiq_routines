@@ -135,7 +135,10 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
             # Setpoints
-            Variable("cooling_setpoint_mW", 0.7, NumberValue, {'type': 'float'}, "Setpoints")
+            Variable("cooling_setpoint_mW", 0.7, NumberValue, {'type': 'float'}, "Setpoints"),
+
+            # Booleans
+            Variable("enable_laser_feedback", False, BooleanValue, {}, "Enable/disable")
 
             # File saving # todo: move away from saving csv files and save instead to the experiment's hdf
         ]

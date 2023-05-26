@@ -72,6 +72,7 @@ class BaseExperiment:
             "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
             "AZ_bottom_volts_PGC", "AZ_top_volts_PGC", "AX_volts_PGC", "AY_volts_PGC",
             "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
+            "enable_laser_feedback",
             "cooling_setpoint_mW",
             "t_MOT_loading",
             "t_FORT_loading",
@@ -85,6 +86,7 @@ class BaseExperiment:
                             "urukul0_cpld", "urukul1_cpld", "urukul2_cpld",
                             "zotino0",  # for controlling coils
                             "sampler0",  # for measuring laser power PD
+                            "sampler1", # for reading in volts in the coil tune experiment
                             *[f"ttl{i}" for i in range(8)]]
         for dev in devices_no_alias:
             # print(f"setting {dev}")
