@@ -91,8 +91,9 @@ Note that even after you have run the above block, you can still directly refere
 The easiest way to set up an experiment which has access to all* (see build section below) of the experiment variables and hardare is to use the BaseExperiment class. By creating an instance of BaseExperiment inside your ARTIQ experiment, the experiment variables and devices will be added as attributes to your experiment. 
 
   1. Example with BaseExperiment
-  from artiq.experiment import *
-  from BaseExperiment import BaseExperiment
+  
+    from artiq.experiment import *
+    from BaseExperiment import BaseExperiment
 
     class MyExp(EnvExperiment):
 
@@ -115,14 +116,14 @@ The easiest way to set up an experiment which has access to all* (see build sect
           delay(50*ms)
           self.dds_FORT.sw.off()
 
-  2. build
-  The variables and devices that your BaseExperiment includes are determined by what is defined in BaseExperiment.py. In the BaseExperiment class, in __init__, 
+  2. build:
+  The variables and devices that your BaseExperiment includes are determined by what is defined in BaseExperiment.py. In the BaseExperiment class, in build, 
     a. the variables that get imported are added by name in the list self.experiment.variables. These names must exist as datasets created by ExperimentVariables.
     b. devices that you do not want to use with aliases are given by name in the list devices_no_alias.
     c. devices that you want to use by alias are given by name in the DeviceAliases call.
-  3. prepare
+  3. prepare: 
   The prepare method takes care of any calculations or math that you want to do for every experiment. This includes things such as converting SI units to machine units (mu) and calculating amplitudes in volts for the urukul set method given a power in dBm.
-  4. initialize_hardware takes care of the remaining setup of hardware, i.e. things that happen on the kernel. Urukul default settings are defined in a dictionary in DeviceAliases, and are grabbed the base experiment when the initialize_hardware method is run. Any other devices that need initialization such as Samplers or Zotinos, or setting TTL channels as input or output, must happen here.
+  4. initialize_hardware: takes care of the remaining setup of hardware, i.e. things that happen on the kernel. Urukul default settings are defined in a dictionary in DeviceAliases, and are grabbed the base experiment when the initialize_hardware method is run. Any other devices that need initialization such as Samplers or Zotinos, or setting TTL channels as input or output, must happen here.
 
   
   
