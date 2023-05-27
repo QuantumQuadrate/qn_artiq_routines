@@ -97,16 +97,16 @@ The easiest way to set up an experiment which has access to all* (see build sect
 
     class MyExp(EnvExperiment):
 
-      def build:
+      def build(self):
           # gets variables and devices
           self.base = BaseExperiment(experiment=self)
           self.base.build()
 
-      def prepare:
+      def prepare(self):
           self.base.prepare()
 
       @kernel
-      def run:
+      def run(self):
           self.base.initialize_hardware()
           # now we can do physics
           self.dds_cooling_DP.sw.on()
