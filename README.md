@@ -3,10 +3,10 @@
 ARTIQ routines for the quantum network experiment in the Saffman group at UW-Madison.
 
 # I. Getting started
-if "Just give me a practical example already!": 
-  Scroll to the BaseExperiment example subsection
-else:
-  keep reading
+    if "Just give me a practical example already!": 
+      Scroll to the BaseExperiment example subsection
+    else:
+      keep reading
 
 When running experiments, it is good practice to checkout a branch other than main. Then, as you change and add new code, you are not messing with main, which should only contain tested code known to work. A good workflow is as follows:
 
@@ -42,13 +42,13 @@ Save the file. Now, in the ARTIQ dashboard, open ExperimentVariables then click 
 ### Using an experiment variable in your experiments
 The **easiest way to import experiment variables defined in ExperimentVariables into your experiments is by using the BaseExperiment class**, described in the BaseExperiment section. If you insist on only importing a few of the variables, do this in your build method:
 
-  self.experiment.variables = [ # this goes in your build method at the beginning
+    self.experiment.variables = [ # this goes in your build method at the beginning
               "f_cooling_DP_MOT", "p_cooling_DP_MOT",
               "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
               "t_MOT_loading"
           ]
 
-  setattr_variables(self.experiment) # import this from ExperimentVariables
+    setattr_variables(self.experiment) # import this from ExperimentVariables
 
 ### Viewing the variables used in an experiment
 Anytime an ARTIQ experiment is run using the variables that you defined in ExperimentVariables, the names and values of those variables will be stored in an hdf file generated when an experiment finishes. This file will be in results/todays_date/the_hour/ in your artiq directory. The file can be opened with HDFView. 
@@ -59,14 +59,14 @@ The names of hardware channels, e.g. the Urukul DDS channels, are defined in the
 ### Defining device aliases
 A dictionary mapping aliases of the device channels is defined in DeviceAliases.py. Entries can be modified, added, or removed, and the new alias mapping will be used everywhere the aliases are used in your experiments. The alias map looks like this:
 
-  ALIAS_MAP = {
+    ALIAS_MAP = {
           "dds_FORT": "urukul0_ch0", # the key is the alias, and the value is the name given in device_db.py
           "dds_cooling_DP": "urukul0_ch1",
           "dds_cooling_SP": "urukul0_ch2",
           ...
           "dds_AOM_A4": "urukul2_ch0",
           "dds_AOM_A5": "urukul2_ch1"
-  }
+    }
   
 Note: you can technically do this with any of the hardware, but for now I have only used it for urukul channels, since other devices like the Sampler and Zotino are initialized by card but have many different functions for the channels on a given card. TTL channels are like urukul channels in this respect, and I plan to use aliases for them in the future: ttl_camera_trigger, ttl_debug, ttl_laser_unlocked, etc.
 
@@ -94,7 +94,7 @@ The easiest way to set up an experiment which has access to all* (see build sect
   from artiq.experiment import *
   from BaseExperiment import BaseExperiment
 
-  class MyExp(EnvExperiment):
+    class MyExp(EnvExperiment):
 
       def build:
           # gets variables and devices
