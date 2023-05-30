@@ -24,15 +24,24 @@ class CoilScanSPCMCount(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
-        self.setattr_argument("Vz_bottom_array", StringValue(
-            '[0.6 - l*(0.6 - 1)/20 for l in range(20)]'), "Coil steps")
-        self.setattr_argument("Vz_top_array", StringValue(
-            '[-1.5 - i*(3.3 - 1.5)/20 for i in range(20)]'), "Coil steps")
-        self.setattr_argument("Vx_array", StringValue(
-            '[0.15 - j*(0.8 + 0.15)/20 for j in range(20)]'), "Coil steps")
-        self.setattr_argument("Vy_array", StringValue(
-            '[0.025 - k*(0.9 + 0.025)/20 for k in range(20)]'), "Coil steps")
-        # todo: save these string values as datasets
+
+        self.scan_datasets = ["Vz_bottom_array", "Vz_top_array", "Vx_array", "Vy_array"]
+        group = "Coil steps"
+        try:
+            for dataset in self.scan_datasets:
+                value = self.get_dataset(dataset)
+                self.setattr_argument(dataset, StringValue(value), group)
+                print("retrieved dataset", dataset, "=", value)
+        except KeyError as e:
+            print(e)
+            self.setattr_argument("Vz_bottom_array", StringValue(
+                '[0.6 - l*(0.6 - 1)/20 for l in range(20)]'), "Coil steps")
+            self.setattr_argument("Vz_top_array", StringValue(
+                '[-1.5 - i*(3.3 - 1.5)/20 for i in range(20)]'), "Coil steps")
+            self.setattr_argument("Vx_array", StringValue(
+                '[0.15 - j*(0.8 + 0.15)/20 for j in range(20)]'), "Coil steps")
+            self.setattr_argument("Vy_array", StringValue(
+                '[0.025 - k*(0.9 + 0.025)/20 for k in range(20)]'), "Coil steps")
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
         self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
@@ -68,6 +77,10 @@ class CoilScanSPCMCount(EnvExperiment):
         else:
             self.datafile = self.datadir + self.datafile
 
+        # save a copy of the strings defining the scan variables
+        self.V_array_strings = [
+            self.Vz_bottom_array,self.Vz_top_array,self.Vx_array, self.Vy_array]
+
         # evaluate the strings we used to define the coil steps in the GUI.
         self.Vz_bottom_array = eval(self.Vz_bottom_array) #.replace('zbottom_steps','self.zbottom_steps'))
         self.Vz_top_array = eval(self.Vz_top_array)
@@ -79,7 +92,6 @@ class CoilScanSPCMCount(EnvExperiment):
         self.xsteps = len(self.Vx_array)
         self.ysteps = len(self.Vy_array)
 
-
         self.sampler_buffer = [0.0]*8
         self.cooling_volts_ch = 7 # we'll read this channel later and save it to the file
 
@@ -88,6 +100,12 @@ class CoilScanSPCMCount(EnvExperiment):
     @kernel
     def run(self):
         self.base.initialize_hardware()
+
+        for i in range(4):
+            # takes the value from the GUI and updates the dataset so next time we recompute the arguments
+            # in the GUI, these values will be the defaults. you can find the values in the hdf file
+            # for each experiment.
+            self.set_dataset(self.scan_datasets[i], self.V_array_strings[i], broadcast=True, persist=True)
 
         self.file_setup(rowheaders=['counts','AZ_bottom V','AZ_top V','AY V','AX V','cooling PD V'])
 
