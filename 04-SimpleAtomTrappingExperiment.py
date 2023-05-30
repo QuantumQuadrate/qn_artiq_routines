@@ -44,7 +44,6 @@ class SimpleAtomTrapping(EnvExperiment):
         self.setattr_argument("datafile", StringValue('atom_loading_counts.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
         self.setattr_argument("print_measurement_number", BooleanValue(False), "Developer options")
-        self.setattr_argument("print_meas_result", BooleanValue(False), "Developer options")
         self.setattr_argument("save_data", BooleanValue(True), "Developer options")
 
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup")
@@ -125,7 +124,6 @@ class SimpleAtomTrapping(EnvExperiment):
 
         # loop the experiment sequence
         for measurement in range(self.n_measurements):
-
             self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
 
             # Set magnetic fields for MOT loading
@@ -146,11 +144,6 @@ class SimpleAtomTrapping(EnvExperiment):
             # wait for the MOT to load
             delay_mu(self.t_MOT_loading_mu)
 
-            # change the magnetic fields for loading the dipole trap
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                channels=self.coil_channels)
-
             # change double pass power and frequency to PGC settings
             # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
 
@@ -167,11 +160,12 @@ class SimpleAtomTrapping(EnvExperiment):
             self.zotino0.set_dac(
                 [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
                 channels=self.coil_channels)
-            # delay(1*ms)
+            delay(1*ms)
 
             # # take the shot
             # t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
             counts = self.ttl0.count(t_gate_end)
+            delay(1*ms)
             if self.print_counts:
                 print(counts)
             delay(10 * ms)
@@ -195,10 +189,9 @@ class SimpleAtomTrapping(EnvExperiment):
 
             if self.print_measurement_number:
                 print("measurement", measurement)
-            if self.print_meas_result:
-                print("counts", counts)
             if self.save_data:
                 self.file_write([counts])
+            delay(10*ms)
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT
