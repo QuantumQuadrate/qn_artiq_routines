@@ -5,8 +5,7 @@ from artiq.experiment import *
 import math
 import numpy as np
 from subroutines.stabilizer import AOMPowerStabilizer
-from ExperimentVariables import setattr_variables
-from DeviceAliases import DeviceAliases
+
 from BaseExperiment import BaseExperiment
 
 class AOMsCoils(EnvExperiment):
