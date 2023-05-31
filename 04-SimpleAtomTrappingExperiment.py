@@ -38,6 +38,7 @@ class SimpleAtomTrapping(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        self.setattr_argument("FORT_off", BooleanValue(False))
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("datadir",
                               StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
@@ -147,20 +148,24 @@ class SimpleAtomTrapping(EnvExperiment):
             # change double pass power and frequency to PGC settings
             # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
 
-            # turn on the dipole trap and wait to load atoms
-            self.dds_FORT.sw.on()
+            if not self.FORT_off:
+                # turn on the dipole trap and wait to load atoms
+                self.dds_FORT.sw.on()
             delay_mu(self.t_FORT_loading_mu)
 
             # change AOMs to "imaging" settings
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
-            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
 
+            # pulse off the MOT light while we change the coils
+            self.dds_cooling_DP.sw.off()
             # change the magnetic fields for imaging
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_MOT, self.AY_volts_MOT],
                 channels=self.coil_channels)
-            delay(1*ms)
+            delay(0.05*ms)
+            self.dds_cooling_DP.sw.on()
 
             # # take the shot
             # t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
@@ -177,6 +182,7 @@ class SimpleAtomTrapping(EnvExperiment):
             # self.dds_AOM_A6.sw.off()
             # self.dds_AOM_A4.sw.off()
             # self.dds_AOM_A5.sw.off()
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             self.dds_FORT.sw.off()  # FORT AOM off
             # self.dds_AOM_A3.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
