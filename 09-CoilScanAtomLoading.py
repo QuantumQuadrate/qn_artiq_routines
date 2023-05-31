@@ -41,6 +41,8 @@ class CoilScanFORTLoading(EnvExperiment):
             self.setattr_argument("Vy_array", StringValue(
                 '[0.025 - k*(0.9 + 0.025)/20 for k in range(20)]'), "Coil steps")
 
+        self.setattr_argument("save_data", BooleanValue(True))
+
         self.setattr_argument("coils_enabled", BooleanValue(True))
         self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
         self.setattr_argument("datafile", StringValue('coil_scan_FORT_loading.csv'),"File to save data")
@@ -189,6 +191,12 @@ class CoilScanFORTLoading(EnvExperiment):
 
                         # wait for the MOT to load
                         delay_mu(self.t_MOT_loading_mu)
+
+                        # optionally take a shot of the MOT without the FORT on first
+                        if self.take_MOT_shot:
+                            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+                            counts = self.ttl0.count(t_gate_end)
+                            delay(1 * ms)
 
                         # wait for the FORT to load
                         self.dds_FORT.sw.on()
