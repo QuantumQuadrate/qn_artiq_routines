@@ -41,7 +41,8 @@ class SimpleAtomTrapping(EnvExperiment):
         self.setattr_argument("FORT_off", BooleanValue(False))
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("datadir",
-                              StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
+                              StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),
+                              "File to save data")
         self.setattr_argument("datafile", StringValue('atom_loading_counts.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
         self.setattr_argument("print_measurement_number", BooleanValue(False), "Developer options")
@@ -79,12 +80,12 @@ class SimpleAtomTrapping(EnvExperiment):
         # for chopped readout - i.e. chop the FORT and readout light on and off pi out of phase
         # todo: after some tuning, make these experiment variables.
         self.f_chop = 0.5*MHz
-        self.t_chop_period = 1/self.f_chop
+        self.t_chop_period = 1.0/self.f_chop
         self.n_chop_cycles = int(self.t_SPCM_exposure/self.t_chop_period + 0.5)
         self.t_FORT_rise = 200*ns  # FORT AOM rise time, measured 05.31.2023 - PH
         self.t_MOT_rise = self.t_FORT_rise # cooling DP AOM rise time. guessing for now.
         self.t_RO_on = self.t_chop_period/2 - 2*self.t_FORT_rise  # duration readout light is on
-        # self.t_RO_on_mu = self.core.seconds_to_mu(self.t_RO_on)
+        self.t_RO_on_mu = self.core.seconds_to_mu(self.t_RO_on)
         print(f"chopped readout: f_chop: {self.f_chop/MHz}MHz, n_chop_cycles={self.n_chop_cycles}")
         print(f"timing: t_SPCM_exposure: {self.t_SPCM_exposure}, t_RO_on: {self.t_RO_on}, t_MOT_rise: {self.t_MOT_rise}"
               f", t_chop_period: {self.t_chop_period}")
@@ -178,43 +179,29 @@ class SimpleAtomTrapping(EnvExperiment):
             self.zotino0.set_dac(
                 [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_MOT, self.AY_volts_MOT],
                 channels=self.coil_channels)
-            delay(10*us)
+            delay(50*us)
 
+            # todo:
             # the chopped readout phase. starts with cooling light off, FORT on
-            counts = 0.0
 
-            # with parallel:
-                # t_gate_end_mu = self.ttl0.gate_rising_mu(self.core.seconds_to_mu(self.n_chop_cycles*self.t_chop_period))
-                # with sequential:
-            for i in range(50): #self.n_chop_cycles):
-
-                self.dds_FORT.sw.off()
-                delay(self.t_FORT_rise)
-                self.dds_cooling_DP.sw.on()
-
-                # gating during each individual cycle underflows immediately.
-                # # registers rising edge events and returns timestamp at the end of the specified duration
-                # t_gate_end_mu = self.ttl0.gate_rising_mu(self.core.seconds_to_mu(self.t_RO_on - 500*ns))
-
-                # # count up the input events that were registered up to the specified timestamp
-                # counts += self.ttl0.count(t_gate_end_mu)
-
-                delay(self.t_RO_on)
-                self.dds_cooling_DP.sw.off()
-                delay(self.t_MOT_rise)
-                self.dds_FORT.sw.on()
-                delay(self.t_chop_period/2)
+            # counts = 0.0
+            # steps = 100 # more than 100 results in an underflow error
+            # t_readout = steps*self.t_chop_period
+            # t_gate_end_mu = self.ttl0.gate_rising_mu(self.core.seconds_to_mu(t_readout))
+            # for i in range(steps): #self.n_chop_cycles):
+            #     self.dds_FORT.sw.off()
+            #     delay(self.t_FORT_rise)
+            #     self.dds_cooling_DP.sw.on()
+            #     delay(self.t_RO_on)
+            #     self.dds_cooling_DP.sw.off()
+            #     delay(self.t_MOT_rise)
+            #     self.dds_FORT.sw.on()
+            #     delay(self.t_chop_period/2)
             # counts += self.ttl0.count(t_gate_end_mu)
             self.dds_cooling_DP.sw.on()
 
-
-
-
-
-            delay(1*ms)
             if self.print_counts:
                 print(counts)
-            delay(10 * ms)
 
             # reset parameters
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
