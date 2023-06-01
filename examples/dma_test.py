@@ -15,7 +15,7 @@ Notes:
     back the expected number of times within one readout), and that the loop in run does the readout the expected number
     of times. However, if you analyze the waveform in gtkwave, you will see the DMA sequence played only once! To be
     sure that the waveform was really being played as I expected, I analyzed the signal out of the Urukul (actually,
-    I analyzed the diffracted laser power after an AOM driven by the Urukul) on an oscilloscope. 
+    I analyzed the diffracted laser power after an AOM driven by the Urukul) on an oscilloscope.
 
 Resources:
 https://m-labs.hk/artiq/manual/core_drivers_reference.html?highlight=dma#module-artiq.coredevice.dma
