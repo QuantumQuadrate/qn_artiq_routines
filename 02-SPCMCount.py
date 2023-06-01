@@ -90,7 +90,7 @@ class SPCMCount(EnvExperiment):
             tend1 = self.ttl0.gate_rising(self.dt_exposure)
             count1 = self.ttl0.count(tend1)
             if self.print_count_rate:
-                print(round(count1/self.dt_exposure))
+                print(round(count1/self.dt_exposure),"Hz")
             delay(10 * ms)
             volt1 = count1 * 5/Satdt # the voltage from zotino0, port 7. Saturation limit corresponds to 5V.
             self.zotino0.write_dac(ch, volt1)
