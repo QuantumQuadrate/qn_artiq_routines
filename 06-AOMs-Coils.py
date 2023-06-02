@@ -2,11 +2,8 @@
 This code turns on the MOT AOMs and also the MOT coils.
 """
 from artiq.experiment import *
-import math
-import numpy as np
-from subroutines.stabilizer import AOMPowerStabilizer
 
-from BaseExperiment import BaseExperiment
+from utilities.BaseExperiment import BaseExperiment
 
 class AOMsCoils(EnvExperiment):
 

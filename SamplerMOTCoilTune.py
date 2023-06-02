@@ -5,15 +5,8 @@ parabolic mirror. It saves the photon counts in a file.
 """
 
 from artiq.experiment import *
-import csv
-from artiq.coredevice import ad53xx # for converting volts to mu for the zotino
-from artiq.coredevice.exceptions import RTIOUnderflow
-import math # for math
-import numpy as np
-from datetime import datetime as dt
-import matplotlib.pyplot as plt
 
-from BaseExperiment import BaseExperiment
+from utilities.BaseExperiment import BaseExperiment
 
 class SamplerMOTCoilTune(EnvExperiment):
 
