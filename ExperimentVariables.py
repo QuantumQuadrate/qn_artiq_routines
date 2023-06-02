@@ -136,6 +136,8 @@ class ExperimentVariables(EnvExperiment):
 
             # Setpoints
             Variable("cooling_setpoint_mW", 0.7, NumberValue, {'type': 'float'}, "Setpoints"),
+            Variable("cooling_volts_ch", 7, NumberValue, {'type':'int', 'scale':1, 'ndecimals':0, 'step':1},
+                     "Setpoints"),
 
             # Booleans
             Variable("enable_laser_feedback", False, BooleanValue, {}, "Enable/disable")

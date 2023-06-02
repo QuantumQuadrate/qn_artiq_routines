@@ -38,13 +38,14 @@ class SimpleAtomTrapping(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        self.setattr_argument("FORT_off", BooleanValue(False))
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("datadir",
-                              StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
+                              StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),
+                              "File to save data")
         self.setattr_argument("datafile", StringValue('atom_loading_counts.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
         self.setattr_argument("print_measurement_number", BooleanValue(False), "Developer options")
-        self.setattr_argument("print_meas_result", BooleanValue(False), "Developer options")
         self.setattr_argument("save_data", BooleanValue(True), "Developer options")
 
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup")
@@ -73,8 +74,21 @@ class SimpleAtomTrapping(EnvExperiment):
         # experiment trigger pulse width
         self.t_exp_trigger = 1*ms
 
+        # for monitoring
         self.sampler_buffer = [0.0] * 8
-        self.cooling_volts_ch = 7
+
+        # for chopped readout - i.e. chop the FORT and readout light on and off pi out of phase
+        # todo: after some tuning, make these experiment variables.
+        self.f_chop = 0.5*MHz
+        self.t_chop_period = 1.0/self.f_chop
+        self.n_chop_cycles = int(self.t_SPCM_exposure/self.t_chop_period + 0.5)
+        self.t_FORT_rise = 200*ns  # FORT AOM rise time, measured 05.31.2023 - PH
+        self.t_MOT_rise = self.t_FORT_rise # cooling DP AOM rise time. guessing for now.
+        self.t_RO_on = self.t_chop_period/2 - 2*self.t_FORT_rise  # duration readout light is on
+        self.t_RO_on_mu = self.core.seconds_to_mu(self.t_RO_on)
+        print(f"chopped readout: f_chop: {self.f_chop/MHz}MHz, n_chop_cycles={self.n_chop_cycles}")
+        print(f"timing: t_SPCM_exposure: {self.t_SPCM_exposure}, t_RO_on: {self.t_RO_on}, t_MOT_rise: {self.t_MOT_rise}"
+              f", t_chop_period: {self.t_chop_period}")
 
         self.hist_bins = np.zeros(self.bins, dtype=int)
         print("prepare - done")
@@ -106,6 +120,9 @@ class SimpleAtomTrapping(EnvExperiment):
 
         :return:
         """
+
+        counts = 0.0
+
         self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
                              channels=self.coil_channels)
 
@@ -125,7 +142,6 @@ class SimpleAtomTrapping(EnvExperiment):
 
         # loop the experiment sequence
         for measurement in range(self.n_measurements):
-
             self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
 
             # Set magnetic fields for MOT loading
@@ -146,47 +162,50 @@ class SimpleAtomTrapping(EnvExperiment):
             # wait for the MOT to load
             delay_mu(self.t_MOT_loading_mu)
 
-            # change the magnetic fields for loading the dipole trap
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                channels=self.coil_channels)
-
-            # change double pass power and frequency to PGC settings
-            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-
-            # turn on the dipole trap and wait to load atoms
-            self.dds_FORT.sw.on()
+            if not self.FORT_off:
+                # turn on the dipole trap and wait to load atoms
+                self.dds_FORT.sw.on()
             delay_mu(self.t_FORT_loading_mu)
+            delay(10*ms)
 
             # change AOMs to "imaging" settings
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
-            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+            delay(1*ms)
 
-            # change the magnetic fields for imaging
-            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+            # pulse off the MOT light while we change the coils
+            self.dds_cooling_DP.sw.off()
+            delay(self.t_MOT_rise)
+            # change the magnetic fields for readout
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_MOT, self.AY_volts_MOT],
                 channels=self.coil_channels)
-            # delay(1*ms)
+            delay(50*us)
 
-            # # take the shot
-            # t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-            counts = self.ttl0.count(t_gate_end)
+            # todo:
+            # the chopped readout phase. starts with cooling light off, FORT on
+
+            # counts = 0.0
+            # steps = 100 # more than 100 results in an underflow error
+            # t_readout = steps*self.t_chop_period
+            # t_gate_end_mu = self.ttl0.gate_rising_mu(self.core.seconds_to_mu(t_readout))
+            # for i in range(steps): #self.n_chop_cycles):
+            #     self.dds_FORT.sw.off()
+            #     delay(self.t_FORT_rise)
+            #     self.dds_cooling_DP.sw.on()
+            #     delay(self.t_RO_on)
+            #     self.dds_cooling_DP.sw.off()
+            #     delay(self.t_MOT_rise)
+            #     self.dds_FORT.sw.on()
+            #     delay(self.t_chop_period/2)
+            # counts += self.ttl0.count(t_gate_end_mu)
+            self.dds_cooling_DP.sw.on()
+
             if self.print_counts:
                 print(counts)
-            delay(10 * ms)
 
             # reset parameters
-            # self.dds_AOM_A2.sw.off()  # fiber AOMs off
-            # self.dds_AOM_A3.sw.off()
-            # self.dds_AOM_A1.sw.off()
-            # self.dds_AOM_A6.sw.off()
-            # self.dds_AOM_A4.sw.off()
-            # self.dds_AOM_A5.sw.off()
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             self.dds_FORT.sw.off()  # FORT AOM off
-            # self.dds_AOM_A3.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-            # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
-            #                      channels=self.coil_channels)
 
             bin_idx = int(counts / self.counts_per_bin)
             if bin_idx < self.bins:
@@ -195,10 +214,9 @@ class SimpleAtomTrapping(EnvExperiment):
 
             if self.print_measurement_number:
                 print("measurement", measurement)
-            if self.print_meas_result:
-                print("counts", counts)
             if self.save_data:
                 self.file_write([counts])
+            delay(10*ms)
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT

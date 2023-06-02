@@ -74,6 +74,7 @@ class BaseExperiment:
             "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
             "enable_laser_feedback",
             "cooling_setpoint_mW",
+            "cooling_volts_ch",
             "t_MOT_loading",
             "t_FORT_loading",
             "t_SPCM_exposure"
