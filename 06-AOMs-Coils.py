@@ -11,6 +11,8 @@ class AOMsCoils(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        self.f_FORT
+
         # experiment variables which are specific to this experiment
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))

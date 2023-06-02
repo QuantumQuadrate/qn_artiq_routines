@@ -29,10 +29,50 @@ class MyExp(EnvExperiment):
         # now we can do physics
 ----
 """
+import os, sys
+# sys.path.append('subroutines') #os.path.join('..','subroutines'))
+sys.path.append(os.path.join(os.getcwd(), 'repository', 'qn_artiq_routines'))
 from artiq.experiment import *
 from subroutines.stabilizer import AOMPowerStabilizer
 from utilities.ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
+
+experiment_variables = [
+    "f_FORT", "p_FORT_loading", "p_FORT_RO", "p_FORT_PGC",
+    "f_cooling_DP_MOT", "p_cooling_DP_MOT",
+    "f_cooling_DP_PGC", "p_cooling_DP_PGC",
+    "f_cooling_DP_RO", "p_cooling_DP_RO",
+    "f_cooling_SP", "p_cooling_SP",
+    "f_MOT_RP", "p_MOT_RP",
+    "AOM_A1_freq", "AOM_A1_power",
+    "AOM_A2_freq", "AOM_A2_power",
+    "AOM_A3_freq", "AOM_A3_power",
+    "AOM_A4_freq", "AOM_A4_power",
+    "AOM_A5_freq", "AOM_A5_power",
+    "AOM_A6_freq", "AOM_A6_power",
+    "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
+    "AZ_bottom_volts_PGC", "AZ_top_volts_PGC", "AX_volts_PGC", "AY_volts_PGC",
+    "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
+    "enable_laser_feedback",
+    "cooling_setpoint_mW",
+    "cooling_volts_ch",
+    "t_MOT_loading",
+    "t_FORT_loading",
+    "t_SPCM_exposure"
+]
+
+# get the variables from the datasets created in ExperimentVariables and
+# add them to the globals for this file. then, when you import * from
+# BaseExperiment, you will get all of these experiment variables
+for var in experiment_variables:
+    try:  # get the value of the variable from the dataset, if it exists
+        value = EnvExperiment.get_dataset(var)
+        globals()[var] = value
+    except Exception as e:
+        if type(e) == KeyError:  # if the variable does not exist
+            print(f"Couldn't find variable {e}! Did you define it in vars_list in ExperimentVariables?")
+        else:
+            print(f"Exception {e}")  # todo: replace with raise statement
 
 
 def dB_to_V(dB: float) -> float:
@@ -55,32 +95,6 @@ class BaseExperiment:
         :param experiment: your experiment.
         :return:
         """
-
-        self.experiment.variables = [
-            "f_FORT", "p_FORT_loading", "p_FORT_RO", "p_FORT_PGC",
-            "f_cooling_DP_MOT", "p_cooling_DP_MOT",
-            "f_cooling_DP_PGC", "p_cooling_DP_PGC",
-            "f_cooling_DP_RO", "p_cooling_DP_RO",
-            "f_cooling_SP", "p_cooling_SP",
-            "f_MOT_RP", "p_MOT_RP",
-            "AOM_A1_freq", "AOM_A1_power",
-            "AOM_A2_freq", "AOM_A2_power",
-            "AOM_A3_freq", "AOM_A3_power",
-            "AOM_A4_freq", "AOM_A4_power",
-            "AOM_A5_freq", "AOM_A5_power",
-            "AOM_A6_freq", "AOM_A6_power",
-            "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
-            "AZ_bottom_volts_PGC", "AZ_top_volts_PGC", "AX_volts_PGC", "AY_volts_PGC",
-            "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
-            "enable_laser_feedback",
-            "cooling_setpoint_mW",
-            "cooling_volts_ch",
-            "t_MOT_loading",
-            "t_FORT_loading",
-            "t_SPCM_exposure"
-        ]
-
-        setattr_variables(self.experiment)
 
         # devices without nicknames. core should come first
         devices_no_alias = ["core",
