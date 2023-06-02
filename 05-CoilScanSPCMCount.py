@@ -240,3 +240,4 @@ class CoilScanSPCMCount(EnvExperiment):
     @rpc(flags={"async"})
     def file_write(self, data):
         self.csvwriter.writerow(data)
+
