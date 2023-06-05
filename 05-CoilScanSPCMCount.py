@@ -173,13 +173,18 @@ class CoilScanSPCMCount(EnvExperiment):
 
                         # self.core.break_realtime()
 
-                        if (step % self.AOM_feedback_period_cycles) == 0:
-                            print("running feedback")
-                            self.core.break_realtime()
-                            self.AOMservo.run()
-                            delay(10*ms)
+                        if self.enable_laser_feedback:
+                            if (step % self.AOM_feedback_period_cycles) == 0:
+                                print("running feedback")
+                                self.core.break_realtime()
+                                self.AOMservo.run()
+                                delay(10 * ms)
+
+
+
 
                         # do the experiment sequence
+                        delay(10 * ms)
 
                         # update coil values
                         coil_volts = [Vz_bottom,
