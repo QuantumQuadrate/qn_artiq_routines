@@ -8,6 +8,7 @@ Change Sat1s to change the sensitivity: 10**3 with dt=1s gives 5V signal on the 
 
 from artiq.experiment import *
 from datetime import datetime as dt
+import math
 import csv
 
 #### Connect the SPCM to ttl0. This code counts and prints the number of photons received per exptime=50ms, for example.
@@ -47,6 +48,7 @@ class SPCMCount(EnvExperiment):
         self.setattr_argument("dt_exposure", NumberValue(300*ms))  # saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
         self.setattr_argument("sat1s", NumberValue(1*10**5), "# of counts giving 5V output. do not set above 10**7") # saturation limit in counts/dt.
         self.setattr_argument("print_count_rate", BooleanValue(True))
+        self.setattr_argument("Calculate_average_rate", BooleanValue(True))
         self.setattr_argument("record_counts", BooleanValue(True),"Record counts")
         self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),
                               "Record counts")
@@ -86,6 +88,9 @@ class SPCMCount(EnvExperiment):
         Satdt = self.sat1s * self.dt_exposure  # saturation limit in counts/dt.
         delay(1000 * ms)
 
+        CountList = [0.0] * self.n_steps
+        # self.core.break_realtime()
+
         for x in range(self.n_steps):
             tend1 = self.ttl0.gate_rising(self.dt_exposure)
             count1 = self.ttl0.count(tend1)
@@ -104,8 +109,22 @@ class SPCMCount(EnvExperiment):
                                  self.sampler_buffer[7]])
             delay(10 * ms)
 
+            if self.Calculate_average_rate:
+                CountList[x] = round(count1/self.dt_exposure) + 0.0
+
         self.zotino0.write_dac(ch, 0.0)
         self.zotino0.load()
+
+        if self.Calculate_average_rate:
+            ### Calculate the sum:
+            CountSum = 0.0
+            for cc in CountList:
+                CountSum += cc
+
+            ### Calculate the average
+            AveCount = CountSum / len(CountList)
+            print("Average count = ", AveCount, "Hz")
+
 
         print("code done!")
 
