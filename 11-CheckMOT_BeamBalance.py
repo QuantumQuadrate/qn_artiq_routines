@@ -19,6 +19,11 @@ class CheckMOTBallance(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        self.setattr_argument("n_steps",
+                              NumberValue(100, type='int', ndecimals=0, scale=1, step=1))
+
+        self.setattr_argument("LoopDelay", NumberValue(10 * s)," how often to run the loop in (s)")
+
         self.setattr_argument("datadir", StringValue('C:\\Users\\QC\\OneDrive - UW-Madison\\Pictures\\'
                                                      'Andor Luca images\\'), "Record counts")
 
@@ -50,11 +55,13 @@ class CheckMOTBallance(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
-        self.file_setup(rowheaders=['cooling_volts'])
+        self.file_setup(rowheaders=['cooling_volts', 'TA_volts'])
 
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
         self.dds_cooling_SP.sw.on()
+        self.dds_MOT_RP.sw.off()
+
         delay(1000 * ms)
 
         ### not working!
@@ -71,11 +78,11 @@ class CheckMOTBallance(EnvExperiment):
         #     delay(500 * ms)
 
 
-        for j in range(3):
+        for j in range(self.n_steps):
             print("Loop #: ", j)
 
             self.sampler0.sample(self.sampler_buffer)  # check cooling laser power
-            self.file_write([self.sampler_buffer[7]])
+            self.file_write([self.sampler_buffer[7], self.sampler_buffer[0]])
             delay(10 * ms)
 
             ### Dark image
@@ -129,205 +136,9 @@ class CheckMOTBallance(EnvExperiment):
 
             ### Wait several seconds (e.g. 10s) for the next loop
             time3 = now_mu()
-            tdelay = 2 * s
-            tdelay_mu = self.core.seconds_to_mu(tdelay)
-            delay(tdelay)  # moves the cursor into the future
-            self.core.wait_until_mu(time3 + tdelay_mu)
+            LoopDelay_mu = self.core.seconds_to_mu(self.LoopDelay)
+            delay(self.LoopDelay)
+            self.core.wait_until_mu(time3 + LoopDelay_mu)
             delay(10 * ms)
-
-
-
-
-
-
-
-        # for x in range(1000):
-        #
-        #     ### trigger for Andor_Luca camera.
-        #     self.zotino0.write_dac(6, 4.0)
-        #     self.zotino0.load()
-        #     delay(5 * ms)
-        #     self.zotino0.write_dac(6, 0.0)
-        #     self.zotino0.load()
-        #
-        #     ### time to wait for camera to take the image
-        #     time2 = now_mu()
-        #     tdelay = 50 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time2 + tdelay_mu)
-        #     delay(1 * ms)
-        #
-        #     ### Turn on AOM_A1
-        #     self.dds_AOM_A1.sw.on()
-        #
-        #     ### Delay 100ms
-        #     ### this is necessary to have the triggering signal after a certain delay. Otherwise, we do not get a trig signal.
-        #     time1 = now_mu()
-        #     tdelay = 100 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time1 + tdelay_mu)  # wait for the cursor to get there
-        #     delay(1 * ms)
-        #
-        #     ### trigger for Andor_Luca camera.
-        #     self.zotino0.write_dac(6, 4.0)
-        #     self.zotino0.load()
-        #     delay(5 * ms)
-        #     self.zotino0.write_dac(6, 0.0)
-        #     self.zotino0.load()
-        #
-        #     ### time to wait for camera to take the image
-        #     time2 = now_mu()
-        #     tdelay = 50 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time2 + tdelay_mu)
-        #     delay(1 * ms)
-        #
-        #     ### Turn off AOM_A1
-        #     self.dds_AOM_A1.sw.off()
-        #
-        #     delay(10 * ms)
-        #     ###############################################################################
-        #
-        #     ### Turn on AOM_A2
-        #     self.dds_AOM_A2.sw.on()
-        #
-        #     ### Delay 100ms
-        #     ### this is necessary to have the triggering signal after a certain delay. Otherwise, we do not get a trig signal.
-        #     time1 = now_mu()
-        #     tdelay = 100 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time1 + tdelay_mu)  # wait for the cursor to get there
-        #     delay(1 * ms)
-        #
-        #     ### trigger for Andor_Luca camera.
-        #     self.zotino0.write_dac(6, 4.0)
-        #     self.zotino0.load()
-        #     delay(5 * ms)
-        #     self.zotino0.write_dac(6, 0.0)
-        #     self.zotino0.load()
-        #
-        #     ### time to wait for camera to take the image
-        #     time2 = now_mu()
-        #     tdelay = 50 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time2 + tdelay_mu)
-        #     delay(1 * ms)
-        #
-        #     ### Turn off AOM_A2
-        #     self.dds_AOM_A2.sw.off()
-        #
-        #     delay(10 * ms)
-        #     ###############################################################################
-        #
-        #     ### Turn on AOM_A3
-        #     self.dds_AOM_A3.sw.on()
-        #
-        #     ### Delay 100ms
-        #     ### this is necessary to have the triggering signal after a certain delay. Otherwise, we do not get a trig signal.
-        #     time1 = now_mu()
-        #     tdelay = 100 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time1 + tdelay_mu)  # wait for the cursor to get there
-        #     delay(1 * ms)
-        #
-        #     ### trigger for Andor_Luca camera.
-        #     self.zotino0.write_dac(6, 4.0)
-        #     self.zotino0.load()
-        #     delay(5 * ms)
-        #     self.zotino0.write_dac(6, 0.0)
-        #     self.zotino0.load()
-        #
-        #     ### time to wait for camera to take the image
-        #     time2 = now_mu()
-        #     tdelay = 50 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time2 + tdelay_mu)
-        #     delay(1 * ms)
-        #
-        #     ### Turn off AOM_A3
-        #     self.dds_AOM_A3.sw.off()
-        #
-        #     delay(10 * ms)
-        #     ###############################################################################
-        #
-        #     ### Turn on AOM_A4
-        #     self.dds_AOM_A4.sw.on()
-        #
-        #     ### Delay 100ms
-        #     ### this is necessary to have the triggering signal after a certain delay. Otherwise, we do not get a trig signal.
-        #     time1 = now_mu()
-        #     tdelay = 100 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time1 + tdelay_mu)  # wait for the cursor to get there
-        #     delay(1 * ms)
-        #
-        #     ### trigger for Andor_Luca camera.
-        #     self.zotino0.write_dac(6, 4.0)
-        #     self.zotino0.load()
-        #     delay(5 * ms)
-        #     self.zotino0.write_dac(6, 0.0)
-        #     self.zotino0.load()
-        #
-        #     ### time to wait for camera to take the image
-        #     time2 = now_mu()
-        #     tdelay = 50 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time2 + tdelay_mu)
-        #     delay(1 * ms)
-        #
-        #     ### Turn off AOM_A4
-        #     self.dds_AOM_A4.sw.off()
-        #
-        #     delay(10 * ms)
-        #     ###############################################################################
-        #
-        #     ### Turn on AOM_A6
-        #     self.dds_AOM_A6.sw.on()
-        #
-        #     ### Delay 100ms
-        #     ### this is necessary to have the triggering signal after a certain delay. Otherwise, we do not get a trig signal.
-        #     time1 = now_mu()
-        #     tdelay = 100 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time1 + tdelay_mu)  # wait for the cursor to get there
-        #     delay(1 * ms)
-        #
-        #     ### trigger for Andor_Luca camera.
-        #     self.zotino0.write_dac(6, 4.0)
-        #     self.zotino0.load()
-        #     delay(5 * ms)
-        #     self.zotino0.write_dac(6, 0.0)
-        #     self.zotino0.load()
-        #
-        #     ### time to wait for camera to take the image
-        #     time2 = now_mu()
-        #     tdelay = 50 * ms
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time2 + tdelay_mu)
-        #     delay(1 * ms)
-        #
-        #     ### Turn off AOM_A6
-        #     self.dds_AOM_A6.sw.off()
-        #     ###############################################################################
-        #
-        #     time3 = now_mu()
-        #     tdelay = 10 * s
-        #     tdelay_mu = self.core.seconds_to_mu(tdelay)
-        #     delay(tdelay)  # moves the cursor into the future
-        #     self.core.wait_until_mu(time3 + tdelay_mu)
-        #     delay(10 * ms)
-
-
 
         print("*****************************  ALL DONE  *****************************")

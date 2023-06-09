@@ -2,12 +2,14 @@ from artiq.experiment import *
 # import pandas as pd
 # import time
 
-class Card_Tests(EnvExperiment):
 
+class Card_Tests(EnvExperiment):
 # ### Testing TTLs:
 #     def build(self):
 #         self.setattr_device("core")
 #         self.setattr_device("ttl4")
+#         ### slef.setattr_device() is a built-in method in artiq that declares and configures a device such as core
+#         ### and ttl4. These devices can be accessed like self.ttl4. //Akbar
 #
 #     @kernel
 #     def run(self):
@@ -131,6 +133,7 @@ class Card_Tests(EnvExperiment):
         delay(10 * ms)
 
         print("code done!")
+
 
 
 

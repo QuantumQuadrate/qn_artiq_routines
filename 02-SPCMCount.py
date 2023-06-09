@@ -52,7 +52,7 @@ class SPCMCount(EnvExperiment):
         self.setattr_argument("record_counts", BooleanValue(True),"Record counts")
         self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),
                               "Record counts")
-        self.setattr_argument("datafile", StringValue('coil_scan.csv'), "Record counts")
+        self.setattr_argument("datafile", StringValue('SPCMCounts.csv'), "Record counts")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True), "Record counts")
 
     def prepare(self):
@@ -139,6 +139,7 @@ class SPCMCount(EnvExperiment):
     @rpc(flags={"async"})
     def file_write(self, data):
         self.csvwriter.writerow(data)
+        self.file_obj.flush()
 
 
 
