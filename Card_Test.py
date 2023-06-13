@@ -18,7 +18,7 @@ class Card_Tests(EnvExperiment):
 #
 #         delay(1 * us)
 #
-#         for x in range(500):
+#         for x in range(50):
 #             self.ttl4.pulse(10*ms)
 #             delay(10*ms)
 #
@@ -76,63 +76,63 @@ class Card_Tests(EnvExperiment):
 
 
 
-# #### Testing Sampler:
-#     def build(self):
-#        self.setattr_device("core")
-#        self.setattr_device("sampler2")
-#
-#     @kernel
-#     def run(self):
-#        self.core.reset()
-#        self.core.break_realtime()
-#        self.sampler2.init()
-#
-#        for i in range(8):  # loops for each sampler channel
-#            self.sampler2.set_gain_mu(i, 0)  # sets each channel's gain to 0db
-#            delay(100 * us)  # 100us delay
-#
-#        n_channels = 8
+#### Testing Sampler:
+    def build(self):
+       self.setattr_device("core")
+       self.setattr_device("sampler0")
+
+    @kernel
+    def run(self):
+       self.core.reset()
+       self.core.break_realtime()
+       self.sampler0.init()
+
+       for i in range(8):  # loops for each sampler channel
+           self.sampler0.set_gain_mu(i, 0)  # sets each channel's gain to 0db
+           delay(100 * us)  # 100us delay
+
+       n_channels = 8
+
+       delay(10 * ms)
+
+       smp = [0.0] * n_channels
+
+       self.sampler0.sample(smp)  # runs sampler and saves to list
+
+       for i in range(len(smp)):  # loops over list of samples
+           print("ch",i,":",smp[i])
+           delay(100*ms)
 #
 #        delay(10 * ms)
 #
-#        smp = [0.0] * n_channels
-#
-#        self.sampler2.sample(smp)  # runs sampler and saves to list
-#
-#        for i in range(len(smp)):  # loops over list of samples
-#            print("ch",i,":",smp[i])
-#            delay(100*ms)
-# #
-# #        delay(10 * ms)
-# #
-# #        print("code done!")
+#        print("code done!")
 
 
 
 
 #### Sending a series of triggering signals to the Thorcam. Since the TTL signal is too fast,
 #### we are using zotino
-    def build(self):
-        self.setattr_device("core")
-        self.setattr_device("zotino0")
-
-    @kernel
-    def run(self):
-        self.core.reset()
-        self.core.break_realtime()
-        self.zotino0.init()
-        delay(10 * ms)
-
-        self.zotino0.write_dac(6, 4.0)
-        self.zotino0.load()
-        delay(5 * ms)
-        self.zotino0.write_dac(6, 0.0)
-        self.zotino0.load()
-
-
-        delay(10 * ms)
-
-        print("code done!")
+    # def build(self):
+    #     self.setattr_device("core")
+    #     self.setattr_device("zotino0")
+    #
+    # @kernel
+    # def run(self):
+    #     self.core.reset()
+    #     self.core.break_realtime()
+    #     self.zotino0.init()
+    #     delay(10 * ms)
+    #
+    #     self.zotino0.write_dac(6, 4.0)
+    #     self.zotino0.load()
+    #     delay(5 * ms)
+    #     self.zotino0.write_dac(6, 0.0)
+    #     self.zotino0.load()
+    #
+    #
+    #     delay(10 * ms)
+    #
+    #     print("code done!")
 
 
 

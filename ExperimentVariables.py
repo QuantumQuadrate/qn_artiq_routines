@@ -140,7 +140,7 @@ class ExperimentVariables(EnvExperiment):
                      "Setpoints"),
 
             # Booleans
-            Variable("enable_laser_feedback", False, BooleanValue, {}, "Enable/disable")
+            # Variable("enable_laser_feedback", False, BooleanValue, {}, "Enable/disable")
 
             # File saving # todo: move away from saving csv files and save instead to the experiment's hdf
         ]
