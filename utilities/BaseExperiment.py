@@ -31,8 +31,8 @@ class MyExp(EnvExperiment):
 """
 from artiq.experiment import *
 from subroutines.stabilizer import AOMPowerStabilizer
-from ExperimentVariables import setattr_variables
-from DeviceAliases import DeviceAliases
+from utilities.ExperimentVariables import setattr_variables
+from utilities.DeviceAliases import DeviceAliases
 
 
 def dB_to_V(dB: float) -> float:
