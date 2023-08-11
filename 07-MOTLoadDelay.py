@@ -6,10 +6,8 @@ Could be extended to measure the MOT loading rate.
 """
 
 from artiq.experiment import *
-import math
-import numpy as np
 
-from BaseExperiment import BaseExperiment
+from utilities.BaseExperiment import BaseExperiment
 
 
 class MOT_Load_Time(EnvExperiment):

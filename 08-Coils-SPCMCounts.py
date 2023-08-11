@@ -3,10 +3,8 @@ First turn on the AOMs with the AOMs-coils code, then run this code to change th
 see SPCM counts to put the MOT at the right location.
 """
 from artiq.experiment import *
-import math
-import numpy as np
 from subroutines.stabilizer import AOMPowerStabilizer
-from ExperimentVariables import setattr_variables
+from qn_artiq_routines.utilities.ExperimentVariables import setattr_variables
 
 
 class CoilsSPCMCounts(EnvExperiment):
