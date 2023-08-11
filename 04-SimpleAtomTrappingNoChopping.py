@@ -160,8 +160,8 @@ class SimpleAtomTrapNoChop(EnvExperiment):
 
             # change AOMs to "imaging" settings
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
-            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
-            delay(10 * ms)
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+            delay(1000 * ms)
 
             # # take the shot
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
@@ -179,7 +179,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             # self.dds_AOM_A4.sw.off()
             # self.dds_AOM_A5.sw.off()
             self.dds_FORT.sw.off()  # FORT AOM off
-            # self.dds_AOM_A3.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            self.dds_AOM_A3.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
             #                      channels=self.coil_channels)
 

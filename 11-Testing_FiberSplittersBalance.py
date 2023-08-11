@@ -34,6 +34,11 @@ class Test_FiberSplitters(EnvExperiment):
         self.datafile = self.datadir + self.t_experiment_run + '_' + self.datafile
         self.sampler_buffer = [0.0] * 8
 
+        n_channels = 8
+        self.smp = np.zeros(n_channels, dtype=float)
+        self.avg = np.zeros(n_channels, dtype=float)
+
+
 
     @rpc(flags={"async"})
     def file_setup(self, rowheaders=[]):
@@ -53,21 +58,37 @@ class Test_FiberSplitters(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
-        self.file_setup(rowheaders=['P1_1perc_Tap', 'P2_99perc_Tap', 'P3_InTBox'])
+        self.file_setup(rowheaders=['P0', 'P1', 'P2', 'P3', 'P4'])
 
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
         self.dds_cooling_SP.sw.on()
         self.dds_MOT_RP.sw.off()
 
-        delay(1000 * ms)
+        delay(10 * ms)
+
+        n_channels = 8
+        iters = 50
+
+        self.core.break_realtime()
 
         for j in range(self.n_steps):
             print("Loop #: ", j)
 
-            self.sampler0.sample(self.sampler_buffer)
-            self.file_write([self.sampler_buffer[7], self.sampler_buffer[0], self.sampler_buffer[1]])
+            ## Sampler reading with averaging:
+            for i in range(n_channels):
+                self.smp[i] = 0.0
+                self.avg[i] = 0.0
+
+            for i in range(iters):
+                self.sampler0.sample(self.smp)  # runs sampler and saves to list
+                self.avg += self.smp
+                delay(1 * ms)
+            self.avg /= iters
+
             delay(10 * ms)
+
+            self.file_write([self.avg[0], self.avg[1], self.avg[2], self.avg[3], self.avg[4]])
 
             ### Wait several seconds (e.g. 10s) for the next loop
             time3 = now_mu()
@@ -75,5 +96,24 @@ class Test_FiberSplitters(EnvExperiment):
             delay(self.LoopDelay)
             self.core.wait_until_mu(time3 + LoopDelay_mu)
             delay(10 * ms)
+
+            self.core.reset()
+            delay(10 * ms)
+
+
+        ### The loop for Sampler reading without averaging:
+        # for j in range(self.n_steps):
+        #     print("Loop #: ", j)
+        #
+        #     self.sampler0.sample(self.sampler_buffer)
+        #     self.file_write([self.sampler_buffer[0], self.sampler_buffer[1], self.sampler_buffer[2], self.sampler_buffer[3]])
+        #     delay(10 * ms)
+        #
+        #     ### Wait several seconds (e.g. 10s) for the next loop
+        #     time3 = now_mu()
+        #     LoopDelay_mu = self.core.seconds_to_mu(self.LoopDelay)
+        #     delay(self.LoopDelay)
+        #     self.core.wait_until_mu(time3 + LoopDelay_mu)
+        #     delay(10 * ms)
 
         print("*****************************  ALL DONE  *****************************")

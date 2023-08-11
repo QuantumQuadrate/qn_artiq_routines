@@ -142,7 +142,9 @@ class BaseExperiment:
         # todo: eventually read conversion functions such as this from a config file
         def volts_to_optical_mW(x: TFloat) -> TFloat:
             """
-            the conversion of PD voltage to cooling light power at the switchyard MOT 1 path
+            the conversion of photodetector voltage to power at switchyard in mW
+
+            TTI detector is connected to 1:99 splitter with G=10, TR=1.4K
             """
             x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
             # the multimeter that I used for the fit reads

@@ -1,4 +1,5 @@
 from artiq.experiment import *
+import numpy as np
 # import pandas as pd
 # import time
 
@@ -76,36 +77,73 @@ class Card_Tests(EnvExperiment):
 
 
 
-#### Testing Sampler:
-    def build(self):
-       self.setattr_device("core")
-       self.setattr_device("sampler0")
-
-    @kernel
-    def run(self):
-       self.core.reset()
-       self.core.break_realtime()
-       self.sampler0.init()
-
-       for i in range(8):  # loops for each sampler channel
-           self.sampler0.set_gain_mu(i, 0)  # sets each channel's gain to 0db
-           delay(100 * us)  # 100us delay
-
-       n_channels = 8
-
-       delay(10 * ms)
-
-       smp = [0.0] * n_channels
-
-       self.sampler0.sample(smp)  # runs sampler and saves to list
-
-       for i in range(len(smp)):  # loops over list of samples
-           print("ch",i,":",smp[i])
-           delay(100*ms)
+# #### Testing Sampler:
+#     def build(self):
+#        self.setattr_device("core")
+#        self.setattr_device("sampler0")
+#
+#     @kernel
+#     def run(self):
+#        self.core.reset()
+#        self.core.break_realtime()
+#        self.sampler0.init()
+#
+#        for i in range(8):  # loops for each sampler channel
+#            self.sampler0.set_gain_mu(i, 0)  # sets each channel's gain to 0db
+#            delay(100 * us)  # 100us delay
+#
+#        n_channels = 8
 #
 #        delay(10 * ms)
 #
-#        print("code done!")
+#        smp = [0.0] * n_channels
+#
+#        self.sampler0.sample(smp)  # runs sampler and saves to list
+#
+#        for i in range(len(smp)):  # loops over list of samples
+#            print("ch",i,":",smp[i])
+#            delay(100*ms)
+# #
+# #        delay(10 * ms)
+# #
+# #        print("code done!")
+
+
+
+
+
+
+#### reading Sampler - with averaging:
+    def build(self):
+        self.setattr_device("core")
+        self.setattr_device("sampler0")
+
+    def prepare(self):
+        n_channels = 8
+        self.smp = np.zeros(n_channels, dtype=float)
+        self.avg = np.zeros(n_channels, dtype=float)
+
+    @kernel
+    def run(self):
+        self.core.reset()
+        self.core.break_realtime()
+        self.sampler0.init()
+
+        for i in range(8):  # loops for each sampler channel
+           self.sampler0.set_gain_mu(i, 0)  # sets each channel's gain to 0db
+           delay(100 * us)  # 100us delay
+
+        iters = 100
+
+        for i in range(iters):
+            self.sampler0.sample(self.smp)  # runs sampler and saves to list
+            self.avg += self.smp
+            delay(0.1*ms)
+        self.avg /= iters
+
+        print("sampler0 channel-wise average")
+        print(self.avg)
+
 
 
 

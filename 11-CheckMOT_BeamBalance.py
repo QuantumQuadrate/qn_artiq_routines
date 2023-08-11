@@ -27,14 +27,17 @@ class CheckMOTBallance(EnvExperiment):
         self.setattr_argument("datadir", StringValue('C:\\Users\\QC\\OneDrive - UW-Madison\\Pictures\\'
                                                      'Andor Luca images\\'), "Record counts")
 
-        self.setattr_argument("datafile", StringValue('LaserPower.csv'), "Record counts")
+        self.setattr_argument("datafile", StringValue('LaserPowers.csv'), "Record counts")
 
 
     def prepare(self):
         self.base.prepare()
-        self.ddsList = [self.dds_AOM_A1, self.dds_AOM_A2, self.dds_AOM_A3, self.dds_AOM_A4, self.dds_AOM_A6]
+        self.ddsList = [self.dds_AOM_A1, self.dds_AOM_A2, self.dds_AOM_A3, self.dds_AOM_A4]
         self.datafile = self.datadir + self.datafile
-        self.sampler_buffer = [0.0] * 8
+
+        n_channels = 8
+        self.smp = np.zeros(n_channels, dtype=float)
+        self.avg = np.zeros(n_channels, dtype=float)
 
 
     @rpc(flags={"async"})
@@ -55,12 +58,13 @@ class CheckMOTBallance(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
-        self.file_setup(rowheaders=['cooling_volts', 'TA_volts'])
+        self.file_setup(rowheaders=['cooling_1percent', 'cooling_99percent', '6th_MOT'])
 
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
         self.dds_cooling_SP.sw.on()
         self.dds_MOT_RP.sw.off()
+        self.dds_AOM_A5.sw.off()
 
         delay(1000 * ms)
 
@@ -77,12 +81,40 @@ class CheckMOTBallance(EnvExperiment):
         #     self.ddsList[i].sw.on()
         #     delay(500 * ms)
 
-
+        n_channels = 8
+        iters = 50
         for j in range(self.n_steps):
             print("Loop #: ", j)
+            delay(10 * ms)
 
-            self.sampler0.sample(self.sampler_buffer)  # check cooling laser power
-            self.file_write([self.sampler_buffer[7], self.sampler_buffer[0]])
+            self.dds_AOM_A6.sw.on()
+            delay(10 * ms)
+
+            ### Sampler reading with averaging:
+            for i in range(n_channels):
+                self.smp[i] = 0.0
+                self.avg[i] = 0.0
+
+            for i in range(iters):
+                self.sampler0.sample(self.smp)  # runs sampler and saves to list
+                self.avg += self.smp
+                delay(1 * ms)
+            self.avg /= iters
+
+            delay(1*ms)
+
+            self.file_write([self.avg[7], self.avg[0], self.avg[1]])
+
+
+
+            # ### Sampler reading without averaging:
+            # smp = [0.0] * n_channels
+            # self.sampler0.sample(smp)  # runs sampler and saves to list
+            # self.file_write([smp[7], smp[0], smp[1]])
+
+            delay(10 * ms)
+
+            self.dds_AOM_A6.sw.off()
             delay(10 * ms)
 
             ### Dark image
@@ -95,13 +127,13 @@ class CheckMOTBallance(EnvExperiment):
 
             ### time to wait for camera to take the image
             time2 = now_mu()
-            tdelay = 50 * ms
+            tdelay = 100 * ms
             tdelay_mu = self.core.seconds_to_mu(tdelay)
             delay(tdelay)  # moves the cursor into the future
             self.core.wait_until_mu(time2 + tdelay_mu)
-            delay(1 * ms)
+            delay(10 * ms)
 
-            for i in range(5):
+            for i in range(4):
                 ### Turn on ith fiber AOM
                 self.ddsList[i].sw.on()
 
@@ -123,7 +155,7 @@ class CheckMOTBallance(EnvExperiment):
 
                 ### time to wait for camera to take the image
                 time2 = now_mu()
-                tdelay = 50 * ms
+                tdelay = 100 * ms
                 tdelay_mu = self.core.seconds_to_mu(tdelay)
                 delay(tdelay)  # moves the cursor into the future
                 self.core.wait_until_mu(time2 + tdelay_mu)
