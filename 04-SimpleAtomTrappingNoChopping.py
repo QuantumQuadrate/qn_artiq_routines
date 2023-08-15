@@ -21,12 +21,10 @@ End of experiment
 
 from artiq.experiment import *
 import csv
-import math # for math
 import numpy as np
 from datetime import datetime as dt
-import matplotlib.pyplot as plt
 
-from BaseExperiment import BaseExperiment
+from utilities.BaseExperiment import BaseExperiment
 
 
 class SimpleAtomTrapNoChop(EnvExperiment):

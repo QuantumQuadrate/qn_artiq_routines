@@ -6,11 +6,8 @@ This particular code outputs a trigger to a camera, but the camera setup (spooli
 and image processing are done elsewhere for now.
 """
 from artiq.experiment import *
-import math
-import numpy as np
-from subroutines.stabilizer import AOMPowerStabilizer
 
-from BaseExperiment import BaseExperiment
+from utilities.BaseExperiment import BaseExperiment
 
 class MOTTemperature(EnvExperiment):
 

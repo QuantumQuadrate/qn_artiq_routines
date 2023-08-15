@@ -4,7 +4,7 @@ Chop the cooling double pass AOM. Can be used for measuring detector response.
 
 from artiq.experiment import *
 
-from BaseExperiment import BaseExperiment
+from utilities.BaseExperiment import BaseExperiment
 
 
 class CoolingPulseChain(EnvExperiment):

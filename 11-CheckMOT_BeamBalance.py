@@ -5,13 +5,10 @@ coupling into a fiber. The goal is to analyze the images to see how much each th
 over seconds, minutes, and hours.
 """
 from artiq.experiment import *
-import math
 import numpy as np
 import csv
-from subroutines.stabilizer import AOMPowerStabilizer
-import DeviceAliases
 
-from BaseExperiment import BaseExperiment
+from utilities.BaseExperiment import BaseExperiment
 
 class CheckMOTBallance(EnvExperiment):
 

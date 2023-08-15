@@ -3,14 +3,11 @@ This code simply records the voltage of three Sampler channels corresponding to 
 after a couple of fiber-splitters.
 """
 from artiq.experiment import *
-import math
 import numpy as np
 import csv
 from datetime import datetime as dt
-from subroutines.stabilizer import AOMPowerStabilizer
-import DeviceAliases
 
-from BaseExperiment import BaseExperiment
+from utilities.BaseExperiment import BaseExperiment
 
 class Test_FiberSplitters(EnvExperiment):
 
