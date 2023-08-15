@@ -14,3 +14,4 @@ examples/old_experiments/__pycache__/*
 subroutines/__pycache__/*
 */*/__pycache__/*
 */__pycache__/*
+./**/*.pyc
