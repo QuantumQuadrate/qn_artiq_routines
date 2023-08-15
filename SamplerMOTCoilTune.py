@@ -28,6 +28,7 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.setattr_argument("MOT_AOMs_on", BooleanValue(True))
         self.setattr_argument("update_coil_volts_at_finish", BooleanValue(False))
         self.setattr_argument("run_time_minutes", NumberValue(1))
+        self.setattr_argument("coil_volts_multiplier", NumberValue(1)) # scales the value read by the Sampler
 
         group = "SPCM settings"
          # exposure time of the SPCM
@@ -118,7 +119,7 @@ class SamplerMOTCoilTune(EnvExperiment):
             delay(1 * ms)
 
             self.sampler1.sample(self.sampler_buffer)
-            control_volts = [self.sampler_buffer[ch] for ch in self.control_volts_channels]
+            control_volts = [self.sampler_buffer[ch]*self.coil_volts_multiplier for ch in self.control_volts_channels]
 
             delay(1*ms)
 
