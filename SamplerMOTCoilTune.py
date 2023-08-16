@@ -1,7 +1,9 @@
 """
-This code scans the coils to find the optimum coil parameters that put the MOT at the focus of the
-parabolic mirror. It saves the photon counts in a file.
-
+This code allows for tuning the coils with the homemade potentiometer box
+by reading its output into the Sampler and outputting a voltage
+from a corresponding Zotino channel. In this way the MOT can be optimized
+manually and then the ARTIQ variables for the coil voltages can be updated
+automatically. 
 """
 
 from artiq.experiment import *
