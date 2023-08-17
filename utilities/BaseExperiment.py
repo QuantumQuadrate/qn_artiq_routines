@@ -139,8 +139,8 @@ class BaseExperiment:
         self.experiment.AOM_A5_ampl = dB_to_V(self.experiment.AOM_A5_power)
         self.experiment.AOM_A6_ampl = dB_to_V(self.experiment.AOM_A6_power)
 
-        # todo: eventually read conversion functions such as this from a config file
-        def volts_to_optical_mW(x: TFloat) -> TFloat:
+        # todo: need to update the function for the I2V PD0 detector
+        def PD0_volts_to_optical_mW(x: TFloat) -> TFloat:
             """
             the conversion of photodetector voltage to power at switchyard in mW
 
@@ -150,15 +150,18 @@ class BaseExperiment:
             # the multimeter that I used for the fit reads
             return -0.195395 + 17.9214 * x
 
+        # todo: add the
         self.experiment.AOMservo = AOMPowerStabilizer(experiment=self.experiment,
                                         dds_names=["dds_cooling_DP"],
                                         sampler_name="sampler0",
                                         sampler_channels=[7],
-                                        transfer_functions=[volts_to_optical_mW],
+                                        transfer_functions=[PD0_volts_to_optical_mW],
                                         setpoints=[self.experiment.cooling_setpoint_mW],  # in mW
                                         proportionals=[0.07],
-                                        iters=5,  # if > x you'll underflow the rtio counter
+                                        iters=5,  # if > some value, you'll underflow the rtio counter
                                         t_meas_delay=20 * ms)
+
+        # todo add a servo for the chip-based AOMs
 
         print("base prepare - done")
 
