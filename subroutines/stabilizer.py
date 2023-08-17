@@ -35,11 +35,12 @@ fine.
 from artiq.experiment import *
 import math
 
-# todo: an ideal workflow would be to define the groups of dds channels, sampler channels,
-#  and transfer functions in a cfg file.
+# the dds channels for on-chip beams. these have to be fed-back to sequentially
+dds_list_on_chip = ['dds_AOM_A1','dds_AOM_A2','dds_AOM_A3','dds_AOM_A4']#,
+                   # 'dds_excitation_AL','dds_excitation_AR','dds_OP_AL','dds_OP_AR']
 
-# group dds channels and feedback params by sampler card
-laser_stabilizer_dict = {
+# group all dds channels and feedback params by sampler card
+stabilizer_dict = {
     'sampler0':
         {
             'dds_cooling_PD':
@@ -114,8 +115,7 @@ class FeedbackChannel:
     @kernel
     def get_dds_settings(self):
         """ get the frequency and amplitude """
-        pass
-        #self.frequencies[i], _, self.amplitudes[i] = self.dds_list[i].get()
+        self.frequency, _, self.amplitudes = self.dds_obj.get()
 
 
 class AOMPowerStabilizer:
@@ -139,7 +139,7 @@ class AOMPowerStabilizer:
         self.n_iterations = iters # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.t_meas_delay = t_meas_delay
-        # self.sample_buffer = [0.0] * 8
+        self.sample_buffer = [0.0] * 8 # can reuse this for each sampler
 
         # bookkeeping - may not need this after switching to feedback ch objects
         self.n_channels = len(self.dds_names)
@@ -172,28 +172,44 @@ class AOMPowerStabilizer:
         #     self.dds_list.append(getattr(self.exp, self.dds_names[i]))
         # self.sampler = getattr(self.exp, self.sampler_name)
 
-        # new code here:
-        sampler_dict = {}
+        # create a dictionary of samplers and feedback objects with a structure
+        # similar to stabilizer_dict
+        self.channel_sampler_list = []
 
-        for sampler_name in laser_stabilizer_dict:
+        for i,sampler_name in enumerate(stabilizer_dict):
+
+            # the dds channel names associated with this sampler
+            feedback_channels = stabilizer_dict[sampler_name]
+
             # check if any of the dds names is associated with this sampler
-            if True in [dds in sampler_name.keys() for dds in dds_names]:
-                sampler_dict[sampler] = getattr(self.exp, sampler)
-                for dds in sampler_name.keys():
-                    if 
-            if dds
+            if True in [dds_name in feedback_channels.keys() for dds_name in dds_names]:
+                self.channel_sampler_list[i] = {'sampler': getattr(self.exp, sampler_name),
+                                    'channels': []}
 
+                # loop over the dds channels associated with this sampler
+                for dds_name in feedback_channels.keys():
 
+                    # create a feedback object for dds channels we want to feed back to
+                    if dds_name in dds_names:
+                        self.channel_sampler_list[i]['channels'].append(
+                            FeedbackChannel(name=dds_name,
+                                            dds_obj=getattr(self.exp, dds_name),
+                                            sampler_ch=feedback_channels[dds_name]['sampler_ch'],
+                                            setpoint=feedback_channels[dds_name]['setpoint'],
+                                            p=feedback_channels[dds_name]['p'])
+                        )
 
-    # todo: deprecate. use method in wrapper class instead
-    @kernel
-    def get_dds_settings(self):
-        """
-        Populates the amplitude and frequency lists
-        :return:
-        """
-        for i in range(self.n_channels):
-            self.frequencies[i], _, self.amplitudes[i] = self.dds_list[i].get()
+        # channel_sampler_list looks like this:
+        # [
+        #   {
+        #   sampler: self.sampler0,
+        #   channels: [FeedbackChannel1, FeedbackChannel12, ...]
+        #   },
+        #   {
+        #   sampler: self.sampler1,
+        #   channels: [FeedbackChannel1, FeedbackChannel12, ...]
+        #   }
+        # ]
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -206,15 +222,21 @@ class AOMPowerStabilizer:
         :return:
         """
 
-        # self.exp.core.break_realtime()
+        # get the frequency and amplitude for every dds channel
+        for sampler_and_channels in self.channel_sampler_list:
+            for ch in sampler_and_channels['channels']:
+                ch.get_dds_settings()
 
-        # start_mu = now_mu()
-
+        # loop over feedback iterations
         for i in range(self.n_iterations):
-            for dds_list in self.sampler_dict:
+            # do feedback for each sampler
+            for sampler_and_channels in self.channel_sampler_list:
+                sampler = sampler_and_channels['sampler'] # the sampler object
+                channels = sampler_and_channels['channels'] # the Feedback channels
+
                 with sequential:
                     sampler.sample(self.sample_buffer)
-
+                        delay(10 * ms)
 
         # # in each iteration, measure the sampler and set the dds amplitude accordingly
         # for i in range(self.n_iterations):
