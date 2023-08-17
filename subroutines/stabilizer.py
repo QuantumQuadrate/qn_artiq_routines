@@ -98,12 +98,30 @@ laser_stabilizer_dict = {
 }
 
 class FeedbackChannel:
+    """
+    class for bundling the parameters which define a DDS feedback channel
+    """
+
+    def __init__(self, name, dds_obj, sampler_ch, setpoint, p):
+        self.name = name
+        self.dds_obj = dds_obj
+        self.sampler_ch = sampler_ch
+        self.setpoint = setpoint
+        self.p = p
+        self.frequency = 100*MHz
+        self.amplitude = 0
+
+    @kernel
+    def get_dds_settings(self):
+        """ get the frequency and amplitude """
+        pass
+        #self.frequencies[i], _, self.amplitudes[i] = self.dds_list[i].get()
 
 
 class AOMPowerStabilizer:
 
-    def __init__(self, experiment,
-                 #dds_names, sampler_name, sampler_channels, transfer_functions,
+    def __init__(self, experiment, dds_names,
+                 #sampler_name, sampler_channels, transfer_functions,
                  #setpoints, proportionals,
                  iters=10, t_meas_delay=10*ms):
         """
@@ -121,9 +139,9 @@ class AOMPowerStabilizer:
         self.n_iterations = iters # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.t_meas_delay = t_meas_delay
-        self.sample_buffer = [0.0] * 8
+        # self.sample_buffer = [0.0] * 8
 
-        # bookkeeping
+        # bookkeeping - may not need this after switching to feedback ch objects
         self.n_channels = len(self.dds_names)
         self.amplitudes = [0.0] * len(self.dds_names)
         self.frequencies = [0.0] * len(self.dds_names)
@@ -143,12 +161,31 @@ class AOMPowerStabilizer:
         # self.p = proportionals # the proportionality coeffs for feedback
         # self.setpoints = setpoints # one for each channel
 
+        # make a list of the channel objs for each sampler card
+        # put each of these lists into a dictionary
+        # in the code, we want to stop and do a separate optimization routine
+        # for the on-chip MOT beams, so we also need to group those channels
 
+        # todo: put the dds reference in the object wrapper
         # get hardware references by name from the parent experiment
-        for i in range(self.n_channels):
-            self.dds_list.append(getattr(self.exp, self.dds_names[i]))
-        self.sampler = getattr(self.exp, self.sampler_name)
+        # for i in range(self.n_channels):
+        #     self.dds_list.append(getattr(self.exp, self.dds_names[i]))
+        # self.sampler = getattr(self.exp, self.sampler_name)
 
+        # new code here:
+        sampler_dict = {}
+
+        for sampler_name in laser_stabilizer_dict:
+            # check if any of the dds names is associated with this sampler
+            if True in [dds in sampler_name.keys() for dds in dds_names]:
+                sampler_dict[sampler] = getattr(self.exp, sampler)
+                for dds in sampler_name.keys():
+                    if 
+            if dds
+
+
+
+    # todo: deprecate. use method in wrapper class instead
     @kernel
     def get_dds_settings(self):
         """
@@ -173,35 +210,42 @@ class AOMPowerStabilizer:
 
         # start_mu = now_mu()
 
-        # in each iteration, measure the sampler and set the dds amplitude accordingly
         for i in range(self.n_iterations):
-            # at_mu(i * self.exp.core.seconds_to_mu(10 * ms) + start_mu)
-            with sequential:
-                self.sampler.sample(self.sample_buffer)
-                delay(10*ms)
-                with parallel:  # update all the dds channels simultaneously
-                    for ch in range(self.n_channels):
+            for dds_list in self.sampler_dict:
+                with sequential:
+                    sampler.sample(self.sample_buffer)
 
-                        measured_power = self.xfer_funcs[ch](self.sample_buffer[self.sampler_channels[ch]])
-                        # self.print(self.sample_buffer[self.sampler_channels[ch]])
-                        # self.print("mW:")
-                        # self.print(measured_power)
-                        err = self.setpoints[ch] - measured_power
-                        ampl = self.amplitudes[ch] + self.p[ch]*err
 
-                        # todo print some warning to alert the user if we couldn't reach the setpt,
-                        if ampl < 0:
-                            self.amplitudes[ch] = 0.0
-                        elif ampl > 0.9:
-                            self.amplitudes[ch] = 0.9
-                        else:  # valid amplitude for DDS
-                            self.amplitudes[ch] = ampl
+        # # in each iteration, measure the sampler and set the dds amplitude accordingly
+        # for i in range(self.n_iterations):
+        #     # at_mu(i * self.exp.core.seconds_to_mu(10 * ms) + start_mu)
+        #     with sequential:
+        #         self.sampler.sample(self.sample_buffer)
+        #         delay(10*ms)
+        #         with parallel:  # update all the dds channels simultaneously
+        #             for ch in range(self.n_channels):
+        #
+        #                 measured_power = self.xfer_funcs[ch](self.sample_buffer[self.sampler_channels[ch]])
+        #                 # self.print(self.sample_buffer[self.sampler_channels[ch]])
+        #                 # self.print("mW:")
+        #                 # self.print(measured_power)
+        #                 err = self.setpoints[ch] - measured_power
+        #                 ampl = self.amplitudes[ch] + self.p[ch]*err
+        #
+        #                 # todo print some warning to alert the user if we couldn't reach the setpt,
+        #                 if ampl < 0:
+        #                     self.amplitudes[ch] = 0.0
+        #                 elif ampl > 0.9:
+        #                     self.amplitudes[ch] = 0.9
+        #                 else:  # valid amplitude for DDS
+        #                     self.amplitudes[ch] = ampl
+        #
+        #                 # update the dds amplitude
+        #                 self.dds_list[ch].set(self.frequencies[ch], amplitude=self.amplitudes[ch])
+        #                 rtio_log(self.dds_names[ch], "i", i)
+        #     delay(self.t_meas_delay)  # the smaller this delay, the more quickly we run into an RTIO underflow error
 
-                        # update the dds amplitude
-                        self.dds_list[ch].set(self.frequencies[ch], amplitude=self.amplitudes[ch])
-                        rtio_log(self.dds_names[ch], "i", i)
-            delay(self.t_meas_delay)  # the smaller this delay, the more quickly we run into an RTIO underflow error
-
+        for
 
 class AOMPowerStabilizerTest(EnvExperiment):
 
