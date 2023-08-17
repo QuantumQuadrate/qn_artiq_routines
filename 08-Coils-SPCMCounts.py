@@ -4,7 +4,7 @@ see SPCM counts to put the MOT at the right location.
 """
 from artiq.experiment import *
 from subroutines.stabilizer import AOMPowerStabilizer
-from qn_artiq_routines.ExperimentVariables import setattr_variables
+from ExperimentVariables import setattr_variables
 
 
 class CoilsSPCMCounts(EnvExperiment):
