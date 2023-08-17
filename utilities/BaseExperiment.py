@@ -150,7 +150,21 @@ class BaseExperiment:
             # the multimeter that I used for the fit reads
             return -0.195395 + 17.9214 * x
 
-        # todo: add the
+        # todo:
+        """
+        A better design is to allow specifying which dds channels we want to stabilize,
+        at the experiment class level instead of hard-coding them here. We want to retain
+        the ability to easily run experiments that do not try to stabilize channels that 
+        aren't used. 
+        
+        All of the argument lists here can be obtained from a dictionary defined in the stabilizer
+        file itself, so the user doesn't need to worry about passing that stuff.
+        
+        We could separate the stabilizer into two classes: for the chip-based beams and one for the
+        rest since the chip based beams have to be stabilized one at a time. However, we could also
+        just hard-code in a block that runs the fiber AOM stabilization separately. this seems 
+        fine.
+        """
         self.experiment.AOMservo = AOMPowerStabilizer(experiment=self.experiment,
                                         dds_names=["dds_cooling_DP"],
                                         sampler_name="sampler0",

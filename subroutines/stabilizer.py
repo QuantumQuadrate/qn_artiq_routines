@@ -17,6 +17,19 @@ Preston's notes
 * could be nice to have a DDS wrapper class, maybe just a NamedTuple, so that the amplitudes,
 frequencies, and identifiers aren't stored in independent lists.
 * should add the option to specify hardware from a config file
+
+*A better design is to allow specifying which dds channels we want to stabilize,
+at the experiment class level instead of hard-coding them here. We want to retain
+the ability to easily run experiments that do not try to stabilize channels that
+aren't used.
+
+*All of the argument lists here can be obtained from a dictionary defined in the stabilizer
+file itself, so the user doesn't need to worry about passing that stuff.
+
+*We could separate the stabilizer into two classes: for the chip-based beams and one for the
+rest since the chip based beams have to be stabilized one at a time. However, we could also
+just hard-code in a block that runs the fiber AOM stabilization separately. this seems
+fine.
 """
 
 from artiq.experiment import *
@@ -25,12 +38,25 @@ import math
 # todo: an ideal workflow would be to define the groups of dds channels, sampler channels,
 #  and transfer functions in a cfg file.
 
+laser_stabilizer_dict = {
+    'dds_cooling_PD':
+        {
+            'sampler': 'sampler',
+            'sampler_channel': 7, # the channel connected to the appropriate PD
+            'transfer_function': lambda x : x, # converts volts to optical mW
+            'setpoint': 6, # value in mW,
+            'p': 0.07, # the proportionality constant
+        }
+}
+
 class AOMPowerStabilizer:
 
     # Todo: add option to set which channels are used with a cfg file.
 
-    def __init__(self, experiment, dds_names, sampler_name, sampler_channels, transfer_functions,
-                 setpoints, proportionals, iters=10, t_meas_delay=10*ms):
+    def __init__(self, experiment,
+                 #dds_names, sampler_name, sampler_channels, transfer_functions,
+                 #setpoints, proportionals,
+                 iters=10, t_meas_delay=10*ms):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
 
@@ -42,7 +68,7 @@ class AOMPowerStabilizer:
         """
         self.exp = experiment
         self.n_iterations = iters # number of times to adjust dds power per run() call
-        self.dds_names = dds_names
+        self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.sampler_name = sampler_name # only one sampler allowed for now
         self.n_channels = len(self.dds_names)
         self.amplitudes = [0.0]*len(self.dds_names)
