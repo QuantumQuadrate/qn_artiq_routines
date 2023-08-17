@@ -3,7 +3,7 @@ This code allows for tuning the coils with the homemade potentiometer box
 by reading its output into the Sampler and outputting a voltage
 from a corresponding Zotino channel. In this way the MOT can be optimized
 manually and then the ARTIQ variables for the coil voltages can be updated
-automatically. 
+automatically.
 """
 
 from artiq.experiment import *
