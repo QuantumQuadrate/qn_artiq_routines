@@ -38,20 +38,69 @@ import math
 # todo: an ideal workflow would be to define the groups of dds channels, sampler channels,
 #  and transfer functions in a cfg file.
 
+# group dds channels and feedback params by sampler card
 laser_stabilizer_dict = {
-    'dds_cooling_PD':
+    'sampler0':
         {
-            'sampler': 'sampler',
-            'sampler_channel': 7, # the channel connected to the appropriate PD
-            'transfer_function': lambda x : x, # converts volts to optical mW
-            'setpoint': 6, # value in mW,
-            'p': 0.07, # the proportionality constant
+            'dds_cooling_PD':
+                {
+                    'sampler_ch': 7, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x, # converts volts to optical mW
+                    'setpoint': 6, # value in mW,
+                    'p': 0.07 # the proportionality constant
+                } #,
+        },
+    'sampler1':
+        {
+            'dds_AOM_A1':
+                {
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  # arbitrary units
+                    'setpoint': 6, # arbitrary units
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A2':
+                {
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  # arbitrary units
+                    'setpoint': 6, # arbitrary units
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A3':
+                {
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  # arbitrary units
+                    'setpoint': 6, # arbitrary units
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A4':
+                {
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  # arbitrary units
+                    'setpoint': 6, # arbitrary units
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A5':
+                {
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  # arbitrary units
+                    'setpoint': 6, # arbitrary units
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A6':
+                {
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  # arbitrary units
+                    'setpoint': 6, # arbitrary units
+                    'p': 0.07 # the proportionality constant
+                }
         }
 }
 
-class AOMPowerStabilizer:
+class FeedbackChannel:
 
-    # Todo: add option to set which channels are used with a cfg file.
+
+class AOMPowerStabilizer:
 
     def __init__(self, experiment,
                  #dds_names, sampler_name, sampler_channels, transfer_functions,
@@ -66,20 +115,34 @@ class AOMPowerStabilizer:
         assumed that any hardware objects that are referenced in this class are bound to
         this instance of experiment.
         """
+
+        # initialized by user
         self.exp = experiment
         self.n_iterations = iters # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
-        self.sampler_name = sampler_name # only one sampler allowed for now
-        self.n_channels = len(self.dds_names)
-        self.amplitudes = [0.0]*len(self.dds_names)
-        self.frequencies = [0.0]*len(self.dds_names)
-        self.dds_list = [] # will hold list of dds objects
-        self.sampler_channels = sampler_channels
-        self.xfer_funcs = transfer_functions # translates a measured voltage to the setpoint units
-        self.p = proportionals # the proportionality coeffs for feedback
-        self.setpoints = setpoints # one for each channel
         self.t_meas_delay = t_meas_delay
-        self.sample_buffer = [0.0]*8
+        self.sample_buffer = [0.0] * 8
+
+        # bookkeeping
+        self.n_channels = len(self.dds_names)
+        self.amplitudes = [0.0] * len(self.dds_names)
+        self.frequencies = [0.0] * len(self.dds_names)
+        self.dds_list = []  # will hold list of dds objects
+
+        # how to initialize this stuff?
+        # 1. most naive way: loop over the sampler level of the dict to initiate
+        # 2. create an object wrapper for each channel so we can group the fiber AOMs
+            # this requires more work but gets us away from procedural programming
+            # and lets us easily optimize groups of AOMs separately. in the future
+            # we may be able to specify groups of AOMs rather than the individual
+            # channels
+
+        # self.sampler_name = sampler_name # todo: allow for more samplers
+        # self.sampler_channels = sampler_channels
+        # self.xfer_funcs = transfer_functions # translates a measured voltage to the setpoint units
+        # self.p = proportionals # the proportionality coeffs for feedback
+        # self.setpoints = setpoints # one for each channel
+
 
         # get hardware references by name from the parent experiment
         for i in range(self.n_channels):
