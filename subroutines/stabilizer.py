@@ -12,6 +12,18 @@ Intended usage:
 the AOM powers.
 
 See the example experiment toward the bottom of this file.
+
+Preston's notes:
+todo: should be able to modify setpoints so we can optimize them as needed.
+one way to do this would be to make the stabilizer dict a json file and
+update the json file, e.g. after doing an optimizer routine with the AOM
+powers. then whatever the voltages are after doing this routine, we update
+the file. however, it might be preferable to scan over the setpoints
+themselves (with proper caps on the AOM RF power), in which case, they
+should be experiment variables. not obvious how to do this. the MOT can
+likely be moved only using the shim fields, but the beam pairs themselves
+will need to be precisely balanced in order to do good PGC. so adjusting
+these setpoints will be a necessity in a matter of time.
 """
 
 from artiq.experiment import *
@@ -28,17 +40,59 @@ dds_on_chip_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4']#,
 stabilizer_dict = {
     'sampler0':
         {
-            'dds_cooling_PD':
+            'dds_cooling_PD': # signal monitored by PD0
                 {
-                    'sampler_ch': 7, # the channel connected to the appropriate PD
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
                     'transfer_function': lambda x : x, # converts volts to optical mW
                     'setpoint': 6, # value in mW,
                     'p': 0.07 # the proportionality constant
-                } #,
+                },
+            'dds_AOM_A5': # signal monitored by PD5
+                {
+                    'sampler_ch': 1, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,
+                    'setpoint': 6, # volts wrt to background
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A6': # signal monitored by PD6
+                {
+                    'sampler_ch': 2, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  # arbitrary units
+                    'setpoint': 6, # volts wrt to background
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A1': # signal monitored by Femto fW detector
+                {
+                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,
+                    'setpoint': 0.922, # volts wrt to background
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A2': # signal monitored by Femto fW detector
+                {
+                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  # arbitrary units
+                    'setpoint': 0.904, # volts wrt to background
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A3': # signal monitored by Femto fW detector
+                {
+                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,
+                    'setpoint': 1.436, # volts wrt to background
+                    'p': 0.07 # the proportionality constant
+                },
+            'dds_AOM_A4': # signal monitored by Femto fW detector
+                {
+                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'transfer_function': lambda x : x,  
+                    'setpoint': 844, # volts wrt to background
+                    'p': 0.07 # the proportionality constant
+                }
         },
-    'sampler1':
+    'sampler0':
         {
-            'dds_AOM_A1':
+            'dds_AOM_A1': # monitored by PD0
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
                     'transfer_function': lambda x : x,  # arbitrary units
