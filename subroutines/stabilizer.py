@@ -17,6 +17,9 @@ See the example experiment toward the bottom of this file.
 from artiq.experiment import *
 import math
 
+# for the test experiment
+from utilities.BaseExperiment import BaseExperiment
+
 # the dds channels for on-chip beams. these have to be fed-back to sequentially
 dds_on_chip_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4']#,
                    # 'dds_excitation_AL','dds_excitation_AR','dds_OP_AL','dds_OP_AR']
@@ -89,14 +92,14 @@ class FeedbackChannel:
         parameters:
         'name': the name of the dds channel, e.g. dds_AOM_A1
         'dds_obj': the experiment reference to the dds object with name 'name', e.g. experiment.dds_AOM_A1
-        'g': a callable which takes a float voltage and outputs a float representing mW optical power
-        'setpoint': the float value in units mW that we are trying to reach
+        'g(x: float)->float': a callable that converts the measured voltage to the units of the setpoint, e.g. mW
+        'setpoint': the float value we are trying to reach
         'p': the proportional constant for feedback
         """
         self.name = name
         self.dds_obj = dds_obj
         self.sampler_ch = sampler_ch
-        self.g = g # a transfer function. input V output mW
+        self.g = g
         self.setpoint = setpoint
         self.p = p
         self.frequency = 100*MHz
@@ -113,8 +116,8 @@ class FeedbackChannel:
         buffer: a list of length 8 storing a Sampler measurement
         """
 
-        measured_power = self.g(buffer[self.sampler_ch])
-        err = self.setpoint - measured_power
+        measured = self.g(buffer[self.sampler_ch]) # the value of the sampler ch in setpoint units
+        err = self.setpoint - measured
         ampl = self.amplitude + self.p*err
 
         # todo print some warning to alert the user if we couldn't reach the setpoint,
@@ -184,12 +187,12 @@ class AOMPowerStabilizer:
         # channel_sampler_list looks like this:
         # [
         #   {
-        #   sampler: self.sampler0,
-        #   channels: [FeedbackChannel1, FeedbackChannel12, ...]
+        #       sampler: self.sampler0,
+        #       channels: [FeedbackChannel1, FeedbackChannel2, ...]
         #   },
         #   {
-        #   sampler: self.sampler1,
-        #   channels: [FeedbackChannel1, FeedbackChannel12, ...]
+        #       sampler: self.sampler1,
+        #       channels: [FeedbackChannel1, FeedbackChannel2, ...]
         #   }
         # ]
 
@@ -272,95 +275,79 @@ class AOMPowerStabilizer:
             for ch in sampler_and_channels['channels']:
                 ch.dds_obj.sw.off()
 
-# class AOMPowerStabilizerTest(EnvExperiment):
-#
-#     def build(self):
-#         self.setattr_device("core")
-#
-#         # initialize the hardware that we know the subroutine will use, plus any others we want
-#         self.setattr_device("urukul0_cpld")
-#         self.setattr_device("urukul0_ch1")
-#         self.setattr_device("urukul0_ch2")
-#         self.setattr_device("sampler0")
-#
-#         self.setattr_argument("run_with_fake_drift", BooleanValue(False))
-#
-#     def prepare(self):
-#
-#         # todo: eventually read conversion functions such as this from a config file
-#         def volts_to_optical_mW(x: TFloat) -> TFloat:
-#             """
-#             the conversion of PD voltage to cooling light power at the switchyard MOT 1 path
-#             """
-#             x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
-#             # the multimeter that I used for the fit reads
-#             return -0.195395 + 17.9214 * x
-#
-#         self.AOMservo = AOMPowerStabilizer(experiment=self,
-#                                            dds_names=["urukul0_ch1"],
-#                                            sampler_name="sampler0",
-#                                            sampler_channels=[7],
-#                                            transfer_functions=[volts_to_optical_mW],
-#                                            setpoints=[0.7],  # in mW
-#                                            proportionals=[0.07],
-#                                            iterations=5,  # if > x you'll underflow the rtio counter
-#                                            t_meas_delay=20*ms)
-#
-#         # the cooling double pass AOM - this is the laser power stabilizer
-#         dBm = -4 # corresponds to about 70% of the max diff. eff., so we can increase power to compensate drift
-#         self.dds1_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
-#         self.dds1_freq = 111 * MHz
-#
-#         # the cooling single pass AOM -  we'll use this to fake a power drift
-#         dBm = 1
-#         self.dds2_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
-#         self.dds2_freq = 130 * MHz
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#         self.core.break_realtime()
-#         self.urukul0_cpld.init()
-#         self.urukul0_ch2.init()  # this drives an AOM upstream (cooling single pass)
-#         self.urukul0_ch2.set_att(float(0))
-#         self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
-#         self.urukul0_ch2.sw.on()
-#         self.urukul0_ch1.init()  # the dds we're going to feedback on (cooling double pass)
-#         self.urukul0_ch1.set_att(float(0))
-#         self.urukul0_ch1.set(self.dds1_freq, amplitude=self.dds1_ampl)
-#         self.urukul0_ch1.sw.on()
-#         self.sampler0.init()
-#
-#         self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
-#
-#         # allow AOMs to thermalize
-#         delay(2000*ms)
-#
-#         self.core.break_realtime()
-#
-#         if self.run_with_fake_drift:
-#             # change the upstream AOM's RF to simulate drift from the set point
-#             drift = 0.04  # ~ 2 dBm change
-#             start_mu = now_mu()
-#             at_mu(start_mu)
-#             self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl - drift)
-#
-#             # allow the upstream AOM to re-thermalize, then run the feedback
-#             print("faking power drift with upstream AOM")
-#
-#             delay(1000 * ms)
-#             print("running feedback")
-#             self.AOMservo.run()
-#
-#             # reset the upstream AOM
-#             print("resetting the upstream AOM")
-#             self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
-#
-#             delay(2000 * ms)
-#             # adjust the stabilizer AOM again
-#             print("running feedback")
-#             self.AOMservo.run()
-#         else:
-#             print("running feedback")
-#             self.AOMservo.run()
-#         print("experiment finished")
+class AOMPowerStabilizerTest(EnvExperiment):
+    """
+    this experiment assumes that the AOMs we'll feed back to have already been
+    set to operate at ~ 70% efficiency by appropriate choice of default powers
+    in ExperimentVariables.
+    """
+
+    def build(self):
+        self.base = BaseExperiment(experiment=self)
+        self.base.build()
+
+        self.setattr_argument("run_with_fake_drift", BooleanValue(False),"simulate drift")
+        self.setattr_argument("drift_factor", NumberValue(0.9),"simulate drift")
+        self.setattr_argument("experiment_iterations", NumberValue(20, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("feedback_dds_list",
+                              StringValue("['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4']"))
+        self.setattr_argument("feedback_iterations", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
+                              "feedback params")
+        self.setattr_argument("t_measurement_delay", NumberValue(20*ms, unit='ms'),
+                              "feedback params")
+
+    def prepare(self):
+
+        self.base.prepare()
+
+        self.laser_stabilizer = AOMPowerStabilizer(experiment=self,
+                                           dds_names=self.feedback_dds_list,
+                                           iterations=self.feedback_iterations,
+                                           t_meas_delay=self.t_measurement_delay)
+
+        # the cooling single pass AOM -  we'll use this to fake a power drift.
+        # this will suffice for feeding back to the cooling DP and the fiber AOMs,
+        # but not for other beams.
+        self.dds_drift = self.dds_cooling_SP
+        self.dds_default_ampl = self.ampl_cooling_SP
+        self.dds_default_freq = self.f_cooling_SP
+        self.dds_drift_ampl = self.ampl_cooling_SP*self.drift_factor
+
+    @kernel
+    def run(self):
+        self.base.initialize_hardware()
+
+        # allow AOMs to thermalize
+        delay(2000*ms)
+
+        self.core.break_realtime()
+
+        if self.run_with_fake_drift:
+
+            for i in range(self.experiment_iterations):
+
+                # change the upstream AOM's RF to simulate drift from the set point
+                start_mu = now_mu()
+                at_mu(start_mu)
+                self.dds_drift.set(self.dds_default_freq, amplitude=self.dds_drift_ampl)
+
+                # allow the upstream AOM to re-thermalize, then run the feedback
+                print("faking power drift with upstream AOM")
+
+                delay(1000 * ms)
+                print("running feedback")
+                self.laser_stabilizer.run()
+
+                # reset the upstream AOM
+                print("resetting the upstream AOM")
+                self.dds_drift.set(self.dds_drift_freq, amplitude=self.dds_drift_ampl)
+
+                delay(2000 * ms)
+                # adjust the stabilizer AOM again
+                print("running feedback")
+                self.laser_stabilizer.run()
+        else:
+            for i in range(self.experiment_iterations):
+                print("running feedback")
+                self.laser_stabilizer.run()
+        print("experiment finished")
