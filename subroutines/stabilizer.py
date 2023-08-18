@@ -1,42 +1,24 @@
 """
-A template for making a subroutine servo loop using a DDS channel and a Sampler
-
-This could be used to control the power of an AOM for stabilizing laser intensity. The
-only critical part missing from this code is in line 45 where the change in DDS amplitude
-is set. The code runs.
+A subroutine feedback loop using Urukul channels and Samplers.
+While ARTIQ has a Servo instrument for doing feedback, it does not allow
+using the Urukul and Sampler channels for other purposes. I.e. it is for
+continuous noise-eating. This code is for adjusting DDS power only when
+we want to, and doesn't prevent us from using some channels on a given
+Sampler for other purposes.
 
 Intended usage:
 1. Instantiate the servo in the prepare method of the parent artiq experiment
-2. Call get_dds_settings() in the run method of the parent, after the relevant AOMs have been set
-to their nominal desired powers. For now, it is assumed that the frequency of the AOMs
-being controlled with this servo do not change throughout the experiment.
-3. Call run() during the parent experiment loop whenever it is desired to tune up the
-AOM powers.
+2. Call run() during the parent experiment loop whenever it is desired to tune up
+the AOM powers.
 
-Preston's notes
-* could be nice to have a DDS wrapper class, maybe just a NamedTuple, so that the amplitudes,
-frequencies, and identifiers aren't stored in independent lists.
-* should add the option to specify hardware from a config file
-
-*A better design is to allow specifying which dds channels we want to stabilize,
-at the experiment class level instead of hard-coding them here. We want to retain
-the ability to easily run experiments that do not try to stabilize channels that
-aren't used.
-
-*All of the argument lists here can be obtained from a dictionary defined in the stabilizer
-file itself, so the user doesn't need to worry about passing that stuff.
-
-*We could separate the stabilizer into two classes: for the chip-based beams and one for the
-rest since the chip based beams have to be stabilized one at a time. However, we could also
-just hard-code in a block that runs the fiber AOM stabilization separately. this seems
-fine.
+See the example experiment toward the bottom of this file.
 """
 
 from artiq.experiment import *
 import math
 
 # the dds channels for on-chip beams. these have to be fed-back to sequentially
-dds_list_on_chip = ['dds_AOM_A1','dds_AOM_A2','dds_AOM_A3','dds_AOM_A4']#,
+dds_on_chip_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4']#,
                    # 'dds_excitation_AL','dds_excitation_AR','dds_OP_AL','dds_OP_AR']
 
 # group all dds channels and feedback params by sampler card
@@ -99,14 +81,22 @@ stabilizer_dict = {
 }
 
 class FeedbackChannel:
-    """
-    class for bundling the parameters which define a DDS feedback channel
-    """
 
-    def __init__(self, name, dds_obj, sampler_ch, setpoint, p):
+    def __init__(self, name, dds_obj, sampler_ch, g, setpoint, p):
+        """
+        class which defines a DDS feedback channel
+
+        parameters:
+        'name': the name of the dds channel, e.g. dds_AOM_A1
+        'dds_obj': the experiment reference to the dds object with name 'name', e.g. experiment.dds_AOM_A1
+        'g': a callable which takes a float voltage and outputs a float representing mW optical power
+        'setpoint': the float value in units mW that we are trying to reach
+        'p': the proportional constant for feedback
+        """
         self.name = name
         self.dds_obj = dds_obj
         self.sampler_ch = sampler_ch
+        self.g = g # a transfer function. input V output mW
         self.setpoint = setpoint
         self.p = p
         self.frequency = 100*MHz
@@ -117,60 +107,49 @@ class FeedbackChannel:
         """ get the frequency and amplitude """
         self.frequency, _, self.amplitudes = self.dds_obj.get()
 
+    @kernel
+    def feedback(self, buffer):
+        """ feedback to this channel
+        buffer: a list of length 8 storing a Sampler measurement
+        """
+
+        measured_power = self.g(buffer[self.sampler_ch])
+        err = self.setpoint - measured_power
+        ampl = self.amplitude + self.p*err
+
+        # todo print some warning to alert the user if we couldn't reach the setpoint,
+        if ampl < 0:
+            self.amplitude = 0.0
+        elif ampl > 0.9:
+            self.amplitude = 0.9
+        else:  # valid amplitude for DDS
+            self.amplitude = ampl
+
+        # update the dds amplitude
+        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
+
 
 class AOMPowerStabilizer:
 
-    def __init__(self, experiment, dds_names,
-                 #sampler_name, sampler_channels, transfer_functions,
-                 #setpoints, proportionals,
-                 iters=10, t_meas_delay=10*ms):
+    def __init__(self, experiment, dds_names, iterations=10, t_meas_delay=10 * ms):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
 
-        #todo add parameter descriptions in this docstring
-
-        :param experiment: a class inheriting from artiq.experiment.EnvExperiment. It is
+        parameters:
+        'experiment': a class inheriting from artiq.experiment.EnvExperiment. It is
         assumed that any hardware objects that are referenced in this class are bound to
         this instance of experiment.
+        'dds_names': a list of the names of the dds channels to feedback to
+        'iterations': integer number of feedback cycles to converge to the setpoints
+        't_meas_delay': time to wait between iterations. mostly for avoiding underflow errors.
         """
 
         # initialized by user
         self.exp = experiment
-        self.n_iterations = iters # number of times to adjust dds power per run() call
+        self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.t_meas_delay = t_meas_delay
         self.sample_buffer = [0.0] * 8 # can reuse this for each sampler
-
-        # bookkeeping - may not need this after switching to feedback ch objects
-        self.n_channels = len(self.dds_names)
-        self.amplitudes = [0.0] * len(self.dds_names)
-        self.frequencies = [0.0] * len(self.dds_names)
-        self.dds_list = []  # will hold list of dds objects
-
-        # how to initialize this stuff?
-        # 1. most naive way: loop over the sampler level of the dict to initiate
-        # 2. create an object wrapper for each channel so we can group the fiber AOMs
-            # this requires more work but gets us away from procedural programming
-            # and lets us easily optimize groups of AOMs separately. in the future
-            # we may be able to specify groups of AOMs rather than the individual
-            # channels
-
-        # self.sampler_name = sampler_name # todo: allow for more samplers
-        # self.sampler_channels = sampler_channels
-        # self.xfer_funcs = transfer_functions # translates a measured voltage to the setpoint units
-        # self.p = proportionals # the proportionality coeffs for feedback
-        # self.setpoints = setpoints # one for each channel
-
-        # make a list of the channel objs for each sampler card
-        # put each of these lists into a dictionary
-        # in the code, we want to stop and do a separate optimization routine
-        # for the on-chip MOT beams, so we also need to group those channels
-
-        # todo: put the dds reference in the object wrapper
-        # get hardware references by name from the parent experiment
-        # for i in range(self.n_channels):
-        #     self.dds_list.append(getattr(self.exp, self.dds_names[i]))
-        # self.sampler = getattr(self.exp, self.sampler_name)
 
         # create a dictionary of samplers and feedback objects with a structure
         # similar to stabilizer_dict
@@ -195,9 +174,12 @@ class AOMPowerStabilizer:
                             FeedbackChannel(name=dds_name,
                                             dds_obj=getattr(self.exp, dds_name),
                                             sampler_ch=feedback_channels[dds_name]['sampler_ch'],
+                                            g=feedback_channels[dds_name]['transfer_function'],
                                             setpoint=feedback_channels[dds_name]['setpoint'],
                                             p=feedback_channels[dds_name]['p'])
                         )
+
+        self.on_chip_dds_list = [getattr(self.exp, dds) for dds in dds_on_chip_list]
 
         # channel_sampler_list looks like this:
         # [
@@ -218,146 +200,167 @@ class AOMPowerStabilizer:
     @kernel
     def run(self):
         """
-        Run the feedback loop
+        Run the feedback loop. On exiting, this function will turn off all dds channels
+         given by dds_names. If any on-chip beam dds channels are in dds_names, ALL on-chip
+         dds channels will be turned off.
         :return:
         """
 
-        # get the frequency and amplitude for every dds channel
+        # get the current frequency and amplitude for every dds channel
+        # and turn each dds off
         for sampler_and_channels in self.channel_sampler_list:
             for ch in sampler_and_channels['channels']:
                 ch.get_dds_settings()
+                ch.dds_obj.sw.off()
 
         # loop over feedback iterations
-        for i in range(self.n_iterations):
-            # do feedback for each sampler
+        for i in range(self.iterations):
+
+            # do feedback by sampler
             for sampler_and_channels in self.channel_sampler_list:
                 sampler = sampler_and_channels['sampler'] # the sampler object
                 channels = sampler_and_channels['channels'] # the Feedback channels
 
                 with sequential:
-                    sampler.sample(self.sample_buffer)
+
+                    free_space_channels = [ch for ch in channels if ch.name not in dds_on_chip_list]
+                    on_chip_channels = [ch for ch in channels if ch.name in dds_on_chip_list]
+
+                    [ch.dds_obj.sw.on() for ch in free_space_channels]
+                    delay(10*ms)
+
+                    # do the feedback for free-space beams
+                    for i in range(n_iterations):
+
+                        # measure the PD voltages
+                        sampler.sample(self.sample_buffer)
                         delay(10 * ms)
 
-        # # in each iteration, measure the sampler and set the dds amplitude accordingly
-        # for i in range(self.n_iterations):
-        #     # at_mu(i * self.exp.core.seconds_to_mu(10 * ms) + start_mu)
-        #     with sequential:
-        #         self.sampler.sample(self.sample_buffer)
-        #         delay(10*ms)
-        #         with parallel:  # update all the dds channels simultaneously
-        #             for ch in range(self.n_channels):
-        #
-        #                 measured_power = self.xfer_funcs[ch](self.sample_buffer[self.sampler_channels[ch]])
-        #                 # self.print(self.sample_buffer[self.sampler_channels[ch]])
-        #                 # self.print("mW:")
-        #                 # self.print(measured_power)
-        #                 err = self.setpoints[ch] - measured_power
-        #                 ampl = self.amplitudes[ch] + self.p[ch]*err
-        #
-        #                 # todo print some warning to alert the user if we couldn't reach the setpt,
-        #                 if ampl < 0:
-        #                     self.amplitudes[ch] = 0.0
-        #                 elif ampl > 0.9:
-        #                     self.amplitudes[ch] = 0.9
-        #                 else:  # valid amplitude for DDS
-        #                     self.amplitudes[ch] = ampl
-        #
-        #                 # update the dds amplitude
-        #                 self.dds_list[ch].set(self.frequencies[ch], amplitude=self.amplitudes[ch])
-        #                 rtio_log(self.dds_names[ch], "i", i)
-        #     delay(self.t_meas_delay)  # the smaller this delay, the more quickly we run into an RTIO underflow error
+                        with parallel:
+                            for ch in free_space_channels:
+                                # adjust the dds power for ch
+                                ch.feedback(self.sample_buffer)
 
-        for
+                    [ch.dds_obj.sw.off() for ch in free_space_channels]
+                    delay(1*ms)
 
-class AOMPowerStabilizerTest(EnvExperiment):
+                    # if we are feeding back to any of the on-chip beams,
+                    # turn off all on-chip beams
+                    if len(on_chip_channels) > 1:
+                        [dds.sw.off() for dds in self.on_chip_dds_list]
+                        delay(1 * ms)
 
-    def build(self):
-        self.setattr_device("core")
+                    # do the feedback for on-chip beams
+                    for ch in on_chip_channels:
 
-        # initialize the hardware that we know the subroutine will use, plus any others we want
-        self.setattr_device("urukul0_cpld")
-        self.setattr_device("urukul0_ch1")
-        self.setattr_device("urukul0_ch2")
-        self.setattr_device("sampler0")
+                        with sequential: # the on-chip beams are fed back to one-at-a-time
+                            for i in range(n_iterations):
+                                ch.dds_obj.sw.on()
+                                delay(1 * ms)
 
-        self.setattr_argument("run_with_fake_drift", BooleanValue(False))
+                                # measure the PD voltage
+                                sampler.sample(self.sample_buffer)
 
-    def prepare(self):
+                                # adjust the dds power for ch
+                                ch.feedback(self.sample_buffer)
 
-        # todo: eventually read conversion functions such as this from a config file
-        def volts_to_optical_mW(x: TFloat) -> TFloat:
-            """
-            the conversion of PD voltage to cooling light power at the switchyard MOT 1 path
-            """
-            x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
-            # the multimeter that I used for the fit reads
-            return -0.195395 + 17.9214 * x
+                                ch.dds_obj.sw.off()
+                                delay(self.t_meas_delay)
 
-        self.AOMservo = AOMPowerStabilizer(experiment=self,
-                                           dds_names=["urukul0_ch1"],
-                                           sampler_name="sampler0",
-                                           sampler_channels=[7],
-                                           transfer_functions=[volts_to_optical_mW],
-                                           setpoints=[0.7],  # in mW
-                                           proportionals=[0.07],
-                                           iters=5, # if > x you'll underflow the rtio counter
-                                           t_meas_delay=20*ms)
+        # feedback sequence over. turn off all the dds channels we adjusted
+        for sampler_and_channels in self.channel_sampler_list:
+            for ch in sampler_and_channels['channels']:
+                ch.dds_obj.sw.off()
 
-        # the cooling double pass AOM - this is the laser power stabilizer
-        dBm = -4 # corresponds to about 70% of the max diff. eff., so we can increase power to compensate drift
-        self.dds1_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
-        self.dds1_freq = 111 * MHz
-
-        # the cooling single pass AOM -  we'll use this to fake a power drift
-        dBm = 1
-        self.dds2_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
-        self.dds2_freq = 130 * MHz
-
-    @kernel
-    def run(self):
-        self.core.reset()
-        self.core.break_realtime()
-        self.urukul0_cpld.init()
-        self.urukul0_ch2.init()  # this drives an AOM upstream (cooling single pass)
-        self.urukul0_ch2.set_att(float(0))
-        self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
-        self.urukul0_ch2.sw.on()
-        self.urukul0_ch1.init()  # the dds we're going to feedback on (cooling double pass)
-        self.urukul0_ch1.set_att(float(0))
-        self.urukul0_ch1.set(self.dds1_freq, amplitude=self.dds1_ampl)
-        self.urukul0_ch1.sw.on()
-        self.sampler0.init()
-
-        self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
-
-        # allow AOMs to thermalize
-        delay(2000*ms)
-
-        self.core.break_realtime()
-
-        if self.run_with_fake_drift:
-            # change the upstream AOM's RF to simulate drift from the set point
-            drift = 0.04  # ~ 2 dBm change
-            start_mu = now_mu()
-            at_mu(start_mu)
-            self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl - drift)
-
-            # allow the upstream AOM to re-thermalize, then run the feedback
-            print("faking power drift with upstream AOM")
-
-            delay(1000 * ms)
-            print("running feedback")
-            self.AOMservo.run()
-
-            # reset the upstream AOM
-            print("resetting the upstream AOM")
-            self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
-
-            delay(2000 * ms)
-            # adjust the stabilizer AOM again
-            print("running feedback")
-            self.AOMservo.run()
-        else:
-            print("running feedback")
-            self.AOMservo.run()
-        print("experiment finished")
+# class AOMPowerStabilizerTest(EnvExperiment):
+#
+#     def build(self):
+#         self.setattr_device("core")
+#
+#         # initialize the hardware that we know the subroutine will use, plus any others we want
+#         self.setattr_device("urukul0_cpld")
+#         self.setattr_device("urukul0_ch1")
+#         self.setattr_device("urukul0_ch2")
+#         self.setattr_device("sampler0")
+#
+#         self.setattr_argument("run_with_fake_drift", BooleanValue(False))
+#
+#     def prepare(self):
+#
+#         # todo: eventually read conversion functions such as this from a config file
+#         def volts_to_optical_mW(x: TFloat) -> TFloat:
+#             """
+#             the conversion of PD voltage to cooling light power at the switchyard MOT 1 path
+#             """
+#             x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
+#             # the multimeter that I used for the fit reads
+#             return -0.195395 + 17.9214 * x
+#
+#         self.AOMservo = AOMPowerStabilizer(experiment=self,
+#                                            dds_names=["urukul0_ch1"],
+#                                            sampler_name="sampler0",
+#                                            sampler_channels=[7],
+#                                            transfer_functions=[volts_to_optical_mW],
+#                                            setpoints=[0.7],  # in mW
+#                                            proportionals=[0.07],
+#                                            iterations=5,  # if > x you'll underflow the rtio counter
+#                                            t_meas_delay=20*ms)
+#
+#         # the cooling double pass AOM - this is the laser power stabilizer
+#         dBm = -4 # corresponds to about 70% of the max diff. eff., so we can increase power to compensate drift
+#         self.dds1_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
+#         self.dds1_freq = 111 * MHz
+#
+#         # the cooling single pass AOM -  we'll use this to fake a power drift
+#         dBm = 1
+#         self.dds2_ampl = math.sqrt(2 * 50 * 10 ** (dBm / 10 - 3))
+#         self.dds2_freq = 130 * MHz
+#
+#     @kernel
+#     def run(self):
+#         self.core.reset()
+#         self.core.break_realtime()
+#         self.urukul0_cpld.init()
+#         self.urukul0_ch2.init()  # this drives an AOM upstream (cooling single pass)
+#         self.urukul0_ch2.set_att(float(0))
+#         self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
+#         self.urukul0_ch2.sw.on()
+#         self.urukul0_ch1.init()  # the dds we're going to feedback on (cooling double pass)
+#         self.urukul0_ch1.set_att(float(0))
+#         self.urukul0_ch1.set(self.dds1_freq, amplitude=self.dds1_ampl)
+#         self.urukul0_ch1.sw.on()
+#         self.sampler0.init()
+#
+#         self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
+#
+#         # allow AOMs to thermalize
+#         delay(2000*ms)
+#
+#         self.core.break_realtime()
+#
+#         if self.run_with_fake_drift:
+#             # change the upstream AOM's RF to simulate drift from the set point
+#             drift = 0.04  # ~ 2 dBm change
+#             start_mu = now_mu()
+#             at_mu(start_mu)
+#             self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl - drift)
+#
+#             # allow the upstream AOM to re-thermalize, then run the feedback
+#             print("faking power drift with upstream AOM")
+#
+#             delay(1000 * ms)
+#             print("running feedback")
+#             self.AOMservo.run()
+#
+#             # reset the upstream AOM
+#             print("resetting the upstream AOM")
+#             self.urukul0_ch2.set(self.dds2_freq, amplitude=self.dds2_ampl)
+#
+#             delay(2000 * ms)
+#             # adjust the stabilizer AOM again
+#             print("running feedback")
+#             self.AOMservo.run()
+#         else:
+#             print("running feedback")
+#             self.AOMservo.run()
+#         print("experiment finished")
