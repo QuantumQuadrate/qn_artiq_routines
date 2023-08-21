@@ -32,8 +32,10 @@ import math
 # for the test experiment
 from utilities.BaseExperiment import BaseExperiment
 
-# the dds channels for on-chip beams. these have to be fed-back to sequentially
-dds_on_chip_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4']#,
+# the dds channels that should be adjusted in series,
+# e.g. because of scattering from one beam into the detector of another
+dds_series_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4',
+                   'dds_AOM_A5', 'dds_AOM_A6']#,
                    # 'dds_excitation_AL','dds_excitation_AR','dds_OP_AL','dds_OP_AR']
 
 # group all dds channels and feedback params by sampler card
@@ -90,56 +92,14 @@ stabilizer_dict = {
                     'p': 0.07 # the proportionality constant
                 }
         },
-    'sampler0':
+    'sampler1':
         {
-            'dds_AOM_A1': # monitored by PD0
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  # arbitrary units
-                    'setpoint': 6, # arbitrary units
-                    'p': 0.07 # the proportionality constant
-                },
-            'dds_AOM_A2':
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  # arbitrary units
-                    'setpoint': 6, # arbitrary units
-                    'p': 0.07 # the proportionality constant
-                },
-            'dds_AOM_A3':
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  # arbitrary units
-                    'setpoint': 6, # arbitrary units
-                    'p': 0.07 # the proportionality constant
-                },
-            'dds_AOM_A4':
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  # arbitrary units
-                    'setpoint': 6, # arbitrary units
-                    'p': 0.07 # the proportionality constant
-                },
-            'dds_AOM_A5':
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  # arbitrary units
-                    'setpoint': 6, # arbitrary units
-                    'p': 0.07 # the proportionality constant
-                },
-            'dds_AOM_A6':
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  # arbitrary units
-                    'setpoint': 6, # arbitrary units
-                    'p': 0.07 # the proportionality constant
-                }
         }
 }
 
 class FeedbackChannel:
 
-    def __init__(self, name, dds_obj, sampler_ch, g, setpoint, p):
+    def __init__(self, name, dds_obj, sampler_ch, g, set_point, p):
         """
         class which defines a DDS feedback channel
 
@@ -154,7 +114,7 @@ class FeedbackChannel:
         self.dds_obj = dds_obj
         self.sampler_ch = sampler_ch
         self.g = g
-        self.setpoint = setpoint
+        self.set_point = set_point
         self.p = p
         self.frequency = 100*MHz
         self.amplitude = 0
@@ -171,7 +131,7 @@ class FeedbackChannel:
         """
 
         measured = self.g(buffer[self.sampler_ch]) # the value of the sampler ch in setpoint units
-        err = self.setpoint - measured
+        err = self.set_point - measured
         ampl = self.amplitude + self.p*err
 
         # todo print some warning to alert the user if we couldn't reach the setpoint,
@@ -236,7 +196,8 @@ class AOMPowerStabilizer:
                                             p=feedback_channels[dds_name]['p'])
                         )
 
-        self.on_chip_dds_list = [getattr(self.exp, dds) for dds in dds_on_chip_list]
+        # the list of dds channels which, if included, should be adjusted in series
+        self.dds_series_list = [getattr(self.exp, dds) for dds in dds_series_list]
 
         # channel_sampler_list looks like this:
         # [
@@ -258,12 +219,12 @@ class AOMPowerStabilizer:
     def run(self):
         """
         Run the feedback loop. On exiting, this function will turn off all dds channels
-         given by dds_names. If any on-chip beam dds channels are in dds_names, ALL on-chip
-         dds channels will be turned off.
-        :return:
+         given by dds_names. If any beams which need to be adjusted in series are in
+         dds_names, all such channels will be turned off, i.e. even ones we are not
+         feeding back to.
         """
 
-        # get the current frequency and amplitude for every dds channel
+        # get the current frequency and amplitude for every dds channel in dds_names
         # and turn each dds off
         for sampler_and_channels in self.channel_sampler_list:
             for ch in sampler_and_channels['channels']:
@@ -280,13 +241,17 @@ class AOMPowerStabilizer:
 
                 with sequential:
 
-                    free_space_channels = [ch for ch in channels if ch.name not in dds_on_chip_list]
-                    on_chip_channels = [ch for ch in channels if ch.name in dds_on_chip_list]
+                    parallel_channels = [ch for ch in channels if ch.name not in dds_series_list]
+                    series_channels = [ch for ch in channels if ch.name in dds_series_list]
 
-                    [ch.dds_obj.sw.on() for ch in free_space_channels]
+                    # measure the background once before parallel correction
+                    background = sampler.sample(self.sample_buffer)
+                    delay(1 * ms)
+
+                    [ch.dds_obj.sw.on() for ch in parallel_channels]
                     delay(10*ms)
 
-                    # do the feedback for free-space beams
+                    # do parallel feedback
                     for i in range(n_iterations):
 
                         # measure the PD voltages
@@ -294,24 +259,30 @@ class AOMPowerStabilizer:
                         delay(10 * ms)
 
                         with parallel:
-                            for ch in free_space_channels:
+                            for ch in parallel_channels:
                                 # adjust the dds power for ch
-                                ch.feedback(self.sample_buffer)
+                                ch.feedback(self.sample_buffer - background)
 
-                    [ch.dds_obj.sw.off() for ch in free_space_channels]
+                    [ch.dds_obj.sw.off() for ch in parallel_channels]
                     delay(1*ms)
 
                     # if we are feeding back to any of the on-chip beams,
                     # turn off all on-chip beams
-                    if len(on_chip_channels) > 1:
-                        [dds.sw.off() for dds in self.on_chip_dds_list]
+                    if len(series_channels) > 1:
+                        [dds.sw.off() for dds in self.dds_series_list]
                         delay(1 * ms)
 
-                    # do the feedback for on-chip beams
-                    for ch in on_chip_channels:
+                    # do series feedback
+                    for ch in series_channels:
 
                         with sequential: # the on-chip beams are fed back to one-at-a-time
+
+                            # measure background once before correcting this channel
+                            sampler.sample(self.sample_buffer)
+                            background = self.sample_buffer
+
                             for i in range(n_iterations):
+
                                 ch.dds_obj.sw.on()
                                 delay(1 * ms)
 
@@ -319,15 +290,11 @@ class AOMPowerStabilizer:
                                 sampler.sample(self.sample_buffer)
 
                                 # adjust the dds power for ch
-                                ch.feedback(self.sample_buffer)
+                                ch.feedback(self.sample_buffer - background)
 
                                 ch.dds_obj.sw.off()
                                 delay(self.t_meas_delay)
 
-        # feedback sequence over. turn off all the dds channels we adjusted
-        for sampler_and_channels in self.channel_sampler_list:
-            for ch in sampler_and_channels['channels']:
-                ch.dds_obj.sw.off()
 
 class AOMPowerStabilizerTest(EnvExperiment):
     """
