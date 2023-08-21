@@ -72,6 +72,7 @@ class BaseExperiment:
             "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
             "AZ_bottom_volts_PGC", "AZ_top_volts_PGC", "AX_volts_PGC", "AY_volts_PGC",
             "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
+            "enable_laser_feedback",
             "cooling_setpoint_mW",
             "cooling_volts_ch",
             "t_MOT_loading",
@@ -138,6 +139,30 @@ class BaseExperiment:
         self.experiment.AOM_A5_ampl = dB_to_V(self.experiment.AOM_A5_power)
         self.experiment.AOM_A6_ampl = dB_to_V(self.experiment.AOM_A6_power)
 
+        # todo: need to update the function for the I2V PD0 detector
+        def PD0_volts_to_optical_mW(x: TFloat) -> TFloat:
+            """
+            the conversion of photodetector voltage to power at switchyard in mW
+
+            TTI detector is connected to 1:99 splitter with G=10, TR=1.4K
+            """
+            x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
+            # the multimeter that I used for the fit reads
+            return -0.195395 + 17.9214 * x
+
+        # todo: add the
+        self.experiment.AOMservo = AOMPowerStabilizer(experiment=self.experiment,
+                                        dds_names=["dds_cooling_DP"],
+                                        sampler_name="sampler0",
+                                        sampler_channels=[7],
+                                        transfer_functions=[PD0_volts_to_optical_mW],
+                                        setpoints=[self.experiment.cooling_setpoint_mW],  # in mW
+                                        proportionals=[0.07],
+                                        iters=5,  # if > some value, you'll underflow the rtio counter
+                                        t_meas_delay=20 * ms)
+
+        # todo add a servo for the chip-based AOMs
+
         print("base prepare - done")
 
     @kernel
@@ -151,6 +176,9 @@ class BaseExperiment:
         self.experiment.ttl6.output()  # for outputting a trigger
         self.experiment.ttl1.input()
         self.experiment.sampler0.init() # for reading laser feedback
+
+        if self.experiment.enable_laser_feedback:
+            self.experiment.AOMservo.get_dds_settings()
 
         print("base initialize_hardware - done")
 
