@@ -41,10 +41,19 @@ class XYPlot(pyqtgraph.PlotWidget):
         if x2 is None:
             x2 = np.arange(len(y2))
 
-        self.clear()
-        self.plot(x1, y1, pen=(1, 2), symbol="o")
-        self.plot(x2, y2, pen=(2, 2), symbol="o")
-        self.setTitle(title)
+        # allows data to be different lengths, e.g. if the datasets don't update
+        # at the same time
+        # self.clear()
+        # self.plot(x1, y1, pen=(1, 2), symbol="o")
+        # self.plot(x2, y2, pen=(2, 2), symbol="o")
+        # self.setTitle(title)
+
+        # if for some reason we want to only update if the data is the same length:
+        if len(y1) == len(y2):
+            self.clear()
+            self.plot(x1, y1, pen=(1, 2), symbol="o")
+            self.plot(x1, y2, pen=(2, 2), symbol="o")
+            self.setTitle(title)
 
     def length_warning(self):
         self.clear()
