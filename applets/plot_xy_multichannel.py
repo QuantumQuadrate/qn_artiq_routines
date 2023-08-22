@@ -24,43 +24,26 @@ class XYPlot(pyqtgraph.PlotWidget):
     def data_changed(self, data, mods, title):
         try:
             # should be a numpy array where each row is a different data channel
-            y1 = data[self.args.y1][1]
-            y2 = data[self.args.y2][1]
 
             # the data display will be rolling, only showing display_pts at a time
             pts = (data[self.args.pts][1])[0]
-            print(pts)
+
+            y1 = data[self.args.y1][1][-pts:]
+            y2 = data[self.args.y2][1][-pts:]
 
         except KeyError:
             return
-        x = data.get(self.args.x, (False, None))[1]
-        if x is None:
-            x = np.arange(len(y1))[-pts:]
-        y1 = y1[-pts:]
-        y2 = y2[-pts:]
+        x1 = data.get(self.args.x1, (False, None))[1]
+        x2 = data.get(self.args.x2, (False, None))[1]
 
-        self.mismatch['y1'] = False
-        self.mismatch['y2'] = False
-        self.mismatch['x'] = False
-
-        if len(y2) != len(y1):
-            self.mismatch['y2'] = True
-        if len(x) != len(y1):
-            self.mismatch['x'] = True
-
-        if any(self.mismatch.values()):
-            if not self.timer.isActive():
-                self.timer.start(1000)
-            return
-        else:
-            self.timer.stop()
+        if x1 is None:
+            x1 = np.arange(len(y1))
+        if x2 is None:
+            x2 = np.arange(len(y2))
 
         self.clear()
-        # self.plot(np.arange(len(y1)), y1, pen=(1,2), symbol="o")
-        # self.plot(np.arange(len(y2)), y2, pen=(2,2), symbol="o")
-
-        self.plot(x, y1, pen=(1, 2), symbol="o")
-        self.plot(x, y2, pen=(2, 2), symbol="o")
+        self.plot(x1, y1, pen=(1, 2), symbol="o")
+        self.plot(x2, y2, pen=(2, 2), symbol="o")
         self.setTitle(title)
 
     def length_warning(self):
@@ -76,7 +59,8 @@ def main():
     applet.add_dataset("y1", "Y1 values")
     applet.add_dataset("y2", "Y2 values")
     applet.add_dataset("pts", "number of points to display")
-    applet.add_dataset("x", "X values", required=False)
+    applet.add_dataset("x1", "X1 values", required=False)
+    applet.add_dataset("x2", "X2 values", required=False)
     # applet.add_dataset("error", "Error bars for each X value", required=False)
     # applet.add_dataset("fit", "Fit values for each X value", required=False)
     applet.run()

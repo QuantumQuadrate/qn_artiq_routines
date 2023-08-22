@@ -33,5 +33,6 @@ class MultiChannelDataBroadcast(EnvExperiment):
             time.sleep(0.5)
 
             self.append_to_dataset("channel1", y1_next)
+            time.sleep(0.5) # intentional delay to make sure our applet doesn't freak out
             self.append_to_dataset("channel2", y2_next)
             # self.append_to_dataset("pts", 0)
