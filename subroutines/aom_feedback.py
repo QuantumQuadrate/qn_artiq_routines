@@ -29,67 +29,77 @@ these setpoints will be a necessity in a matter of time.
 """
 
 from artiq.experiment import *
-import math
+import numpy as np
+import time
 
 # group all dds channels and feedback params by sampler card
+# todo: set_point should reference an ExperimentVariable name
+#  and the set_point should be updated at the beginning of the run method
 stabilizer_dict = {
     'sampler0':
         {
-            'dds_cooling_PD': # signal monitored by PD0
+            'dds_cooling_DP': # signal monitored by PD0
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x, # converts volts to optical mW
-                    'set_point': 6, # value in mW,
+                    # 'transfer_function': lambda x : x, # converts volts to optical mW
+                    'set_point': 0.744, # volts wrt to background
                     'p': 0.07, # the proportionality constant
-                    'series': False # if series = True then these channels are fed-back to one at a time
+                    'series': False, # if series = True then these channels are fed-back to one at a time
+                    'dataset':'MOT_switchyard_monitor'
                 },
             'dds_AOM_A5': # signal monitored by PD5
                 {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,
-                    'set_point': 6, # volts wrt to background
+                    # 'transfer_function': lambda x : x,
+                    'set_point': 2.0, # volts wrt to background
                     'p': 0.07, # the proportionality constant
-                    'series': True
+                    'series': True,
+                    'dataset':'MOT5_monitor'
                 },
             'dds_AOM_A6': # signal monitored by PD6
                 {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  # arbitrary units
-                    'set_point': 6, # volts wrt to background
+                    # 'transfer_function': lambda x : x,  # arbitrary units
+                    'set_point': 0.288, # volts wrt to background
                     'p': 0.07, # the proportionality constant
-                    'series': True
+                    'series': True,
+                    'dataset': 'MOT6_monitor'
                 },
             'dds_AOM_A1': # signal monitored by Femto fW detector
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,
+                    # 'transfer_function': lambda x : x,
                     'set_point': 0.922, # volts wrt to background
                     'p': 0.07, # the proportionality constant
-                    'series': True
+                    'series': True,
+                    'dataset': 'MOT1_monitor'
                 },
             'dds_AOM_A2': # signal monitored by Femto fW detector
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  # arbitrary units
+                    # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 0.904, # volts wrt to background
                     'p': 0.07, # the proportionality constant
-                    'series': True
+                    'series': True,
+                    'dataset': 'MOT2_monitor'
                 },
             'dds_AOM_A3': # signal monitored by Femto fW detector
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,
+                    # 'transfer_function': lambda x : x,
                     'set_point': 1.436, # volts wrt to background
                     'p': 0.07, # the proportionality constant
-                    'series': True
+                    'series': True,
+                    'dataset': 'MOT3_monitor'
                 },
             'dds_AOM_A4': # signal monitored by Femto fW detector
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
-                    'transfer_function': lambda x : x,  
-                    'set_point': 844, # volts wrt to background
+                    # 'transfer_function': lambda x : x,
+                    'set_point': 0.844, # volts wrt to background
                     'p': 0.07, # the proportionality constant
-                    'series': True
+                    'series': True,
+                    'dataset': 'MOT4_monitor'
                 }
         },
     'sampler1':
@@ -99,7 +109,7 @@ stabilizer_dict = {
 
 class FeedbackChannel:
 
-    def __init__(self, name, dds_obj, buffer_index, g, set_point, p):
+    def __init__(self, name, dds_obj, buffer_index, set_point, p, dataset):
         """
         class which defines a DDS feedback channel
 
@@ -113,11 +123,14 @@ class FeedbackChannel:
         self.name = name
         self.dds_obj = dds_obj
         self.buffer_index = buffer_index
-        self.g = g
+        # self.g = g
         self.set_point = set_point
         self.p = p
         self.frequency = 100*MHz
         self.amplitude = 0.0
+        self.value = 0.0 # the last value of the measurement
+        self.value_normalized = 0.0 # self.value normalized to the set point
+        self.dataset = dataset
 
     @kernel
     def get_dds_settings(self):
@@ -130,9 +143,13 @@ class FeedbackChannel:
         buffer: a list of length storing the measurement result from all samplers
         """
 
-        measured = self.g(buffer[self.buffer_index]) # the value of the sampler ch in setpoint units
+        # measured = self.g(buffer[self.buffer_index]) # the value of the sampler ch in setpoint units
+        measured = buffer[self.buffer_index]
         err = self.set_point - measured
         ampl = self.amplitude + self.p*err
+
+        self.value = measured
+        self.value_normalized = measured/self.set_point
 
         # todo print some warning to alert the user if we couldn't reach the setpoint,
         if ampl < 0:
@@ -166,10 +183,11 @@ class AOMPowerStabilizer2:
         self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.t_meas_delay = t_meas_delay
-        self.measurement = [] # a buffer to store the measurement from all sampled Samplers
+        self.measurement_buffer = [] # a buffer to store the measurement from all sampled Samplers
         self.sampler_list = [] # stores the list of Sampler references
         self.series_channels = [] # the feedback channels that should be adjusted one-by-one
         self.parallel_channels = []
+        self.last_measurement = {}
 
         # this block instantiates FeedbackChannel objects and groups them by series/parallel feedback flag
         for i, sampler_name in enumerate(stabilizer_dict):
@@ -180,7 +198,7 @@ class AOMPowerStabilizer2:
             # check if any of the dds names is associated with this sampler
             if True in [dds_name in feedback_channels.keys() for dds_name in dds_names]:
 
-                self.measurement += [0.0] * 8
+                self.measurement_buffer += [0.0] * 8
                 self.sampler_list.append(getattr(self.exp, sampler_name))
 
                 # loop over the dds channels associated with this sampler
@@ -190,13 +208,16 @@ class AOMPowerStabilizer2:
                     if ch_name in dds_names:
 
                         ch_params = feedback_channels[ch_name]
+                        print(f"adding FeedbackChannel {ch_name} with dataset "
+                              f"{ch_params['dataset']}")
 
                         fb_channel = FeedbackChannel(name=ch_name,
                                             dds_obj=getattr(self.exp, ch_name),
                                             buffer_index=ch_params['sampler_ch'] + i*8,
-                                            g=ch_params['transfer_function'],
+                                            # g=ch_params['transfer_function'],
                                             set_point=ch_params['set_point'],
                                             p=ch_params['p'],
+                                            dataset=ch_params['dataset']
                         )
 
                         if ch_params['series']:
@@ -204,42 +225,18 @@ class AOMPowerStabilizer2:
                         else:
                             self.parallel_channels.append(fb_channel)
 
-        self.background = self.measurement
+        self.measurement_buffer = np.array(self.measurement_buffer)
+        self.background_buffer = self.measurement_buffer
 
-        self.all_channels = self.series_channels + self.series_channels
+        self.all_channels = self.parallel_channels + self.series_channels
 
-    # create a dictionary of samplers and feedback objects with a structure
-        # similar to stabilizer_dict
-        # self.channel_sampler_list: list[dict] = [] #= [{}]*len(stabilizer_dict.keys())
-        #
-        # # todo: add a dataset to be broadcast for each dds channel so we can plot the powers
-        #
-        # for i,sampler_name in enumerate(stabilizer_dict):
-        #
-        #     # the dds channel names associated with this sampler
-        #     feedback_channels = stabilizer_dict[sampler_name]
-        #
-        #     # check if any of the dds names is associated with this sampler
-        #     if True in [dds_name in feedback_channels.keys() for dds_name in dds_names]:
-        #         self.channel_sampler_list.append({'sampler': getattr(self.exp, sampler_name),
-        #                             'channels': []})
-        #
-        #         # loop over the dds channels associated with this sampler
-        #         for dds_name in feedback_channels.keys():
-        #
-        #             # create a feedback object for dds channels we want to feed back to
-        #             if dds_name in dds_names:
-        #                 self.channel_sampler_list[i]['channels'].append(
-        #                     FeedbackChannel(name=dds_name,
-        #                                     dds_obj=getattr(self.exp, dds_name),
-        #                                     sampler_ch=feedback_channels[dds_name]['sampler_ch'],
-        #                                     g=feedback_channels[dds_name]['transfer_function'],
-        #                                     set_point=feedback_channels[dds_name]['set_point'],
-        #                                     p=feedback_channels[dds_name]['p'])
-        #                 )
+        # for logging the measured voltages
+        for ch in self.all_channels:
+            self.exp.set_dataset(ch.dataset, [1.0], broadcast=True)
 
-        # the list of dds channels which, if included, should be adjusted in series
-        # self.dds_series_list = [getattr(self.exp, dds) for dds in dds_series_list]
+        # the number of pts to plot
+        self.exp.set_dataset('MOT_rolling_pts', [10], broadcast=True)
+
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -249,68 +246,95 @@ class AOMPowerStabilizer2:
     def measure(self):
         """
         measure all Sampler cards used for feedback
-        # todo: could add option to average for higher-res
+        # todo: could add option to average for better snr
         """
         i = 0
         for sampler in self.sampler_list:
-            sampler.sample(self.measurement[i:i + 8])
+            sampler.sample(self.measurement_buffer[i:i + 8])
+            delay(1*ms)
             i+=1
 
+    @kernel
     def measure_background(self):
         """
         measure all Sampler cards used for feedback
-        # todo: could add option to average for higher-res
+        # todo: could add option to average for better snr
         """
         i = 0
         for sampler in self.sampler_list:
-            sampler.sample(self.measurement[i:i + 8])
+            sampler.sample(self.measurement_buffer[i:i + 8])
+            delay(1*ms)
             i+=1
-        self.background = self.measurement
+        self.background_buffer = self.measurement_buffer
 
-    @kernel
+    # dry run test
     def run(self):
-        """
-        Run the feedback loop. On exiting, this function will turn off all dds channels
-         given by dds_names. If any beams which need to be adjusted in series are in
-         dds_names, all such channels will be turned off, i.e. even ones we are not
-         feeding back to.
-        """
-
+        # update the datasets
         for ch in self.all_channels:
-            ch.get_dds_settings()
-            ch.dds_obj.sw.off()
+            x = np.random.rand()
+            print(f"updating {ch.dataset} with {x}")
+            self.exp.append_to_dataset(ch.dataset, x)
+            time.sleep(0.5*s)
 
-        with sequential:
-
-            self.measure_background() # this updates the background list
-            for ch in self.parallel_channels:
-                ch.dds_obj.sw.on()
-            delay(1*ms)
-
-            # do feedback on the parallel channels
-            for i in range(self.iterations):
-                self.measure()
-                delay(1 * ms)
-                with parallel: # strictly speaking, doesn't really matter if these are parallel
-                    for ch in self.parallel_channels:
-                        pass
-                        # ch.feedback(self.measurement - self.background)
-                delay(1 * ms)
-
-            for ch in self.parallel_channels:
-                ch.dds_obj.sw.off()
-            delay(1*ms)
-
-            self.measure_background()
-
-            # do feedback on the series channels
-            with sequential:
-                for ch in self.series_channels:
-                    ch.dds_obj.sw.on()
-                    delay(1 * ms)
-                    for i in range(self.iterations):
-                        self.measure()
-                        delay(1*ms)
-                        # ch.feedback(self.measurement - self.background)
-                        delay(1*ms)
-                    ch.dds_obj.sw.off()
+    # @kernel
+    # def run(self):
+    #     """
+    #     Run the feedback loop. On exiting, this function will turn off all dds channels
+    #      given by dds_names. If any beams which need to be adjusted in series are in
+    #      dds_names, all such channels will be turned off, i.e. even ones we are not
+    #      feeding back to.
+    #     """
+    #
+    #     # self.exp.core.break_realtime()
+    #
+    #     for ch in self.all_channels:
+    #         ch.get_dds_settings()
+    #         delay(1*ms)
+    #         ch.dds_obj.sw.off()
+    #         delay(1*ms)
+    #
+    #     self.print("turned off all channels")
+    #
+    #     with sequential:
+    #
+    #         self.measure_background() # this updates the background list
+    #         for ch in self.parallel_channels:
+    #             ch.dds_obj.sw.on()
+    #         delay(1*ms)
+    #
+    #         # do feedback on the "parallel" channels
+    #         for i in range(self.iterations):
+    #             self.measure()
+    #             delay(1 * ms)
+    #             # with parallel: # strictly speaking, doesn't really matter if these are parallel
+    #             for ch in self.parallel_channels:
+    #                 ch.feedback(self.measurement_buffer - self.background_buffer)
+    #             delay(1 * ms)
+    #
+    #         for ch in self.parallel_channels:
+    #             ch.dds_obj.sw.off()
+    #         delay(1*ms)
+    #
+    #         self.print("fed back parallel channels")
+    #
+    #         self.measure_background()
+    #
+    #         # do feedback on the series channels
+    #         with sequential:
+    #             for ch in self.series_channels:
+    #                 ch.dds_obj.sw.on()
+    #                 delay(1 * ms)
+    #                 for i in range(self.iterations):
+    #                     self.measure()
+    #                     delay(1*ms)
+    #                     ch.feedback(self.measurement_buffer - self.background_buffer)
+    #                     delay(1*ms)
+    #                 ch.dds_obj.sw.off()
+    #
+    #         self.print("fed back series channels")
+    #
+    #     # update the datasets
+    #     for ch in self.all_channels:
+    #         self.print(ch.dataset)
+    #         self.print(ch.value_normalized)
+    #         self.exp.append_to_dataset(ch.dataset, ch.value_normalized)

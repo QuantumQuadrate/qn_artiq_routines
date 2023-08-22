@@ -15,7 +15,9 @@ class AOMPowerStabilizerTest2(EnvExperiment):
         self.base.build()
         self.setattr_argument("experiment_iterations", NumberValue(20, type='int', ndecimals=0, scale=1, step=1))
         self.setattr_argument("feedback_dds_list",
-                              StringValue("['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4']"))
+                              StringValue(
+                                  "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
+                                  "'dds_AOM_A6','dds_cooling_DP']"))
         self.setattr_argument("run_with_fake_drift", BooleanValue(False),"simulate drift")
         self.setattr_argument("drift_factor", NumberValue(0.9),"simulate drift")
         self.setattr_argument("feedback_iterations", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
@@ -83,4 +85,5 @@ class AOMPowerStabilizerTest2(EnvExperiment):
             for i in range(self.experiment_iterations):
                 print("running feedback")
                 self.laser_stabilizer.run()
+                delay(1*s)
         print("experiment finished")

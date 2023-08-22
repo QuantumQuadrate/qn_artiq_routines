@@ -1,0 +1,73 @@
+"""
+Plot the signals from each PD measuring the laser beam powers
+"""
+
+import numpy as np
+import PyQt5  # make sure pyqtgraph imports Qt5
+from PyQt5.QtCore import QTimer
+import pyqtgraph
+
+from artiq.applets.simple import TitleApplet
+
+
+class XYPlot(pyqtgraph.PlotWidget):
+    def __init__(self, args):
+        pyqtgraph.PlotWidget.__init__(self)
+        self.args = args
+
+    def data_changed(self, data, mods, title):
+        try:
+            # the data display will be rolling, only showing display_pts at a time
+            pts = (data[self.args.pts][1])[0]
+
+            # should be a numpy array where each row is a different data channel
+            MOT_data = []
+            for i in range(6):
+                MOT_data.append(data[self.args.MOT1][1][-pts:])
+            MOT_data.append(data[self.args.MOT_switchyard_input][-pts:])
+
+        except KeyError:
+            return
+
+        all_updated = True
+        # check that all datasets are the same length
+        for i in range(6):
+            if len(MOT_data[i+1]) != len(MOT_data[i]):
+                all_updated = False
+                break
+
+        # only updating when all are updated makes managing x pts easier
+        if all_updated:
+
+            x = data.get(self.args.x, (False, None))[1]
+
+            if x is None:
+                x = np.arange(len(MOT_data[0]))
+            else:
+                x = x[-pts:]
+
+            labels = [f'MOT{i}' for i in range(6)]+['MOT_switchyard_input']
+
+            self.clear()
+            for i in range(7):
+                self.plot(x, MOT_data[i], pen=(i, 7), symbol="o", name=labels[i])
+            self.setTitle(title)
+            # todo: use timestamps on the x axis
+            #  axis = DateAxisItem()
+            #  plot.setAxisItems({'bottom':axis})
+
+def main():
+    applet = TitleApplet(XYPlot)
+    applet.add_dataset("MOT1", "MOT1 fW PD voltage")
+    applet.add_dataset("MOT2", "MOT2 fW PD voltage")
+    applet.add_dataset("MOT3", "MOT3 fW PD voltage")
+    applet.add_dataset("MOT4", "MOT4 fW PD voltage")
+    applet.add_dataset("MOT5", "MOT5 fW PD voltage")
+    applet.add_dataset("MOT6", "MOT6 fW PD voltage")
+    applet.add_dataset("MOT_switchyard_input", "MOT PD0 voltage")
+    applet.add_dataset("pts", "number of points to display")
+    applet.add_dataset("x", "X values", required=False)
+    applet.run()
+
+if __name__ == "__main__":
+    main()
