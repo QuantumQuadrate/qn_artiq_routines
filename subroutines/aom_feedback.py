@@ -132,6 +132,16 @@ class FeedbackChannel:
         self.value_normalized = 0.0 # self.value normalized to the set point
         self.dataset = dataset
 
+    @rpc(flags={"async"})
+    def set_value(self, value):
+        self.value = value
+        self.value_normalized = value / self.set_point
+        print(value)
+
+    @rpc(flags={"async"})
+    def print(self, x):
+        print(x)
+
     @kernel
     def get_dds_settings(self):
         """ get the frequency and amplitude """
@@ -150,6 +160,7 @@ class FeedbackChannel:
 
         self.value = measured
         self.value_normalized = measured/self.set_point
+        # self.set_value(measured)
 
         # todo print some warning to alert the user if we couldn't reach the setpoint,
         if ampl < 0:
@@ -160,7 +171,7 @@ class FeedbackChannel:
             self.amplitude = ampl
 
         # update the dds amplitude
-        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
+        # self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
 
 
 class AOMPowerStabilizer2:
@@ -198,7 +209,7 @@ class AOMPowerStabilizer2:
             # check if any of the dds names is associated with this sampler
             if True in [dds_name in feedback_channels.keys() for dds_name in dds_names]:
 
-                self.measurement_buffer += [0.0] * 8
+                # self.measurement_buffer += [0.0] * 8
                 self.sampler_list.append(getattr(self.exp, sampler_name))
 
                 # loop over the dds channels associated with this sampler
@@ -225,8 +236,10 @@ class AOMPowerStabilizer2:
                         else:
                             self.parallel_channels.append(fb_channel)
 
-        self.measurement_buffer = np.array(self.measurement_buffer)
-        self.background_buffer = self.measurement_buffer
+        # self.measurement_buffer = np.array(self.measurement_buffer)
+        # self.background_buffer = self.measurement_buffer
+        self.measurement_buffer = np.array([0.0]*8*len(self.sampler_list))
+        self.background_buffer = np.array([0.0]*8*len(self.sampler_list))
 
         self.all_channels = self.parallel_channels + self.series_channels
 
@@ -262,80 +275,87 @@ class AOMPowerStabilizer2:
         """
         i = 0
         for sampler in self.sampler_list:
-            sampler.sample(self.measurement_buffer[i:i + 8])
+            sampler.sample(self.background_buffer[i:i + 8])
             delay(1*ms)
             i+=1
-        self.background_buffer = self.measurement_buffer
+
 
     # dry run test
-    def run(self):
-        # update the datasets
-        for i, ch in enumerate(self.all_channels):
-            x = np.random.rand()/10 + i
-            print(f"updating {ch.dataset} with {x}")
-            self.exp.append_to_dataset(ch.dataset, x)
-            time.sleep(0.01)
-        time.sleep(0.5)
-
-    # @kernel
     # def run(self):
-    #     """
-    #     Run the feedback loop. On exiting, this function will turn off all dds channels
-    #      given by dds_names. If any beams which need to be adjusted in series are in
-    #      dds_names, all such channels will be turned off, i.e. even ones we are not
-    #      feeding back to.
-    #     """
-    #
-    #     # self.exp.core.break_realtime()
-    #
-    #     for ch in self.all_channels:
-    #         ch.get_dds_settings()
-    #         delay(1*ms)
-    #         ch.dds_obj.sw.off()
-    #         delay(1*ms)
-    #
-    #     self.print("turned off all channels")
-    #
-    #     with sequential:
-    #
-    #         self.measure_background() # this updates the background list
-    #         for ch in self.parallel_channels:
-    #             ch.dds_obj.sw.on()
-    #         delay(1*ms)
-    #
-    #         # do feedback on the "parallel" channels
-    #         for i in range(self.iterations):
-    #             self.measure()
-    #             delay(1 * ms)
-    #             # with parallel: # strictly speaking, doesn't really matter if these are parallel
-    #             for ch in self.parallel_channels:
-    #                 ch.feedback(self.measurement_buffer - self.background_buffer)
-    #             delay(1 * ms)
-    #
-    #         for ch in self.parallel_channels:
-    #             ch.dds_obj.sw.off()
-    #         delay(1*ms)
-    #
-    #         self.print("fed back parallel channels")
-    #
-    #         self.measure_background()
-    #
-    #         # do feedback on the series channels
-    #         with sequential:
-    #             for ch in self.series_channels:
-    #                 ch.dds_obj.sw.on()
-    #                 delay(1 * ms)
-    #                 for i in range(self.iterations):
-    #                     self.measure()
-    #                     delay(1*ms)
-    #                     ch.feedback(self.measurement_buffer - self.background_buffer)
-    #                     delay(1*ms)
-    #                 ch.dds_obj.sw.off()
-    #
-    #         self.print("fed back series channels")
-    #
     #     # update the datasets
-    #     for ch in self.all_channels:
-    #         self.print(ch.dataset)
-    #         self.print(ch.value_normalized)
-    #         self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+    #     for i, ch in enumerate(self.all_channels):
+    #         x = np.random.rand()/10 + i
+    #         print(f"updating {ch.dataset} with {x}")
+    #         self.exp.append_to_dataset(ch.dataset, x)
+    #         time.sleep(0.01)
+    #     time.sleep(0.5)
+
+    @kernel
+    def run(self):
+        """
+        Run the feedback loop. On exiting, this function will turn off all dds channels
+         given by dds_names. If any beams which need to be adjusted in series are in
+         dds_names, all such channels will be turned off, i.e. even ones we are not
+         feeding back to.
+        """
+
+        # self.exp.core.break_realtime()
+
+        for ch in self.all_channels:
+            ch.get_dds_settings()
+            delay(1*ms)
+            ch.dds_obj.sw.off()
+            delay(1*ms)
+
+        self.print("turned off all channels")
+
+        with sequential:
+
+            self.measure_background() # this updates the background list
+            for ch in self.parallel_channels:
+                ch.dds_obj.sw.on()
+            delay(1*ms)
+
+            # self.print("background:")
+            # self.print(self.background_buffer)
+
+            # do feedback on the "parallel" channels
+            for i in range(self.iterations):
+                self.measure()
+                delay(10 * ms)
+                # with parallel: # strictly speaking, doesn't really matter if these are parallel
+                for ch in self.parallel_channels:
+                    self.print(ch.name)
+                    self.print(self.background_buffer)
+                    self.print(self.measurement_buffer)
+                    ch.feedback(self.measurement_buffer - self.background_buffer)
+                delay(1 * ms)
+
+            for ch in self.parallel_channels:
+                ch.dds_obj.sw.off()
+            delay(1*ms)
+
+            self.print("fed back parallel channels")
+
+            self.measure_background()
+
+            # do feedback on the series channels
+            with sequential:
+                for ch in self.series_channels:
+                    ch.dds_obj.sw.on()
+                    delay(10 * ms)
+                    for i in range(self.iterations):
+                        self.measure()
+                        delay(1*ms)
+                        ch.feedback(self.measurement_buffer - self.background_buffer)
+                        delay(1*ms)
+                    ch.dds_obj.sw.off()
+
+            self.print("fed back series channels")
+
+            # update the datasets
+            for ch in self.all_channels:
+                self.print(ch.dataset)
+                self.print(ch.value_normalized)
+                self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+            self.print("updated all datasets")
