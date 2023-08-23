@@ -134,10 +134,18 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_FORT_loading", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
-            # Setpoints
-            Variable("cooling_setpoint_mW", 0.7, NumberValue, {'type': 'float'}, "Setpoints"),
-            Variable("cooling_volts_ch", 7, NumberValue, {'type':'int', 'scale':1, 'ndecimals':0, 'step':1},
-                     "Setpoints"),
+            # Set points
+            Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_fW_AOM_A1", 0.768, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
+            Variable("set_point_fW_AOM_A2", 0.644, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_fW_AOM_A3", 0.956, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_fW_AOM_A4", 0.588, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_PD5_AOM_A5", 0.214, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_PD6_AOM_A6", 0.296, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+
+            # Variable("cooling_set_point_mW", 0.7, NumberValue, {'type': 'float'}, "Set points"),
+            # Variable("cooling_volts_ch", 7, NumberValue, {'type': 'int', 'scale': 1, 'ndecimals': 0, 'step': 1},
+            #          "Set points"),
 
             # Booleans
             Variable("enable_laser_feedback", False, BooleanValue, {}, "Enable/disable")

@@ -56,6 +56,9 @@ class BaseExperiment:
         :return:
         """
 
+        # todo: find a way to extract the names of all of the variables
+        #  in ExperimentVariables.py, e.g. by reading them in from the
+        #  most recent hdf file?
         self.experiment.variables = [
             "f_FORT", "p_FORT_loading", "p_FORT_RO", "p_FORT_PGC",
             "f_cooling_DP_MOT", "p_cooling_DP_MOT",
@@ -77,7 +80,14 @@ class BaseExperiment:
             "cooling_volts_ch",
             "t_MOT_loading",
             "t_FORT_loading",
-            "t_SPCM_exposure"
+            "t_SPCM_exposure",
+            "set_point_PD0_AOM_cooling_DP",
+            "set_point_fW_AOM_A1",
+            "set_point_fW_AOM_A2",
+            "set_point_fW_AOM_A3",
+            "set_point_fW_AOM_A4",
+            "set_point_PD5_AOM_A5",
+            "set_point_PD6_AOM_A6"
         ]
 
         setattr_variables(self.experiment)
