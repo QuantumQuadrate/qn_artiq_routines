@@ -76,9 +76,10 @@ class AlignMOTFeedbackDetector(EnvExperiment):
             self.dds_AOM_A4.sw.on()
             delay(self.dt_AOM_on)
 
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
+            self.dds_AOM_A1.sw.off()
+            self.dds_AOM_A2.sw.off()
+            self.dds_AOM_A3.sw.off()
+            self.dds_AOM_A4.sw.off()
+            delay(self.dt_AOM_on)
 
         print("Experiment finished.")
