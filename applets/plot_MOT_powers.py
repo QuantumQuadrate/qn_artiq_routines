@@ -10,10 +10,22 @@ import pyqtgraph
 from artiq.applets.simple import TitleApplet
 
 
+
 class XYPlot(pyqtgraph.PlotWidget):
     def __init__(self, args):
         pyqtgraph.PlotWidget.__init__(self)
         self.args = args
+        self.labels = [f'MOT{i + 1}' for i in range(6)] + ['MOT_switchyard_input']
+        # red-green color-blind friendly RGB colors from ChatGPT
+        self.colors = [(0, 92, 169),  # blue
+                        (255, 138, 0),  # orange
+                        (149, 0, 210),  # purple
+                        (0, 170, 150),  # teal
+                        (128, 128, 128),  # gray
+                        (139, 69, 19),  # brown
+                        (255, 105, 180)]  # pink
+
+        self.symbols = ['o', 't', 's', 't2', 'h', 't1', 'd']
 
     def data_changed(self, data, mods, title):
         try:
@@ -23,8 +35,8 @@ class XYPlot(pyqtgraph.PlotWidget):
             # should be a numpy array where each row is a different data channel
             MOT_data = []
             for i in range(6):
-                MOT_data.append(data[self.args.MOT1][1][-pts:])
-            MOT_data.append(data[self.args.MOT_switchyard_input][-pts:])
+                MOT_data.append(data[getattr(self.args, self.labels[i])][1][-pts:])
+            MOT_data.append(data[self.args.MOT_switchyard_input][1][-pts:])
 
         except KeyError:
             return
@@ -46,13 +58,17 @@ class XYPlot(pyqtgraph.PlotWidget):
             else:
                 x = x[-pts:]
 
-            labels = [f'MOT{i}' for i in range(6)]+['MOT_switchyard_input']
-
             self.clear()
             for i in range(7):
-                self.plot(x, MOT_data[i], pen=(i, 7), symbol="o", name=labels[i])
+                self.plot(x, MOT_data[i],
+                          pen=self.colors[i],
+                          symbol=self.symbols[i],
+                          symbolBrush=self.colors[i],
+                          symbolPen='w',
+                          name=self.labels[i])
             self.setTitle(title)
-            # todo: use timestamps on the x axis
+            self.addLegend()
+            # todo: use timestamps on the x axis?
             #  axis = DateAxisItem()
             #  plot.setAxisItems({'bottom':axis})
 

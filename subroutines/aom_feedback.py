@@ -270,11 +270,12 @@ class AOMPowerStabilizer2:
     # dry run test
     def run(self):
         # update the datasets
-        for ch in self.all_channels:
-            x = np.random.rand()
+        for i, ch in enumerate(self.all_channels):
+            x = np.random.rand()/10 + i
             print(f"updating {ch.dataset} with {x}")
             self.exp.append_to_dataset(ch.dataset, x)
-            time.sleep(0.5*s)
+            time.sleep(0.01)
+        time.sleep(0.5)
 
     # @kernel
     # def run(self):
