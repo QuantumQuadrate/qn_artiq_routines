@@ -11,6 +11,8 @@ class NDDataBroadcast(EnvExperiment):
         self.setattr_argument("channels", NumberValue(5, ndecimals=0, step=1))
 
     def run(self):
+
+        # data_buffer is rolling: size is fixed, but we shift left and replace the last column
         data_buffer = np.full((self.channels, self.iterations), 0.0)
 
         self.set_dataset("nd_data", data_buffer, broadcast=True)
