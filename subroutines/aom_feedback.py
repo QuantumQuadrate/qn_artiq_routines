@@ -43,7 +43,7 @@ stabilizer_dict = {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x, # converts volts to optical mW
                     'set_point': 'set_point_PD0_AOM_cooling_DP', # volts wrt to background
-                    'p': 0.07, # the proportionality constant
+                    'p': 0.05, # the proportionality constant
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor'
                 },
@@ -52,7 +52,7 @@ stabilizer_dict = {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_PD5_AOM_A5', # volts wrt to background
-                    'p': 0.07, # the proportionality constant
+                    'p': 0.05, # the proportionality constant
                     'series': True,
                     'dataset':'MOT5_monitor'
                 },
@@ -61,7 +61,7 @@ stabilizer_dict = {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_PD6_AOM_A6', # volts wrt to background
-                    'p': 0.07, # the proportionality constant
+                    'p': 0.05, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT6_monitor'
                 },
@@ -70,7 +70,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A1', # volts wrt to background
-                    'p': 0.07, # the proportionality constant
+                    'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT1_monitor'
                 },
@@ -79,7 +79,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_fW_AOM_A2', # volts wrt to background
-                    'p': 0.07, # the proportionality constant
+                    'p': 0.03, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT2_monitor'
                 },
@@ -88,7 +88,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A3', # volts wrt to background
-                    'p': 0.07, # the proportionality constant
+                    'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT3_monitor'
                 },
@@ -97,7 +97,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A4', # volts wrt to background
-                    'p': 0.07, # the proportionality constant
+                    'p': 0.05, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT4_monitor'
                 }
@@ -168,7 +168,7 @@ class FeedbackChannel:
             self.amplitude = ampl
 
         # update the dds amplitude
-        # self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
+        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
 
 
 class AOMPowerStabilizer2:
@@ -323,13 +323,13 @@ class AOMPowerStabilizer2:
             with sequential:
                 for ch in self.series_channels:
                     ch.dds_obj.sw.on()
-                    delay(100 * ms) # the Femto fW detector is slow
+                    delay(50 * ms) # the Femto fW detector is slow
                     self.measure()
                     delay(1*ms)
                     ch.set_value((self.measurement_buffer - self.background_buffer)[ch.buffer_index])
                     delay(1*ms)
                     ch.dds_obj.sw.off()
-                    delay(100 * ms)  # the Femto fW detector is slow
+                    delay(50 * ms)  # the Femto fW detector is slow
 
             # update the datasets
             for ch in self.all_channels:
@@ -395,7 +395,6 @@ class AOMPowerStabilizer2:
                         delay(1*ms)
                     ch.dds_obj.sw.off()
                     delay(50 * ms)  # the Femto fW detector is slow
-
 
             # update the datasets
             for ch in self.all_channels:

@@ -14,6 +14,10 @@ class AOMPowerStabilizerTest2(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
         self.setattr_argument("experiment_iterations", NumberValue(20, type='int', ndecimals=0, scale=1, step=1))
+
+        # note this is ignored if running with fake drift
+        self.setattr_argument("t_iteration_delay", NumberValue(1 * s, unit='s'))
+
         self.setattr_argument("feedback_dds_list",
                               StringValue(
                                   "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
@@ -22,8 +26,8 @@ class AOMPowerStabilizerTest2(EnvExperiment):
         self.setattr_argument("drift_factor", NumberValue(0.9),"simulate drift")
         self.setattr_argument("feedback_iterations", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
                               "feedback params")
-        self.setattr_argument("t_measurement_delay", NumberValue(20*ms, unit='ms'),
-                              "feedback params")
+        # self.setattr_argument("t_measurement_delay", NumberValue(20*ms, unit='ms'),
+        #                       "feedback params")
 
     def prepare(self):
 
@@ -34,7 +38,8 @@ class AOMPowerStabilizerTest2(EnvExperiment):
         self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
                                            dds_names=feedback_dds_list,
                                            iterations=self.feedback_iterations,
-                                           t_meas_delay=self.t_measurement_delay)
+                                           # t_meas_delay=self.t_measurement_delay)
+                                           t_meas_delay=10*ms) # not used
 
         # the cooling single pass AOM -  we'll use this to fake a power drift.
         # this will suffice for feeding back to the cooling DP and the fiber AOMs,
@@ -44,9 +49,6 @@ class AOMPowerStabilizerTest2(EnvExperiment):
         self.dds_default_freq = self.f_cooling_SP
         self.dds_drift_ampl = self.ampl_cooling_SP*self.drift_factor
         self.dds_drift_freq = self.dds_default_freq
-
-    # def run(self):
-    #     pass
 
     @kernel
     def run(self):
@@ -85,5 +87,5 @@ class AOMPowerStabilizerTest2(EnvExperiment):
             for i in range(self.experiment_iterations):
                 print("running feedback")
                 self.laser_stabilizer.run()
-                delay(1*s)
+                delay(self.t_iteration_delay)
         print("experiment finished")
