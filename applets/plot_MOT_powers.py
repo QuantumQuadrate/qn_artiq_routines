@@ -10,7 +10,6 @@ import pyqtgraph
 from artiq.applets.simple import TitleApplet
 
 
-
 class XYPlot(pyqtgraph.PlotWidget):
     def __init__(self, args):
         pyqtgraph.PlotWidget.__init__(self)
