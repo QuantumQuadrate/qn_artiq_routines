@@ -26,6 +26,14 @@ should be experiment variables. not obvious how to do this. the MOT can
 likely be moved only using the shim fields, but the beam pairs themselves
 will need to be precisely balanced in order to do good PGC. so adjusting
 these setpoints will be a necessity in a matter of time.
+Another desirable feature would be to disentangle the broadcasting of MOT
+beam powers from the feedback routine. as it is, only the powers that are
+stabilized will be broadcast, whereas we may want to broadcast powers that
+are not stabilized for testing, or broadcast powers at other points in the
+experiment for some reason. there is no reason why the feedback channels
+class couldn't be setup for all channels in the base experiment and
+referenced here rather than only created in the instantiation of the
+AOMPowerStabilizer and used internally.
 """
 
 from artiq.experiment import *
@@ -70,7 +78,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A1', # volts wrt to background
-                    'p': 0.008, # the proportionality constant
+                    'p': 0.005, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT1_monitor'
                 },
@@ -237,7 +245,7 @@ class AOMPowerStabilizer2:
         self.all_channels = self.parallel_channels + self.series_channels
 
         # for logging the measured voltages
-        for ch in self.all_channels:
+        for ch in self.all_channels: # todo: update with the last value from the dataset
             self.exp.set_dataset(ch.dataset, [1.0], broadcast=True)
 
         # the number of pts to plot
@@ -282,12 +290,19 @@ class AOMPowerStabilizer2:
     #         time.sleep(0.01)
     #     time.sleep(0.5)
 
+    # todo: should shut off the repumps when adjusting the beams
+    #  repump itself probably doesn't need stabilizing. absolute
+    #  power doesn't matter much
+
     @kernel
     def monitor(self):
         """
-        Similar to feedback loop but measurement only.
+        Functionally the same as run, but measurement only.
         Intended to be used to monitor beam drift in absence of feedback.
         """
+
+        # turn off repumpers, which contribute typically a few percent to the total powers
+        self.exp.dds_MOT_RP.sw.off()
 
         for ch in self.all_channels:
             ch.dds_obj.sw.off()
@@ -335,6 +350,89 @@ class AOMPowerStabilizer2:
             for ch in self.all_channels:
                 self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
+        # turn repumpers back on
+        self.exp.dds_MOT_RP.sw.on()
+
+    @kernel
+    def run_tuning_mode(self):
+        """
+        Functionally the same as run except the datasets are updated after every feedback
+        iteration rather than just at the end, so we can see how the process values are
+        reaching the set points.
+
+        For tuning, plot one channel at a time in a plot_xy applet
+        """
+
+        # todo: up-date the set points for all channels in case they have been changed since
+        #  the stabilizer was instantiated. not sure how to do this since getattr can not be
+        #  used in the kernel, and I don't want to have to pass in a variable explicitly.
+
+        for ch in self.all_channels:
+            ch.get_dds_settings()
+            delay(1 * ms)
+            ch.dds_obj.sw.off()
+            delay(1 * ms)
+
+        # turn off repumpers, which contribute typically a few percent to the total powers
+        self.exp.dds_MOT_RP.sw.off()
+
+        with sequential:
+
+            self.measure_background()  # this updates the background list
+            for ch in self.parallel_channels:
+                ch.dds_obj.sw.on()
+            delay(10 * ms)
+
+            # do feedback on the "parallel" channels
+            for i in range(self.iterations):
+                self.measure()
+                delay(1 * ms)
+
+                # strictly speaking, doesn't really matter if these are parallel
+                for ch in self.parallel_channels:
+                    delay(1 * ms)
+
+                    # update the dataset before this feedback step
+                    ch.set_value((self.measurement_buffer - self.background_buffer)[ch.buffer_index])
+                    delay(1*ms)
+                    self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+                    delay(1 * ms)
+                    ch.feedback(self.measurement_buffer - self.background_buffer)
+                delay(1 * ms)
+
+            for ch in self.parallel_channels:
+                ch.dds_obj.sw.off()
+            delay(50 * ms)  # the Femto fW detector is slow
+
+            # need to have this in order to feed back to the cooling beams
+            self.exp.dds_cooling_DP.sw.on()
+            delay(10 * ms)
+
+            self.measure_background()
+
+            # do feedback on the series channels
+            with sequential:
+                for ch in self.series_channels:
+                    ch.dds_obj.sw.on()
+
+                    delay(50 * ms)  # the Femto fW detector is slow
+                    for i in range(self.iterations):
+                        self.measure()
+                        delay(1 * ms)
+
+                        # update the dataset before this feedback step
+                        ch.set_value((self.measurement_buffer - self.background_buffer)[ch.buffer_index])
+                        delay(1 * ms)
+                        self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+                        delay(1 * ms)
+                        ch.feedback(self.measurement_buffer - self.background_buffer)
+                        delay(1 * ms)
+                    ch.dds_obj.sw.off()
+                    delay(50 * ms)  # the Femto fW detector is slow
+
+        # turn repumpers back on
+        self.exp.dds_MOT_RP.sw.on()
+
     @kernel
     def run(self):
         """
@@ -347,6 +445,10 @@ class AOMPowerStabilizer2:
         # todo: up-date the set points for all channels in case they have been changed since
         #  the stabilizer was instantiated. not sure how to do this since getattr can not be
         #  used in the kernel, and I don't want to have to pass in a variable explicitly.
+
+        # turn off repumpers, which contribute typically a few percent to the total powers
+        self.exp.dds_MOT_RP.sw.off()
+        delay(1*ms)
 
         for ch in self.all_channels:
             ch.get_dds_settings()
@@ -399,3 +501,7 @@ class AOMPowerStabilizer2:
             # update the datasets
             for ch in self.all_channels:
                 self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+
+        delay(1*ms)
+        # turn repumpers back on
+        self.exp.dds_MOT_RP.sw.on()

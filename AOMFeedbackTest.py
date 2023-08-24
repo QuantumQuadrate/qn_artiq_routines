@@ -22,6 +22,9 @@ class AOMPowerStabilizerTest2(EnvExperiment):
                               StringValue(
                                   "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
                                   "'dds_AOM_A6','dds_cooling_DP']"))
+        self.setattr_argument("exclude_from_fake_drift_dds_list",
+                              StringValue(
+                                  "['dds_cooling_DP']"))
         self.setattr_argument("run_with_fake_drift", BooleanValue(False),"simulate drift")
         self.setattr_argument("drift_factor", NumberValue(0.9),"simulate drift")
         self.setattr_argument("feedback_iterations", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
@@ -33,59 +36,71 @@ class AOMPowerStabilizerTest2(EnvExperiment):
 
         self.base.prepare()
 
-        feedback_dds_list = eval(self.feedback_dds_list)
+        # list of names of dds channels
+        self.dds_list = eval(self.feedback_dds_list)
+        self.exclude_list = eval(self.exclude_from_fake_drift_dds_list)
+
 
         self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
-                                           dds_names=feedback_dds_list,
+                                           dds_names=self.dds_list,
                                            iterations=self.feedback_iterations,
                                            # t_meas_delay=self.t_measurement_delay)
                                            t_meas_delay=10*ms) # not used
 
-        # the cooling single pass AOM -  we'll use this to fake a power drift.
-        # this will suffice for feeding back to the cooling DP and the fiber AOMs,
-        # but not for other beams.
-        self.dds_drift = self.dds_cooling_SP
-        self.dds_default_ampl = self.ampl_cooling_SP
-        self.dds_default_freq = self.f_cooling_SP
-        self.dds_drift_ampl = self.ampl_cooling_SP*self.drift_factor
+        # for running with fake drift, we need the dds references themselves
+        self.dds_refs = []
+        for dds_name in self.dds_list:
+            if dds_name not in self.exclude_list:
+                self.dds_refs.append(getattr(self, dds_name))
+
+        self.ampl_list = [0.0] * (len(self.dds_refs))
+        self.freq_list = [0.0] * (len(self.dds_refs))
+
+
+        # the cooling double pass AOM -  we'll use this to fake a power drift.
+        # this will suffice for feeding back to the fiber AOMs, but not to the
+        # other beams.
+        self.dds_drift = self.dds_cooling_DP
+        self.dds_default_ampl = self.ampl_cooling_DP_MOT
+        self.dds_default_freq = self.f_cooling_DP_MOT
+        self.dds_drift_ampl = self.dds_default_ampl*self.drift_factor
         self.dds_drift_freq = self.dds_default_freq
 
     @kernel
     def run(self):
         self.base.initialize_hardware()
 
-        # allow AOMs to thermalize
-        delay(2000*ms)
-
         self.core.break_realtime()
 
         if self.run_with_fake_drift:
 
+            # first get the default settings
+            i = 0
+            for dds in self.dds_refs:
+                freq, _, ampl = dds.get()
+                delay(10*ms)
+                self.ampl_list[i] = ampl
+                self.freq_list[i] = freq
+                i += 1
+
             for i in range(self.experiment_iterations):
+                print("faking drift")
+                j = 0
+                for dds in self.dds_refs:
+                    dds.set(frequency=self.freq_list[j],amplitude=self.ampl_list[j]*self.drift_factor)
+                    delay(1*ms)
+                    j += 1
 
-                # change the upstream AOM's RF to simulate drift from the set point
-                start_mu = now_mu()
-                at_mu(start_mu)
-                self.dds_drift.set(self.dds_default_freq, amplitude=self.dds_drift_ampl)
-
-                # allow the upstream AOM to re-thermalize, then run the feedback
-                print("faking power drift with upstream AOM")
-
-                delay(1000 * ms)
                 print("running feedback")
-                self.laser_stabilizer.run()
+                self.laser_stabilizer.run_tuning_mode()
+                delay(self.t_iteration_delay)
 
-                # reset the upstream AOM
-                print("resetting the upstream AOM")
-                self.dds_drift.set(self.dds_drift_freq, amplitude=self.dds_drift_ampl)
-
-                delay(2000 * ms)
-                # adjust the stabilizer AOM again
-                print("running feedback")
-                self.laser_stabilizer.run()
         else:
+
+            print("running feedback")
+            delay(10 * ms)
+
             for i in range(self.experiment_iterations):
-                print("running feedback")
                 self.laser_stabilizer.run()
                 delay(self.t_iteration_delay)
         print("experiment finished")
