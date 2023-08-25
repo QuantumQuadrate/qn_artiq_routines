@@ -187,7 +187,7 @@ class FeedbackChannel:
 
 class AOMPowerStabilizer2:
 
-    def __init__(self, experiment, dds_names, iterations=10, averages=1):
+    def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
 
@@ -205,6 +205,7 @@ class AOMPowerStabilizer2:
         self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.averages = averages
+        self.leave_AOMs_on = leave_AOMs_on
 
         self.sampler_list = [] # stores the list of Sampler references
         self.series_channels = [] # the feedback channels that should be adjusted one-by-one
@@ -563,3 +564,7 @@ class AOMPowerStabilizer2:
         # turn repumpers and cooling DP back on
         self.exp.dds_MOT_RP.sw.on()
         self.exp.dds_cooling_DP.sw.on()
+
+        if self.leave_AOMs_on:
+            for ch in self.all_channels:
+                ch.dds_obj.sw.on()
