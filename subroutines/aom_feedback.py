@@ -410,6 +410,10 @@ class AOMPowerStabilizer2:
         # turn repumpers back on
         self.exp.dds_MOT_RP.sw.on()
 
+        if self.leave_AOMs_on:
+            for ch in self.all_channels:
+                ch.dds_obj.sw.on()
+
     @kernel
     def run_tuning_mode(self):
         """
@@ -441,6 +445,8 @@ class AOMPowerStabilizer2:
                 ch.dds_obj.sw.on()
             delay(10 * ms)
 
+            # todo: only continue to iterate while there are channels that are
+            #  not within a tolerated error
             # do feedback on the "parallel" channels
             for i in range(self.iterations):
                 self.measure()
@@ -457,6 +463,7 @@ class AOMPowerStabilizer2:
                     delay(1 * ms)
                     ch.feedback(self.measurement_array - self.background_array)
                 delay(1 * ms)
+                i += 1
 
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.off()
@@ -490,6 +497,10 @@ class AOMPowerStabilizer2:
 
         # turn repumpers back on
         self.exp.dds_MOT_RP.sw.on()
+
+        if self.leave_AOMs_on:
+            for ch in self.all_channels:
+                ch.dds_obj.sw.on()
 
     @kernel
     def run(self):
