@@ -4,6 +4,7 @@ This code turns on the MOT AOMs and also the MOT coils.
 from artiq.experiment import *
 
 from utilities.BaseExperiment import BaseExperiment
+from subroutines.aom_feedback import AOMPowerStabilizer2
 
 class AOMsCoils(EnvExperiment):
 
@@ -28,6 +29,13 @@ class AOMsCoils(EnvExperiment):
 
     def prepare(self):
         self.base.prepare()
+
+        dds_feedback_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4',
+                             'dds_AOM_A4', 'dds_AOM_A5', 'dds_AOM_A6', 'dds_cooling_DP']
+        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
+                                                    dds_names=dds_feedback_list,
+                                                    iterations=4,
+                                                    leave_AOMs_on=True)
 
     @kernel
     def run(self):
@@ -102,12 +110,21 @@ class AOMsCoils(EnvExperiment):
             self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
 
-        if self.enable_laser_feedback:
-            self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
-            print("waiting for AOMs to thermalize")
-            delay(2000 * ms)
-            print("running feedback")
-            self.AOMservo.run()
-
-            delay(1*ms)
+        delay(1 * ms)
         print("Coils and AOMs done!")
+
+        if self.enable_laser_feedback:
+            print("Will now run feedback and monitor powers until forcibly stopped")
+            delay(100*ms)
+
+            # takes several iterations for process value to stabilize
+            for i in range(20):
+                self.laser_stabilizer.run()  # must come after relevant DDS's have been set
+                delay(500 * ms)
+
+            while True:
+                for i in range(10):
+                    self.laser_stabilizer.monitor()
+                    delay(2000*ms)
+                self.laser_stabilizer.run()  # must come after relevant DDS's have been set
+                delay(2000 * ms)
