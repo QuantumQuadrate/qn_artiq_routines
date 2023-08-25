@@ -16,6 +16,12 @@ the AOM powers.
 See the example experiment toward the bottom of this file.
 
 Preston's notes:
+averaging the measurements and/or background measurements does not work,
+in that if I average both of these, I get unexpected results. averaging
+the measurements alone is fine. doing this for background also gives
+measurement - background on the order of +/-1e35. possibly some kind of
+arithmetic error, but I couldn't get it to go away as of 8.24.23.
+
 todo: should be able to modify setpoints so we can optimize them as needed.
 one way to do this would be to make the stabilizer dict a json file and
 update the json file, e.g. after doing an optimizer routine with the AOM
@@ -51,7 +57,7 @@ stabilizer_dict = {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x, # converts volts to optical mW
                     'set_point': 'set_point_PD0_AOM_cooling_DP', # volts wrt to background
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.01, # the proportionality constant
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor'
                 },
@@ -60,7 +66,7 @@ stabilizer_dict = {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_PD5_AOM_A5', # volts wrt to background
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.08, # the proportionality constant
                     'series': True,
                     'dataset':'MOT5_monitor'
                 },
@@ -69,7 +75,7 @@ stabilizer_dict = {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_PD6_AOM_A6', # volts wrt to background
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.08, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT6_monitor'
                 },
@@ -87,7 +93,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_fW_AOM_A2', # volts wrt to background
-                    'p': 0.03, # the proportionality constant
+                    'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT2_monitor'
                 },
@@ -96,7 +102,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A3', # volts wrt to background
-                    'p': 0.008, # the proportionality constant
+                    'p': 0.005, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT3_monitor'
                 },
@@ -105,7 +111,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A4', # volts wrt to background
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT4_monitor'
                 }
@@ -181,7 +187,7 @@ class FeedbackChannel:
 
 class AOMPowerStabilizer2:
 
-    def __init__(self, experiment, dds_names, iterations=10, t_meas_delay=10 * ms):
+    def __init__(self, experiment, dds_names, iterations=10, averages=1):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
 
@@ -198,12 +204,11 @@ class AOMPowerStabilizer2:
         self.exp = experiment
         self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
-        self.t_meas_delay = t_meas_delay
-        self.measurement_buffer = [] # a buffer to store the measurement from all sampled Samplers
+        self.averages = averages
+
         self.sampler_list = [] # stores the list of Sampler references
         self.series_channels = [] # the feedback channels that should be adjusted one-by-one
         self.parallel_channels = []
-        self.last_measurement = {}
 
         # this block instantiates FeedbackChannel objects and groups them by series/parallel feedback flag
         for i, sampler_name in enumerate(stabilizer_dict):
@@ -239,8 +244,13 @@ class AOMPowerStabilizer2:
                         else:
                             self.parallel_channels.append(fb_channel)
 
-        self.measurement_buffer = np.array([0.0]*8*len(self.sampler_list))
-        self.background_buffer = np.array([0.0]*8*len(self.sampler_list))
+        self.num_samplers = len(self.sampler_list)
+        # self.measurement_array = np.array([0.0] * 8 * self.num_samplers)
+        self.measurement_array = np.full(8 * self.num_samplers, 0.0)
+
+        # self.background_array = np.array([0.0] * 8 * self.num_samplers)
+        self.background_array = np.full(8 * self.num_samplers, 0.0)
+
 
         self.all_channels = self.parallel_channels + self.series_channels
 
@@ -249,7 +259,9 @@ class AOMPowerStabilizer2:
             self.exp.set_dataset(ch.dataset, [1.0], broadcast=True)
 
         # the number of pts to plot
-        self.exp.set_dataset('MOT_rolling_pts', [10], broadcast=True)
+        self.exp.set_dataset('MOT_rolling_pts',
+                             [10],#elf.exp.get_dataset('MOT_beam_monitor_points')
+                             broadcast=True)
 
 
     @rpc(flags={"async"})
@@ -262,9 +274,24 @@ class AOMPowerStabilizer2:
         measure all Sampler cards used for feedback
         # todo: could add option to average for better snr
         """
+
+        # this works
+        # average_measurement = np.array([0.0] * 8 * self.num_samplers)
+        # self.measurement_array = np.array([0.0] * 8 * self.num_samplers)
+        # average_measurement = np.full(self.num_samplers*8, 0.0)
+        # self.measurement_array = np.full(self.num_samplers*8, 0.0)
+        # for j in range(self.averages):
+        #     i = 0
+        #     for sampler in self.sampler_list:
+        #         sampler.sample(average_measurement[i:i + 8])
+        #         delay(1 * ms)
+        #         i += 1
+        #     self.measurement_array += average_measurement
+        # self.measurement_array /= self.averages
+
         i = 0
         for sampler in self.sampler_list:
-            sampler.sample(self.measurement_buffer[i:i + 8])
+            sampler.sample(self.measurement_array[i:i + 8])
             delay(1*ms)
             i+=1
 
@@ -274,11 +301,40 @@ class AOMPowerStabilizer2:
         measure all Sampler cards used for feedback
         # todo: could add option to average for better snr
         """
+
+        # gives consignment error
+        # self.average_background = np.array([0.0] * 8 * self.num_samplers)
+        # self.background_array = np.array([0.0] * 8 * self.num_samplers)
+        # for j in range(self.averages):
+        #     i = 0
+        #     for sampler in self.sampler_list:
+        #         sampler.sample(self.average_background[i:i + 8])
+        #         delay(1 * ms)
+        #         i += 1
+        #     temp = self.background_array
+        #     self.background_array = temp + self.average_background
+        #
+        # temp = self.background_array
+        # self.background_array = temp/self.averages
+
+        # average_background = np.full(self.num_samplers*8,0.0)
+        # self.background_array = np.full(self.num_samplers*8,0.0)
+        # for j in range(self.averages):
+        #     i = 0
+        #     for sampler in self.sampler_list:
+        #         sampler.sample(average_background[i:i + 8])
+        #         delay(1 * ms)
+        #         i += 1
+        #     self.background_array += average_background
+        # self.background_array /= self.averages
+
         i = 0
         for sampler in self.sampler_list:
-            sampler.sample(self.background_buffer[i:i + 8])
+            sampler.sample(self.background_array[i:i + 8])
             delay(1*ms)
             i+=1
+
+        # self.print(self.background_array)
 
     # dry run test to verify plotting applet works
     # def run(self):
@@ -321,7 +377,7 @@ class AOMPowerStabilizer2:
 
             for ch in self.parallel_channels:
                 delay(1*ms)
-                ch.set_value((self.measurement_buffer - self.background_buffer)[ch.buffer_index])
+                ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
             delay(1 * ms)
 
             for ch in self.parallel_channels:
@@ -341,7 +397,7 @@ class AOMPowerStabilizer2:
                     delay(50 * ms) # the Femto fW detector is slow
                     self.measure()
                     delay(1*ms)
-                    ch.set_value((self.measurement_buffer - self.background_buffer)[ch.buffer_index])
+                    ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
                     delay(1*ms)
                     ch.dds_obj.sw.off()
                     delay(50 * ms)  # the Femto fW detector is slow
@@ -379,6 +435,7 @@ class AOMPowerStabilizer2:
         with sequential:
 
             self.measure_background()  # this updates the background list
+            delay(1*ms)
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
             delay(10 * ms)
@@ -393,11 +450,11 @@ class AOMPowerStabilizer2:
                     delay(1 * ms)
 
                     # update the dataset before this feedback step
-                    ch.set_value((self.measurement_buffer - self.background_buffer)[ch.buffer_index])
+                    ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
                     delay(1*ms)
                     self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
                     delay(1 * ms)
-                    ch.feedback(self.measurement_buffer - self.background_buffer)
+                    ch.feedback(self.measurement_array - self.background_array)
                 delay(1 * ms)
 
             for ch in self.parallel_channels:
@@ -421,11 +478,11 @@ class AOMPowerStabilizer2:
                         delay(1 * ms)
 
                         # update the dataset before this feedback step
-                        ch.set_value((self.measurement_buffer - self.background_buffer)[ch.buffer_index])
+                        ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
                         delay(1 * ms)
                         self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
                         delay(1 * ms)
-                        ch.feedback(self.measurement_buffer - self.background_buffer)
+                        ch.feedback(self.measurement_array - self.background_array)
                         delay(1 * ms)
                     ch.dds_obj.sw.off()
                     delay(50 * ms)  # the Femto fW detector is slow
@@ -471,7 +528,7 @@ class AOMPowerStabilizer2:
                 # strictly speaking, doesn't really matter if these are parallel
                 for ch in self.parallel_channels:
                     delay(1*ms)
-                    ch.feedback(self.measurement_buffer - self.background_buffer)
+                    ch.feedback(self.measurement_array - self.background_array)
                 delay(1 * ms)
 
             for ch in self.parallel_channels:
@@ -493,7 +550,7 @@ class AOMPowerStabilizer2:
                     for i in range(self.iterations):
                         self.measure()
                         delay(1*ms)
-                        ch.feedback(self.measurement_buffer - self.background_buffer)
+                        ch.feedback(self.measurement_array - self.background_array)
                         delay(1*ms)
                     ch.dds_obj.sw.off()
                     delay(50 * ms)  # the Femto fW detector is slow
@@ -503,5 +560,6 @@ class AOMPowerStabilizer2:
                 self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
         delay(1*ms)
-        # turn repumpers back on
+        # turn repumpers and cooling DP back on
         self.exp.dds_MOT_RP.sw.on()
+        self.exp.dds_cooling_DP.sw.on()

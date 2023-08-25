@@ -29,8 +29,9 @@ class AOMPowerStabilizerTest2(EnvExperiment):
         self.setattr_argument("drift_factor", NumberValue(0.9),"simulate drift")
         self.setattr_argument("feedback_iterations", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
                               "feedback params")
-        # self.setattr_argument("t_measurement_delay", NumberValue(20*ms, unit='ms'),
-        #                       "feedback params")
+        self.setattr_argument("averages", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
+                              "feedback params")
+
 
     def prepare(self):
 
@@ -44,8 +45,7 @@ class AOMPowerStabilizerTest2(EnvExperiment):
         self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
                                            dds_names=self.dds_list,
                                            iterations=self.feedback_iterations,
-                                           # t_meas_delay=self.t_measurement_delay)
-                                           t_meas_delay=10*ms) # not used
+                                           averages=self.averages)
 
         # for running with fake drift, we need the dds references themselves
         self.dds_refs = []
@@ -84,14 +84,16 @@ class AOMPowerStabilizerTest2(EnvExperiment):
                 i += 1
 
             for i in range(self.experiment_iterations):
-                print("faking drift")
-                j = 0
-                for dds in self.dds_refs:
-                    dds.set(frequency=self.freq_list[j],amplitude=self.ampl_list[j]*self.drift_factor)
-                    delay(1*ms)
-                    j += 1
 
-                print("running feedback")
+                if self.drift_factor != 1:
+                    print("faking drift")
+                    j = 0
+                    for dds in self.dds_refs:
+                        dds.set(frequency=self.freq_list[j],amplitude=self.ampl_list[j]*self.drift_factor)
+                        delay(1*ms)
+                        j += 1
+
+                # print("running feedback")
                 self.laser_stabilizer.run_tuning_mode()
                 delay(self.t_iteration_delay)
 
