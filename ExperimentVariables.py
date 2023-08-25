@@ -147,6 +147,13 @@ class ExperimentVariables(EnvExperiment):
             # Variable("cooling_volts_ch", 7, NumberValue, {'type': 'int', 'scale': 1, 'ndecimals': 0, 'step': 1},
             #          "Set points"),
 
+            # Plotting
+            Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
+                     "Plotting"),
+            # Variable("MOT_beam_monitor_points", 100.0, NumberValue,
+            #          {'type': 'float', 'ndecimals': 0, 'scale': 1},
+            #          "Plotting"),
+
             # Booleans
             Variable("enable_laser_feedback", False, BooleanValue, {}, "Enable/disable")
 

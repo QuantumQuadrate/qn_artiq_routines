@@ -259,10 +259,10 @@ class AOMPowerStabilizer2:
             self.exp.set_dataset(ch.dataset, [1.0], broadcast=True)
 
         # the number of pts to plot
-        self.exp.set_dataset('MOT_rolling_pts',
-                             [10],#elf.exp.get_dataset('MOT_beam_monitor_points')
+        pts = getattr(self.exp, 'MOT_beam_monitor_points')
+        self.exp.set_dataset('monitor_pts',
+                             [pts],# yes, this is stupid.
                              broadcast=True)
-
 
     @rpc(flags={"async"})
     def print(self, x):
