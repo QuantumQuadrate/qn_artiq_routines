@@ -7,8 +7,10 @@ parabolic mirror. It saves the photon counts in a file.
 from artiq.experiment import *
 import csv
 from datetime import datetime as dt
+import numpy as np
 
 from utilities.BaseExperiment import BaseExperiment
+from subroutines.aom_feedback import AOMPowerStabilizer2
 
 class CoilScanSPCMCount(EnvExperiment):
 
@@ -30,23 +32,23 @@ class CoilScanSPCMCount(EnvExperiment):
         except KeyError as e:
             print(e)
             self.setattr_argument("Vz_bottom_array", StringValue(
-                '[0.6 - l*(0.6 - 1)/20 for l in range(20)]'), "Coil steps")
+                '[6 - l*(6 - 8)/20 for l in range(20)]'), "Coil steps")
             self.setattr_argument("Vz_top_array", StringValue(
-                '[-1.5 - i*(3.3 - 1.5)/20 for i in range(20)]'), "Coil steps")
+                '[6.75 - i*(6.75 - 8.75)/20 for i in range(20)]'), "Coil steps")
             self.setattr_argument("Vx_array", StringValue(
-                '[0.15 - j*(0.8 + 0.15)/20 for j in range(20)]'), "Coil steps")
+                '[-0.5 - j*(-0.5 - 0.5)/20 for j in range(20)]'), "Coil steps")
             self.setattr_argument("Vy_array", StringValue(
-                '[0.025 - k*(0.9 + 0.025)/20 for k in range(20)]'), "Coil steps")
+                '[-0.5 - j*(-0.5 - 0.5)/20 for k in range(20)]'), "Coil steps")
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
-        self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
+        self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),
+                              "File to save data")
         self.setattr_argument("datafile", StringValue('coil_scan.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
 
         # when to run the AOM feedback (after how many iterations in the for loops)
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(30), "Laser feedback")
         self.setattr_argument("enable_laser_feedback", BooleanValue(True), "Laser feedback")
-
 
         # dev ops
         self.setattr_argument("print_measurement_number", BooleanValue(False), "Developer options")
@@ -64,6 +66,13 @@ class CoilScanSPCMCount(EnvExperiment):
         """
 
         self.base.prepare()
+
+        dds_feedback_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3',
+                             'dds_AOM_A4', 'dds_AOM_A5', 'dds_AOM_A6', 'dds_cooling_DP']
+        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
+                                                    dds_names=dds_feedback_list,
+                                                    iterations=4,
+                                                    leave_AOMs_on=True)
 
         # where to store the data
         self.t_experiment_run = dt.now().strftime("%Y%m%d_%H%M%S")
@@ -87,8 +96,8 @@ class CoilScanSPCMCount(EnvExperiment):
         self.xsteps = len(self.Vx_array)
         self.ysteps = len(self.Vy_array)
 
-        self.sampler_buffer = [0.0]*8
-        self.cooling_volts_ch = 7 # we'll read this channel later and save it to the file
+        self.sampler_buffer = np.full(8, 0.0)
+        # self.cooling_volts_ch = 7 # we'll read this channel later and save it to the file
 
         print("prepare - done")
 
@@ -138,6 +147,13 @@ class CoilScanSPCMCount(EnvExperiment):
 
         rtio_log("zotino0")
 
+        if self.enable_laser_feedback:
+            # todo: when the feedback system works better, remove
+            # try to ensure the MOT powers reach the set point before we begin
+            for i in range(30):
+                self.laser_stabilizer.run()
+                delay(100*ms)
+
         for Vz_top in self.Vz_top_array:
             print(i_vz_step, "out of ", len(self.Vz_top_array), "outer loop steps")
 
@@ -166,17 +182,13 @@ class CoilScanSPCMCount(EnvExperiment):
                 for Vx in self.Vx_array:
                     for Vy in self.Vy_array:
 
-                        # self.core.break_realtime()
-
                         if self.enable_laser_feedback:
                             if (step % self.AOM_feedback_period_cycles) == 0:
                                 print("running feedback")
                                 self.core.break_realtime()
-                                self.AOMservo.run()
-                                delay(10 * ms)
-
-
-
+                                self.laser_stabilizer.run()
+                            # else:
+                            #     self.laser_stabilizer.monitor()
 
                         # do the experiment sequence
                         delay(10 * ms)
