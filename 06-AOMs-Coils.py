@@ -30,7 +30,7 @@ class AOMsCoils(EnvExperiment):
     def prepare(self):
         self.base.prepare()
 
-        dds_feedback_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4',
+        dds_feedback_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3',
                              'dds_AOM_A4', 'dds_AOM_A5', 'dds_AOM_A6', 'dds_cooling_DP']
         self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
                                                     dds_names=dds_feedback_list,
