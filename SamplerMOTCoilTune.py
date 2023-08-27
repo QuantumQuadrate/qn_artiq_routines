@@ -7,8 +7,10 @@ automatically.
 """
 
 from artiq.experiment import *
+import numpy as np
 
 from utilities.BaseExperiment import BaseExperiment
+from subroutines.aom_feedback import AOMPowerStabilizer2
 
 class SamplerMOTCoilTune(EnvExperiment):
 
@@ -19,11 +21,11 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
-        self.setattr_argument("FORT_AOM_on", BooleanValue(True))
+        self.setattr_argument("FORT_AOM_on", BooleanValue(False))
         self.setattr_argument("MOT_AOMs_on", BooleanValue(True))
         self.setattr_argument("update_coil_volts_at_finish", BooleanValue(False))
         self.setattr_argument("run_time_minutes", NumberValue(1))
-        self.setattr_argument("coil_volts_multiplier", NumberValue(1)) # scales the value read by the Sampler
+        self.setattr_argument("coil_volts_multiplier", NumberValue(3.3)) # scales the value read by the Sampler
 
         group = "SPCM settings"
          # exposure time of the SPCM
@@ -31,6 +33,10 @@ class SamplerMOTCoilTune(EnvExperiment):
         # saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
         self.setattr_argument("sat1s", NumberValue(1 * 10 ** 5), group)  # saturation limit in counts/dt.
         self.setattr_argument("print_count_rate", BooleanValue(True), group)
+
+        # when to run the AOM feedback (after how many iterations in the for loops)
+        self.setattr_argument("AOM_feedback_period_cycles", NumberValue(30), "Laser feedback")
+        self.setattr_argument("enable_laser_feedback", BooleanValue(True), "Laser feedback")
 
         print("build - done")
 
@@ -43,18 +49,30 @@ class SamplerMOTCoilTune(EnvExperiment):
         """
 
         self.base.prepare()
+
+        dds_feedback_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3',
+                             'dds_AOM_A4', 'dds_AOM_A5', 'dds_AOM_A6', 'dds_cooling_DP']
+        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
+                                                    dds_names=dds_feedback_list,
+                                                    iterations=4,
+                                                    leave_AOMs_on=True)
+
         print(self.dt_exposure)
         self.n_steps = int(60*self.run_time_minutes/self.dt_exposure+0.5)
         print(self.n_steps)
-        self.sampler_buffer = [0.0]*8
+        self.sampler_buffer = np.zeros(8)
         self.control_volts_channels = [0,1,2,3] # the sampler channels to read
+
+        self.count_rate_dataset = 'SPCM_count_rate_Hz'
+        self.set_dataset(self.count_rate_dataset,
+                             [0.0],
+                             broadcast=True)
 
         print("prepare - done")
 
     @kernel
     def run(self):
         self.base.initialize_hardware()
-
 
         if self.MOT_AOMs_on:
             # Turn on AOMs to load the MOT.
@@ -99,9 +117,20 @@ class SamplerMOTCoilTune(EnvExperiment):
         Satdt = self.sat1s * self.dt_exposure  # saturation limit in counts/dt.
         delay(1000 * ms)
 
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()
+            delay(100*ms)
+
         print("ready!")
 
         for i in range(self.n_steps):
+
+            if self.enable_laser_feedback:
+                if (i % self.AOM_feedback_period_cycles) == 0:
+                    print("running feedback")
+                    self.core.break_realtime()
+                    self.laser_stabilizer.run()
+                    delay(100*ms)
 
             tend1 = self.ttl0.gate_rising(self.dt_exposure)
             count1 = self.ttl0.count(tend1)
@@ -124,6 +153,7 @@ class SamplerMOTCoilTune(EnvExperiment):
                 channels=self.coil_channels)
 
             delay(1 * ms)
+            self.append_to_dataset(self.count_rate_dataset, count1/self.dt_exposure)
 
         self.zotino0.write_dac(ch, 0.0)
         self.zotino0.load()

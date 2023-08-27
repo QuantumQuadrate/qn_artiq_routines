@@ -148,9 +148,6 @@ class CoilScanSPCMCount(EnvExperiment):
         rtio_log("zotino0")
 
         if self.enable_laser_feedback:
-            # todo: when the feedback system works better, remove
-            # try to ensure the MOT powers reach the set point before we begin
-            for i in range(30):
                 self.laser_stabilizer.run()
                 delay(100*ms)
 
