@@ -59,7 +59,8 @@ stabilizer_dict = {
                     'set_point': 'set_point_PD0_AOM_cooling_DP', # volts wrt to background
                     'p': 0.01, # the proportionality constant
                     'series': False, # if series = True then these channels are fed-back to one at a time
-                    'dataset':'MOT_switchyard_monitor'
+                    'dataset':'MOT_switchyard_monitor',
+                    'power_dataset':'p_cooling_DP_MOT' # the dataset for the RF power in dB; see ExperimentVariables
                 },
             'dds_AOM_A5': # signal monitored by PD5
                 {
@@ -68,7 +69,8 @@ stabilizer_dict = {
                     'set_point': 'set_point_PD5_AOM_A5', # volts wrt to background
                     'p': 0.08, # the proportionality constant
                     'series': True,
-                    'dataset':'MOT5_monitor'
+                    'dataset':'MOT5_monitor',
+                    'power_dataset':'AOM_A5_power'
                 },
             'dds_AOM_A6': # signal monitored by PD6
                 {
@@ -77,7 +79,8 @@ stabilizer_dict = {
                     'set_point': 'set_point_PD6_AOM_A6', # volts wrt to background
                     'p': 0.08, # the proportionality constant
                     'series': True,
-                    'dataset': 'MOT6_monitor'
+                    'dataset': 'MOT6_monitor',
+                    'power_dataset':'AOM_A6_power'
                 },
             'dds_AOM_A1': # signal monitored by Femto fW detector
                 {
@@ -86,7 +89,8 @@ stabilizer_dict = {
                     'set_point': 'set_point_fW_AOM_A1', # volts wrt to background
                     'p': 0.005, # the proportionality constant
                     'series': True,
-                    'dataset': 'MOT1_monitor'
+                    'dataset': 'MOT1_monitor',
+                    'power_dataset':'AOM_A1_power'
                 },
             'dds_AOM_A2': # signal monitored by Femto fW detector
                 {
@@ -95,7 +99,8 @@ stabilizer_dict = {
                     'set_point': 'set_point_fW_AOM_A2', # volts wrt to background
                     'p': 0.008, # the proportionality constant
                     'series': True,
-                    'dataset': 'MOT2_monitor'
+                    'dataset': 'MOT2_monitor',
+                    'power_dataset':'AOM_A2_power'
                 },
             'dds_AOM_A3': # signal monitored by Femto fW detector
                 {
@@ -104,7 +109,8 @@ stabilizer_dict = {
                     'set_point': 'set_point_fW_AOM_A3', # volts wrt to background
                     'p': 0.005, # the proportionality constant
                     'series': True,
-                    'dataset': 'MOT3_monitor'
+                    'dataset': 'MOT3_monitor',
+                    'power_dataset':'AOM_A3_power'
                 },
             'dds_AOM_A4': # signal monitored by Femto fW detector
                 {
@@ -113,7 +119,8 @@ stabilizer_dict = {
                     'set_point': 'set_point_fW_AOM_A4', # volts wrt to background
                     'p': 0.008, # the proportionality constant
                     'series': True,
-                    'dataset': 'MOT4_monitor'
+                    'dataset': 'MOT4_monitor',
+                    'power_dataset':'AOM_A4_power'
                 }
         },
     'sampler1':
@@ -123,7 +130,7 @@ stabilizer_dict = {
 
 class FeedbackChannel:
 
-    def __init__(self, name, dds_obj, buffer_index, set_point, p, dataset):
+    def __init__(self, name, dds_obj, buffer_index, set_point, p, dataset, dB_dataset):
         """
         class which defines a DDS feedback channel
 
@@ -145,6 +152,7 @@ class FeedbackChannel:
         self.value = 0.0 # the last value of the measurement
         self.value_normalized = 0.0 # self.value normalized to the set point
         self.dataset = dataset
+        self.dB_dataset = dB_dataset # the name of the dataset that stores the dB RF power for the dds
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -187,7 +195,8 @@ class FeedbackChannel:
 
 class AOMPowerStabilizer2:
 
-    def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False):
+    def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False,
+                 update_dds_settings=True):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
 
@@ -206,6 +215,7 @@ class AOMPowerStabilizer2:
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.averages = averages
         self.leave_AOMs_on = leave_AOMs_on
+        self.update_dds_settings = update_dds_settings
 
         self.sampler_list = [] # stores the list of Sampler references
         self.series_channels = [] # the feedback channels that should be adjusted one-by-one
@@ -237,7 +247,8 @@ class AOMPowerStabilizer2:
                                             # g=ch_params['transfer_function'],
                                             set_point=getattr(self.exp,ch_params['set_point']),
                                             p=ch_params['p'],
-                                            dataset=ch_params['dataset']
+                                            dataset=ch_params['dataset'],
+                                            dB_dataset=ch_params['power_dataset']
                         )
 
                         if ch_params['series']:
@@ -268,6 +279,12 @@ class AOMPowerStabilizer2:
     @rpc(flags={"async"})
     def print(self, x):
         print(x)
+
+    @kernel
+    def write_dds_settings(self):
+        for ch in self.all_channels:
+            dB = 10*(np.log10(ch.amplitude**2/(2*50)) + 3)
+            self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True)
 
     @kernel
     def measure(self):
@@ -501,6 +518,9 @@ class AOMPowerStabilizer2:
         if self.leave_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
+        delay(1*ms)
+        if self.update_dds_settings:
+            self.write_dds_settings()
 
     @kernel
     def run(self):
@@ -579,3 +599,6 @@ class AOMPowerStabilizer2:
         if self.leave_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
+        delay(1 * ms)
+        if self.update_dds_settings:
+            self.write_dds_settings()
