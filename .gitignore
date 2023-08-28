@@ -16,3 +16,5 @@ subroutines/__pycache__/*
 */__pycache__/*
 ./**/*.pyc
 */**/**/*.pyc
+examples/old_experiments/__pycache__/*.pyc
+subroutines/__pycache__/*.pyc
