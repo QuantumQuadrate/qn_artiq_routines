@@ -60,7 +60,8 @@ stabilizer_dict = {
                     'p': 0.01, # the proportionality constant
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor',
-                    'power_dataset':'p_cooling_DP_MOT' # the dataset for the RF power in dB; see ExperimentVariables
+                    'power_dataset':'p_cooling_DP_MOT', # the dataset for the RF power in dB; see ExperimentVariables
+                    't_measure_delay':1*ms # time to wait between AOM turned on and measurement
                 },
             'dds_AOM_A5': # signal monitored by PD5
                 {
@@ -70,7 +71,8 @@ stabilizer_dict = {
                     'p': 0.08, # the proportionality constant
                     'series': True,
                     'dataset':'MOT5_monitor',
-                    'power_dataset':'AOM_A5_power'
+                    'power_dataset':'AOM_A5_power',
+                    't_measure_delay':1*ms
                 },
             'dds_AOM_A6': # signal monitored by PD6
                 {
@@ -80,7 +82,8 @@ stabilizer_dict = {
                     'p': 0.08, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT6_monitor',
-                    'power_dataset':'AOM_A6_power'
+                    'power_dataset':'AOM_A6_power',
+                    't_measure_delay':1*ms
                 },
             'dds_AOM_A1': # signal monitored by Femto fW detector
                 {
@@ -90,7 +93,8 @@ stabilizer_dict = {
                     'p': 0.005, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT1_monitor',
-                    'power_dataset':'AOM_A1_power'
+                    'power_dataset':'AOM_A1_power',
+                    't_measure_delay':50*ms
                 },
             'dds_AOM_A2': # signal monitored by Femto fW detector
                 {
@@ -100,7 +104,8 @@ stabilizer_dict = {
                     'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT2_monitor',
-                    'power_dataset':'AOM_A2_power'
+                    'power_dataset':'AOM_A2_power',
+                    't_measure_delay':50*ms
                 },
             'dds_AOM_A3': # signal monitored by Femto fW detector
                 {
@@ -110,7 +115,8 @@ stabilizer_dict = {
                     'p': 0.005, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT3_monitor',
-                    'power_dataset':'AOM_A3_power'
+                    'power_dataset':'AOM_A3_power',
+                    't_measure_delay':50*ms
                 },
             'dds_AOM_A4': # signal monitored by Femto fW detector
                 {
@@ -120,7 +126,8 @@ stabilizer_dict = {
                     'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT4_monitor',
-                    'power_dataset':'AOM_A4_power'
+                    'power_dataset':'AOM_A4_power',
+                    't_measure_delay':50*ms
                 }
         },
     'sampler1':
@@ -130,7 +137,7 @@ stabilizer_dict = {
 
 class FeedbackChannel:
 
-    def __init__(self, name, dds_obj, buffer_index, set_point, p, dataset, dB_dataset):
+    def __init__(self, name, dds_obj, buffer_index, set_point, p, dataset, dB_dataset, t_measure_delay):
         """
         class which defines a DDS feedback channel
 
@@ -153,6 +160,7 @@ class FeedbackChannel:
         self.value_normalized = 0.0 # self.value normalized to the set point
         self.dataset = dataset
         self.dB_dataset = dB_dataset # the name of the dataset that stores the dB RF power for the dds
+        self.t_measure_delay = t_measure_delay
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -248,7 +256,8 @@ class AOMPowerStabilizer2:
                                             set_point=getattr(self.exp,ch_params['set_point']),
                                             p=ch_params['p'],
                                             dataset=ch_params['dataset'],
-                                            dB_dataset=ch_params['power_dataset']
+                                            dB_dataset=ch_params['power_dataset'],
+                                            t_measure_delay=ch_params['t_measure_delay']
                         )
 
                         if ch_params['series']:
@@ -284,7 +293,7 @@ class AOMPowerStabilizer2:
     def write_dds_settings(self):
         for ch in self.all_channels:
             dB = 10*(np.log10(ch.amplitude**2/(2*50)) + 3)
-            self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True)
+            self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True, persist=True)
 
     @kernel
     def measure(self):
@@ -296,8 +305,6 @@ class AOMPowerStabilizer2:
         # this works
         # average_measurement = np.array([0.0] * 8 * self.num_samplers)
         # self.measurement_array = np.array([0.0] * 8 * self.num_samplers)
-        # average_measurement = np.full(self.num_samplers*8, 0.0)
-        # self.measurement_array = np.full(self.num_samplers*8, 0.0)
         # for j in range(self.averages):
         #     i = 0
         #     for sampler in self.sampler_list:
@@ -412,13 +419,13 @@ class AOMPowerStabilizer2:
             with sequential:
                 for ch in self.series_channels:
                     ch.dds_obj.sw.on()
-                    delay(50 * ms) # the Femto fW detector is slow
+                    delay(ch.t_measure_delay)
                     self.measure()
                     delay(1*ms)
                     ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
                     delay(1*ms)
                     ch.dds_obj.sw.off()
-                    delay(50 * ms)  # the Femto fW detector is slow
+                    # delay(50 * ms)  # the Femto fW detector is slow
 
             # update the datasets
             for ch in self.all_channels:
@@ -578,14 +585,13 @@ class AOMPowerStabilizer2:
                 for ch in self.series_channels:
                     ch.dds_obj.sw.on()
 
-                    delay(50 * ms) # the Femto fW detector is slow
+                    delay(ch.t_measure_delay) # allows for detector rise time
                     for i in range(self.iterations):
                         self.measure()
                         delay(1*ms)
                         ch.feedback(self.measurement_array - self.background_array)
                         delay(1*ms)
                     ch.dds_obj.sw.off()
-                    delay(50 * ms)  # the Femto fW detector is slow
 
             # update the datasets
             for ch in self.all_channels:
