@@ -242,7 +242,6 @@ class AOMPowerStabilizer2:
             # check if any of the dds names is associated with this sampler
             if True in [dds_name in feedback_channels.keys() for dds_name in dds_names]:
 
-                # self.measurement_buffer += [0.0] * 8
                 self.sampler_list.append(getattr(self.exp, sampler_name))
 
                 # loop over the dds channels associated with this sampler
@@ -443,6 +442,9 @@ class AOMPowerStabilizer2:
 
         # turn repumpers back on
         self.exp.dds_MOT_RP.sw.on()
+        self.exp.dds_cooling_DP.sw.on()
+
+        delay(1 * ms)
 
         if self.leave_AOMs_on:
             for ch in self.all_channels:
@@ -469,7 +471,7 @@ class AOMPowerStabilizer2:
             delay(1 * ms)
 
         # turn off repumpers, which contribute typically a few percent to the total powers
-        self.exp.dds_MOT_RP.sw.off()
+        # self.exp.dds_MOT_RP.sw.off()
 
         with sequential:
 
@@ -537,6 +539,9 @@ class AOMPowerStabilizer2:
 
         # turn repumpers back on
         self.exp.dds_MOT_RP.sw.on()
+        self.exp.dds_cooling_DP.sw.on()
+
+        delay(1 * ms)
 
         if self.leave_AOMs_on:
             for ch in self.all_channels:
@@ -571,6 +576,7 @@ class AOMPowerStabilizer2:
         with sequential:
 
             self.measure_background() # this updates the background list
+            delay(1*ms)
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
             delay(10*ms)
@@ -585,15 +591,17 @@ class AOMPowerStabilizer2:
                     delay(1*ms)
                     if not self.dry_run:
                         ch.feedback(self.measurement_array - self.background_array)
+                    else:
+                        ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
                 delay(1 * ms)
 
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.off()
-            delay(50 * ms)  # the Femto fW detector is slow
+            delay(10 * ms)  # the Femto fW detector is slow
 
             # need to have this on
             self.exp.dds_cooling_DP.sw.on()
-            delay(10 * ms)
+            delay(50 * ms)
 
             self.measure_background()
 
@@ -621,6 +629,8 @@ class AOMPowerStabilizer2:
         # turn repumpers and cooling DP back on
         self.exp.dds_MOT_RP.sw.on()
         self.exp.dds_cooling_DP.sw.on()
+
+        delay(1*ms)
 
         if self.leave_AOMs_on:
             for ch in self.all_channels:
