@@ -27,6 +27,7 @@ class AOMPowerStabilizerTest2(EnvExperiment):
                                   "['dds_cooling_DP']"))
         self.setattr_argument("run_with_fake_drift", BooleanValue(False),"simulate drift")
         self.setattr_argument("drift_factor", NumberValue(0.9),"simulate drift")
+        self.setattr_argument("no_feedback", BooleanValue(False),"feedback params")
         self.setattr_argument("feedback_iterations", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
                               "feedback params")
         self.setattr_argument("averages", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
@@ -41,11 +42,11 @@ class AOMPowerStabilizerTest2(EnvExperiment):
         self.dds_list = eval(self.feedback_dds_list)
         self.exclude_list = eval(self.exclude_from_fake_drift_dds_list)
 
-
         self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
                                            dds_names=self.dds_list,
                                            iterations=self.feedback_iterations,
-                                           averages=self.averages)
+                                           averages=self.averages,
+                                           dry_run=self.no_feedback)
 
         # for running with fake drift, we need the dds references themselves
         self.dds_refs = []
