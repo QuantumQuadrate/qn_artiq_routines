@@ -25,13 +25,17 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
-
+        self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
+                              "Laser power stabilization")
+        self.setattr_argument("feedback_dds_list",
+                              StringValue(
+                                  "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
+                                  "'dds_AOM_A6','dds_cooling_DP']"),"Laser power stabilization")
 
     def prepare(self):
         self.base.prepare()
 
-        dds_feedback_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3',
-                             'dds_AOM_A4', 'dds_AOM_A5', 'dds_AOM_A6', 'dds_cooling_DP']
+        dds_feedback_list = eval(self.feedback_dds_list)
         self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
                                                     dds_names=dds_feedback_list,
                                                     iterations=4,
@@ -123,8 +127,5 @@ class AOMsCoils(EnvExperiment):
                 delay(500 * ms)
 
             while True:
-                for i in range(10):
-                    self.laser_stabilizer.monitor()
-                    delay(2000*ms)
                 self.laser_stabilizer.run()  # must come after relevant DDS's have been set
-                delay(2000 * ms)
+                delay(self.t_feedback_period)
