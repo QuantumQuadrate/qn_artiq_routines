@@ -313,6 +313,17 @@ class AOMPowerStabilizer2:
         #         i += 1
         # self.measurement_array /= self.averages
 
+        # self.measurement_array = np.full(8*self.num_samplers, 0.0)
+        # data_array = np.full(8, 0.0)
+        # for sampler in self.sampler_list:
+        #     i = 0
+        #     for j in range(self.averages):
+        #         sampler.sample(data_array)
+        #         self.measurement_array[i:i + 8] += data_array
+        #         delay(1 * ms)
+        #     i += 1
+        # self.measurement_array /= self.averages
+
         i = 0
         for sampler in self.sampler_list:
             sampler.sample(self.measurement_array[i:i + 8])
@@ -338,6 +349,17 @@ class AOMPowerStabilizer2:
         #         self.background_array[i:i + 8] += data_array
         #         delay(1 * ms)
         #         i += 1
+        # self.background_array /= self.averages
+
+        # self.background_array = np.full(8 * self.num_samplers, 0.0)
+        # background_array = np.full(8, 0.0)
+        # for sampler in self.sampler_list:
+        #     i = 0
+        #     for j in range(self.averages):
+        #         sampler.sample(background_array)
+        #         self.background_array[i:i + 8] += background_array
+        #         delay(1 * ms)
+        #     i += 1
         # self.background_array /= self.averages
 
         i = 0
@@ -561,7 +583,8 @@ class AOMPowerStabilizer2:
                 # strictly speaking, doesn't really matter if these are parallel
                 for ch in self.parallel_channels:
                     delay(1*ms)
-                    ch.feedback(self.measurement_array - self.background_array)
+                    if not self.dry_run:
+                        ch.feedback(self.measurement_array - self.background_array)
                 delay(1 * ms)
 
             for ch in self.parallel_channels:
