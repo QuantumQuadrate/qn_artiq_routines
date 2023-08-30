@@ -18,57 +18,44 @@ class SamplerAverage(EnvExperiment):
         self.background_array = np.zeros(8)
 
     @rpc(flags={'async'})
-    def print(self, average, data):
-        print("average = ", average)
-        print("data = ", data)
+    def print(self, x):
+        print(x)
 
     @kernel
     def measure(self):
+        self.measure_array = np.full(8, 0.0)
         for i in range(self.averages):
-            print(i)
-            delay(100*ms)
             self.sampler0.sample(self.data_array)
             self.measure_array += self.data_array
-            delay(100*ms)
-            self.print(self.measure_array, self.data_array)
+            delay(1*ms)
+            # self.print(self.measure_array, self.data_array)
 
         self.measure_array /= self.averages
+        self.print("self.measure_array")
+        self.print(self.measure_array)
 
     @kernel
     def background(self):
+        self.background_array = np.full(8, 0.0)
         for i in range(self.averages):
-            print(i)
-            delay(100*ms)
             self.sampler0.sample(self.data_array)
             self.background_array += self.data_array
-            delay(100*ms)
-            self.print(self.background_array, self.data_array)
+            delay(1*ms)
 
         self.background_array /= self.averages
+        self.print("self.background_array")
+        self.print(self.background_array)
 
     @kernel
     def run(self):
         self.core.reset()
 
-        # for i in range(self.averages):
-        #     print(i)
-        #     delay(100*ms)
-        #     self.sampler0.sample(self.data_array)
-        #     self.average_array += self.data_array
-        #     delay(100*ms)
-        #     self.print(self.average_array, self.data_array)
-        #
-        # self.average_array /= self.averages
-        # self.print(self.average_array, self.data_array)
-
-        # something like this gives issues in AOMPowerStabilizer
-        self.measure()
+        delay(1*ms)
         self.background()
-        delay(100*ms)
-        print(self.measure_array)
-        delay(100*ms)
-        print(self.measure_array - self.background_array)
-
+        delay(1*ms)
+        self.measure()
+        delay(1*ms)
+        self.background()
 
 
 
