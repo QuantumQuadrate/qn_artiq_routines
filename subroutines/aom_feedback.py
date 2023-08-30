@@ -271,6 +271,9 @@ class AOMPowerStabilizer2:
         self.num_samplers = len(self.sampler_list)
         self.measurement_array = np.full(8 * self.num_samplers, 0.0)
         self.background_array = np.full(8 * self.num_samplers, 0.0)
+        self.signal_array = np.zeros(8)
+        self.bg_array = np.zeros(8)
+
 
         self.all_channels = self.parallel_channels + self.series_channels
 
@@ -301,54 +304,93 @@ class AOMPowerStabilizer2:
         # todo: could add option to average for better snr
         """
 
-        # self.measurement_array = np.full(8*self.num_samplers, 0.0)
-        # data_array = np.full(8, 0.0)
-        # for j in range(self.averages):
-        #     i = 0
-        #     for sampler in self.sampler_list:
-        #         sampler.sample(data_array)
-        #         self.measurement_array[i:i + 8] += data_array
-        #         delay(1 * ms)
-        #         i += 1
-        # self.measurement_array /= self.averages
-
-        # self.measurement_array = np.full(8*self.num_samplers, 0.0)
-        # data_array = np.full(8, 0.0)
+        # i = 0
         # for sampler in self.sampler_list:
-        #     i = 0
-        #     for j in range(self.averages):
-        #         sampler.sample(data_array)
-        #         self.measurement_array[i:i + 8] += data_array
-        #         delay(1 * ms)
+        #     sampler.sample(self.measurement_array[i:i + 8])
+        #     delay(1 * ms)
         #     i += 1
-        # self.measurement_array /= self.averages
 
+        # self.measurement_array = np.full(8 * self.num_samplers, 0.0)
+        dummy = np.full(8 * self.num_samplers, 0.0)
+        measurement_array = np.full(8, 0.0)
         i = 0
         for sampler in self.sampler_list:
-            sampler.sample(self.measurement_array[i:i + 8])
-            delay(1*ms)
-            i+=1
+            for j in range(self.averages):
+                sampler.sample(measurement_array)
+                delay(1*ms)
+                # self.measurement_array[i * 8:(i + 1) * 8] += measurement_array/self.averages # outlives target error
+                dummy[i * 8:(i + 1) * 8] += measurement_array # outlives target error
+                delay(1 * ms)
+            i += 1
+        # self.measurement_array /= self.averages
+        dummy /= self.averages
+        self.measurement_array = dummy
+
+
+        # self.measurement_array = np.full(8, 0.0)
+        # for i in range(self.averages):
+        #     self.exp.sampler0.sample(self.signal_array)
+        #     self.measurement_array += self.signal_array
+        #     delay(1*ms)
+
+        # self.measurement_array /= self.averages
 
         self.print("self.measurement_array:")
         self.print(self.measurement_array)
 
-    @kernel
+    # @kernel
+    # def measure_background(self) -> TArray(TFloat, 1):
+    #     """
+    #     measure all Sampler cards used for feedback
+    #     # todo: could add option to average for better snr
+    #     """
+    #     # i = 0
+    #     # for sampler in self.sampler_list:
+    #     #     sampler.sample(self.background_array[i:i + 8])
+    #     #     delay(1*ms)
+    #     #     i+=1
+    #
+    #     # self.background_array = np.full(8 * self.num_samplers, 0.0)
+    #     # background_array = np.full(8, 0.0)
+    #     # for sampler in self.sampler_list:
+    #     #     i = 0
+    #     #     for j in range(self.averages):
+    #     #         sampler.sample(background_array)
+    #     #         self.background_array[i*8:(i+1)*8] += background_array
+    #     #         delay(1 * ms)
+    #     #     i += 1
+    #     # self.background_array /= self.averages
+    #     #
+    #     #
+    #     # self.print("self.background_array:")
+    #     # self.print(self.background_array)
+    #
+    #     average_array = np.full(8 * self.num_samplers, 0.0)
+    #     background_array = np.full(8, 0.0)
+    #     for sampler in self.sampler_list:
+    #         i = 0
+    #         for j in range(self.averages):
+    #             sampler.sample(background_array)
+    #             average_array[i * 8:(i + 1) * 8] += background_array
+    #             delay(1 * ms)
+    #         i += 1
+    #     average_array /= self.averages
+    #     return average_array
+
+        # self.print("self.background_array:")
+        # self.print(self.background_array)
+
+    # @kernel
     def measure_background(self):
         """
         measure all Sampler cards used for feedback
         # todo: could add option to average for better snr
         """
-
-        # self.background_array = np.full(8 * self.num_samplers, 0.0)
-        # data_array = np.full(8, 0.0)
-        # for j in range(self.averages):
-        #     i = 0
-        #     for sampler in self.sampler_list:
-        #         sampler.sample(data_array)
-        #         self.background_array[i:i + 8] += data_array
-        #         delay(1 * ms)
-        #         i += 1
-        # self.background_array /= self.averages
+        # i = 0
+        # for sampler in self.sampler_list:
+        #     sampler.sample(self.background_array[i:i + 8])
+        #     delay(1*ms)
+        #     i+=1
 
         # self.background_array = np.full(8 * self.num_samplers, 0.0)
         # background_array = np.full(8, 0.0)
@@ -356,19 +398,29 @@ class AOMPowerStabilizer2:
         #     i = 0
         #     for j in range(self.averages):
         #         sampler.sample(background_array)
-        #         self.background_array[i:i + 8] += background_array
+        #         self.background_array[i*8:(i+1)*8] += background_array
         #         delay(1 * ms)
         #     i += 1
         # self.background_array /= self.averages
+        #
+        #
+        # self.print("self.background_array:")
+        # self.print(self.background_array)
 
-        i = 0
+        average_array = np.full(8 * self.num_samplers, 0.0)
+        background_array = np.full(8, 0.0)
         for sampler in self.sampler_list:
-            sampler.sample(self.background_array[i:i + 8])
-            delay(1*ms)
-            i+=1
+            i = 0
+            for j in range(self.averages):
+                sampler.sample(background_array)
+                self.background_array[i * 8:(i + 1) * 8] += background_array
+                delay(1 * ms)
+            i += 1
+        self.background_array /= self.averages
 
         self.print("self.background_array:")
         self.print(self.background_array)
+
 
     # dry run test to verify plotting applet works
     # def run(self):
@@ -379,10 +431,6 @@ class AOMPowerStabilizer2:
     #         self.exp.append_to_dataset(ch.dataset, x)
     #         time.sleep(0.01)
     #     time.sleep(0.5)
-
-    # todo: should shut off the repumps when adjusting the beams
-    #  repump itself probably doesn't need stabilizing. absolute
-    #  power doesn't matter much
 
     @kernel
     def monitor(self):
@@ -450,6 +498,7 @@ class AOMPowerStabilizer2:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
 
+    #todo: check that this is still functionally equivalent to the run method
     @kernel
     def run_tuning_mode(self):
         """
@@ -575,7 +624,7 @@ class AOMPowerStabilizer2:
 
         with sequential:
 
-            self.measure_background() # this updates the background list
+            # self.measure_background() # this updates the background list
             delay(1*ms)
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
@@ -603,7 +652,8 @@ class AOMPowerStabilizer2:
             self.exp.dds_cooling_DP.sw.on()
             delay(50 * ms)
 
-            self.measure_background()
+            # self.measure_background()
+            delay(1*ms)
 
             # do feedback on the series channels
             with sequential:
