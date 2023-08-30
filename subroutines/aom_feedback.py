@@ -338,85 +338,27 @@ class AOMPowerStabilizer2:
         self.print("self.measurement_array:")
         self.print(self.measurement_array)
 
-    # @kernel
-    # def measure_background(self) -> TArray(TFloat, 1):
-    #     """
-    #     measure all Sampler cards used for feedback
-    #     # todo: could add option to average for better snr
-    #     """
-    #     # i = 0
-    #     # for sampler in self.sampler_list:
-    #     #     sampler.sample(self.background_array[i:i + 8])
-    #     #     delay(1*ms)
-    #     #     i+=1
-    #
-    #     # self.background_array = np.full(8 * self.num_samplers, 0.0)
-    #     # background_array = np.full(8, 0.0)
-    #     # for sampler in self.sampler_list:
-    #     #     i = 0
-    #     #     for j in range(self.averages):
-    #     #         sampler.sample(background_array)
-    #     #         self.background_array[i*8:(i+1)*8] += background_array
-    #     #         delay(1 * ms)
-    #     #     i += 1
-    #     # self.background_array /= self.averages
-    #     #
-    #     #
-    #     # self.print("self.background_array:")
-    #     # self.print(self.background_array)
-    #
-    #     average_array = np.full(8 * self.num_samplers, 0.0)
-    #     background_array = np.full(8, 0.0)
-    #     for sampler in self.sampler_list:
-    #         i = 0
-    #         for j in range(self.averages):
-    #             sampler.sample(background_array)
-    #             average_array[i * 8:(i + 1) * 8] += background_array
-    #             delay(1 * ms)
-    #         i += 1
-    #     average_array /= self.averages
-    #     return average_array
-
-        # self.print("self.background_array:")
-        # self.print(self.background_array)
-
-    # @kernel
+    @kernel
     def measure_background(self):
         """
         measure all Sampler cards used for feedback
         # todo: could add option to average for better snr
         """
-        # i = 0
-        # for sampler in self.sampler_list:
-        #     sampler.sample(self.background_array[i:i + 8])
-        #     delay(1*ms)
-        #     i+=1
 
-        # self.background_array = np.full(8 * self.num_samplers, 0.0)
-        # background_array = np.full(8, 0.0)
-        # for sampler in self.sampler_list:
-        #     i = 0
-        #     for j in range(self.averages):
-        #         sampler.sample(background_array)
-        #         self.background_array[i*8:(i+1)*8] += background_array
-        #         delay(1 * ms)
-        #     i += 1
-        # self.background_array /= self.averages
-        #
-        #
-        # self.print("self.background_array:")
-        # self.print(self.background_array)
-
-        average_array = np.full(8 * self.num_samplers, 0.0)
+        dummy_background = np.full(8 * self.num_samplers, 0.0)
         background_array = np.full(8, 0.0)
+        i = 0
         for sampler in self.sampler_list:
-            i = 0
             for j in range(self.averages):
                 sampler.sample(background_array)
-                self.background_array[i * 8:(i + 1) * 8] += background_array
+                delay(1 * ms)
+                # self.measurement_array[i * 8:(i + 1) * 8] += measurement_array/self.averages # outlives target error
+                dummy_background[i * 8:(i + 1) * 8] += background_array  # outlives target error
                 delay(1 * ms)
             i += 1
-        self.background_array /= self.averages
+        # self.measurement_array /= self.averages
+        dummy_background /= self.averages
+        self.background_array = dummy_background
 
         self.print("self.background_array:")
         self.print(self.background_array)
@@ -448,7 +390,7 @@ class AOMPowerStabilizer2:
 
         with sequential:
 
-            self.measure_background() # this updates the background list
+            # self.measure_background() # this updates the background list
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
             delay(10*ms)
@@ -470,7 +412,7 @@ class AOMPowerStabilizer2:
             self.exp.dds_cooling_DP.sw.on()
             delay(10*ms)
 
-            self.measure_background()
+            # self.measure_background()
 
             # measure the series channels
             with sequential:
