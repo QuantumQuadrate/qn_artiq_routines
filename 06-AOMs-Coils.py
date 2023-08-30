@@ -27,6 +27,8 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
         self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
                               "Laser power stabilization")
+        self.setattr_argument("averages", NumberValue(3, type='int', ndecimals=0, step=1, scale=1),
+                              "Laser power stabilization")
         self.setattr_argument("feedback_dds_list",
                               StringValue(
                                   "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
@@ -39,6 +41,7 @@ class AOMsCoils(EnvExperiment):
         self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
                                                     dds_names=dds_feedback_list,
                                                     iterations=4,
+                                                    averages=self.averages,
                                                     leave_AOMs_on=True)
 
     @kernel
