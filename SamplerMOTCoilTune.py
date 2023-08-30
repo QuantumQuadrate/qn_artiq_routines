@@ -55,6 +55,7 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
                                                     dds_names=dds_feedback_list,
                                                     iterations=4,
+                                                    averages=4,
                                                     leave_AOMs_on=True)
 
         print(self.dt_exposure)
