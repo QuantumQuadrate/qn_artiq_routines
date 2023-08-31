@@ -335,8 +335,8 @@ class AOMPowerStabilizer2:
 
         # self.measurement_array /= self.averages
 
-        self.print("self.measurement_array:")
-        self.print(self.measurement_array)
+        # self.print("self.measurement_array:")
+        # self.print(self.measurement_array)
 
     @kernel
     def measure_background(self):
