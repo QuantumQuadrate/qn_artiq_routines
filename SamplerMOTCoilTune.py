@@ -116,11 +116,14 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.zotino0.load()
 
         Satdt = self.sat1s * self.dt_exposure  # saturation limit in counts/dt.
-        delay(1000 * ms)
+        delay(1 * ms)
 
         if self.enable_laser_feedback:
-            self.laser_stabilizer.run()
-            delay(100*ms)
+            # takes several iterations for process value to stabilize
+            for i in range(20):
+                print("running feedback step", i)
+                self.laser_stabilizer.run()  # must come after relevant DDS's have been set
+                delay(500 * ms)
 
         print("ready!")
 
