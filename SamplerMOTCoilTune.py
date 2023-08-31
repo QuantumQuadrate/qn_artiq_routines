@@ -25,7 +25,12 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.setattr_argument("MOT_AOMs_on", BooleanValue(True))
         self.setattr_argument("update_coil_volts_at_finish", BooleanValue(False))
         self.setattr_argument("run_time_minutes", NumberValue(1))
-        self.setattr_argument("coil_volts_multiplier", NumberValue(3.3)) # scales the value read by the Sampler
+        self.setattr_argument("coil_volts_multiplier",
+                              NumberValue(3.3)) # scales the value read by the Sampler
+        self.setattr_argument("differential_mode",
+                              BooleanValue(False),"differential mode") # scan the coils with respect to the current settings
+        self.setattr_argument("differential_multiplier",
+                              NumberValue(1),"differential mode") # scales the value read by the Sampler
 
         group = "SPCM settings"
          # exposure time of the SPCM
@@ -63,6 +68,7 @@ class SamplerMOTCoilTune(EnvExperiment):
         print(self.n_steps)
         self.sampler_buffer = np.zeros(8)
         self.control_volts_channels = [0,1,2,3] # the sampler channels to read
+        self.default_volts = [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT]
 
         self.count_rate_dataset = 'SPCM_count_rate_Hz'
         self.set_dataset(self.count_rate_dataset,
@@ -147,7 +153,12 @@ class SamplerMOTCoilTune(EnvExperiment):
             delay(1 * ms)
 
             self.sampler1.sample(self.sampler_buffer)
-            control_volts = [self.sampler_buffer[ch]*self.coil_volts_multiplier for ch in self.control_volts_channels]
+            if self.differential_mode:
+                control_volts = [self.sampler_buffer[ch]*self.differential_multiplier + self.default_volts[ch]
+                                 for ch in self.control_volts_channels]
+            else:
+                control_volts = [self.sampler_buffer[ch] * self.coil_volts_multiplier
+                                 for ch in self.control_volts_channels]
 
             delay(1*ms)
 
