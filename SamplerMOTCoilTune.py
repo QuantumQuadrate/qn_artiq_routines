@@ -23,7 +23,8 @@ class SamplerMOTCoilTune(EnvExperiment):
 
         self.setattr_argument("FORT_AOM_on", BooleanValue(False))
         self.setattr_argument("MOT_AOMs_on", BooleanValue(True))
-        self.setattr_argument("update_coil_volts_at_finish", BooleanValue(False))
+        self.setattr_argument("set_current_coil_volts_at_finish", BooleanValue(False))
+        self.setattr_argument("set_best_coil_volts_at_finish", BooleanValue(False)) # this will override the previous value
         self.setattr_argument("leave_coils_on_at_finish", BooleanValue(True))
         self.setattr_argument("run_time_minutes", NumberValue(1))
         self.setattr_argument("coil_volts_multiplier",
@@ -76,6 +77,11 @@ class SamplerMOTCoilTune(EnvExperiment):
                              [0.0],
                              broadcast=True)
 
+        self.maxcount_dataset = 'SPCM_max_counts_and_volts'
+        self.set_dataset(self.count_rate_dataset,
+                         [0.0, *self.default_volts],
+                         broadcast=True)
+
         print("prepare - done")
 
     @kernel
@@ -114,6 +120,8 @@ class SamplerMOTCoilTune(EnvExperiment):
             delay(3000 * ms)
 
         control_volts = [0.0]*4
+        best_volts = [0.0]*4 # the volts that we had when the best MOT was found
+        max_count_rate = 0.0
 
         delay(10 * ms)
 
@@ -145,12 +153,21 @@ class SamplerMOTCoilTune(EnvExperiment):
 
             tend1 = self.ttl0.gate_rising(self.dt_exposure)
             count1 = self.ttl0.count(tend1)
+            count_rate_Hz = count1 / self.dt_exposure
             if self.print_count_rate:
-                print(round(count1 / self.dt_exposure))
+                print(round(count_rate_Hz))
             delay(10 * ms)
             volt1 = count1 * 5 / Satdt  # the voltage from zotino0, port 7. Saturation limit corresponds to 5V.
             self.zotino0.write_dac(ch, volt1)
             self.zotino0.load()
+            delay(1 * ms)
+
+            delay(1 * ms)
+            self.append_to_dataset(self.count_rate_dataset, count_rate_Hz)
+            if count_rate_Hz > max_count_rate:
+                max_count_rate = count_rate_Hz
+                best_volts = control_volts
+                self.set_dataset(self.maxcount_dataset,[count_rate_Hz]+best_volts)
             delay(1 * ms)
 
             self.sampler1.sample(self.sampler_buffer)
@@ -168,18 +185,23 @@ class SamplerMOTCoilTune(EnvExperiment):
                 control_volts,
                 channels=self.coil_channels)
 
-            delay(1 * ms)
-            self.append_to_dataset(self.count_rate_dataset, count1/self.dt_exposure)
-            delay(1 * ms)
-
         if not self.leave_coils_on_at_finish:
             self.zotino0.write_dac(ch, 0.0)
             self.zotino0.load()
             delay(1 * ms)
 
-        if self.update_coil_volts_at_finish:
-            volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
+        volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
+        if self.set_best_coil_volts_at_finish:
+            for i in range(4):
+                self.set_dataset(volt_datasets[i], best_volts[i], broadcast=True)
+        elif self.set_current_coil_volts_at_finish:
             for i in range(4):
                 self.set_dataset(volt_datasets[i], control_volts[i], broadcast=True)
+
+        print("Best volts [VZ_bottom,VZ_top,Vx,Vy]:")
+        print(best_volts)
+        print("Best count rate (kHz):")
+        print(max_count_rate/1e3)
+
 
         print("Experiment finished.")
