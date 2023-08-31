@@ -24,13 +24,14 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.setattr_argument("FORT_AOM_on", BooleanValue(False))
         self.setattr_argument("MOT_AOMs_on", BooleanValue(True))
         self.setattr_argument("update_coil_volts_at_finish", BooleanValue(False))
+        self.setattr_argument("leave_coils_on_at_finish", BooleanValue(True))
         self.setattr_argument("run_time_minutes", NumberValue(1))
         self.setattr_argument("coil_volts_multiplier",
                               NumberValue(3.3)) # scales the value read by the Sampler
         self.setattr_argument("differential_mode",
-                              BooleanValue(False),"differential mode") # scan the coils with respect to the current settings
+                              BooleanValue(False),"differential mode (tune voltage wrt current coil settings)") # scan the coils with respect to the current settings
         self.setattr_argument("differential_multiplier",
-                              NumberValue(1),"differential mode") # scales the value read by the Sampler
+                              NumberValue(1),"differential mode (tune voltage wrt current coil settings)") # scales the value read by the Sampler
 
         group = "SPCM settings"
          # exposure time of the SPCM
@@ -40,7 +41,7 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.setattr_argument("print_count_rate", BooleanValue(True), group)
 
         # when to run the AOM feedback (after how many iterations in the for loops)
-        self.setattr_argument("AOM_feedback_period_cycles", NumberValue(30), "Laser feedback")
+        self.setattr_argument("AOM_feedback_period_cycles", NumberValue(200), "Laser feedback")
         self.setattr_argument("enable_laser_feedback", BooleanValue(True), "Laser feedback")
 
         print("build - done")
@@ -169,9 +170,12 @@ class SamplerMOTCoilTune(EnvExperiment):
 
             delay(1 * ms)
             self.append_to_dataset(self.count_rate_dataset, count1/self.dt_exposure)
+            delay(1 * ms)
 
-        self.zotino0.write_dac(ch, 0.0)
-        self.zotino0.load()
+        if not self.leave_coils_on_at_finish:
+            self.zotino0.write_dac(ch, 0.0)
+            self.zotino0.load()
+            delay(1 * ms)
 
         if self.update_coil_volts_at_finish:
             volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
