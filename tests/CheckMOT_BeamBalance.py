@@ -8,6 +8,9 @@ from artiq.experiment import *
 import numpy as np
 import csv
 
+import sys, os
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+
 from utilities.BaseExperiment import BaseExperiment
 
 class CheckMOTBallance(EnvExperiment):
