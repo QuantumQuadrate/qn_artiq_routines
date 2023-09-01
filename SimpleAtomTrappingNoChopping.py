@@ -119,7 +119,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
 
         if self.enable_laser_feedback:
-            self.AOMservo.run()
+            self.laser_stabilizer.run()
 
         # loop the experiment sequence
         for measurement in range(self.n_measurements):

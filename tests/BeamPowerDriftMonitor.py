@@ -12,7 +12,6 @@ import sys, os
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 
 from utilities.BaseExperiment import BaseExperiment
-from subroutines.aom_feedback import AOMPowerStabilizer2
 
 
 class BeamPowerDriftMonitor(EnvExperiment):

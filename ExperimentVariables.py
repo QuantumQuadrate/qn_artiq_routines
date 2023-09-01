@@ -154,8 +154,15 @@ class ExperimentVariables(EnvExperiment):
             #          {'type': 'float', 'ndecimals': 0, 'scale': 1},
             #          "Plotting"),
 
-            # Booleans
-            Variable("enable_laser_feedback", False, BooleanValue, {}, "Enable/disable")
+            # Laser feedback
+            Variable("enable_laser_feedback", False, BooleanValue, {}, "Laser feedback"),
+            Variable("feedback_dds_list", "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', "
+                                          "'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
+                                      "'dds_AOM_A6','dds_cooling_DP']", StringValue, {}, "Laser feedback"),
+            Variable("aom_feedback_averages", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
+                     "Laser feedback"),
+            Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
+                     "Laser feedback")
 
             # File saving # todo: move away from saving csv files and save instead to the experiment's hdf
         ]

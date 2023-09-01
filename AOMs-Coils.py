@@ -4,7 +4,6 @@ This code turns on the MOT AOMs and also the MOT coils.
 from artiq.experiment import *
 
 from utilities.BaseExperiment import BaseExperiment
-from subroutines.aom_feedback import AOMPowerStabilizer2
 
 class AOMsCoils(EnvExperiment):
 
@@ -29,20 +28,13 @@ class AOMsCoils(EnvExperiment):
                               "Laser power stabilization")
         self.setattr_argument("averages", NumberValue(3, type='int', ndecimals=0, step=1, scale=1),
                               "Laser power stabilization")
-        self.setattr_argument("feedback_dds_list",
-                              StringValue(
-                                  "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
-                                  "'dds_AOM_A6','dds_cooling_DP']"),"Laser power stabilization")
+        # self.setattr_argument("feedback_dds_list",
+        #                       StringValue(
+        #                           "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
+        #                           "'dds_AOM_A6','dds_cooling_DP']"),"Laser power stabilization")
 
     def prepare(self):
         self.base.prepare()
-
-        dds_feedback_list = eval(self.feedback_dds_list)
-        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
-                                                    dds_names=dds_feedback_list,
-                                                    iterations=4,
-                                                    averages=self.averages,
-                                                    leave_AOMs_on=True)
 
     @kernel
     def run(self):
@@ -126,7 +118,7 @@ class AOMsCoils(EnvExperiment):
 
             # takes several iterations for process value to stabilize
             for i in range(20):
-                self.laser_stabilizer.run()  # must come after relevant DDS's have been set
+                self.laser_stabilizer.run()
                 delay(500 * ms)
 
             while True:

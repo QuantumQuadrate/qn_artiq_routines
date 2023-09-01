@@ -136,7 +136,7 @@ class SimpleAtomTrapping(EnvExperiment):
 
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
 
-        self.AOMservo.run()
+        self.laser_stabilizer.run()
 
         # loop the experiment sequence
         for measurement in range(self.n_measurements):

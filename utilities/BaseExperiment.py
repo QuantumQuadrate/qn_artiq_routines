@@ -34,7 +34,7 @@ from artiq.experiment import *
 import sys, os
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 
-from subroutines.stabilizer import AOMPowerStabilizer
+from subroutines.aom_feedback import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
 
@@ -92,7 +92,10 @@ class BaseExperiment:
             "set_point_fW_AOM_A4",
             "set_point_PD5_AOM_A5",
             "set_point_PD6_AOM_A6",
-            'MOT_beam_monitor_points'
+            'MOT_beam_monitor_points',
+            'feedback_dds_list',
+            'aom_feedback_averages',
+            'aom_feedback_iterations'
         ]
 
         setattr_variables(self.experiment)
@@ -154,29 +157,13 @@ class BaseExperiment:
         self.experiment.AOM_A5_ampl = dB_to_V(self.experiment.AOM_A5_power)
         self.experiment.AOM_A6_ampl = dB_to_V(self.experiment.AOM_A6_power)
 
-        # todo: need to update the function for the I2V PD0 detector
-        def PD0_volts_to_optical_mW(x: TFloat) -> TFloat:
-            """
-            the conversion of photodetector voltage to power at switchyard in mW
+        dds_feedback_list = eval(self.experiment.feedback_dds_list)
 
-            TTI detector is connected to 1:99 splitter with G=10, TR=1.4K
-            """
-            x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
-            # the multimeter that I used for the fit reads
-            return -0.195395 + 17.9214 * x
-
-        # todo: add the
-        self.experiment.AOMservo = AOMPowerStabilizer(experiment=self.experiment,
-                                        dds_names=["dds_cooling_DP"],
-                                        sampler_name="sampler0",
-                                        sampler_channels=[7],
-                                        transfer_functions=[PD0_volts_to_optical_mW],
-                                        setpoints=[self.experiment.cooling_setpoint_mW],  # in mW
-                                        proportionals=[0.07],
-                                        iters=5,  # if > some value, you'll underflow the rtio counter
-                                        t_meas_delay=20 * ms)
-
-        # todo add a servo for the chip-based AOMs
+        self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+                                                    dds_names=dds_feedback_list,
+                                                    iterations=self.experiment.aom_feedback_iterations,
+                                                    averages=self.experiment.aom_feedback_averages,
+                                                    leave_AOMs_on=True)
 
         print("base prepare - done")
 
@@ -191,9 +178,6 @@ class BaseExperiment:
         self.experiment.ttl6.output()  # for outputting a trigger
         self.experiment.ttl1.input()
         self.experiment.sampler0.init() # for reading laser feedback
-
-        if self.experiment.enable_laser_feedback:
-            self.experiment.AOMservo.get_dds_settings()
 
         print("base initialize_hardware - done")
 

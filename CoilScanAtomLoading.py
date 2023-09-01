@@ -167,7 +167,7 @@ class CoilScanFORTLoading(EnvExperiment):
                         if (step % self.AOM_feedback_period_cycles) == 0:
                             print("running feedback")
                             self.core.break_realtime()
-                            self.AOMservo.run()
+                            self.laser_stabilizer.run()
                             delay(20*ms)
 
                         # do the experiment sequence

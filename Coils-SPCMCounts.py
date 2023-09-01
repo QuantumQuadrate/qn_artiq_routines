@@ -3,7 +3,6 @@ First turn on the AOMs with the AOMs-coils code, then run this code to change th
 see SPCM counts to put the MOT at the right location.
 """
 from artiq.experiment import *
-from subroutines.stabilizer import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 
 
@@ -37,6 +36,17 @@ class CoilsSPCMCounts(EnvExperiment):
 
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
+        self.setattr_argument("feedback_dds_list",
+                              StringValue(
+                                  "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
+                                  "'dds_AOM_A6','dds_cooling_DP']"), "Laser power stabilization")
+
+        dds_feedback_list = eval(self.feedback_dds_list)
+        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
+                                                    dds_names=dds_feedback_list,
+                                                    iterations=4,
+                                                    averages=4,
+                                                    leave_AOMs_on=True)
 
     def prepare(self):
 
@@ -51,7 +61,7 @@ class CoilsSPCMCounts(EnvExperiment):
             # the multimeter that I used for the fit reads
             return -0.195395 + 17.9214 * x
 
-        self.AOMservo = AOMPowerStabilizer(experiment=self,
+        self.laser_stabilizer = AOMPowerStabilizer(experiment=self,
                                            dds_names=["urukul0_ch1"],
                                            sampler_name="sampler0",
                                            sampler_channels=[7],
@@ -81,13 +91,10 @@ class CoilsSPCMCounts(EnvExperiment):
                              channels=self.coil_channels)
 
         if self.enable_laser_feedback:
-            self.AOMservo.get_dds_settings()  # must come after relevant DDS's have been set
-            print("waiting for AOMs to thermalize")
-            delay(2000 * ms)
-            print("running feedback")
-            self.AOMservo.run()
-
-            delay(1*ms)
+            # takes several iterations for process value to stabilize
+            for i in range(20):
+                self.laser_stabilizer.run()
+                delay(500 * ms)
 
         delay(1000 * ms)
 

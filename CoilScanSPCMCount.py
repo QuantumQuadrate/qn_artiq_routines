@@ -10,7 +10,6 @@ from datetime import datetime as dt
 import numpy as np
 
 from utilities.BaseExperiment import BaseExperiment
-from subroutines.aom_feedback import AOMPowerStabilizer2
 
 class CoilScanSPCMCount(EnvExperiment):
 
@@ -69,10 +68,10 @@ class CoilScanSPCMCount(EnvExperiment):
 
         dds_feedback_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3',
                              'dds_AOM_A4', 'dds_AOM_A5', 'dds_AOM_A6', 'dds_cooling_DP']
-        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
-                                                    dds_names=dds_feedback_list,
-                                                    iterations=4,
-                                                    leave_AOMs_on=True)
+        self.laser_stabilizer = AOMPowerStabilizer(experiment=self,
+                                                   dds_names=dds_feedback_list,
+                                                   iterations=4,
+                                                   leave_AOMs_on=True)
 
         # where to store the data
         self.t_experiment_run = dt.now().strftime("%Y%m%d_%H%M%S")

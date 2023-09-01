@@ -201,7 +201,7 @@ class FeedbackChannel:
         self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
 
 
-class AOMPowerStabilizer2:
+class AOMPowerStabilizer:
 
     def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False,
                  update_dds_settings=True, dry_run=False):
