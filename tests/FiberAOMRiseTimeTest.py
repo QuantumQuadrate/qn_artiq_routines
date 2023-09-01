@@ -5,6 +5,9 @@ Pulse an AOM to measure the rise time
 from artiq.experiment import *
 import math
 
+import sys, os
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+
 from utilities.BaseExperiment import BaseExperiment
 
 class FiberAOMRiseTimeTest(EnvExperiment):

@@ -30,6 +30,10 @@ class MyExp(EnvExperiment):
 ----
 """
 from artiq.experiment import *
+
+import sys, os
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+
 from subroutines.stabilizer import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases

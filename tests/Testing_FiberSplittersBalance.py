@@ -7,6 +7,9 @@ import numpy as np
 import csv
 from datetime import datetime as dt
 
+import sys, os
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+
 from utilities.BaseExperiment import BaseExperiment
 
 class Test_FiberSplitters(EnvExperiment):
