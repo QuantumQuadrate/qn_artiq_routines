@@ -36,40 +36,11 @@ class CoilsSPCMCounts(EnvExperiment):
 
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
-        self.setattr_argument("feedback_dds_list",
-                              StringValue(
-                                  "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
-                                  "'dds_AOM_A6','dds_cooling_DP']"), "Laser power stabilization")
 
-        dds_feedback_list = eval(self.feedback_dds_list)
-        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
-                                                    dds_names=dds_feedback_list,
-                                                    iterations=4,
-                                                    averages=4,
-                                                    leave_AOMs_on=True)
 
     def prepare(self):
 
         self.coil_channels = [0, 1, 2, 3]
-
-        # todo: eventually read conversion functions such as this from a config file
-        def volts_to_optical_mW(x: TFloat) -> TFloat:
-            """
-            the conversion of PD voltage to cooling light power at the switchyard MOT 1 path
-            """
-            x += 0.011  # this accounts for a mismatch between what the Sampler reads and what
-            # the multimeter that I used for the fit reads
-            return -0.195395 + 17.9214 * x
-
-        self.laser_stabilizer = AOMPowerStabilizer(experiment=self,
-                                           dds_names=["urukul0_ch1"],
-                                           sampler_name="sampler0",
-                                           sampler_channels=[7],
-                                           transfer_functions=[volts_to_optical_mW],
-                                           setpoints=[self.cooling_setpoint_mW],  # in mW
-                                           proportionals=[0.07],
-                                           iters=5,  # if > x you'll underflow the rtio counter
-                                           t_meas_delay=20 * ms)
 
     @kernel
     def run(self):

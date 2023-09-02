@@ -56,14 +56,6 @@ class SamplerMOTCoilTune(EnvExperiment):
 
         self.base.prepare()
 
-        dds_feedback_list = ['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3',
-                             'dds_AOM_A4', 'dds_AOM_A5', 'dds_AOM_A6', 'dds_cooling_DP']
-        self.laser_stabilizer = AOMPowerStabilizer(experiment=self,
-                                                   dds_names=dds_feedback_list,
-                                                   iterations=4,
-                                                   averages=4,
-                                                   leave_AOMs_on=True)
-
         print(self.dt_exposure)
         self.n_steps = int(60*self.run_time_minutes/self.dt_exposure+0.5)
         print(self.n_steps)

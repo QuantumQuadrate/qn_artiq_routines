@@ -35,7 +35,7 @@ class BeamPowerDriftMonitor(EnvExperiment):
 
         dds_list = eval(self.dds_list)
 
-        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
+        self.laser_stabilizer = AOMPowerStabilizer(experiment=self,
                                            dds_names=dds_list,
                                            iterations=1,
                                            leave_AOMs_on=True)
