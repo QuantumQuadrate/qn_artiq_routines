@@ -131,6 +131,36 @@ class SamplerMOTCoilTune(EnvExperiment):
                 self.laser_stabilizer.run()  # must come after relevant DDS's have been set
                 delay(500 * ms)
 
+        # if self.differential_mode:
+        #     print("zero the potentiometers!")
+        #
+        #     zero_array = [1]*4
+        #     unzeroed_channels = 4
+        #     while unzeroed_channels:
+        #         delay(10*ms)
+        #         self.sampler1.sample(self.sampler_buffer)
+        #         delay(1*ms)
+        #         i = 0
+        #         for ch in self.control_volts_channels:
+        #             if abs(self.sampler_buffer[ch]) < 0.05:
+        #                 zero_array[i] = 0
+        #                 delay(10*ms)
+        #             i += 0
+        #         nonzero_counter = 0
+        #         for i in range(4):
+        #             nonzero_counter += zero_array[i]
+        #         if nonzero_counter < unzeroed_channels or nonzero_counter > unzeroed_channels:
+        #             print("number of unzeroed channels remaining:")
+        #             print(nonzero_counter)
+        #         unzeroed_channels = nonzero_counter
+        #         control_volts = [self.sampler_buffer[ch] * self.coil_volts_multiplier
+        #                          for ch in self.control_volts_channels]
+        #         self.zotino0.set_dac(
+        #             control_volts,
+        #             channels=self.coil_channels)
+        #
+            # delay(10*ms)
+
         print("ready!")
 
         for i in range(self.n_steps):
