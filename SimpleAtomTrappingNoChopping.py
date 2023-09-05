@@ -37,15 +37,9 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
-        self.setattr_argument("datadir",
-                              StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
-        self.setattr_argument("datafile", StringValue('atom_loading_counts.csv'),"File to save data")
-        self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
-        self.setattr_argument("print_measurement_number", BooleanValue(False), "Developer options")
-        self.setattr_argument("save_data", BooleanValue(True), "Developer options")
+        self.setattr_argument("print_measurement_number", BooleanValue(False))
 
-        self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup")
-        self.setattr_argument("counts_per_bin", NumberValue(10, ndecimals=0, step=1), "Histogram setup")
+        self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("print_counts", BooleanValue(True))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
 
@@ -60,20 +54,14 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         """
         self.base.prepare()
 
-        # where to store the data
-        self.t_experiment_run = dt.now().strftime("%Y%m%d_%H%M%S")
-        if self.prepend_date_to_datafile:
-            self.datafile = self.datadir + self.t_experiment_run + '_' + self.datafile
-        else:
-            self.datafile = self.datadir + self.datafile
-
-        # experiment trigger pulse width
         self.t_exp_trigger = 1*ms
 
-        self.sampler_buffer = [0.0] * 8
+        self.sampler_buffer = np.full(8, 0.0)
         self.cooling_volts_ch = 7
 
-        self.hist_bins = np.zeros(self.bins, dtype=int)
+        # self.hist_bins = np.zeros(self.bins, dtype=int)
+        # self.photocounts = np.full(self.n_measurements, 0.0)
+
         print("prepare - done")
 
     @kernel
@@ -81,20 +69,6 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.base.initialize_hardware()
         self.expt()
         print("Experiment finished.")
-
-    @rpc(flags={"async"}) # means this code runs asynchronously; won't block the rtio counter
-    def file_setup(self, rowheaders=[]):
-        with open(self.datafile, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(rowheaders)
-            f.close()
-
-    @rpc(flags={"async"})
-    def file_write(self, data):
-        with open(self.datafile, 'a', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(data)
-            f.close()
 
     @kernel
     def expt(self):
@@ -106,10 +80,8 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
                              channels=self.coil_channels)
 
-        self.set_dataset("photocounts", self.hist_bins, broadcast=True)
-        # self.set_dataset("mot_photocounts", self.hist_bins, broadcast=True)
-
-        self.file_setup(rowheaders=['counts'])
+        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocount_bins", [self.bins], broadcast=True)
 
         # turn on cooling/RP AOMs
         self.dds_cooling_DP.sw.on() # cooling double pass
@@ -119,10 +91,19 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
 
         if self.enable_laser_feedback:
-            self.laser_stabilizer.run()
+            # takes several iterations for process value to stabilize
+            for i in range(20):
+                self.laser_stabilizer.run()
+                delay(500 * ms)
 
         # loop the experiment sequence
         for measurement in range(self.n_measurements):
+
+            if self.enable_laser_feedback:
+                if measurement % 10 == 0:
+                    self.laser_stabilizer.run()
+                    delay(1 * ms)
+
             self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
 
             # Set magnetic fields for MOT loading
@@ -169,27 +150,22 @@ class SimpleAtomTrapNoChop(EnvExperiment):
                 print(counts)
             delay(10 * ms)
 
-            # reset parameters
-            # self.dds_AOM_A2.sw.off()  # fiber AOMs off
-            # self.dds_AOM_A3.sw.off()
-            # self.dds_AOM_A1.sw.off()
-            # self.dds_AOM_A6.sw.off()
-            # self.dds_AOM_A4.sw.off()
-            # self.dds_AOM_A5.sw.off()
+            # reset AOMs and coils
+            self.dds_AOM_A2.sw.off()  # fiber AOMs off
+            self.dds_AOM_A3.sw.off()
+            self.dds_AOM_A1.sw.off()
+            self.dds_AOM_A6.sw.off()
+            self.dds_AOM_A4.sw.off()
+            self.dds_AOM_A5.sw.off()
             self.dds_FORT.sw.off()  # FORT AOM off
-            self.dds_AOM_A3.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
             #                      channels=self.coil_channels)
 
-            bin_idx = int(counts / self.counts_per_bin)
-            if bin_idx < self.bins:
-                self.hist_bins[bin_idx] += 1
-                self.mutate_dataset("photocounts", bin_idx, self.hist_bins[bin_idx])
+            self.append_to_dataset('photocounts', counts)
 
             if self.print_measurement_number:
                 print("measurement", measurement)
-            if self.save_data:
-                self.file_write([counts])
             delay(10*ms)
 
         delay(1*ms)
