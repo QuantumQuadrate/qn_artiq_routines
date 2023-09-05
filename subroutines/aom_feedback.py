@@ -90,7 +90,7 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A1', # volts wrt to background
-                    'p': 0.005, # the proportionality constant
+                    'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT1_monitor',
                     'power_dataset':'AOM_A1_power',
