@@ -118,3 +118,7 @@ class AOMsCoils(EnvExperiment):
             while True:
                 self.laser_stabilizer.run()  # must come after relevant DDS's have been set
                 delay(self.t_feedback_period)
+
+        else:
+            # posts one data point for each beam
+            self.laser_stabilizer.monitor()
