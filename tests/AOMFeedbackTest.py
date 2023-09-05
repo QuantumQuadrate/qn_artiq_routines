@@ -8,7 +8,7 @@ from utilities.BaseExperiment import BaseExperiment
 from subroutines.aom_feedback import AOMPowerStabilizer
 
 
-class AOMPowerStabilizerTest2(EnvExperiment):
+class AOMPowerStabilizerTest(EnvExperiment):
     # this experiment assumes that the AOMs we'll feed back to have already been
     # set to operate at ~ 70% efficiency by appropriate choice of default powers
     # in ExperimentVariables.
