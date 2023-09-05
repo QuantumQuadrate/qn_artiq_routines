@@ -38,10 +38,10 @@ class SimpleAtomTrapNoChop(EnvExperiment):
 
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("print_measurement_number", BooleanValue(False))
-
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("print_counts", BooleanValue(True))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
+        self.setattr_argument("control_experiment", BooleanValue(False))
 
         print("build - done")
 
@@ -106,10 +106,16 @@ class SimpleAtomTrapNoChop(EnvExperiment):
 
             self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
 
-            # Set magnetic fields for MOT loading
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                channels=self.coil_channels)
+            if self.control_experiment and measurement % 2 == 0:
+                # change the Y MOT coil enough to lose the MOT but not enough to significantly change the fluorescence
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT-0.8],
+                    channels=self.coil_channels)
+            else:
+                # Set magnetic fields for MOT loading
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                    channels=self.coil_channels)
             delay(1 * ms)  # avoid RTIOSequence error
 
             # Set and turn on fiber AOMs to load the MOT. The MOT AOMs upstream are assumed to be on.
