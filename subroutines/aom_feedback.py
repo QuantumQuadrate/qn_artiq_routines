@@ -1,5 +1,7 @@
 """
-# todo: this should eventually replace stabilizer.py
+# todo: add an attribute to AOMPowerStabilizers which is a list of AOMs we want to leave on after the feedback is run,
+#  if any. this list can then be overwritten in prepare at the experiment level, even if we give a default list in
+#  Base experiment
 
 A subroutine feedback loop using Urukul channels and Samplers.
 While ARTIQ has a Servo instrument for doing feedback, it does not allow
@@ -9,19 +11,13 @@ we want to, and doesn't prevent us from using some channels on a given
 Sampler for other purposes.
 
 Intended usage:
-1. Instantiate the servo in the prepare method of the parent artiq experiment
+1. Instantiate the servo in the prepare method of the parent artiq experiment (e.g. the BaseExperiment)
 2. Call run() during the parent experiment loop whenever it is desired to tune up
-the AOM powers.
+the AOM powers, or monitor() to, well, you get it.
 
-See the example experiment toward the bottom of this file.
+See tests/AOMFeedbackTest for example usage.
 
 Preston's notes:
-averaging the measurements and/or background measurements does not work,
-in that if I average both of these, I get unexpected results. averaging
-the measurements alone is fine. doing this for background also gives
-measurement - background on the order of +/-1e35. possibly some kind of
-arithmetic error, but I couldn't get it to go away as of 8.24.23.
-
 todo: should be able to modify setpoints so we can optimize them as needed.
 one way to do this would be to make the stabilizer dict a json file and
 update the json file, e.g. after doing an optimizer routine with the AOM
@@ -36,10 +32,7 @@ Another desirable feature would be to disentangle the broadcasting of MOT
 beam powers from the feedback routine. as it is, only the powers that are
 stabilized will be broadcast, whereas we may want to broadcast powers that
 are not stabilized for testing, or broadcast powers at other points in the
-experiment for some reason. there is no reason why the feedback channels
-class couldn't be setup for all channels in the base experiment and
-referenced here rather than only created in the instantiation of the
-AOMPowerStabilizer and used internally.
+experiment for some reason.
 """
 
 from artiq.experiment import *
@@ -56,7 +49,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x, # converts volts to optical mW
-                    'set_point': 'set_point_PD0_AOM_cooling_DP', # volts wrt to background
+                    'set_point': 'set_point_PD0_AOM_cooling_DP', # volts
                     'p': 0.08, # the proportionality constant
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor',
@@ -67,7 +60,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
-                    'set_point': 'set_point_PD5_AOM_A5', # volts wrt to background
+                    'set_point': 'set_point_PD5_AOM_A5', # volts
                     'p': 0.08, # the proportionality constant
                     'series': True,
                     'dataset':'MOT5_monitor',
@@ -78,7 +71,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,  # arbitrary units
-                    'set_point': 'set_point_PD6_AOM_A6', # volts wrt to background
+                    'set_point': 'set_point_PD6_AOM_A6', # volts
                     'p': 0.1, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT6_monitor',
@@ -89,7 +82,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
-                    'set_point': 'set_point_fW_AOM_A1', # volts wrt to background
+                    'set_point': 'set_point_fW_AOM_A1', # volts
                     'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT1_monitor',
@@ -100,7 +93,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,  # arbitrary units
-                    'set_point': 'set_point_fW_AOM_A2', # volts wrt to background
+                    'set_point': 'set_point_fW_AOM_A2', # volts
                     'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT2_monitor',
@@ -111,7 +104,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
-                    'set_point': 'set_point_fW_AOM_A3', # volts wrt to background
+                    'set_point': 'set_point_fW_AOM_A3', # volts
                     'p': 0.005, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT3_monitor',
@@ -122,13 +115,27 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
-                    'set_point': 'set_point_fW_AOM_A4', # volts wrt to background
+                    'set_point': 'set_point_fW_AOM_A4', # volts
                     'p': 0.008, # the proportionality constant
                     'series': True,
                     'dataset': 'MOT4_monitor',
                     'power_dataset':'AOM_A4_power',
                     't_measure_delay':50*ms
-                }
+                },
+
+            # todo: the FORT should ideally have a dedicated feedback stage, since we will need to first
+            #  feedback to motorized waveplates and then feedback to the AOM.
+            'dds_FORT': # signal monitored by PD0
+                {
+                    'sampler_ch': 6, # the channel connected to the appropriate PD
+                    # 'transfer_function': lambda x : x, # converts volts to optical mW
+                    'set_point': 'set_point_FORT_MM',
+                    'p': 0.00, #
+                    'series': False, # if series = True then these channels are fed-back to one at a time
+                    'dataset':'FORT_monitor',
+                    'power_dataset':'p_FORT', # the dataset for the RF power in dB; see ExperimentVariables
+                    't_measure_delay':1*ms # time to wait between AOM turned on and measurement
+                },
         },
     'sampler1':
         {
@@ -268,12 +275,29 @@ class AOMPowerStabilizer:
                         else:
                             self.parallel_channels.append(fb_channel)
 
+        # the FORT is special so set it up separately:
+        # todo: right now we only want to monitor it, but eventually we will need to feedback
+        #  to tune both amplitude and polarization
+        i = 0 # sampler index
+        ch_name = 'dds_FORT'
+        ch_params = stabilizer_dict[f'sampler{i}'][ch_name]
+        self.FORT_ch = FeedbackChannel(name=ch_name,
+                                       dds_obj=getattr(self.exp, ch_name),
+                                       buffer_index=ch_params['sampler_ch'] + i * 8,
+                                       # g=ch_params['transfer_function'],
+                                       set_point=getattr(self.exp, ch_params['set_point']),
+                                       p=ch_params['p'],
+                                       dataset=ch_params['dataset'],
+                                       dB_dataset=ch_params['power_dataset'],
+                                       t_measure_delay=ch_params['t_measure_delay']
+                                       )
+        self.exp.set_dataset(self.FORT_ch.dataset, [1.0], broadcast=True)
+
         self.num_samplers = len(self.sampler_list)
         self.measurement_array = np.full(8 * self.num_samplers, 0.0)
         self.background_array = np.full(8 * self.num_samplers, 0.0)
         self.signal_array = np.zeros(8)
         self.bg_array = np.zeros(8)
-
 
         self.all_channels = self.parallel_channels + self.series_channels
 
@@ -303,13 +327,6 @@ class AOMPowerStabilizer:
         measure all Sampler cards used for feedback
         # todo: could add option to average for better snr
         """
-
-        # i = 0
-        # for sampler in self.sampler_list:
-        #     sampler.sample(self.measurement_array[i:i + 8])
-        #     delay(1 * ms)
-        #     i += 1
-
         # self.measurement_array = np.full(8 * self.num_samplers, 0.0)
         dummy = np.full(8 * self.num_samplers, 0.0)
         measurement_array = np.full(8, 0.0)
@@ -325,18 +342,6 @@ class AOMPowerStabilizer:
         # self.measurement_array /= self.averages
         dummy /= self.averages
         self.measurement_array = dummy
-
-
-        # self.measurement_array = np.full(8, 0.0)
-        # for i in range(self.averages):
-        #     self.exp.sampler0.sample(self.signal_array)
-        #     self.measurement_array += self.signal_array
-        #     delay(1*ms)
-
-        # self.measurement_array /= self.averages
-
-        # self.print("self.measurement_array:")
-        # self.print(self.measurement_array)
 
     @kernel
     def measure_background(self):
@@ -362,17 +367,6 @@ class AOMPowerStabilizer:
 
         self.print("self.background_array:")
         self.print(self.background_array)
-
-
-    # dry run test to verify plotting applet works
-    # def run(self):
-    #     # update the datasets
-    #     for i, ch in enumerate(self.all_channels):
-    #         x = np.random.rand()/10 + i
-    #         print(f"updating {ch.dataset} with {x}")
-    #         self.exp.append_to_dataset(ch.dataset, x)
-    #         time.sleep(0.01)
-    #     time.sleep(0.5)
 
     @kernel
     def monitor(self):
@@ -541,6 +535,8 @@ class AOMPowerStabilizer:
         if self.update_dds_settings:
             self.write_dds_settings()
 
+    # todo: could deprecate monitor by adding a monitor keyword argument to this. this would help
+    #  assure that we don't have unexpected behavior deviation from the two functionalities
     @kernel
     def run(self):
         """
@@ -565,6 +561,20 @@ class AOMPowerStabilizer:
             delay(1*ms)
 
         with sequential:
+
+            # todo: FORT polarization feedback first, then the AOM part can be done in parallel with other channels
+            self.FORT_ch.get_dds_settings()
+            delay(1*ms)
+            self.FORT_ch.dds_obj.sw.on()
+            delay(10*ms)
+            self.measure()
+            delay(1*ms)
+            self.FORT_ch.set_value(self.measurement_array[self.FORT_ch.buffer_index])
+            delay(1*ms)
+            self.FORT_ch.dds_obj.sw.off()
+            delay(1*ms)
+            self.exp.append_to_dataset(self.FORT_ch.dataset, self.FORT_ch.value_normalized)
+            delay(1*ms)
 
             # self.measure_background() # this updates the background list
             delay(1*ms)

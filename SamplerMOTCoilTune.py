@@ -130,6 +130,8 @@ class SamplerMOTCoilTune(EnvExperiment):
                 print("running feedback step", i)
                 self.laser_stabilizer.run()  # must come after relevant DDS's have been set
                 delay(500 * ms)
+            if self.FORT_AOM_on:
+                self.dds_FORT.sw.on()
 
         # if self.differential_mode:
         #     print("zero the potentiometers!")
@@ -171,6 +173,8 @@ class SamplerMOTCoilTune(EnvExperiment):
                     self.core.break_realtime()
                     self.laser_stabilizer.run()
                     delay(100*ms)
+                    if self.FORT_AOM_on:
+                        self.dds_FORT.sw.on()
 
             tend1 = self.ttl0.gate_rising(self.dt_exposure)
             count1 = self.ttl0.count(tend1)

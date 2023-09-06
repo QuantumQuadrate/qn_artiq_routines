@@ -142,17 +142,11 @@ class ExperimentVariables(EnvExperiment):
             Variable("set_point_fW_AOM_A4", 0.588, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD5_AOM_A5", 0.214, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD6_AOM_A6", 0.296, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-
-            # Variable("cooling_set_point_mW", 0.7, NumberValue, {'type': 'float'}, "Set points"),
-            # Variable("cooling_volts_ch", 7, NumberValue, {'type': 'int', 'scale': 1, 'ndecimals': 0, 'step': 1},
-            #          "Set points"),
+            Variable('set_point_FORT_MM', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
 
             # Plotting
             Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Plotting"),
-            # Variable("MOT_beam_monitor_points", 100.0, NumberValue,
-            #          {'type': 'float', 'ndecimals': 0, 'scale': 1},
-            #          "Plotting"),
 
             # Laser feedback
             Variable("enable_laser_feedback", False, BooleanValue, {}, "Laser feedback"),

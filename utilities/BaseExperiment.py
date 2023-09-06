@@ -92,6 +92,7 @@ class BaseExperiment:
             "set_point_fW_AOM_A4",
             "set_point_PD5_AOM_A5",
             "set_point_PD6_AOM_A6",
+            'set_point_FORT_MM',
             'MOT_beam_monitor_points',
             'feedback_dds_list',
             'aom_feedback_averages',

@@ -27,9 +27,13 @@ class XYPlot(pyqtgraph.PlotWidget):
             y = data[self.args.y][1]
         except KeyError:
             return
+        pts = data.get(self.args.pts, (False, None))[1]
         x = data.get(self.args.x, (False, None))[1]
         if x is None:
             x = np.arange(len(y))
+        if pts is not None:
+            x = x[-pts:]
+            y = y[-pts:]
         error = data.get(self.args.error, (False, None))[1]
         fit = data.get(self.args.fit, (False, None))[1]
 
@@ -87,6 +91,7 @@ class XYPlot(pyqtgraph.PlotWidget):
 def main():
     applet = TitleApplet(XYPlot)
     applet.add_dataset("y", "Y values")
+    applet.add_dataset("pts", "max number of pts to plot", required=False)
     applet.add_dataset("x", "X values", required=False)
     applet.add_dataset("error", "Error bars for each X value", required=False)
     applet.add_dataset("fit", "Fit values for each X value", required=False)

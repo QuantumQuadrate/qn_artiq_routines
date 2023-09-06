@@ -1,15 +1,17 @@
 """
-This code scans the coils to find the optimum coil parameters for loading single atoms
-and saves the photon counts in a file.
+This code scans the coils and does an atom loading experiment at each step.
+It saves the photon counts in a file.
+
 """
 
 from artiq.experiment import *
 import csv
 from datetime import datetime as dt
+import numpy as np
 
 from utilities.BaseExperiment import BaseExperiment
 
-class CoilScanFORTLoading(EnvExperiment):
+class CoilScanSPCMCount(EnvExperiment):
 
     def build(self):
         """
@@ -28,25 +30,23 @@ class CoilScanFORTLoading(EnvExperiment):
         except KeyError as e:
             print(e)
             self.setattr_argument("Vz_bottom_array", StringValue(
-                '[0.6 - l*(0.6 - 1)/20 for l in range(20)]'), "Coil steps")
+                '[6 - l*(6 - 8)/20 for l in range(20)]'), "Coil steps")
             self.setattr_argument("Vz_top_array", StringValue(
-                '[-1.5 - i*(3.3 - 1.5)/20 for i in range(20)]'), "Coil steps")
+                '[6.75 - i*(6.75 - 8.75)/20 for i in range(20)]'), "Coil steps")
             self.setattr_argument("Vx_array", StringValue(
-                '[0.15 - j*(0.8 + 0.15)/20 for j in range(20)]'), "Coil steps")
+                '[-0.5 - j*(-0.5 - 0.5)/20 for j in range(20)]'), "Coil steps")
             self.setattr_argument("Vy_array", StringValue(
-                '[0.025 - k*(0.9 + 0.025)/20 for k in range(20)]'), "Coil steps")
-
-        self.setattr_argument("save_data", BooleanValue(True))
+                '[-0.5 - j*(-0.5 - 0.5)/20 for k in range(20)]'), "Coil steps")
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
-        self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),"File to save data")
-        self.setattr_argument("datafile", StringValue('coil_scan_FORT_loading.csv'),"File to save data")
+        self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),
+                              "File to save data")
+        self.setattr_argument("datafile", StringValue('coil_scan_atom_loading.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
 
         # when to run the AOM feedback (after how many iterations in the for loops)
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(30), "Laser feedback")
         self.setattr_argument("enable_laser_feedback", BooleanValue(True), "Laser feedback")
-
 
         # dev ops
         self.setattr_argument("print_measurement_number", BooleanValue(False), "Developer options")
@@ -87,8 +87,8 @@ class CoilScanFORTLoading(EnvExperiment):
         self.xsteps = len(self.Vx_array)
         self.ysteps = len(self.Vy_array)
 
-        self.sampler_buffer = [0.0]*8
-        self.cooling_volts_ch = 7 # we'll read this channel later and save it to the file
+        self.sampler_buffer = np.full(8, 0.0)
+        # self.cooling_volts_ch = 7 # we'll read this channel later and save it to the file
 
         print("prepare - done")
 
@@ -128,13 +128,22 @@ class CoilScanFORTLoading(EnvExperiment):
         self.dds_AOM_A5.sw.on()
 
         # wait for AOMs to thermalize
-        delay(3000 * ms)
+        delay(4000 * ms)
 
         print("estimated duration of scan:",
               self.xsteps*self.ysteps*self.ztop_steps*self.zbottom_steps*(self.t_MOT_loading+self.t_SPCM_exposure)/3600,
               "hours")
         step = 0
         i_vz_step = 1
+
+        rtio_log("zotino0")
+
+        if self.enable_laser_feedback:
+            # takes several iterations for process value to stabilize
+            for i in range(20):
+                print("running feedback step", i)
+                self.laser_stabilizer.run()  # must come after relevant DDS's have been set
+                delay(500 * ms)
 
         for Vz_top in self.Vz_top_array:
             print(i_vz_step, "out of ", len(self.Vz_top_array), "outer loop steps")
@@ -151,7 +160,7 @@ class CoilScanFORTLoading(EnvExperiment):
 
             delay(1500 * ms)
 
-            # trigger Luca to save an image - this is for checking if we have a MOT
+            # trigger Luca to save an image
             self.zotino0.write_dac(6, 4.0)
             self.zotino0.load()
             delay(5 * ms)
@@ -164,13 +173,16 @@ class CoilScanFORTLoading(EnvExperiment):
                 for Vx in self.Vx_array:
                     for Vy in self.Vy_array:
 
-                        if (step % self.AOM_feedback_period_cycles) == 0:
-                            print("running feedback")
-                            self.core.break_realtime()
-                            self.laser_stabilizer.run()
-                            delay(20*ms)
+                        # if self.enable_laser_feedback:
+                        #     if (step % self.AOM_feedback_period_cycles) == 0:
+                        #         print("running feedback")
+                        #         self.core.break_realtime()
+                        #         self.laser_stabilizer.run()
+                        #     # else:
+                        #     #     self.laser_stabilizer.monitor()
 
                         # do the experiment sequence
+                        delay(10 * ms)
 
                         # update coil values
                         coil_volts = [Vz_bottom,
@@ -187,23 +199,9 @@ class CoilScanFORTLoading(EnvExperiment):
                         # wait for the MOT to load
                         delay_mu(self.t_MOT_loading_mu)
 
-                        # optionally take a shot of the MOT without the FORT on first
-                        if self.take_MOT_shot:
-                            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-                            counts = self.ttl0.count(t_gate_end)
-                            delay(1 * ms)
-
-                        # wait for the FORT to load
-                        self.dds_FORT.sw.on()
-
-                        # take the shot - the FORT is being loaded/unloaded over the duration
-                        # of the shot exposure
+                        # take the shot
                         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
                         counts = self.ttl0.count(t_gate_end)
-                        delay(1*ms)
-
-                        self.dds_FORT.sw.off()
-                        delay(1*ms)
 
                         if self.print_meas_result:
                             print("counts", counts)
@@ -245,3 +243,4 @@ class CoilScanFORTLoading(EnvExperiment):
     @rpc(flags={"async"})
     def file_write(self, data):
         self.csvwriter.writerow(data)
+
