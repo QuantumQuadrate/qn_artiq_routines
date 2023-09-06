@@ -106,19 +106,20 @@ class AOMsCoils(EnvExperiment):
         delay(1 * ms)
         print("Coils and AOMs done!")
 
-        if self.enable_laser_feedback:
-            print("Will now run feedback and monitor powers until forcibly stopped")
-            delay(100*ms)
+        if self.AOM_A1_ON and self.AOM_A2_ON and self.AOM_A3_ON and self.AOM_A4_ON and self.AOM_A5_ON and self.AOM_A6_ON:
+            if self.enable_laser_feedback:
+                print("Will now run feedback and monitor powers until forcibly stopped")
+                delay(100*ms)
 
-            # takes several iterations for process value to stabilize
-            for i in range(20):
-                self.laser_stabilizer.run()
-                delay(500 * ms)
+                # takes several iterations for process value to stabilize
+                for i in range(20):
+                    self.laser_stabilizer.run()
+                    delay(500 * ms)
 
-            while True:
-                self.laser_stabilizer.run()  # must come after relevant DDS's have been set
-                delay(self.t_feedback_period)
+                while True:
+                    self.laser_stabilizer.run()  # must come after relevant DDS's have been set
+                    delay(self.t_feedback_period)
 
-        else:
-            # posts one data point for each beam
-            self.laser_stabilizer.monitor()
+            else:
+                # posts one data point for each beam
+                self.laser_stabilizer.monitor()
