@@ -620,7 +620,15 @@ class AOMPowerStabilizer:
                             ch.feedback(self.measurement_array - self.background_array)
                         else:
                             ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-                        delay(1*ms)
+
+                    ## trigger for Andor Luca camera for independent verification of the measured signals
+                    self.exp.zotino0.write_dac(6, 4.0)
+                    self.exp.zotino0.load()
+                    delay(5 * ms)
+                    self.exp.zotino0.write_dac(6, 0.0)
+                    self.exp.zotino0.load()
+                    delay(60*ms)
+                    # delay(1*ms)
                     ch.dds_obj.sw.off()
 
             # update the datasets
@@ -637,6 +645,7 @@ class AOMPowerStabilizer:
         if self.leave_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
+
         delay(1 * ms)
         if self.update_dds_settings:
             self.write_dds_settings()
