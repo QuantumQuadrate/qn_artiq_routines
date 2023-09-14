@@ -13,7 +13,7 @@ sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repositor
 
 from utilities.BaseExperiment import BaseExperiment
 
-class CheckMOTBallance(EnvExperiment):
+class CheckMOTBalance(EnvExperiment):
 
     def build(self):
         self.base = BaseExperiment(experiment=self)
