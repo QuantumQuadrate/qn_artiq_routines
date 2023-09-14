@@ -521,7 +521,7 @@ class AOMPowerStabilizer:
                             ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
 
                     ## trigger for Andor Luca camera for independent verification of the measured signals
-                    self.ttl6.pulse(5*ms)
+                    self.exp.ttl6.pulse(5*ms)
                     delay(60 * ms)
                     # delay(1*ms)
                     ch.dds_obj.sw.off()
@@ -544,12 +544,16 @@ class AOMPowerStabilizer:
     # todo: could deprecate monitor by adding a monitor keyword argument to this. this would help
     #  assure that we don't have unexpected behavior deviation from the two functionalities
     @kernel
-    def run(self):
+    def run(self, record_all_measurements=False):
         """
         Run the feedback loop. On exiting, this function will turn off all dds channels
          given by dds_names. If any beams which need to be adjusted in series are in
          dds_names, all such channels will be turned off, i.e. even ones we are not
          feeding back to.
+
+        :param record_all_measurements: optional, False by default. if True, every measurement point will
+        be posted to the corresponding dataset, else, only post the final measurement, i.e. after the feedback
+        loop has been run.
         """
 
         # todo: up-date the set points for all channels in case they have been changed since
@@ -600,6 +604,10 @@ class AOMPowerStabilizer:
                         ch.feedback(self.measurement_array - self.background_array)
                     else:
                         ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
+
+                    if record_all_measurements:
+                        self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+
                 delay(1 * ms)
 
             for ch in self.parallel_channels:
@@ -626,20 +634,19 @@ class AOMPowerStabilizer:
                             ch.feedback(self.measurement_array - self.background_array)
                         else:
                             ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
+                        if record_all_measurements:
+                            self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
                     ## trigger for Andor Luca camera for independent verification of the measured signals
-                    self.exp.zotino0.write_dac(6, 4.0)
-                    self.exp.zotino0.load()
-                    delay(5 * ms)
-                    self.exp.zotino0.write_dac(6, 0.0)
-                    self.exp.zotino0.load()
+                    self.exp.ttl6.pulse(5 * ms)
                     delay(60*ms)
                     # delay(1*ms)
                     ch.dds_obj.sw.off()
 
-            # update the datasets
-            for ch in self.all_channels:
-                self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+            # update the datasets with the last values if we have not already done so
+            if not record_all_measurements:
+                for ch in self.all_channels:
+                    self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
         delay(1*ms)
         # turn repumpers and cooling DP back on
