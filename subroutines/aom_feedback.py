@@ -449,25 +449,38 @@ class AOMPowerStabilizer:
         #  the stabilizer was instantiated. not sure how to do this since getattr can not be
         #  used in the kernel, and I don't want to have to pass in a variable explicitly.
 
+        # turn off repumpers, which contribute typically a few percent to the total powers
+        self.exp.dds_MOT_RP.sw.off()
+        delay(1 * ms)
+
         for ch in self.all_channels:
             ch.get_dds_settings()
             delay(1 * ms)
             ch.dds_obj.sw.off()
             delay(1 * ms)
 
-        # turn off repumpers, which contribute typically a few percent to the total powers
-        # self.exp.dds_MOT_RP.sw.off()
-
         with sequential:
 
-            self.measure_background()  # this updates the background list
-            delay(1*ms)
+            # todo: FORT polarization feedback first, then the AOM part can be done in parallel with other channels
+            self.FORT_ch.get_dds_settings()
+            delay(1 * ms)
+            self.FORT_ch.dds_obj.sw.on()
+            delay(10 * ms)
+            self.measure()
+            delay(1 * ms)
+            self.FORT_ch.set_value(self.measurement_array[self.FORT_ch.buffer_index])
+            delay(1 * ms)
+            self.FORT_ch.dds_obj.sw.off()
+            delay(1 * ms)
+            self.exp.append_to_dataset(self.FORT_ch.dataset, self.FORT_ch.value_normalized)
+            delay(1 * ms)
+
+            # self.measure_background() # this updates the background list
+            delay(1 * ms)
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
             delay(10 * ms)
 
-            # todo: only continue to iterate while there are channels that are
-            #  not within a tolerated error
             # do feedback on the "parallel" channels
             for i in range(self.iterations):
                 self.measure()
@@ -476,53 +489,49 @@ class AOMPowerStabilizer:
                 # strictly speaking, doesn't really matter if these are parallel
                 for ch in self.parallel_channels:
                     delay(1 * ms)
-
-                    # update the dataset before this feedback step
-                    ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-                    delay(1*ms)
-                    self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
-                    delay(1 * ms)
                     if not self.dry_run:
                         ch.feedback(self.measurement_array - self.background_array)
                     else:
                         ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
                 delay(1 * ms)
-                i += 1
 
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.off()
-            delay(50 * ms)  # the Femto fW detector is slow
+            delay(10 * ms)  # the Femto fW detector is slow
 
-            # need to have this in order to feed back to the cooling beams
+            # need to have this on
             self.exp.dds_cooling_DP.sw.on()
-            delay(10 * ms)
+            delay(50 * ms)
 
-            self.measure_background()
+            # self.measure_background()
+            delay(1 * ms)
 
             # do feedback on the series channels
             with sequential:
                 for ch in self.series_channels:
                     ch.dds_obj.sw.on()
 
-                    delay(50 * ms)  # the Femto fW detector is slow
+                    delay(ch.t_measure_delay)  # allows for detector rise time
                     for i in range(self.iterations):
                         self.measure()
-                        delay(1 * ms)
-
-                        # update the dataset before this feedback step
-                        ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-                        delay(1 * ms)
-                        self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
                         delay(1 * ms)
                         if not self.dry_run:
                             ch.feedback(self.measurement_array - self.background_array)
                         else:
                             ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-                        delay(1 * ms)
-                    ch.dds_obj.sw.off()
-                    delay(50 * ms)  # the Femto fW detector is slow
 
-        # turn repumpers back on
+                    ## trigger for Andor Luca camera for independent verification of the measured signals
+                    self.ttl6.pulse(5*ms)
+                    delay(60 * ms)
+                    # delay(1*ms)
+                    ch.dds_obj.sw.off()
+
+            # update the datasets
+            for ch in self.all_channels:
+                self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+
+        delay(1 * ms)
+        # turn repumpers and cooling DP back on
         self.exp.dds_MOT_RP.sw.on()
         self.exp.dds_cooling_DP.sw.on()
 
@@ -531,9 +540,6 @@ class AOMPowerStabilizer:
         if self.leave_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
-        delay(1*ms)
-        if self.update_dds_settings:
-            self.write_dds_settings()
 
     # todo: could deprecate monitor by adding a monitor keyword argument to this. this would help
     #  assure that we don't have unexpected behavior deviation from the two functionalities
