@@ -27,6 +27,9 @@ class MOT_Load_Time(EnvExperiment):
         self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
+        self.base.set_datasets_from_gui_args()
+
+
     def prepare(self):
         self.base.prepare()
 

@@ -27,6 +27,8 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
                               "Laser power stabilization")
 
+        self.base.set_datasets_from_gui_args()
+
     def prepare(self):
         self.base.prepare()
 

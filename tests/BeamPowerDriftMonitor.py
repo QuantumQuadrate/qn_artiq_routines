@@ -30,6 +30,8 @@ class BeamPowerDriftMonitor(EnvExperiment):
                                   "'dds_AOM_A6','dds_cooling_DP']"))
         self.setattr_argument("t_measurement_delay", NumberValue(500*ms, unit='ms'))
 
+        self.base.set_datasets_from_gui_args()
+
     def prepare(self):
 
         self.base.prepare()

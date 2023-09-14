@@ -54,6 +54,7 @@ class CoilScanSPCMCount(EnvExperiment):
         self.setattr_argument("print_meas_result", BooleanValue(False), "Developer options")
         self.setattr_argument("save_data", BooleanValue(True), "Developer options")
 
+        self.base.set_datasets_from_gui_args()
         print("build - done")
 
     def prepare(self):

@@ -16,6 +16,8 @@ class SamplerPrint(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        self.base.set_datasets_from_gui_args()
+
     def prepare(self):
         self.base.prepare()
         self.sampler_list = [self.sampler0, self.sampler1]

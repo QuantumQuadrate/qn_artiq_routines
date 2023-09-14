@@ -25,6 +25,8 @@ class MOTTemperature(EnvExperiment):
         self.setattr_argument("t_Luca_exposure", NumberValue(50*ms, unit='ms'))
         self.setattr_argument("averages", NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
 
+        self.base.set_datasets_from_gui_args()
+
 
     def prepare(self):
         self.base.prepare()

@@ -27,6 +27,7 @@ class Test_FiberSplitters(EnvExperiment):
 
         self.setattr_argument("datafile", StringValue('LaserPowers.csv'), "Record counts")
 
+        self.base.set_datasets_from_gui_args()
 
     def prepare(self):
         self.base.prepare()

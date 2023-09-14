@@ -18,6 +18,8 @@ class CoolingPulseChain(EnvExperiment):
         self.setattr_argument("n_cycles", NumberValue(1000, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("period", NumberValue(1.0, unit='ms', ndecimals=2))
 
+        self.base.set_datasets_from_gui_args()
+
     def prepare(self):
         self.base.prepare()
         self.half_period = self.period/2

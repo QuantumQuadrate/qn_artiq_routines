@@ -27,6 +27,8 @@ class FiberAOMRiseTimeTest(EnvExperiment):
         self.setattr_argument("default_power", NumberValue(-8, unit="dBm",scale=1, ndecimals=1))
         self.setattr_argument("switch_frequency", NumberValue(70 * MHz, unit='MHz'))
 
+        self.base.set_datasets_from_gui_args()
+
         print("build - done")
 
     def prepare(self):

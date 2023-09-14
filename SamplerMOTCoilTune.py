@@ -44,6 +44,7 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(200), "Laser feedback")
         self.setattr_argument("enable_laser_feedback", BooleanValue(True), "Laser feedback")
 
+        self.base.set_datasets_from_gui_args()
         print("build - done")
 
     def prepare(self):

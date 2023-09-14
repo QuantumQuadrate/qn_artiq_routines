@@ -45,6 +45,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
         self.setattr_argument("control_experiment", BooleanValue(False))
 
+        self.base.set_datasets_from_gui_args()
         print("build - done")
 
     def prepare(self):

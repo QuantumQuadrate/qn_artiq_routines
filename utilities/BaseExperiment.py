@@ -125,7 +125,17 @@ class BaseExperiment:
         )
 
         self.experiment.coil_channels = [0, 1, 2, 3]
+
+        # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
+        # before any GUI arguments are defined, then this can be used to grab those later by taking a difference
+        self.exp_var_names = dir(self.experiment)
         print("base build - done")
+
+
+    def set_datasets_from_gui_args(self):
+        new_exp_var_names = [x for x in dir(self.experiment) if x not in self.exp_var_names]
+        for name in new_exp_var_names:
+            self.experiment.set_dataset(name, getattr(self.experiment, name))
 
 
     def prepare(self):

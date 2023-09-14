@@ -29,6 +29,8 @@ class MOTMonitorEverything(EnvExperiment):
         self.setattr_argument("run_time_minutes", NumberValue(1))
         self.setattr_argument("dt_SPCM_exposure", NumberValue(300 * ms, unit='ms'))
 
+        self.base.set_datasets_from_gui_args()
+
 
     def prepare(self):
         self.base.prepare()

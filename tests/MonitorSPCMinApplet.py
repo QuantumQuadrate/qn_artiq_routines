@@ -31,6 +31,8 @@ class MonitorSPCMinApplet(EnvExperiment):
         self.setattr_argument("sat1s", NumberValue(1 * 10 ** 5), group)  # saturation limit in counts/dt.
         self.setattr_argument("print_count_rate", BooleanValue(True), group)
 
+        self.base.set_datasets_from_gui_args()
+
         print("build - done")
 
     def prepare(self):

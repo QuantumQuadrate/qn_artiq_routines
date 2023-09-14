@@ -67,6 +67,7 @@ class SimpleAtomTrapNoChopCoilTune(EnvExperiment):
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True), group3)
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(200), group3)
 
+        self.base.set_datasets_from_gui_args()
         print("build - done")
 
     def prepare(self):

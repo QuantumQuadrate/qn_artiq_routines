@@ -36,6 +36,7 @@ class AOMPowerStabilizerTest(EnvExperiment):
         self.setattr_argument("averages", NumberValue(5, type='int', ndecimals=0, scale=1, step=1),
                               "feedback params")
 
+        self.base.set_datasets_from_gui_args()
 
     def prepare(self):
 
@@ -45,11 +46,12 @@ class AOMPowerStabilizerTest(EnvExperiment):
         self.dds_list = eval(self.feedback_dds_list)
         self.exclude_list = eval(self.exclude_from_fake_drift_dds_list)
 
-        self.laser_stabilizer = AOMPowerStabilizer2(experiment=self,
+        self.laser_stabilizer = AOMPowerStabilizer(experiment=self,
                                            dds_names=self.dds_list,
                                            iterations=self.feedback_iterations,
                                            averages=self.averages,
-                                           dry_run=self.no_feedback)
+                                           dry_run=self.no_feedback,
+                                           update_dds_settings=False)
 
         # for running with fake drift, we need the dds references themselves
         self.dds_refs = []
@@ -108,5 +110,11 @@ class AOMPowerStabilizerTest(EnvExperiment):
 
             for i in range(self.experiment_iterations):
                 self.laser_stabilizer.run()
+                delay(1*ms)
+
+                # reset the dds settings to the experiment variables. since we initialized the AOMPowerStabiizer
+                # with update_dds_settings=False, the values used will be those used at the beginning
+                self.named_devices.initialize()
+
                 delay(self.t_iteration_delay)
         print("experiment finished")
