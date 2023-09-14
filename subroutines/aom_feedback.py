@@ -184,7 +184,7 @@ class FeedbackChannel:
         self.value_normalized = value / self.set_point
 
     @kernel
-    def feedback(self, buffer):
+    def feedback(self, buffer, max_dB = 0):
         """ feedback to this channel
         buffer: a list of length storing the measurement result from all samplers
         """
@@ -195,12 +195,13 @@ class FeedbackChannel:
         ampl = self.amplitude + self.p*err
 
         self.set_value(measured)
+        max_ampl = (2 * 50 * 10 ** (max_dB / 10 - 3)) ** (1 / 2)
 
         # todo print some warning to alert the user if we couldn't reach the setpoint,
         if ampl < 0:
             self.amplitude = 0.0
-        elif ampl > 0.9:
-            self.amplitude = 0.9
+        elif ampl > max_ampl:
+            self.amplitude = max_ampl
         else:  # valid amplitude for DDS
             self.amplitude = ampl
 
