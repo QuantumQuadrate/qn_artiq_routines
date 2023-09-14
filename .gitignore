@@ -19,3 +19,4 @@ subroutines/__pycache__/*
 examples/old_experiments/__pycache__/*.pyc
 subroutines/__pycache__/*.pyc
 analysis\csv_data\qn_labjack_data_20230908_coil_monitoring.csv
+analysis/physics_scratchpad.ipynb
