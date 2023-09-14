@@ -23,6 +23,8 @@ class MOTTemperature(EnvExperiment):
                 '[0.001, 0.005, 0.01, 0.05, 0.1, 1, 2, 5]'))
         # wait for the camera to take the shot
         self.setattr_argument("t_Luca_exposure", NumberValue(50*ms, unit='ms'))
+        self.setattr_argument("averages", NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
+
 
     def prepare(self):
         self.base.prepare()
@@ -50,36 +52,46 @@ class MOTTemperature(EnvExperiment):
         self.dds_AOM_A5.sw.on()
         delay(3000*ms)
 
-        # trigger Luca to save an image of the background (i.e. no MOT)
-        # todo: this shot shows up way darker than the subsequent ones,
-        # probably because of the fluorescence change when the coils turn on
-        self.zotino0.write_dac(6, 4.0)
-        self.zotino0.load()
-        delay(5 * ms)
-        self.zotino0.write_dac(6, 0.0)
-        self.zotino0.load()
-        delay(self.t_Luca_exposure)
-
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+
+        # trigger Luca to save an image - sanity check to make sure there is a MOT
+        self.ttl6.pulse(5 * ms)
+
+        # takes several iterations for process value to stabilize
+        # for i in range(20):
+        #     self.laser_stabilizer.run()
+        #     delay(500 * ms)
+
         delay(1*ms)
         t = 0.0
 
         for i in range(self.n_steps):
-            t = self.release_times_ms[i]
-            self.dds_cooling_DP.sw.on()
-            delay(1000*ms)
-            self.dds_cooling_DP.sw.off()
-            delay(t)
+            for n in range(self.averages):
+                t = self.release_times_ms[i]
+                delay(3000*ms)
+                # # trigger Luca to save an image - sanity check to make sure there is a MOT
+                # self.ttl6.pulse(5 * ms)
+                # # delay(5*ms)
 
-            # trigger Luca to save an image
-            self.zotino0.write_dac(6, 4.0)
-            self.zotino0.load()
-            delay(5 * ms)
-            self.zotino0.write_dac(6, 0.0)
-            self.zotino0.load()
-            delay(self.t_Luca_exposure)
+                # drops the MOT. alternatively we could chop the RP, but the coils may be too slow for this
+                self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
+                                     channels=self.coil_channels)
+                self.dds_cooling_DP.sw.off()
+                self.dds_MOT_RP.sw.off()
 
-        # leave the MOT on at the end
-        self.dds_cooling_DP.sw.on()
+                delay(t)
+
+                # turn on imaging beams and trigger Luca to take an image
+                self.dds_cooling_DP.sw.on()
+                self.dds_MOT_RP.sw.on()
+                self.ttl6.pulse(5*ms)
+
+                delay(self.t_Luca_exposure)
+
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                    channels=self.coil_channels)
+                delay(10*ms)
+
         print("MOT temperature measurement done!")
