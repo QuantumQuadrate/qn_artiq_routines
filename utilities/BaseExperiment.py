@@ -11,7 +11,6 @@ intended usage:
 ----
 from BaseExperiment import BaseExperiment
 
-# base devices are global
 
 class MyExp(EnvExperiment):
 
@@ -20,6 +19,11 @@ class MyExp(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        # define GUI arguments here
+        self.setattr_argument("my_argument",NumberValue(5))
+
+        self.base.set_datasets_from_gui_args()
+
     def prepare:
         self.base.prepare()
 
@@ -27,6 +31,10 @@ class MyExp(EnvExperiment):
     def run:
         self.base.initialize_hardware()
         # now we can do physics
+
+        # reference devices and variables which were initialized in the base experiment
+        self.dds_AOM_A1.sw.on()
+        self.ttl6.pulse(self.t_pulse)
 ----
 """
 from artiq.experiment import *
