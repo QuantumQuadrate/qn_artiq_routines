@@ -51,6 +51,7 @@ stabilizer_dict = {
                     # 'transfer_function': lambda x : x, # converts volts to optical mW
                     'set_point': 'set_point_PD0_AOM_cooling_DP', # volts
                     'p': 0.08, # the proportionality constant
+                    'i': 0.0, # the integral coefficient
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor',
                     'power_dataset':'p_cooling_DP_MOT', # the dataset for the RF power in dB; see ExperimentVariables
@@ -61,7 +62,8 @@ stabilizer_dict = {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_PD5_AOM_A5', # volts
-                    'p': 0.08, # the proportionality constant
+                    'p': 0.1, # the proportionality constant
+                    'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset':'MOT5_monitor',
                     'power_dataset':'AOM_A5_power',
@@ -73,6 +75,7 @@ stabilizer_dict = {
                     # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_PD6_AOM_A6', # volts
                     'p': 0.1, # the proportionality constant
+                    'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT6_monitor',
                     'power_dataset':'AOM_A6_power',
@@ -83,7 +86,8 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A1', # volts
-                    'p': 0.008, # the proportionality constant
+                    'p': 0.05, # the proportionality constant
+                    'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT1_monitor',
                     'power_dataset':'AOM_A1_power',
@@ -94,7 +98,8 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_fW_AOM_A2', # volts
-                    'p': 0.008, # the proportionality constant
+                    'p': 0.06, # the proportionality constant
+                    'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT2_monitor',
                     'power_dataset':'AOM_A2_power',
@@ -105,7 +110,8 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A3', # volts
-                    'p': 0.005, # the proportionality constant
+                    'p': 0.05, # the proportionality constant
+                    'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT3_monitor',
                     'power_dataset':'AOM_A3_power',
@@ -116,7 +122,8 @@ stabilizer_dict = {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A4', # volts
-                    'p': 0.008, # the proportionality constant
+                    'p': 0.03, # the proportionality constant
+                    'i': 0.0, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT4_monitor',
                     'power_dataset':'AOM_A4_power',
@@ -131,6 +138,7 @@ stabilizer_dict = {
                     # 'transfer_function': lambda x : x, # converts volts to optical mW
                     'set_point': 'set_point_FORT_MM',
                     'p': 0.00, #
+                    'i': 0.0, # the integral coefficient
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'FORT_monitor',
                     'power_dataset':'p_FORT', # the dataset for the RF power in dB; see ExperimentVariables
@@ -144,7 +152,8 @@ stabilizer_dict = {
 
 class FeedbackChannel:
 
-    def __init__(self, name, dds_obj, buffer_index, set_point, p, dataset, dB_dataset, t_measure_delay):
+    def __init__(self, name, dds_obj, buffer_index, set_point, p, i, dataset, dB_dataset, t_measure_delay,
+                 error_history_length):
         """
         class which defines a DDS feedback channel
 
@@ -154,6 +163,7 @@ class FeedbackChannel:
         'g(x: float)->float': a callable that converts the measured voltage to the units of the setpoint, e.g. mW
         'set_point': the float value we are trying to reach
         'p': the proportional constant for feedback
+        'error_history_length->int':, how many errors to store for the integral term
         """
         self.name = name
         self.dds_obj = dds_obj
@@ -161,6 +171,7 @@ class FeedbackChannel:
         # self.g = g
         self.set_point = set_point
         self.p = p
+        self.i = i
         self.frequency = 100*MHz
         self.amplitude = 0.0
         self.value = 0.0 # the last value of the measurement
@@ -168,6 +179,10 @@ class FeedbackChannel:
         self.dataset = dataset
         self.dB_dataset = dB_dataset # the name of the dataset that stores the dB RF power for the dds
         self.t_measure_delay = t_measure_delay
+        self.error_history_arr = np.full(error_history_length,0.0)
+        self.error_buffer = np.full(error_history_length-1,0.0)
+        self.error_history_length = error_history_length
+        self.cumulative_error = 0.0 # will store a sum of the
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -183,6 +198,36 @@ class FeedbackChannel:
         self.value = value
         self.value_normalized = value / self.set_point
 
+    @rpc(flags={'async'})
+    def update_error_history(self, error):
+        """
+        update the error history array.
+
+        this is run off the kernel because the array is not updated correctly on the kernel
+        :param error:
+        :return:
+        """
+
+        # this code correctly updates the error array when run in a jupyter notebook with self.
+        # removed in a replace-all.
+        # self.print(self.name)
+        # self.print("last error array")
+        # self.print(self.error_history_arr)
+        # self.print("last buffer")
+        # self.print(self.error_buffer)
+        # for i in range(self.error_history_length - 1):
+        self.error_buffer = self.error_history_arr[-(self.error_history_length - 1):]
+        # self.print("buffer after updating with error array")
+        # self.print(self.error_buffer)
+        self.error_history_arr[:-1] = self.error_buffer
+        # self.print("error array after updating with buffer")
+        # self.print(self.error_history_arr)
+        self.error_history_arr[-1] = error
+        # self.print("error array after updating with current error")
+        # self.print(self.error_history_arr)
+
+        self.cumulative_error = sum(self.error_history_arr)
+
     @kernel
     def feedback(self, buffer, max_dB = 0):
         """ feedback to this channel
@@ -192,7 +237,11 @@ class FeedbackChannel:
         # measured = self.g(buffer[self.buffer_index]) # the value of the sampler ch in setpoint units
         measured = buffer[self.buffer_index]
         err = self.set_point - measured
-        ampl = self.amplitude + self.p*err
+
+        # runs off the kernel, else the error array isn't correctly updated
+        self.update_error_history(err)
+
+        ampl = self.amplitude + self.p * err + self.i * self.cumulative_error
 
         self.set_value(measured)
         max_ampl = (2 * 50 * 10 ** (max_dB / 10 - 3)) ** (1 / 2)
@@ -212,7 +261,7 @@ class FeedbackChannel:
 class AOMPowerStabilizer:
 
     def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False,
-                 update_dds_settings=True, dry_run=False):
+                 update_dds_settings=True, dry_run=False, open_loop_monitor_names=[]):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
 
@@ -236,10 +285,16 @@ class AOMPowerStabilizer:
         self.leave_AOMs_on = leave_AOMs_on
         self.update_dds_settings = update_dds_settings
         self.dry_run = dry_run
+        self.open_loop_monitor_names = open_loop_monitor_names
+        if len(open_loop_monitor_names) > 0:
+            assert [x in self.dds_names for x in self.open_loop_monitor_names], \
+                f"{[x for x in self.open_loop_monitor_names if x not in self.dds_names]} are not in dds_names." \
+                +"Only dds channels in dds_names can be include in open_loop_monitor_channels"
 
         self.sampler_list = [] # stores the list of Sampler references
         self.series_channels = [] # the feedback channels that should be adjusted one-by-one
         self.parallel_channels = []
+        self.open_loop_monitor_channels = []
 
         # this block instantiates FeedbackChannel objects and groups them by series/parallel feedback flag
         for i, sampler_name in enumerate(stabilizer_dict):
@@ -266,15 +321,20 @@ class AOMPowerStabilizer:
                                             # g=ch_params['transfer_function'],
                                             set_point=getattr(self.exp,ch_params['set_point']),
                                             p=ch_params['p'],
+                                            i=ch_params['i'],
                                             dataset=ch_params['dataset'],
                                             dB_dataset=ch_params['power_dataset'],
-                                            t_measure_delay=ch_params['t_measure_delay']
+                                            t_measure_delay=ch_params['t_measure_delay'],
+                                            error_history_length=self.iterations
                         )
 
                         if ch_params['series']:
                             self.series_channels.append(fb_channel)
                         else:
                             self.parallel_channels.append(fb_channel)
+
+                        if ch_name in self.open_loop_monitor_names:
+                            self.open_loop_monitor_channels.append(fb_channel)
 
         # the FORT is special so set it up separately:
         # todo: right now we only want to monitor it, but eventually we will need to feedback
@@ -288,9 +348,11 @@ class AOMPowerStabilizer:
                                        # g=ch_params['transfer_function'],
                                        set_point=getattr(self.exp, ch_params['set_point']),
                                        p=ch_params['p'],
+                                       i=ch_params['i'],
                                        dataset=ch_params['dataset'],
                                        dB_dataset=ch_params['power_dataset'],
-                                       t_measure_delay=ch_params['t_measure_delay']
+                                       t_measure_delay=ch_params['t_measure_delay'],
+                                       error_history_length=self.iterations
                                        )
         self.exp.set_dataset(self.FORT_ch.dataset, [1.0], broadcast=True)
 
@@ -328,7 +390,6 @@ class AOMPowerStabilizer:
         measure all Sampler cards used for feedback
         # todo: could add option to average for better snr
         """
-        # self.measurement_array = np.full(8 * self.num_samplers, 0.0)
         dummy = np.full(8 * self.num_samplers, 0.0)
         measurement_array = np.full(8, 0.0)
         i = 0
@@ -336,11 +397,9 @@ class AOMPowerStabilizer:
             for j in range(self.averages):
                 sampler.sample(measurement_array)
                 delay(1*ms)
-                # self.measurement_array[i * 8:(i + 1) * 8] += measurement_array/self.averages # outlives target error
-                dummy[i * 8:(i + 1) * 8] += measurement_array # outlives target error
+                dummy[i * 8:(i + 1) * 8] += measurement_array
                 delay(1 * ms)
             i += 1
-        # self.measurement_array /= self.averages
         dummy /= self.averages
         self.measurement_array = dummy
 
@@ -368,6 +427,21 @@ class AOMPowerStabilizer:
 
         self.print("self.background_array:")
         self.print(self.background_array)
+
+    @kernel
+    def open_loop_monitor(self):
+        """
+        make a measurement and update the datasets.
+
+        for now, this intentionally does not respect the series flag of dds channels,
+        so it should be used with only 1-series AOM at a time.
+        :return:
+        """
+        for ch in self.open_loop_monitor_channels:
+            self.measure()
+            delay(1*ms)
+            ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
+            self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
     @kernel
     def monitor(self):
@@ -426,113 +500,6 @@ class AOMPowerStabilizer:
                 self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
         # turn repumpers back on
-        self.exp.dds_MOT_RP.sw.on()
-        self.exp.dds_cooling_DP.sw.on()
-
-        delay(1 * ms)
-
-        if self.leave_AOMs_on:
-            for ch in self.all_channels:
-                ch.dds_obj.sw.on()
-
-    #todo: check that this is still functionally equivalent to the run method
-    @kernel
-    def run_tuning_mode(self):
-        """
-        Functionally the same as run except the datasets are updated after every feedback
-        iteration rather than just at the end, so we can see how the process values are
-        reaching the set points.
-
-        For tuning, plot one channel at a time in a plot_xy applet
-        """
-
-        # todo: up-date the set points for all channels in case they have been changed since
-        #  the stabilizer was instantiated. not sure how to do this since getattr can not be
-        #  used in the kernel, and I don't want to have to pass in a variable explicitly.
-
-        # turn off repumpers, which contribute typically a few percent to the total powers
-        self.exp.dds_MOT_RP.sw.off()
-        delay(1 * ms)
-
-        for ch in self.all_channels:
-            ch.get_dds_settings()
-            delay(1 * ms)
-            ch.dds_obj.sw.off()
-            delay(1 * ms)
-
-        with sequential:
-
-            # todo: FORT polarization feedback first, then the AOM part can be done in parallel with other channels
-            self.FORT_ch.get_dds_settings()
-            delay(1 * ms)
-            self.FORT_ch.dds_obj.sw.on()
-            delay(10 * ms)
-            self.measure()
-            delay(1 * ms)
-            self.FORT_ch.set_value(self.measurement_array[self.FORT_ch.buffer_index])
-            delay(1 * ms)
-            self.FORT_ch.dds_obj.sw.off()
-            delay(1 * ms)
-            self.exp.append_to_dataset(self.FORT_ch.dataset, self.FORT_ch.value_normalized)
-            delay(1 * ms)
-
-            # self.measure_background() # this updates the background list
-            delay(1 * ms)
-            for ch in self.parallel_channels:
-                ch.dds_obj.sw.on()
-            delay(10 * ms)
-
-            # do feedback on the "parallel" channels
-            for i in range(self.iterations):
-                self.measure()
-                delay(1 * ms)
-
-                # strictly speaking, doesn't really matter if these are parallel
-                for ch in self.parallel_channels:
-                    delay(1 * ms)
-                    if not self.dry_run:
-                        ch.feedback(self.measurement_array - self.background_array)
-                    else:
-                        ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-                delay(1 * ms)
-
-            for ch in self.parallel_channels:
-                ch.dds_obj.sw.off()
-            delay(10 * ms)  # the Femto fW detector is slow
-
-            # need to have this on
-            self.exp.dds_cooling_DP.sw.on()
-            delay(50 * ms)
-
-            # self.measure_background()
-            delay(1 * ms)
-
-            # do feedback on the series channels
-            with sequential:
-                for ch in self.series_channels:
-                    ch.dds_obj.sw.on()
-
-                    delay(ch.t_measure_delay)  # allows for detector rise time
-                    for i in range(self.iterations):
-                        self.measure()
-                        delay(1 * ms)
-                        if not self.dry_run:
-                            ch.feedback(self.measurement_array - self.background_array)
-                        else:
-                            ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-
-                    ## trigger for Andor Luca camera for independent verification of the measured signals
-                    self.exp.ttl6.pulse(5*ms)
-                    delay(60 * ms)
-                    # delay(1*ms)
-                    ch.dds_obj.sw.off()
-
-            # update the datasets
-            for ch in self.all_channels:
-                self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
-
-        delay(1 * ms)
-        # turn repumpers and cooling DP back on
         self.exp.dds_MOT_RP.sw.on()
         self.exp.dds_cooling_DP.sw.on()
 
