@@ -37,7 +37,6 @@ class CoilsSPCMCounts(EnvExperiment):
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
 
-        self.base.set_datasets_from_gui_args()
 
     def prepare(self):
 

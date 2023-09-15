@@ -55,7 +55,6 @@ class SPCMCount(EnvExperiment):
         self.setattr_argument("datafile", StringValue('SPCMCounts.csv'), "Record counts")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True), "Record counts")
 
-        self.base.set_datasets_from_gui_args()
 
     def prepare(self):
         # where to store the data

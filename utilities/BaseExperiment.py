@@ -57,7 +57,7 @@ def dB_to_V(dB: float) -> float:
 
 class BaseExperiment:
 
-    def __init__(self, experiment):
+    def __init__(self, experiment: EnvExperiment):
         self.experiment = experiment
 
     def build(self):
@@ -143,7 +143,10 @@ class BaseExperiment:
     def set_datasets_from_gui_args(self):
         new_exp_var_names = [x for x in dir(self.experiment) if x not in self.exp_var_names]
         for name in new_exp_var_names:
-            self.experiment.set_dataset(name, getattr(self.experiment, name))
+            try:
+                self.experiment.set_dataset(name, getattr(self.experiment, name))
+            except Exception as e:
+                print("ARTIQ complains about this when scanning repository HEAD but then gets over it...")
 
 
     def prepare(self):
