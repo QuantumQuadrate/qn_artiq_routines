@@ -62,10 +62,7 @@ class CoilsSPCMCounts(EnvExperiment):
                              channels=self.coil_channels)
 
         if self.enable_laser_feedback:
-            # takes several iterations for process value to stabilize
-            for i in range(20):
-                self.laser_stabilizer.run()
-                delay(500 * ms)
+            self.laser_stabilizer.run()
 
         delay(1000 * ms)
 

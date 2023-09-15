@@ -125,10 +125,7 @@ class MOTMonitorEverything(EnvExperiment):
                 print("Will now run feedback and monitor powers until forcibly stopped")
                 delay(100*ms)
 
-                # takes several iterations for process value to stabilize
-                for i in range(20):
-                    self.laser_stabilizer.run()
-                    delay(500 * ms)
+                self.laser_stabilizer.run()
 
                 for i in range(self.n_steps):
                     self.laser_stabilizer.run()  # must come after relevant DDS's have been set

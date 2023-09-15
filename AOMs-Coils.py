@@ -113,11 +113,6 @@ class AOMsCoils(EnvExperiment):
                 print("Will now run feedback and monitor powers until forcibly stopped")
                 delay(100*ms)
 
-                # takes several iterations for process value to stabilize
-                for i in range(20):
-                    self.laser_stabilizer.run()
-                    delay(500 * ms)
-
                 while True:
                     self.laser_stabilizer.run()  # must come after relevant DDS's have been set
                     delay(self.t_feedback_period)

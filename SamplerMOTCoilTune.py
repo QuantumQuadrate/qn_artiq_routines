@@ -126,11 +126,7 @@ class SamplerMOTCoilTune(EnvExperiment):
         delay(1 * ms)
 
         if self.enable_laser_feedback:
-            # takes several iterations for process value to stabilize
-            for i in range(20):
-                print("running feedback step", i)
-                self.laser_stabilizer.run()  # must come after relevant DDS's have been set
-                delay(500 * ms)
+            self.laser_stabilizer.run()
             if self.FORT_AOM_on:
                 self.dds_FORT.sw.on()
 
