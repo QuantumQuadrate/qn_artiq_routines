@@ -33,6 +33,9 @@ beam powers from the feedback routine. as it is, only the powers that are
 stabilized will be broadcast, whereas we may want to broadcast powers that
 are not stabilized for testing, or broadcast powers at other points in the
 experiment for some reason.
+
+todo: make number of measurements to average specific to each feedback channel,
+ because some detectors give better SNR (e.g. the I2Vs compared to the fW detector)
 """
 
 from artiq.experiment import *
