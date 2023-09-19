@@ -44,6 +44,10 @@ class AOMFeedbackTest(EnvExperiment):
                               "feedback params")
         self.setattr_argument("averages", NumberValue(10, type='int', ndecimals=0, scale=1, step=1),
                               "feedback params")
+
+        # whether to plot all measurements or only after each feedback loop has been applied
+        self.setattr_argument("record_all_measurements", BooleanValue(False), "feedback params")
+
         self.setattr_argument("run_with_fake_drift", BooleanValue(False), "simulate drift")
         self.setattr_argument("drift_factor", NumberValue(0.9), "simulate drift")
 
@@ -124,7 +128,7 @@ class AOMFeedbackTest(EnvExperiment):
                         delay(1*ms)
                         j += 1
 
-                self.laser_stabilizer.run(record_all_measurements=True)
+                self.laser_stabilizer.run(record_all_measurements=self.record_all_measurements)
                 delay(self.t_iteration_delay)
 
         else:
@@ -135,7 +139,7 @@ class AOMFeedbackTest(EnvExperiment):
             for i in range(self.experiment_iterations):
 
                 if not self.no_feedback:
-                    self.laser_stabilizer.run(record_all_measurements=True)
+                    self.laser_stabilizer.run(record_all_measurements=self.record_all_measurements)
                     delay(10*ms)
                 else:
                     pass # todo laser stabilizer monitor
