@@ -132,11 +132,7 @@ class MOTMonitorEverything(EnvExperiment):
 
                     delay(2000 * ms)  # wait for MOT to load
                     ## trigger for Andor Luca camera for independent verification of the measured signals
-                    self.zotino0.write_dac(6, 4.0)
-                    self.zotino0.load()
-                    delay(5 * ms)
-                    self.zotino0.write_dac(6, 0.0)
-                    self.zotino0.load()
+                    self.ttl6.pulse(5*ms)
                     delay(60 * ms)
 
                     tend1 = self.ttl0.gate_rising(self.t_SPCM_exposure)
