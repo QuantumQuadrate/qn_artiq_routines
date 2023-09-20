@@ -359,6 +359,27 @@ class AOMPowerStabilizer:
                                        )
         self.exp.set_dataset(self.FORT_ch.dataset, [1.0], broadcast=True)
 
+        # FOR TESTING - a channel for monitoring MOT5 with the fW detector as a test
+        i = 0  # sampler index
+        ch_name = 'dds_AOM_A5'
+        ch_params = stabilizer_dict[f'sampler{i}'][ch_name]
+        ch_params1 = stabilizer_dict[f'sampler{i}']['dds_AOM_A1'] # need this for getting the fW sampler channel
+        self.dds_AOM_A5_fW_ch = FeedbackChannel(name='dds_AOM_A5_fW',
+                                       dds_obj=getattr(self.exp, ch_name),
+                                       buffer_index=ch_params1['sampler_ch'] + i * 8,
+                                       # g=ch_params['transfer_function'],
+                                       set_point=0.752, #getattr(self.exp, ch_params['set_point']),
+                                       p=0.0, # don't do anything
+                                       i=0.0, # don't do anything
+                                       dataset='MOT5_fW_monitor',
+                                       dB_dataset=ch_params['power_dataset'],
+                                       t_measure_delay=ch_params1['t_measure_delay'], # we want the fW delay
+                                       error_history_length=self.iterations
+                                       )
+        self.exp.set_dataset(self.dds_AOM_A5_fW_ch.dataset, [1.0], broadcast=True)
+        self.series_channels.append(self.dds_AOM_A5_fW_ch)
+
+
         self.num_samplers = len(self.sampler_list)
         self.measurement_array = np.full(8 * self.num_samplers, 0.0)
         self.background_array = np.full(8 * self.num_samplers, 0.0)
@@ -453,69 +474,10 @@ class AOMPowerStabilizer:
         Intended to be used to monitor beam drift in absence of feedback.
         """
 
-        # turn off repumpers, which contribute typically a few percent to the total powers
-        self.exp.dds_MOT_RP.sw.off()
+        self.run(monitor_only=True)
 
-        for ch in self.all_channels:
-            ch.dds_obj.sw.off()
-            delay(1*ms)
-
-        with sequential:
-
-            # self.measure_background() # this updates the background list
-            for ch in self.parallel_channels:
-                ch.dds_obj.sw.on()
-            delay(10*ms)
-
-            # measure the "parallel" channels
-            self.measure()
-            delay(1 * ms)
-
-            for ch in self.parallel_channels:
-                delay(1*ms)
-                ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-            delay(1 * ms)
-
-            for ch in self.parallel_channels:
-                ch.dds_obj.sw.off()
-            delay(50 * ms)  # the Femto fW detector is slow
-
-            # need to have this on
-            self.exp.dds_cooling_DP.sw.on()
-            delay(10*ms)
-
-            # self.measure_background()
-
-            # measure the series channels
-            with sequential:
-                for ch in self.series_channels:
-                    ch.dds_obj.sw.on()
-                    delay(ch.t_measure_delay)
-                    self.measure()
-                    delay(1*ms)
-                    ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-                    delay(1*ms)
-                    ch.dds_obj.sw.off()
-                    # delay(50 * ms)  # the Femto fW detector is slow
-
-            # update the datasets
-            for ch in self.all_channels:
-                self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
-
-        # turn repumpers back on
-        self.exp.dds_MOT_RP.sw.on()
-        self.exp.dds_cooling_DP.sw.on()
-
-        delay(1 * ms)
-
-        if self.leave_AOMs_on:
-            for ch in self.all_channels:
-                ch.dds_obj.sw.on()
-
-    # todo: could deprecate monitor by adding a monitor keyword argument to this. this would help
-    #  assure that we don't have unexpected behavior deviation from the two functionalities
     @kernel
-    def run(self, record_all_measurements=False):
+    def run(self, record_all_measurements=False, monitor_only=False):
         """
         Run the feedback loop. On exiting, this function will turn off all dds channels
          given by dds_names. If any beams which need to be adjusted in series are in
@@ -571,7 +533,7 @@ class AOMPowerStabilizer:
                 # strictly speaking, doesn't really matter if these are parallel
                 for ch in self.parallel_channels:
                     delay(1*ms)
-                    if not self.dry_run:
+                    if not (self.dry_run or monitor_only):
                         ch.feedback(self.measurement_array - self.background_array)
                     else:
                         ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
@@ -601,7 +563,7 @@ class AOMPowerStabilizer:
                     for i in range(self.iterations):
                         self.measure()
                         delay(1 * ms)
-                        if not self.dry_run:
+                        if not (self.dry_run or monitor_only):
                             ch.feedback(self.measurement_array - self.background_array)
                         else:
                             ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])

@@ -138,11 +138,9 @@ class AOMFeedbackTest(EnvExperiment):
 
             for i in range(self.experiment_iterations):
 
-                if not self.no_feedback:
-                    self.laser_stabilizer.run(record_all_measurements=self.record_all_measurements)
-                    delay(10*ms)
-                else:
-                    pass # todo laser stabilizer monitor
+                self.laser_stabilizer.run(record_all_measurements=self.record_all_measurements,
+                                          monitor_only=self.no_feedback)
+                delay(10*ms)
 
                 for t in range(self.timesteps):
                     if self.enable_open_loop_monitor:
