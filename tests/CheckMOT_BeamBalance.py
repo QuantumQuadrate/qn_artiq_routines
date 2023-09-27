@@ -40,6 +40,9 @@ class CheckMOTBalance(EnvExperiment):
         self.smp = np.zeros(n_channels, dtype=float)
         self.avg = np.zeros(n_channels, dtype=float)
 
+        self.detector_channel = 7
+
+        self.mot_beam_voltages = np.zeros(4) # store an average for each of the chip beams
 
     @rpc(flags={"async"})
     def file_setup(self, rowheaders=[]):
@@ -59,6 +62,9 @@ class CheckMOTBalance(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
+        print("*****************************  REMEMBER TO START THE CAMERA ACQUISITION  *****************************")
+        delay(1000*ms)
+
         self.file_setup(rowheaders=['cooling_1percent', 'cooling_99percent', '6th_MOT'])
 
         delay(10 * ms)
@@ -66,6 +72,7 @@ class CheckMOTBalance(EnvExperiment):
         self.dds_cooling_SP.sw.on()
         self.dds_MOT_RP.sw.off()
         self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
 
         delay(1000 * ms)
 
@@ -88,8 +95,8 @@ class CheckMOTBalance(EnvExperiment):
             print("Loop #: ", j)
             delay(10 * ms)
 
-            self.dds_AOM_A6.sw.on()
-            delay(10 * ms)
+            # self.dds_AOM_A6.sw.on()
+            # delay(10 * ms)
 
             ### Sampler reading with averaging:
             for i in range(n_channels):
@@ -115,20 +122,24 @@ class CheckMOTBalance(EnvExperiment):
 
             delay(10 * ms)
 
-            self.dds_AOM_A6.sw.off()
-            delay(10 * ms)
+            # self.dds_AOM_A6.sw.off()
+            # delay(10 * ms)
 
             ### Dark image
-            ### trigger for Andor_Luca camera.
-            self.zotino0.write_dac(6, 4.0)
-            self.zotino0.load()
-            delay(5 * ms)
-            self.zotino0.write_dac(6, 0.0)
-            self.zotino0.load()
+            # ### trigger for Andor_Luca camera by zotino:
+            # self.zotino0.write_dac(6, 4.0)
+            # self.zotino0.load()
+            # delay(5 * ms)
+            # self.zotino0.write_dac(6, 0.0)
+            # self.zotino0.load()
+
+            ### trigger for Andor_Luca camera by TTL:
+            self.ttl6.pulse(5 * ms)
+
 
             ### time to wait for camera to take the image
             time2 = now_mu()
-            tdelay = 100 * ms
+            tdelay = 300 * ms
             tdelay_mu = self.core.seconds_to_mu(tdelay)
             delay(tdelay)  # moves the cursor into the future
             self.core.wait_until_mu(time2 + tdelay_mu)
@@ -141,22 +152,27 @@ class CheckMOTBalance(EnvExperiment):
                 ### Delay 100ms
                 ### this is necessary to have the triggering signal after a certain delay. Otherwise, we do not get a trig signal.
                 time1 = now_mu()
-                tdelay = 100 * ms
+                tdelay = 300 * ms
                 tdelay_mu = self.core.seconds_to_mu(tdelay)
                 delay(tdelay)  # moves the cursor into the future
                 self.core.wait_until_mu(time1 + tdelay_mu)  # wait for the cursor to get there
                 delay(1 * ms)
 
-                ### trigger for Andor_Luca camera.
-                self.zotino0.write_dac(6, 4.0)
-                self.zotino0.load()
-                delay(5 * ms)
-                self.zotino0.write_dac(6, 0.0)
-                self.zotino0.load()
+                ### trigger for Andor_Luca camera by zotino:
+                # self.zotino0.write_dac(6, 4.0)
+                # self.zotino0.load()
+                # delay(5 * ms)
+                # self.zotino0.write_dac(6, 0.0)
+                # self.zotino0.load()
+
+                ### trigger for Andor_Luca camera by TTL:
+                self.ttl6.pulse(5 * ms)
 
                 ### time to wait for camera to take the image
                 time2 = now_mu()
-                tdelay = 100 * ms
+                tdelay = 300 * ms
+                self.sampler0.sample(self.smp)
+                self.mot_beam_voltages[i] += self.smp[self.detector_channel]
                 tdelay_mu = self.core.seconds_to_mu(tdelay)
                 delay(tdelay)  # moves the cursor into the future
                 self.core.wait_until_mu(time2 + tdelay_mu)
@@ -173,5 +189,7 @@ class CheckMOTBalance(EnvExperiment):
             delay(self.LoopDelay)
             self.core.wait_until_mu(time3 + LoopDelay_mu)
             delay(10 * ms)
+
+        print(self.mot_beam_voltages/4)
 
         print("*****************************  ALL DONE  *****************************")
