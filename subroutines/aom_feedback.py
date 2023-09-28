@@ -84,48 +84,48 @@ stabilizer_dict = {
                     'power_dataset':'AOM_A6_power',
                     't_measure_delay':1*ms
                 },
-            'dds_AOM_A1': # signal monitored by Femto fW detector
+            'dds_AOM_A1': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'sampler_ch': 7, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A1', # volts
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.012, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT1_monitor',
                     'power_dataset':'AOM_A1_power',
                     't_measure_delay':50*ms
                 },
-            'dds_AOM_A2': # signal monitored by Femto fW detector
+            'dds_AOM_A2': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'sampler_ch': 7, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_fW_AOM_A2', # volts
-                    'p': 0.06, # the proportionality constant
+                    'p': 0.012, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT2_monitor',
                     'power_dataset':'AOM_A2_power',
                     't_measure_delay':50*ms
                 },
-            'dds_AOM_A3': # signal monitored by Femto fW detector
+            'dds_AOM_A3': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'sampler_ch': 7, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A3', # volts
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.015, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT3_monitor',
                     'power_dataset':'AOM_A3_power',
                     't_measure_delay':50*ms
                 },
-            'dds_AOM_A4': # signal monitored by Femto fW detector
+            'dds_AOM_A4': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'sampler_ch': 7, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A4', # volts
-                    'p': 0.03, # the proportionality constant
+                    'p': 0.005, # the proportionality constant
                     'i': 0.0, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT4_monitor',
@@ -246,6 +246,11 @@ class FeedbackChannel:
 
 
 class AOMPowerStabilizer:
+
+    # this avoids an underflow error in the run method, because the compiler knows it doesn't need to
+    # compute the result of the if statement in every iteration of the feedback loop (because the
+    # result doesn't change over the life of the kernel)
+    kernel_invariants = {"Luca_trigger_for_feedback_verification"}
 
     def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False,
                  update_dds_settings=True, dry_run=False, open_loop_monitor_names=[]):
@@ -533,7 +538,7 @@ class AOMPowerStabilizer:
                     if self.exp.Luca_trigger_for_feedback_verification:
                         self.exp.ttl6.pulse(5 * ms)
                         delay(60*ms)
-                    # delay(1*ms)
+                    delay(1*ms)
                     ch.dds_obj.sw.off()
 
             # update the datasets with the last values if we have not already done so
