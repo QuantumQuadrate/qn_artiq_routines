@@ -149,6 +149,7 @@ class ExperimentVariables(EnvExperiment):
                      "Plotting"),
 
             # Laser feedback
+            Variable("Luca_trigger_for_feedback_verification", False, BooleanValue, {}, "Laser feedback"),
             Variable("enable_laser_feedback", False, BooleanValue, {}, "Laser feedback"),
             Variable("feedback_dds_list", "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', "
                                           "'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"

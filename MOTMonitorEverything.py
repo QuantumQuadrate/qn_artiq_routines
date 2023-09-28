@@ -24,6 +24,7 @@ class MOTMonitorEverything(EnvExperiment):
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
+        self.setattr_argument("take_images_with_Luca",BooleanValue(False),"Luca params (assumes 50ms exposure for now)")
         self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
                               "Laser power stabilization")
         self.setattr_argument("run_time_minutes", NumberValue(1))
@@ -34,6 +35,10 @@ class MOTMonitorEverything(EnvExperiment):
 
     def prepare(self):
         self.base.prepare()
+
+        # overwrite the experiment variable
+        self.Luca_trigger_for_feedback_verification = self.take_images_with_Luca
+
         # takes into account MOT loading time and camera exposure but not feedback time
         self.n_steps = int(60 * self.run_time_minutes / self.t_feedback_period)
 
