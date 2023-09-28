@@ -29,7 +29,7 @@ class XYPlot(pyqtgraph.PlotWidget):
     def data_changed(self, data, mods, title):
         try:
             # the data display will be rolling, only showing display_pts at a time
-            pts = (data[self.args.pts][1])[0]
+            pts = (data[self.args.pts][1])
 
             # should be a numpy array where each row is a different data channel
             MOT_data = []

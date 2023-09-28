@@ -210,25 +210,9 @@ class FeedbackChannel:
         :param error:
         :return:
         """
-
-        # this code correctly updates the error array when run in a jupyter notebook with self.
-        # removed in a replace-all.
-        # self.print(self.name)
-        # self.print("last error array")
-        # self.print(self.error_history_arr)
-        # self.print("last buffer")
-        # self.print(self.error_buffer)
-        # for i in range(self.error_history_length - 1):
         self.error_buffer = self.error_history_arr[-(self.error_history_length - 1):]
-        # self.print("buffer after updating with error array")
-        # self.print(self.error_buffer)
         self.error_history_arr[:-1] = self.error_buffer
-        # self.print("error array after updating with buffer")
-        # self.print(self.error_history_arr)
         self.error_history_arr[-1] = error
-        # self.print("error array after updating with current error")
-        # self.print(self.error_history_arr)
-
         self.cumulative_error = sum(self.error_history_arr)
 
     @kernel
@@ -379,24 +363,24 @@ class AOMPowerStabilizer:
         # self.exp.set_dataset(self.dds_AOM_A5_fW_ch.dataset, [1.0], broadcast=True, persist=True)
         # self.series_channels.append(self.dds_AOM_A5_fW_ch)
         # FOR TESTING - a channel for monitoring MOT5 with the Thorlabs fW detector as a test
-        # i = 0  # sampler index
-        # ch_name = 'dds_AOM_A5'
-        # ch_params = stabilizer_dict[f'sampler{i}'][ch_name]
-        # ch_params1 = stabilizer_dict[f'sampler{i}']['dds_AOM_A1']  # the delay is the same for Femto and Thorlabs det.
-        # self.dds_AOM_A5_fW_Thor_ch = FeedbackChannel(name='dds_AOM_A5_fW_Thor',
-        #                                         dds_obj=getattr(self.exp, ch_name),
-        #                                         buffer_index=7 + i * 8,
-        #                                         # g=ch_params['transfer_function'],
-        #                                         set_point=8.6,  # what i measured with the RF power at -15 dB
-        #                                         p=0.0,  # don't do anything
-        #                                         i=0.0,  # don't do anything
-        #                                         dataset='MOT5_fW_Thor_monitor',
-        #                                         dB_dataset=ch_params['power_dataset'],
-        #                                         t_measure_delay=ch_params1['t_measure_delay'],  # we want the fW delay
-        #                                         error_history_length=self.iterations
-        #                                         )
-        # self.exp.set_dataset(self.dds_AOM_A5_fW_Thor_ch.dataset, [1.0], broadcast=True, persist=True)
-        # self.series_channels.append(self.dds_AOM_A5_fW_Thor_ch)
+        i = 0  # sampler index
+        ch_name = 'dds_AOM_A5'
+        ch_params = stabilizer_dict[f'sampler{i}'][ch_name]
+        ch_params1 = stabilizer_dict[f'sampler{i}']['dds_AOM_A1']  # the delay is the same for Femto and Thorlabs det.
+        self.dds_AOM_A5_fW_Thor_ch = FeedbackChannel(name='dds_AOM_A5_fW_Thor',
+                                                dds_obj=getattr(self.exp, ch_name),
+                                                buffer_index=7 + i * 8,
+                                                # g=ch_params['transfer_function'],
+                                                set_point=8.6,  # what i measured with the RF power at -15 dB
+                                                p=0.0,  # don't do anything
+                                                i=0.0,  # don't do anything
+                                                dataset='MOT5_fW_Thor_monitor',
+                                                dB_dataset=ch_params['power_dataset'],
+                                                t_measure_delay=ch_params1['t_measure_delay'],  # we want the fW delay
+                                                error_history_length=self.iterations
+                                                )
+        self.exp.set_dataset(self.dds_AOM_A5_fW_Thor_ch.dataset, [1.0], broadcast=True, persist=True)
+        self.series_channels.append(self.dds_AOM_A5_fW_Thor_ch)
 
         # FOR TESTING - a channel for monitoring all MOT beams with the Thorlabs fW detector
         i = 0  # sampler index
@@ -425,12 +409,6 @@ class AOMPowerStabilizer:
         # for logging the measured voltages
         for ch in self.all_channels: # todo: update with the last value from the dataset
             self.exp.set_dataset(ch.dataset, [1.0], broadcast=True, persist=True)
-
-        # the number of pts to plot
-        pts = getattr(self.exp, 'MOT_beam_monitor_points')
-        self.exp.set_dataset('monitor_pts',
-                             [pts],# yes, this is stupid.
-                             broadcast=True)
 
     @rpc(flags={"async"})
     def print(self, x):
