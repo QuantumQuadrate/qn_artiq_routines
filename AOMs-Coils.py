@@ -23,11 +23,12 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("disable_coils", BooleanValue(default=False))
-        self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
+        self.setattr_argument("enable_laser_feedback_loop", BooleanValue(default=True),"Laser power stabilization")
+        self.setattr_argument("run_laser_feedback_once", BooleanValue(default=False),"Laser power stabilization")
         self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
                               "Laser power stabilization")
 
-        # self.base.set_datasets_from_gui_args()
+        self.base.set_datasets_from_gui_args()
 
     def prepare(self):
         self.base.prepare()
@@ -109,14 +110,27 @@ class AOMsCoils(EnvExperiment):
         print("Coils and AOMs done!")
 
         if self.AOM_A1_ON and self.AOM_A2_ON and self.AOM_A3_ON and self.AOM_A4_ON and self.AOM_A5_ON and self.AOM_A6_ON:
-            if self.enable_laser_feedback:
+            if self.enable_laser_feedback_loop:
                 print("Will now run feedback and monitor powers until forcibly stopped")
                 delay(100*ms)
 
                 while True:
-                    self.laser_stabilizer.run()  # must come after relevant DDS's have been set
+                    self.laser_stabilizer.run()
+                    delay(1*ms)
+                    if self.FORT_AOM_ON == True:
+                        self.dds_FORT.sw.on()
+                    delay(1*ms)
                     delay(self.t_feedback_period)
 
+            elif self.run_laser_feedback_once:
+                self.laser_stabilizer.run()
+                delay(1 * ms)
+                if self.FORT_AOM_ON == True:
+                    self.dds_FORT.sw.on()
+                delay(1 * ms)
             else:
                 # posts one data point for each beam
                 self.laser_stabilizer.monitor()
+                delay(1*ms)
+                if self.FORT_AOM_ON == True:
+                    self.dds_FORT.sw.on()
