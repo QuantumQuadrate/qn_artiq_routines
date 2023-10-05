@@ -40,8 +40,6 @@ class MOTTemperature(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
-        # # URUKUL 0 - MOT and D2 state prep AOMs:
-
         delay(1*ms)
         self.dds_cooling_DP.sw.on()
         self.dds_cooling_SP.sw.on()
@@ -60,17 +58,16 @@ class MOTTemperature(EnvExperiment):
         # trigger Luca to save an image - sanity check to make sure there is a MOT
         self.ttl6.pulse(5 * ms)
 
-        # takes several iterations for process value to stabilize
-        # for i in range(20):
-        #     self.laser_stabilizer.run()
-        #     delay(500 * ms)
-
         delay(1*ms)
         t = 0.0
 
         for i in range(self.n_steps):
             for n in range(self.averages):
                 t = self.release_times_ms[i]
+
+                delay(10*ms)
+                self.laser_stabilizer.run()
+
                 delay(3000*ms)
                 # # trigger Luca to save an image - sanity check to make sure there is a MOT
                 # self.ttl6.pulse(5 * ms)
