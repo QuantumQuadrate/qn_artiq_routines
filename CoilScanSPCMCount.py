@@ -3,6 +3,7 @@ This code scans the coils to find the optimum coil parameters that put the MOT a
 parabolic mirror. It saves the photon counts in a file.
 
 """
+import os
 
 from artiq.experiment import *
 import csv
@@ -23,11 +24,14 @@ class CoilScanSPCMCount(EnvExperiment):
 
         self.scan_datasets = ["Vz_bottom_array", "Vz_top_array", "Vx_array", "Vy_array"]
         group = "Coil steps"
+
+        self.setattr_argument("print_time_estimate_only", BooleanValue(True))
+
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
                 self.setattr_argument(dataset, StringValue(value), group)
-                print("retrieved dataset", dataset, "=", value)
+                # print("retrieved dataset", dataset, "=", value)
         except KeyError as e:
             print(e)
             self.setattr_argument("Vz_bottom_array", StringValue(
@@ -39,9 +43,9 @@ class CoilScanSPCMCount(EnvExperiment):
             self.setattr_argument("Vy_array", StringValue(
                 '[-0.5 - j*(-0.5 - 0.5)/20 for k in range(20)]'), "Coil steps")
 
+        self.setattr_argument("differential_scan", BooleanValue(True))
+
         self.setattr_argument("coils_enabled", BooleanValue(True))
-        self.setattr_argument("datadir", StringValue('C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\'),
-                              "File to save data")
         self.setattr_argument("datafile", StringValue('coil_scan.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
 
@@ -69,10 +73,11 @@ class CoilScanSPCMCount(EnvExperiment):
 
         # where to store the data
         self.t_experiment_run = dt.now().strftime("%Y%m%d_%H%M%S")
+        self.datadir = os.getcwd()
         if self.prepend_date_to_datafile:
-            self.datafile = self.datadir + self.t_experiment_run + '_' + self.datafile
+            self.datafile = os.path.join(self.datadir, self.t_experiment_run + '_' + self.datafile)
         else:
-            self.datafile = self.datadir + self.datafile
+            self.datafile = os.path.join(self.datadir + self.datafile)
 
         # save a copy of the strings defining the scan variables
         self.V_array_strings = [
@@ -83,6 +88,17 @@ class CoilScanSPCMCount(EnvExperiment):
         self.Vz_top_array = eval(self.Vz_top_array)
         self.Vx_array = eval(self.Vx_array)
         self.Vy_array = eval(self.Vy_array)
+
+        if self.differential_scan:
+            self.Vz_bottom_array += self.AZ_bottom_volts_MOT
+            self.Vz_top_array += self.AZ_top_volts_MOT
+            self.Vx_array += self.AX_volts_MOT
+            self.Vy_array += self.AY_volts_MOT
+
+        assert max(abs(self.Vz_bottom_array)) <= 10, "Zotino can not output > 10V. Decrease VZ_bottom scan range!"
+        assert max(abs(self.Vz_top_array)) <= 10, "Zotino can not output > 10V. Decrease VZ_top scan range!"
+        assert max(abs(self.Vx_array)) <= 10, "Zotino can not output > 10V. Decrease VX scan range!"
+        assert max(abs(self.Vy_array)) <= 10, "Zotino can not output > 10V. Decrease VY scan range!"
 
         self.zbottom_steps = len(self.Vz_bottom_array)
         self.ztop_steps = len(self.Vz_top_array)
@@ -98,131 +114,135 @@ class CoilScanSPCMCount(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
-        for i in range(4):
-            # takes the value from the GUI and updates the dataset so next time we recompute the arguments
-            # in the GUI, these values will be the defaults. you can find the values in the hdf file
-            # for each experiment.
-            self.set_dataset(self.scan_datasets[i], self.V_array_strings[i], broadcast=True, persist=True)
-
-        self.file_setup(rowheaders=['counts','AZ_bottom V','AZ_top V','AY V','AX V','cooling PD V'])
-
-        # Turn on the magnetic fields
-        if self.coils_enabled:
-            delay(10 * ms)
-            # the starting point
-            self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                                 channels=self.coil_channels)
-        else:
-            self.zotino0.set_dac(
-                [0.0, 0.0, 0.0, 0.0],
-                channels=self.coil_channels)
-        delay(1 * ms)  # avoid RTIOSequence error
-
-        # Turn on AOMs to load the MOT.
-        self.dds_cooling_DP.sw.on()
-        self.dds_cooling_SP.sw.on()
-        self.dds_MOT_RP.sw.on()
-        self.dds_AOM_A2.sw.on()
-        self.dds_AOM_A3.sw.on()
-        self.dds_AOM_A1.sw.on()
-        self.dds_AOM_A6.sw.on()
-        self.dds_AOM_A4.sw.on()
-        self.dds_AOM_A5.sw.on()
-
-        # wait for AOMs to thermalize
-        delay(4000 * ms)
-
         print("estimated duration of scan:",
-              self.xsteps*self.ysteps*self.ztop_steps*self.zbottom_steps*(self.t_MOT_loading+self.t_SPCM_exposure)/3600,
+              self.xsteps * self.ysteps * self.ztop_steps * self.zbottom_steps * (
+                      self.t_MOT_loading + self.t_SPCM_exposure) / 3600,
               "hours")
-        step = 0
-        i_vz_step = 1
+        if not self.print_time_estimate_only:
 
-        rtio_log("zotino0")
+            for i in range(4):
+                # takes the value from the GUI and updates the dataset so next time we recompute the arguments
+                # in the GUI, these values will be the defaults. you can find the values in the hdf file
+                # for each experiment.
+                self.set_dataset(self.scan_datasets[i], self.V_array_strings[i], broadcast=True, persist=True)
 
-        if self.enable_laser_feedback:
-            self.laser_stabilizer.run()
+            self.file_setup(rowheaders=['counts','AZ_bottom V','AZ_top V','AY V','AX V','cooling PD V'])
 
-        for Vz_top in self.Vz_top_array:
-            print(i_vz_step, "out of ", len(self.Vz_top_array), "outer loop steps")
+            # Turn on the magnetic fields
+            if self.coils_enabled:
+                delay(10 * ms)
+                # the starting point
+                self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                                     channels=self.coil_channels)
+            else:
+                self.zotino0.set_dac(
+                    [0.0, 0.0, 0.0, 0.0],
+                    channels=self.coil_channels)
+            delay(1 * ms)  # avoid RTIOSequence error
 
-            # set MOT coils to setting we know generates a MOT, as a check
-            coil_volts = [self.AZ_bottom_volts_MOT,
-                          self.AZ_top_volts_MOT,
-                          self.AX_volts_MOT,
-                          self.AY_volts_MOT]
+            # Turn on AOMs to load the MOT.
+            self.dds_cooling_DP.sw.on()
+            self.dds_cooling_SP.sw.on()
+            self.dds_MOT_RP.sw.on()
+            self.dds_AOM_A2.sw.on()
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A6.sw.on()
+            self.dds_AOM_A4.sw.on()
+            self.dds_AOM_A5.sw.on()
 
-            self.zotino0.set_dac(
-                coil_volts,
-                channels=self.coil_channels)
+            # wait for AOMs to thermalize
+            delay(4000 * ms)
 
-            delay(1500 * ms)
+            step = 0
+            i_vz_step = 1
 
-            # trigger Luca to save an image
-            self.zotino0.write_dac(6, 4.0)
-            self.zotino0.load()
-            delay(5 * ms)
-            self.zotino0.write_dac(6, 0.0)
-            self.zotino0.load()
+            rtio_log("zotino0")
 
-            delay(200*ms)
+            delay(100*ms)
+            if self.enable_laser_feedback:
+                self.laser_stabilizer.run()
+                delay(100 * ms)
 
-            for Vz_bottom in self.Vz_bottom_array:
-                for Vx in self.Vx_array:
-                    for Vy in self.Vy_array:
+            for Vz_top in self.Vz_top_array:
+                print(i_vz_step, "out of ", len(self.Vz_top_array), "outer loop steps")
 
-                        if self.enable_laser_feedback:
-                            if (step % self.AOM_feedback_period_cycles) == 0:
-                                print("running feedback")
-                                self.core.break_realtime()
-                                self.laser_stabilizer.run()
-                            # else:
-                            #     self.laser_stabilizer.monitor()
+                # set MOT coils to setting we know generates a MOT, as a check
+                coil_volts = [self.AZ_bottom_volts_MOT,
+                              self.AZ_top_volts_MOT,
+                              self.AX_volts_MOT,
+                              self.AY_volts_MOT]
 
-                        # do the experiment sequence
-                        delay(10 * ms)
+                self.zotino0.set_dac(
+                    coil_volts,
+                    channels=self.coil_channels)
 
-                        # update coil values
-                        coil_volts = [Vz_bottom,
-                                      Vz_top,
-                                      Vx,
-                                      Vy]
+                delay(1500 * ms)
 
-                        delay(1*ms)
-                        # print(coil_volts)
-                        self.zotino0.set_dac(
-                            coil_volts,
-                            channels=self.coil_channels)
+                # trigger Luca to save an image
+                self.zotino0.write_dac(6, 4.0)
+                self.zotino0.load()
+                delay(5 * ms)
+                self.zotino0.write_dac(6, 0.0)
+                self.zotino0.load()
 
-                        # wait for the MOT to load
-                        delay_mu(self.t_MOT_loading_mu)
+                delay(200*ms)
 
-                        # take the shot
-                        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-                        counts = self.ttl0.count(t_gate_end)
+                for Vz_bottom in self.Vz_bottom_array:
+                    for Vx in self.Vx_array:
+                        for Vy in self.Vy_array:
 
-                        if self.print_meas_result:
-                            print("counts", counts)
-                        delay(1 * ms)
-                        if self.save_data:
-                            ### all items in the list must be the same type that is why 0.0 is added to counts
-                            self.sampler0.sample(self.sampler_buffer) # check cooling laser power
-                            self.file_write([counts+0.0,
-                                             coil_volts[0],
-                                             coil_volts[1],
-                                             coil_volts[2],
-                                             coil_volts[3],
-                                             self.sampler_buffer[self.cooling_volts_ch]])
-                        delay(10 * ms)
-                        step += 1
-            i_vz_step += 1 # the outer loop counter
-        ### reset parameters
-        delay(10*ms)
+                            if self.enable_laser_feedback:
+                                if (step % self.AOM_feedback_period_cycles) == 0:
+                                    print("running feedback")
+                                    self.core.break_realtime()
+                                    self.laser_stabilizer.run()
+                                    delay(100*ms)
 
-        self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
-                             channels=self.coil_channels)
+                            # do the experiment sequence
+                            delay(10 * ms)
 
-        self.cleanup()  # asynchronous stuff like closing files
+                            # update coil values
+                            coil_volts = [Vz_bottom,
+                                          Vz_top,
+                                          Vx,
+                                          Vy]
+
+                            delay(1*ms)
+                            # print(coil_volts)
+                            self.zotino0.set_dac(
+                                coil_volts,
+                                channels=self.coil_channels)
+
+                            # wait for the MOT to load
+                            delay_mu(self.t_MOT_loading_mu)
+
+                            # take the shot
+                            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+                            counts = self.ttl0.count(t_gate_end)
+
+                            if self.print_meas_result:
+                                print("counts", counts)
+                            delay(1 * ms)
+                            if self.save_data:
+                                ### all items in the list must be the same type that is why 0.0 is added to counts
+                                self.sampler0.sample(self.sampler_buffer) # check cooling laser power
+                                self.file_write([counts+0.0,
+                                                 coil_volts[0],
+                                                 coil_volts[1],
+                                                 coil_volts[2],
+                                                 coil_volts[3],
+                                                 self.sampler_buffer[self.cooling_volts_ch]])
+                            delay(10 * ms)
+                            step += 1
+                i_vz_step += 1 # the outer loop counter
+            ### reset parameters
+            delay(10*ms)
+
+            self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
+                                 channels=self.coil_channels)
+
+            self.cleanup()  # asynchronous stuff like closing files
         print("Experiment finished.")
 
 
