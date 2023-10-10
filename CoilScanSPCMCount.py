@@ -44,7 +44,7 @@ class CoilScanSPCMCount(EnvExperiment):
                 '[-0.5 - j*(-0.5 - 0.5)/20 for k in range(20)]'), "Coil steps")
 
         self.setattr_argument("differential_scan", BooleanValue(True))
-
+        self.setattr_argument("FORT_on", BooleanValue(False))
         self.setattr_argument("coils_enabled", BooleanValue(True))
         self.setattr_argument("datafile", StringValue('coil_scan.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")
@@ -106,7 +106,6 @@ class CoilScanSPCMCount(EnvExperiment):
         self.ysteps = len(self.Vy_array)
 
         self.sampler_buffer = np.full(8, 0.0)
-        # self.cooling_volts_ch = 7 # we'll read this channel later and save it to the file
 
         print("prepare - done")
 
@@ -164,6 +163,9 @@ class CoilScanSPCMCount(EnvExperiment):
                 self.laser_stabilizer.run()
                 delay(100 * ms)
 
+            if self.FORT_on:
+                self.dds_FORT.sw.on()
+
             for Vz_top in self.Vz_top_array:
                 print(i_vz_step, "out of ", len(self.Vz_top_array), "outer loop steps")
 
@@ -197,7 +199,11 @@ class CoilScanSPCMCount(EnvExperiment):
                                     print("running feedback")
                                     self.core.break_realtime()
                                     self.laser_stabilizer.run()
-                                    delay(100*ms)
+                                    delay(10*ms)
+
+                                    # the feedback turns the FORT off at the end
+                                    if self.FORT_on:
+                                        self.dds_FORT.sw.on()
 
                             # do the experiment sequence
                             delay(10 * ms)
@@ -238,6 +244,8 @@ class CoilScanSPCMCount(EnvExperiment):
                 i_vz_step += 1 # the outer loop counter
             ### reset parameters
             delay(10*ms)
+
+            self.dds_FORT.sw.off()
 
             self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
                                  channels=self.coil_channels)
