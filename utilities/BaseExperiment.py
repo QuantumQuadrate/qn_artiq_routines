@@ -76,8 +76,8 @@ class BaseExperiment:
             "f_cooling_DP_MOT", "p_cooling_DP_MOT",
             "f_cooling_DP_PGC", "p_cooling_DP_PGC",
             "f_cooling_DP_RO", "p_cooling_DP_RO",
-            "f_cooling_SP", "p_cooling_SP",
-            "f_MOT_RP", "p_MOT_RP",
+            "f_D1_pumping_SP", "p_D1_pumping_SP",
+            "f_pumping_RP", "p_pumping_RP",
             "AOM_A1_freq", "AOM_A1_power",
             "AOM_A2_freq", "AOM_A2_power",
             "AOM_A3_freq", "AOM_A3_power",
@@ -126,9 +126,10 @@ class BaseExperiment:
             experiment=self.experiment,
             device_aliases=[
                 'dds_FORT',
-                'dds_cooling_SP',
+                'dds_D1_pumping_SP',
                 'dds_cooling_DP',
-                'dds_MOT_RP',
+                'dds_pumping_RP',
+                'dds_excitation',
                 *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
             ]
         )
@@ -170,8 +171,10 @@ class BaseExperiment:
         self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
         self.experiment.ampl_cooling_DP_PGC =  dB_to_V(self.experiment.p_cooling_DP_PGC)
         self.experiment.ampl_cooling_DP_RO = dB_to_V(self.experiment.p_cooling_DP_RO)
-        self.experiment.ampl_cooling_SP = dB_to_V(self.experiment.p_cooling_SP)
-        self.experiment.ampl_MOT_RP = dB_to_V(self.experiment.p_MOT_RP)
+        self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
+        self.experiment.ampl_pumping_RP = dB_to_V(self.experiment.p_pumping_RP)
+        self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
+        self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
 
         self.experiment.AOM_A1_ampl = dB_to_V(self.experiment.AOM_A1_power)
         self.experiment.AOM_A2_ampl = dB_to_V(self.experiment.AOM_A2_power)

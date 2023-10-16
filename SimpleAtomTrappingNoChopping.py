@@ -39,6 +39,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("print_measurement_number", BooleanValue(False))
         self.setattr_argument("dt_exposure", NumberValue(10 * ms, unit='ms'))
+        self.setattr_argument("iteration_delay", NumberValue(0 * s, unit='s'))
         self.setattr_argument("expose_with_MOT_on", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("print_counts", BooleanValue(True))
@@ -89,8 +90,8 @@ class SimpleAtomTrapNoChop(EnvExperiment):
 
         # turn on cooling/RP AOMs
         self.dds_cooling_DP.sw.on() # cooling double pass
-        self.dds_cooling_SP.sw.on()  # cooling single pass
-        self.dds_MOT_RP.sw.on()  # MOT repump
+        self.dds_D1_pumping_SP.sw.on()  # cooling single pass
+        self.dds_pumping_RP.sw.on()  # MOT repump
 
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
 
@@ -101,9 +102,11 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         for measurement in range(self.n_measurements):
 
             if self.enable_laser_feedback:
-                if measurement % 10 == 0:
-                    self.laser_stabilizer.run()
-                    delay(1 * ms)
+                # if measurement % 10 == 0: # disabled for long delay time
+                self.laser_stabilizer.run()
+                delay(1 * ms)
+                self.dds_FORT.sw.on()
+                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
 
             self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
 
@@ -132,7 +135,8 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             delay_mu(self.t_MOT_loading_mu)
 
             # turn on the dipole trap and wait to load atoms
-            self.dds_FORT.sw.on()
+            # self.dds_FORT.sw.on()
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
             delay_mu(self.t_FORT_loading_mu)
 
             if not self.expose_with_MOT_on:
@@ -155,6 +159,9 @@ class SimpleAtomTrapNoChop(EnvExperiment):
                 print(counts)
             delay(10 * ms)
 
+            self.ttl6.pulse(5*ms)
+            delay(50*ms)
+
             # reset AOMs and coils
             # self.dds_AOM_A2.sw.off()  # fiber AOMs off
             # self.dds_AOM_A3.sw.off()
@@ -162,7 +169,8 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             # self.dds_AOM_A6.sw.off()
             # self.dds_AOM_A4.sw.off()
             # self.dds_AOM_A5.sw.off()
-            self.dds_FORT.sw.off()  # FORT AOM off
+            # self.dds_FORT.sw.off()  # FORT AOM off
+            self.dds_FORT.set(frequency=self.f_FORT-30*MHz, amplitude=self.ampl_FORT_loading)
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
             self.append_to_dataset('photocounts', counts)
@@ -170,6 +178,8 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             if self.print_measurement_number:
                 print("measurement", measurement)
             delay(10*ms)
+
+            delay(self.iteration_delay)
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT

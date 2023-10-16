@@ -69,8 +69,8 @@ class CheckMOTBalance(EnvExperiment):
 
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
-        self.dds_cooling_SP.sw.on()
-        self.dds_MOT_RP.sw.off()
+        self.dds_D1_pumping_SP.sw.on()
+        self.dds_pumping_RP.sw.off()
         self.dds_AOM_A5.sw.off()
         self.dds_AOM_A6.sw.off()
 

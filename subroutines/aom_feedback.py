@@ -455,10 +455,6 @@ class AOMPowerStabilizer:
         #  the stabilizer was instantiated. not sure how to do this since getattr can not be
         #  used in the kernel, and I don't want to have to pass in a variable explicitly.
 
-        # turn off repumpers, which contribute typically a few percent to the total powers
-        self.exp.dds_MOT_RP.sw.off()
-        delay(1*ms)
-
         for ch in self.all_channels:
             ch.get_dds_settings()
             delay(1*ms)
@@ -547,8 +543,7 @@ class AOMPowerStabilizer:
                     self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
         delay(1*ms)
-        # turn repumpers and cooling DP back on
-        self.exp.dds_MOT_RP.sw.on()
+        # turn cooling DP back on
         self.exp.dds_cooling_DP.sw.on()
 
         delay(1*ms)

@@ -62,7 +62,7 @@ A dictionary mapping aliases of the device channels is defined in DeviceAliases.
     ALIAS_MAP = {
           "dds_FORT": "urukul0_ch0", # the key is the alias, and the value is the name given in device_db.py
           "dds_cooling_DP": "urukul0_ch1",
-          "dds_cooling_SP": "urukul0_ch2",
+          "dds_D1_pumping_SP": "urukul0_ch2",
           ...
           "dds_AOM_A4": "urukul2_ch0",
           "dds_AOM_A5": "urukul2_ch1"
@@ -77,9 +77,9 @@ The **easiest way to use this is to use the BaseExperiment class** as described 
             experiment=self.experiment,
             device_aliases=[ # the channels you want to use, which are already defined in ALIAS_MAP
                 'dds_FORT',
-                'dds_cooling_SP',
+                'dds_D1_pumping_SP',
                 'dds_cooling_DP',
-                'dds_MOT_RP',
+                'dds_pumping_RP',
                 *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
             ]
         ) # after this block carry on as usual. e.g. in run, do things like self.dds_FORT.init(), self.dds_FORT.set(210*MHz, amplitude=...)
@@ -110,7 +110,7 @@ The easiest way to set up an experiment which has access to all* (see build sect
           self.base.initialize_hardware()
           # now we can do physics
           self.dds_cooling_DP.sw.on()
-          self.dds_cooling_SP.sw.on()
+          self.dds_D1_pumping_SP.sw.on()
           ...
           self.dds_FORT.sw.on()
           delay(50*ms)

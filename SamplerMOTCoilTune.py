@@ -83,8 +83,8 @@ class SamplerMOTCoilTune(EnvExperiment):
         if self.MOT_AOMs_on:
             # Turn on AOMs to load the MOT.
             self.dds_cooling_DP.sw.on()
-            self.dds_cooling_SP.sw.on()
-            self.dds_MOT_RP.sw.on()
+            self.dds_D1_pumping_SP.sw.on()
+            self.dds_pumping_RP.sw.on()
             self.dds_AOM_A2.sw.on()
             self.dds_AOM_A3.sw.on()
             self.dds_AOM_A1.sw.on()
@@ -95,8 +95,8 @@ class SamplerMOTCoilTune(EnvExperiment):
             if self.MOT_AOMs_on:
                 # Turn on AOMs to load the MOT.
                 self.dds_cooling_DP.sw.off()
-                self.dds_cooling_SP.sw.off()
-                self.dds_MOT_RP.sw.off()
+                self.dds_D1_pumping_SP.sw.off()
+                self.dds_pumping_RP.sw.off()
                 self.dds_AOM_A2.sw.off()
                 self.dds_AOM_A3.sw.off()
                 self.dds_AOM_A1.sw.off()

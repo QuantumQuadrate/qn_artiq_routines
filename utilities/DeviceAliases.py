@@ -14,8 +14,9 @@ from artiq.experiment import *
 DDS_DEFAULTS = {
     "dds_FORT": {"frequency":"f_FORT", "power":"p_FORT_loading"},
     "dds_cooling_DP": {"frequency":"f_cooling_DP_MOT", "power":"p_cooling_DP_MOT"},
-    "dds_cooling_SP": {"frequency": "f_cooling_SP", "power": "p_cooling_SP"},
-    "dds_MOT_RP": {"frequency": "f_MOT_RP", "power": "p_MOT_RP"},
+    "dds_D1_pumping_SP": {"frequency": "f_D1_pumping_SP", "power": "p_D1_pumping_SP"},
+    "dds_pumping_RP": {"frequency": "f_pumping_RP", "power": "p_pumping_RP"},
+    "dds_excitation": {"frequency": "f_excitation", "power": "p_excitation"},
     "dds_AOM_A1": {"frequency": "AOM_A1_freq", "power": "AOM_A1_power"},
     "dds_AOM_A2": {"frequency": "AOM_A2_freq", "power": "AOM_A2_power"},
     "dds_AOM_A3": {"frequency": "AOM_A3_freq", "power": "AOM_A3_power"},
@@ -27,14 +28,15 @@ DDS_DEFAULTS = {
 ALIAS_MAP = {
         "dds_FORT": "urukul0_ch0",
         "dds_cooling_DP": "urukul0_ch1",
-        "dds_cooling_SP": "urukul0_ch2",
-        "dds_MOT_RP": "urukul0_ch3",
+        "dds_D1_pumping_SP": "urukul0_ch2",
+        "dds_pumping_RP": "urukul0_ch3",
         "dds_AOM_A2": "urukul1_ch0",
         "dds_AOM_A3": "urukul1_ch1",
         "dds_AOM_A1": "urukul1_ch2",
         "dds_AOM_A6": "urukul1_ch3",
         "dds_AOM_A4": "urukul2_ch0",
-        "dds_AOM_A5": "urukul2_ch1"
+        "dds_AOM_A5": "urukul2_ch1",
+        "dds_excitation": "urukul2_ch2"
 }
 
 @rpc(flags={"async"})  # means this code runs asynchronously; won't block the rtio counter

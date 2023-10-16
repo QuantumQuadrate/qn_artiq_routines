@@ -37,13 +37,13 @@ class AOMs_Coils(EnvExperiment):
         self.setattr_argument("p_cooling_DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1), "AOM2, MOT cooling double pass")
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
 
-        self.setattr_argument("f_cooling_SP", NumberValue(130.0 * MHz, unit="MHz",ndecimals=1), "AOM3, MOT cooling single pass")
-        self.setattr_argument("p_cooling_SP", NumberValue(1, unit="dBm", scale=1, ndecimals=1), "AOM3, MOT cooling single pass")
-        self.setattr_argument("Cooling_SP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
+        self.setattr_argument("f_D1_pumping_SP", NumberValue(130.0 * MHz, unit="MHz",ndecimals=1), "AOM3, MOT cooling single pass")
+        self.setattr_argument("p_D1_pumping_SP", NumberValue(1, unit="dBm", scale=1, ndecimals=1), "AOM3, MOT cooling single pass")
+        self.setattr_argument("D1_pumping_SP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
 
-        self.setattr_argument("f_MOT_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("p_MOT_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("MOT_RP_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
+        self.setattr_argument("f_pumping_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("p_pumping_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("pumping_RP_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
         self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
         self.setattr_argument("AOM_A2_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A2")
@@ -74,8 +74,8 @@ class AOMs_Coils(EnvExperiment):
         # converts RF power in dBm to amplitudes in V
         self.AOM1_ampl = math.sqrt(2*50*10**(self.p_FORT_loading/10-3))
         self.AOM2_ampl = math.sqrt(2*50*10**(self.p_cooling_DP_MOT/10-3))
-        self.AOM3_ampl = math.sqrt(2*50*10**(self.p_cooling_SP/10-3))
-        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_MOT_RP/10-3))
+        self.AOM3_ampl = math.sqrt(2*50*10**(self.p_D1_pumping_SP/10-3))
+        self.AOM4_ampl = math.sqrt(2*50*10**(self.p_pumping_RP/10-3))
 
         self.AOM_A2_ampl = math.sqrt(2*50*10**(self.AOM_A2_power/10-3))
         self.AOM_A3_ampl = math.sqrt(2*50*10**(self.AOM_A3_power/10-3))
@@ -140,15 +140,15 @@ class AOMs_Coils(EnvExperiment):
             self.urukul0_ch1.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch2.set(frequency=self.f_cooling_SP, amplitude=self.AOM3_ampl)
-        if self.Cooling_SP_AOM_ON == True:
+        self.urukul0_ch2.set(frequency=self.f_D1_pumping_SP, amplitude=self.AOM3_ampl)
+        if self.D1_pumping_SP_AOM_ON == True:
             self.urukul0_ch2.sw.on()
         else:
             self.urukul0_ch2.sw.off()
 
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_MOT_RP, amplitude=self.AOM4_ampl)
-        if self.MOT_RP_AOM_ON == True:
+        self.urukul0_ch3.set(frequency=self.f_pumping_RP, amplitude=self.AOM4_ampl)
+        if self.pumping_RP_AOM_ON == True:
             self.urukul0_ch3.sw.on()
         else:
             self.urukul0_ch3.sw.off()

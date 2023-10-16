@@ -74,16 +74,31 @@ class ExperimentVariables(EnvExperiment):
                      "Cooling double pass AOM"),
 
             # Cooling single pass AOM
-            Variable("f_cooling_SP", 130.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+            Variable("f_D1_pumping_SP", 130.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling single pass AOM"),
-            Variable("p_cooling_SP", 1, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_D1_pumping_SP", 1, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling single pass AOM"),
 
-            # Repump
-            Variable("f_MOT_RP", 150.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
-                     "Cooling repump"),
-            Variable("p_MOT_RP", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
-                     "Cooling repump"),
+            # D1 optical pumping, pumping repumper, and excitation
+            Variable("f_D1_pumping_SP", 100.00 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "OP and excitation AOMs"),
+            Variable("p_D1_pumping_SP", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "OP and excitation AOMs"),
+            Variable("f_pumping_RP", 345.10 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "OP and excitation AOMs"),
+            Variable("p_pumping_RP", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "OP and excitation AOMs"),
+            Variable("f_excitation", 150.50 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "OP and excitation AOMs"),
+            Variable("p_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "OP and excitation AOMs"),
+
+
+            # D1 optical pumping
+            Variable("f_D1_pumping_SP", 150.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Repump AOMs"),
+            Variable("p_D1_pumping_SP", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Repump AOMs"),
 
             # Fiber AOMs
             Variable("AOM_A1_freq", 78.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
