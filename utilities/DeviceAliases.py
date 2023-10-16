@@ -29,14 +29,14 @@ ALIAS_MAP = {
         "dds_FORT": "urukul0_ch0",
         "dds_cooling_DP": "urukul0_ch1",
         "dds_D1_pumping_SP": "urukul0_ch2",
-        "dds_pumping_RP": "urukul0_ch3",
+        "dds_pumping_RP": "urukul2_ch2",
         "dds_AOM_A2": "urukul1_ch0",
         "dds_AOM_A3": "urukul1_ch1",
         "dds_AOM_A1": "urukul1_ch2",
         "dds_AOM_A6": "urukul1_ch3",
         "dds_AOM_A4": "urukul2_ch0",
         "dds_AOM_A5": "urukul2_ch1",
-        "dds_excitation": "urukul2_ch2"
+        "dds_excitation": "urukul0_ch3"
 }
 
 @rpc(flags={"async"})  # means this code runs asynchronously; won't block the rtio counter

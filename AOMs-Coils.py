@@ -38,7 +38,7 @@ class AOMsCoils(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
-        # # URUKUL 0 - MOT and D2 state prep AOMs:
+        # MOT and D2 state prep AOMs:
         delay(1*ms)
         if self.FORT_AOM_ON == True:
             self.dds_FORT.sw.on()
@@ -63,7 +63,13 @@ class AOMsCoils(EnvExperiment):
         else:
             self.dds_pumping_RP.sw.off()
 
-        # URUKUL 1 and 2 - MOT arm fiber AOMs, excitation AOM:
+        delay(1 * ms)
+        if self.excitation_AOM_ON == True:
+            self.dds_excitation.sw.on()
+        else:
+            self.dds_excitation.sw.off()
+
+        # MOT arm fiber AOMs, excitation AOM:
         delay(1 * ms)
         if self.AOM_A2_ON == True:
             self.dds_AOM_A2.sw.on()
@@ -99,12 +105,6 @@ class AOMsCoils(EnvExperiment):
             self.dds_AOM_A5.sw.on()
         else:
             self.dds_AOM_A5.sw.off()
-
-        delay(1 * ms)
-        if self.pumping_RP_AOM_ON == True:
-            self.dds_excitation.sw.on()
-        else:
-            self.dds_excitation.sw.off()
 
         if self.disable_coils:
             self.zotino0.set_dac([0.0,0.0,0.0,0.0],
