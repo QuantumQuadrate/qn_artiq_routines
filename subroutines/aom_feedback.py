@@ -252,7 +252,7 @@ class AOMPowerStabilizer:
     # result doesn't change over the life of the kernel)
     kernel_invariants = {"Luca_trigger_for_feedback_verification"}
 
-    def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False,
+    def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_MOT_AOMs_on=False,
                  update_dds_settings=True, dry_run=False, open_loop_monitor_names=[]):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
@@ -264,7 +264,7 @@ class AOMPowerStabilizer:
         'dds_names': a list of the names of the dds channels to feedback to
         'iterations': integer number of feedback cycles to converge to the setpoints
         'averages':
-        'leave_AOMs_on':
+        'leave_MOT_AOMs_on':
         'udpate_dds_settings':
         'dry_run':
         """
@@ -274,7 +274,7 @@ class AOMPowerStabilizer:
         self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.averages = averages
-        self.leave_AOMs_on = leave_AOMs_on
+        self.leave_MOT_AOMs_on = leave_MOT_AOMs_on
         self.update_dds_settings = update_dds_settings
         self.dry_run = dry_run
         self.open_loop_monitor_names = open_loop_monitor_names
@@ -548,7 +548,7 @@ class AOMPowerStabilizer:
 
         delay(1*ms)
 
-        if self.leave_AOMs_on:
+        if self.leave_MOT_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
 

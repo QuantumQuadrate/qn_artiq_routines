@@ -189,7 +189,7 @@ class BaseExperiment:
                                                     dds_names=dds_feedback_list,
                                                     iterations=self.experiment.aom_feedback_iterations,
                                                     averages=self.experiment.aom_feedback_averages,
-                                                    leave_AOMs_on=True)
+                                                    leave_MOT_AOMs_on=True)
 
         print("base prepare - done")
 

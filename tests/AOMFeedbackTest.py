@@ -76,7 +76,7 @@ class AOMFeedbackTest(EnvExperiment):
                                            dds_names=self.dds_list,
                                            iterations=self.feedback_iterations,
                                            averages=self.averages,
-                                           leave_AOMs_on=True,
+                                           leave_MOT_AOMs_on=True,
                                            update_dds_settings=False,
                                            dry_run=self.no_feedback,
                                            open_loop_monitor_names = self.open_loop_monitors
