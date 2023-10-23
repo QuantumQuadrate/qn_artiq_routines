@@ -27,6 +27,11 @@ class HistogramPlot(pyqtgraph.PlotWidget):
                 bins = 100
             else:
                 bins = x
+            if self.args.color is None:
+                color = 'b'
+            else:
+                print(self.args.color)
+                color = data[self.args.color][1][0]
         except KeyError:
             return
 
@@ -43,7 +48,7 @@ class HistogramPlot(pyqtgraph.PlotWidget):
 
         self.clear()
         self.plot(bin_edges, hist, fillLevel=0, stepMode=True,
-                  brush=(0, 0, 255, 150))
+                  brush=(0, 0, 255, 150), pen=color)
 
         self.setTitle(title)
 
@@ -52,6 +57,8 @@ def main():
     applet = TitleApplet(HistogramPlot)
     applet.add_dataset("y", "Y values")
     applet.add_dataset("x", "Bin boundaries", required=False)
+    applet.add_dataset("color", "Color", required=False)
+
     applet.run()
 
 if __name__ == "__main__":
