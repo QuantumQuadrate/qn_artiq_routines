@@ -79,7 +79,7 @@ The **easiest way to use this is to use the BaseExperiment class** as described 
                 'dds_FORT',
                 'dds_D1_pumping_SP',
                 'dds_cooling_DP',
-                'dds_pumping_RP',
+                'dds_pumping_repump',
                 *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
             ]
         ) # after this block carry on as usual. e.g. in run, do things like self.dds_FORT.init(), self.dds_FORT.set(210*MHz, amplitude=...)

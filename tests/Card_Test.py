@@ -26,31 +26,31 @@ class Card_Tests(EnvExperiment):
 #         print("code done!")
 
 
-# #### Testing DDSs:
-#     def build(self):
-#        self.setattr_device("core")
-#        self.setattr_device("urukul0_cpld")
-#        self.setattr_device("urukul0_ch0")
-#        self.setattr_device("urukul0_ch1")
-#
-#     @kernel
-#     def run(self):
-#        self.core.reset()
-#        self.urukul0_ch0.cpld.init()
-#        self.urukul0_ch0.init()
-#        self.urukul0_ch0.set_att(float(0))
-#
-#        # self.urukul0_cpld.set_profile(0)
-#
-#        delay(10 * ms)
-#
-#        self.urukul0_ch0.set(70.0 * MHz, amplitude=0.9)
-#        self.urukul0_ch0.sw.on()
-#
-#        # delay(2000 * ms)
-#        # self.urukul0_ch0.sw.off()
-#
-#        print("code done!")
+#### Testing DDSs:
+    def build(self):
+       self.setattr_device("core")
+       self.setattr_device("urukul0_cpld")
+       self.setattr_device("urukul0_ch0")
+       self.setattr_device("urukul0_ch3")
+
+    @kernel
+    def run(self):
+       self.core.reset()
+       self.urukul0_ch3.cpld.init()
+       self.urukul0_ch3.init()
+       self.urukul0_ch3.set_att(float(0))
+
+       # self.urukul0_cpld.set_profile(0)
+
+       delay(10 * ms)
+
+       self.urukul0_ch3.set(150.5 * MHz, amplitude=0.9)
+       self.urukul0_ch3.sw.on()
+
+       # delay(2000 * ms)
+       # self.urukul0_ch0.sw.off()
+
+       print("code done!")
 
 
  # #### Testing Zotino:
@@ -113,36 +113,36 @@ class Card_Tests(EnvExperiment):
 
 
 
-#### reading Sampler - with averaging:
-    def build(self):
-        self.setattr_device("core")
-        self.setattr_device("sampler0")
-
-    def prepare(self):
-        n_channels = 8
-        self.smp = np.zeros(n_channels, dtype=float)
-        self.avg = np.zeros(n_channels, dtype=float)
-
-    @kernel
-    def run(self):
-        self.core.reset()
-        self.core.break_realtime()
-        self.sampler0.init()
-
-        for i in range(8):  # loops for each sampler channel
-           self.sampler0.set_gain_mu(i, 0)  # sets each channel's gain to 0db
-           delay(100 * us)  # 100us delay
-
-        iters = 100
-
-        for i in range(iters):
-            self.sampler0.sample(self.smp)  # runs sampler and saves to list
-            self.avg += self.smp
-            delay(0.1*ms)
-        self.avg /= iters
-
-        print("sampler0 channel-wise average")
-        print(self.avg)
+# #### reading Sampler - with averaging:
+#     def build(self):
+#         self.setattr_device("core")
+#         self.setattr_device("sampler0")
+#
+#     def prepare(self):
+#         n_channels = 8
+#         self.smp = np.zeros(n_channels, dtype=float)
+#         self.avg = np.zeros(n_channels, dtype=float)
+#
+#     @kernel
+#     def run(self):
+#         self.core.reset()
+#         self.core.break_realtime()
+#         self.sampler0.init()
+#
+#         for i in range(8):  # loops for each sampler channel
+#            self.sampler0.set_gain_mu(i, 0)  # sets each channel's gain to 0db
+#            delay(100 * us)  # 100us delay
+#
+#         iters = 100
+#
+#         for i in range(iters):
+#             self.sampler0.sample(self.smp)  # runs sampler and saves to list
+#             self.avg += self.smp
+#             delay(0.1*ms)
+#         self.avg /= iters
+#
+#         print("sampler0 channel-wise average")
+#         print(self.avg)
 
 
 

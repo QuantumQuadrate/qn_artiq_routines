@@ -12,10 +12,11 @@ class AOMsCoils(EnvExperiment):
         self.base.build()
 
         # experiment variables which are specific to this experiment
+        self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("D1_pumping_SP_AOM_ON", BooleanValue(default=False))
-        self.setattr_argument("pumping_RP_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("excitation_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "Fiber AOMs")
@@ -23,7 +24,6 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "Fiber AOMs")
-        self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback_loop", BooleanValue(default=True),"Laser power stabilization")
         self.setattr_argument("run_laser_feedback_once", BooleanValue(default=False),"Laser power stabilization")
         self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
@@ -58,10 +58,10 @@ class AOMsCoils(EnvExperiment):
             self.dds_D1_pumping_SP.sw.off()
 
         delay(1 * ms)
-        if self.pumping_RP_AOM_ON == True:
-            self.dds_pumping_RP.sw.on()
+        if self.pumping_repump_AOM_ON == True:
+            self.dds_pumping_repump.sw.on()
         else:
-            self.dds_pumping_RP.sw.off()
+            self.dds_pumping_repump.sw.off()
 
         delay(1 * ms)
         if self.excitation_AOM_ON == True:

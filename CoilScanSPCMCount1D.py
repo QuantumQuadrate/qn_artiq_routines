@@ -165,7 +165,7 @@ class CoilScanSPCMCount1D(EnvExperiment):
     #     # Turn on AOMs to load the MOT.
     #     self.dds_cooling_DP.sw.on()
     #     self.dds_D1_pumping_SP.sw.on()
-    #     self.dds_pumping_RP.sw.on()
+    #     self.dds_pumping_repump.sw.on()
     #     self.dds_AOM_A2.sw.on()
     #     self.dds_AOM_A3.sw.on()
     #     self.dds_AOM_A1.sw.on()
@@ -283,7 +283,7 @@ class CoilScanSPCMCount1D(EnvExperiment):
             # Turn on AOMs to load the MOT.
             self.dds_cooling_DP.sw.on()
             self.dds_D1_pumping_SP.sw.on()
-            self.dds_pumping_RP.sw.on()
+            self.dds_pumping_repump.sw.on()
             self.dds_AOM_A2.sw.on()
             self.dds_AOM_A3.sw.on()
             self.dds_AOM_A1.sw.on()

@@ -77,7 +77,7 @@ class BaseExperiment:
             "f_cooling_DP_PGC", "p_cooling_DP_PGC",
             "f_cooling_DP_RO", "p_cooling_DP_RO",
             "f_D1_pumping_SP", "p_D1_pumping_SP",
-            "f_pumping_RP", "p_pumping_RP",
+            "f_pumping_repump", "p_pumping_repump",
             "AOM_A1_freq", "AOM_A1_power",
             "AOM_A2_freq", "AOM_A2_power",
             "AOM_A3_freq", "AOM_A3_power",
@@ -105,7 +105,11 @@ class BaseExperiment:
             'MOT_beam_monitor_points',
             'feedback_dds_list',
             'aom_feedback_averages',
-            'aom_feedback_iterations'
+            'aom_feedback_iterations',
+            'f_excitation',
+            'p_excitation',
+            "f_pumping_repump",
+            "p_pumping_repump"
         ]
 
         setattr_variables(self.experiment)
@@ -128,7 +132,7 @@ class BaseExperiment:
                 'dds_FORT',
                 'dds_D1_pumping_SP',
                 'dds_cooling_DP',
-                'dds_pumping_RP',
+                'dds_pumping_repump',
                 'dds_excitation',
                 *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
             ]
@@ -172,7 +176,7 @@ class BaseExperiment:
         self.experiment.ampl_cooling_DP_PGC =  dB_to_V(self.experiment.p_cooling_DP_PGC)
         self.experiment.ampl_cooling_DP_RO = dB_to_V(self.experiment.p_cooling_DP_RO)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
-        self.experiment.ampl_pumping_RP = dB_to_V(self.experiment.p_pumping_RP)
+        self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
         self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
 

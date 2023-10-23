@@ -84,15 +84,14 @@ class ExperimentVariables(EnvExperiment):
                      "OP and excitation AOMs"),
             Variable("p_D1_pumping_SP", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
-            Variable("f_pumping_RP", 345.10 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+            Variable("f_pumping_repump", 345.10 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "OP and excitation AOMs"),
-            Variable("p_pumping_RP", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_pumping_repump", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
             Variable("f_excitation", 150.50 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "OP and excitation AOMs"),
             Variable("p_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
-
 
             # D1 optical pumping
             Variable("f_D1_pumping_SP", 150.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},

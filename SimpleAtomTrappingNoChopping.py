@@ -91,7 +91,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         # turn on cooling/RP AOMs
         self.dds_cooling_DP.sw.on() # cooling double pass
         self.dds_D1_pumping_SP.sw.on()  # cooling single pass
-        self.dds_pumping_RP.sw.on()  # MOT repump
+        self.dds_pumping_repump.sw.on()  # MOT repump
 
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
 
@@ -102,9 +102,9 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         for measurement in range(self.n_measurements):
 
             if self.enable_laser_feedback:
-                # if measurement % 10 == 0: # disabled for long delay time
-                self.laser_stabilizer.run()
-                delay(1 * ms)
+                if measurement % 10 == 0:
+                    self.laser_stabilizer.run()
+                    delay(1 * ms)
                 self.dds_FORT.sw.on()
                 self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
 

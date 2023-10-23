@@ -104,9 +104,9 @@ class SimpleAtomTrapping(EnvExperiment):
                               "AOM3, MOT cooling single pass")
         # self.setattr_argument("D1_pumping_SP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
 
-        self.setattr_argument("f_pumping_RP", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("p_pumping_RP", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
-        # self.setattr_argument("pumping_RP_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
+        self.setattr_argument("f_pumping_repump", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("p_pumping_repump", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        # self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
 
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
         self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
@@ -169,7 +169,7 @@ class SimpleAtomTrapping(EnvExperiment):
         self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
         self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
         self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.p_D1_pumping_SP / 10 - 3))
-        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_pumping_RP / 10 - 3))
+        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_pumping_repump / 10 - 3))
 
         self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
         self.AOM_A3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A3_power / 10 - 3))
@@ -364,7 +364,7 @@ class SimpleAtomTrapping(EnvExperiment):
         self.urukul0_ch2.set(frequency=self.f_D1_pumping_SP, amplitude=self.AOM3_ampl)
 
         delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_pumping_RP, amplitude=self.AOM4_ampl)
+        self.urukul0_ch3.set(frequency=self.f_pumping_repump, amplitude=self.AOM4_ampl)
 
         # URUKUL 1 - MOT arm fiber AOMs:
         delay(1 * ms)
