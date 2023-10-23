@@ -30,7 +30,6 @@ class HistogramPlot(pyqtgraph.PlotWidget):
             if self.args.color is None:
                 color = 'b'
             else:
-                print(self.args.color)
                 color = data[self.args.color][1][0]
         except KeyError:
             return
