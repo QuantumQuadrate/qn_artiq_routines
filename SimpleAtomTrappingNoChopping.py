@@ -90,8 +90,6 @@ class SimpleAtomTrapNoChop(EnvExperiment):
 
         # turn on cooling/RP AOMs
         self.dds_cooling_DP.sw.on() # cooling double pass
-        self.dds_D1_pumping_SP.sw.on()  # cooling single pass
-        self.dds_pumping_repump.sw.on()  # MOT repump
 
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
 
