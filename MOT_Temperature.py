@@ -42,8 +42,6 @@ class MOTTemperature(EnvExperiment):
 
         delay(1*ms)
         self.dds_cooling_DP.sw.on()
-        self.dds_D1_pumping_SP.sw.on()
-        self.dds_pumping_repump.sw.on()
         self.dds_AOM_A2.sw.on()
         self.dds_AOM_A3.sw.on()
         self.dds_AOM_A1.sw.on()
@@ -83,7 +81,7 @@ class MOTTemperature(EnvExperiment):
 
                 # turn on imaging beams and trigger Luca to take an image
                 self.dds_cooling_DP.sw.on()
-                self.dds_pumping_repump.sw.on()
+
                 self.ttl6.pulse(5*ms)
 
                 delay(self.t_Luca_exposure)

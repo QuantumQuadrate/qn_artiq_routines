@@ -160,8 +160,8 @@ class CoilScanSPCMCount1DAtomLoading(EnvExperiment):
         ### Allows you to scan the coils to maximize the SPCM counts before running the atom loading exp (LoadExpt).
         # Turn on AOMs to load the MOT.
         self.dds_cooling_DP.sw.on()
-        self.dds_D1_pumping_SP.sw.on()
-        self.dds_pumping_repump.sw.on()
+
+
         self.dds_AOM_A2.sw.on()
         self.dds_AOM_A3.sw.on()
         self.dds_AOM_A1.sw.on()
@@ -279,8 +279,8 @@ class CoilScanSPCMCount1DAtomLoading(EnvExperiment):
 
             # Turn on AOMs to load the MOT.
             self.dds_cooling_DP.sw.on()
-            self.dds_D1_pumping_SP.sw.on()
-            self.dds_pumping_repump.sw.on()
+
+
             self.dds_AOM_A2.sw.on()
             self.dds_AOM_A3.sw.on()
             self.dds_AOM_A1.sw.on()

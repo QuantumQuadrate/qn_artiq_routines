@@ -110,7 +110,7 @@ The easiest way to set up an experiment which has access to all* (see build sect
           self.base.initialize_hardware()
           # now we can do physics
           self.dds_cooling_DP.sw.on()
-          self.dds_D1_pumping_SP.sw.on()
+          
           ...
           self.dds_FORT.sw.on()
           delay(50*ms)

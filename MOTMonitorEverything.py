@@ -14,8 +14,6 @@ class MOTMonitorEverything(EnvExperiment):
         # experiment variables which are specific to this experiment
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))
-        self.setattr_argument("D1_pumping_SP_AOM_ON", BooleanValue(default=False))
-        self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "Fiber AOMs")
@@ -65,18 +63,6 @@ class MOTMonitorEverything(EnvExperiment):
             self.dds_cooling_DP.sw.on()
         else:
             self.dds_cooling_DP.sw.off()
-
-        delay(1 * ms)
-        if self.D1_pumping_SP_AOM_ON == True:
-            self.dds_D1_pumping_SP.sw.on()
-        else:
-            self.dds_D1_pumping_SP.sw.off()
-
-        delay(1 * ms)
-        if self.pumping_repump_AOM_ON == True:
-            self.dds_pumping_repump.sw.on()
-        else:
-            self.dds_pumping_repump.sw.off()
 
         # URUKUL 1 and 2 - MOT arm fiber AOMs:
         delay(1 * ms)

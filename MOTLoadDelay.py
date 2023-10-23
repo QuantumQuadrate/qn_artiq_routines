@@ -17,8 +17,6 @@ class MOT_Load_Time(EnvExperiment):
 
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False), "AOM1, FORT")
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
-        self.setattr_argument("D1_pumping_SP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
-        self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
 
         self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "AOM A2")
         self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
@@ -49,18 +47,6 @@ class MOT_Load_Time(EnvExperiment):
             self.dds_cooling_DP.sw.on()
         else:
             self.dds_cooling_DP.sw.off()
-
-        delay(1 * ms)
-        if self.D1_pumping_SP_AOM_ON == True:
-            self.dds_D1_pumping_SP.sw.on()
-        else:
-            self.dds_D1_pumping_SP.sw.off()
-
-        delay(1 * ms)
-        if self.pumping_repump_AOM_ON == True:
-            self.dds_pumping_repump.sw.on()
-        else:
-            self.dds_pumping_repump.sw.off()
 
         # URUKUL 1 and 2 - MOT arm fiber AOMs:
         delay(1 * ms)
