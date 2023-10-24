@@ -138,7 +138,15 @@ class BaseExperiment:
             ]
         )
 
-        self.experiment.coil_channels = [0, 1, 2, 3]
+        self.AZ_bottom_Zotino_channel = 0
+        self.AZ_top_Zotino_channel = 1
+        self.AX_Zotino_channel = 2
+        self.AY_Zotino_channel = 3
+
+        self.experiment.coil_channels = [self.AZ_bottom_Zotino_channel,
+                                         self.AZ_top_Zotino_channel,
+                                         self.AX_Zotino_channel,
+                                         self.AY_Zotino_channel]
 
         # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
         # before any GUI arguments are defined, then this can be used to grab those later by taking a difference
