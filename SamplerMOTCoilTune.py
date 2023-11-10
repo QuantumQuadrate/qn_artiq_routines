@@ -64,7 +64,6 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.control_volts_channels = [0,1,2,3] # the sampler channels to read
         self.default_volts = [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT]
 
-        self.count_rate_dataset = 'SPCM_count_rate_Hz'
         self.set_dataset(self.count_rate_dataset,
                              [0.0],
                              broadcast=True)
@@ -73,7 +72,6 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.set_dataset(self.count_rate_dataset,
                          [0.0, *self.default_volts],
                          broadcast=True)
-
         print("prepare - done")
 
     @kernel
@@ -83,7 +81,6 @@ class SamplerMOTCoilTune(EnvExperiment):
         if self.MOT_AOMs_on:
             # Turn on AOMs to load the MOT.
             self.dds_cooling_DP.sw.on()
-
 
             self.dds_AOM_A2.sw.on()
             self.dds_AOM_A3.sw.on()
@@ -111,6 +108,8 @@ class SamplerMOTCoilTune(EnvExperiment):
             # wait for AOMs to thermalize
             delay(3000 * ms)
 
+        saturated_coils = [False]*4
+
         control_volts = [0.0]*4
         best_volts = [0.0]*4 # the volts that we had when the best MOT was found
         max_count_rate = 0.0
@@ -129,36 +128,6 @@ class SamplerMOTCoilTune(EnvExperiment):
             self.laser_stabilizer.run()
             if self.FORT_AOM_on:
                 self.dds_FORT.sw.on()
-
-        # if self.differential_mode:
-        #     print("zero the potentiometers!")
-        #
-        #     zero_array = [1]*4
-        #     unzeroed_channels = 4
-        #     while unzeroed_channels:
-        #         delay(10*ms)
-        #         self.sampler1.sample(self.sampler_buffer)
-        #         delay(1*ms)
-        #         i = 0
-        #         for ch in self.control_volts_channels:
-        #             if abs(self.sampler_buffer[ch]) < 0.05:
-        #                 zero_array[i] = 0
-        #                 delay(10*ms)
-        #             i += 0
-        #         nonzero_counter = 0
-        #         for i in range(4):
-        #             nonzero_counter += zero_array[i]
-        #         if nonzero_counter < unzeroed_channels or nonzero_counter > unzeroed_channels:
-        #             print("number of unzeroed channels remaining:")
-        #             print(nonzero_counter)
-        #         unzeroed_channels = nonzero_counter
-        #         control_volts = [self.sampler_buffer[ch] * self.coil_volts_multiplier
-        #                          for ch in self.control_volts_channels]
-        #         self.zotino0.set_dac(
-        #             control_volts,
-        #             channels=self.coil_channels)
-        #
-            # delay(10*ms)
 
         print("ready!")
 
@@ -202,10 +171,19 @@ class SamplerMOTCoilTune(EnvExperiment):
 
             delay(1*ms)
 
-            # set coils based on the sampler values we read
-            self.zotino0.set_dac(
-                control_volts,
-                channels=self.coil_channels)
+            for j in range(4):
+                try:
+                    self.zotino0.write_dac(self.coil_channels[j], control_volts[j])
+                    if saturated_coils[j]: # shouldn't get here unless we're no longer saturated
+                        self.print_async("no longer saturated")
+                        saturated_coils[j] = False
+                except ValueError:
+                    if not saturated_coils[j]:
+                        self.print_async("warning: voltage saturated for", self.coil_names[j])
+                        saturated_coils[j] = True
+                    sign = control_volts[j]/(control_volts[j]**2)**(1/2)
+                    self.zotino0.write_dac(self.coil_channels[j], sign*9.9)
+                self.zotino0.load()
 
         if not self.leave_coils_on_at_finish:
             self.zotino0.write_dac(ch, 0.0)
@@ -224,6 +202,5 @@ class SamplerMOTCoilTune(EnvExperiment):
         print(best_volts)
         print("Best count rate (kHz):")
         print(max_count_rate/1e3)
-
 
         print("Experiment finished.")
