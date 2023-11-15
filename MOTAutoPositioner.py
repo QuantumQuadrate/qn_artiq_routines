@@ -9,11 +9,17 @@ from utilities.BaseExperiment import BaseExperiment
 
 class CoilScanChannel:
     """object for grouping a coil channel and the scan steps"""
-    def __init__(self, Zotino_channel_index, V_steps_array, V_default):
-        self.Zotino_channel_index = Zotino_channel_index
-        self.V_steps_array = V_steps_array
+    def __init__(self, name, Zotino_ch_index, dV_steps_array_one_direction, V_default):
+        self.name = name
+        self.Zotino_ch_index = Zotino_ch_index
+        self.dV_steps_array_one_direction = dV_steps_array_one_direction
+        self.dV = dV_steps_array_one_direction[1] - dV_steps_array_one_direction[0]
         self.V_default = V_default
-
+        self.V_steps_array_forward = dV_steps_array_one_direction + V_default
+        self.V_steps_array_backward = -1 * dV_steps_array_one_direction + V_default
+        self.optimized=False
+        self.V_signal_boundary1 = 0.0
+        self.V_signal_boundary2 = 0.0
 
 class MOTAutoPositioner(EnvExperiment):
 
@@ -25,7 +31,7 @@ class MOTAutoPositioner(EnvExperiment):
         self.base.build()
 
         # this should be close to the mean signal from the atom
-        self.setattr_argument("trapped_atom_count_rate", NumberValue(10000))
+        self.setattr_argument("trapped_atom_counts_per_s", NumberValue(10000))
 
         self.base.set_datasets_from_gui_args()
         print("build - done")
@@ -38,31 +44,47 @@ class MOTAutoPositioner(EnvExperiment):
 
         self.sampler_buffer = np.zeros(8)
 
-        self.dVz_bottom_steps_one_direction = np.linspace(0, 0.2, 10)
-        self.dVZ_top_steps_one_direction = np.linspace(0, 0.2, 10)
-        self.dVX_steps_one_direction = np.linspace(0,0.2,10)
-        self.dVY_steps_one_direction = np.linspace(0,0.2,10)
+        # the zeroth step should be zero so that we first check the counts with the current coil settings
+        self.dVZ_bottom_steps_one_direction = np.linspace(0, 0.3, 20)
+        self.dVZ_top_steps_one_direction = np.linspace(0, 0.3, 20)
+        self.dVX_steps_one_direction = np.linspace(0,0.3,20)
+        self.dVY_steps_one_direction = np.linspace(0,0.3,20)
 
-        self.AZ_bottom_scan_ch = CoilScanChannel(self.AZ_bottom_Zotino_channel,
-                                              self.dVZ_bottom_steps_one_direction,
-                                              self.AZ_bottom_volts_MOT)
-        self.AZ_top_scan_ch = CoilScanChannel(self.AZ_top_Zotino_channel,
-                                              self.dVZ_top_steps_one_direction,
-                                              self.AZ_top_volts_MOT)
-        self.AX_scan_ch = CoilScanChannel(self.AX_Zotino_channel,
-                                              self.dVX_steps_one_direction,
-                                              self.AX_volts_MOT)
-        self.AY_scan_ch = CoilScanChannel(self.AY_Zotino_channel,
-                                              self.dVY_steps_one_direction,
-                                              self.AY_volts_MOT)
+        self.AZ_bottom_scan_ch = CoilScanChannel(
+            "AZ_bottom",
+            self.AZ_bottom_Zotino_channel,
+            self.dVZ_bottom_steps_one_direction,
+            self.AZ_bottom_volts_MOT)
+        self.AZ_top_scan_ch = CoilScanChannel(
+            "AZ_top",
+            self.AZ_top_Zotino_channel,
+            self.dVZ_top_steps_one_direction,
+            self.AZ_top_volts_MOT)
+        self.AX_scan_ch = CoilScanChannel(
+            "AX",
+            self.AX_Zotino_channel,
+            self.dVX_steps_one_direction,
+            self.AX_volts_MOT)
+        self.AY_scan_ch = CoilScanChannel(
+            "AY",
+            self.AY_Zotino_channel,
+            self.dVY_steps_one_direction,
+            self.AY_volts_MOT)
 
-        coil_scan_channels = [self.AZ_bottom_scan_ch, self.AZ_top_scan_ch, self.AX_scan_ch, self.AY_scan_ch]
+        self.coil_scan_channels = [self.AZ_bottom_scan_ch,
+                                   self.AZ_top_scan_ch,
+                                   self.AX_scan_ch,
+                                   self.AY_scan_ch]
 
         self.mean_counts = 0.0
         self.n_exposures = 10
         self.counts_list = [0.0]*self.n_exposures
 
         self.max_signal_search_attempts = 1
+
+        self.set_dataset(self.count_rate_dataset,
+                         [0.0],
+                         broadcast=True)
 
     @kernel
     def run(self):
@@ -88,7 +110,6 @@ class MOTAutoPositioner(EnvExperiment):
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT - 0.3, self.AY_volts_MOT],
                              channels=self.coil_channels)
 
-        # turn on the FORT
         self.dds_FORT.sw.on()
         delay(1*s) # delay for AOM to thermalize
 
@@ -96,6 +117,7 @@ class MOTAutoPositioner(EnvExperiment):
         t_end = self.ttl0.gate_rising(self.dt_background_exposure)
         background_counts = self.ttl0.count(t_end)
         background_counts_per_s = background_counts / self.dt_background_exposure
+        counts_per_s_threshold = self.trapped_atom_counts_per_s + background_counts_per_s
         delay(1*ms)
 
         # load a MOT with the default settings
@@ -137,13 +159,97 @@ class MOTAutoPositioner(EnvExperiment):
 
         # this whole block can go inside a bigger loop to have repeated iterations
         n_attempts_to_find_signal = 0
-        optimized_coil_channels = []
-        while n_optimized_coils < 4 and n_attempts_to_find_signal < self.max_signal_search_attempts:
 
-            # loop over the unoptimized coils
-            for coil_ch in self.coil_scan_channels:
+        # while n_optimized_coils < 4: #and n_attempts_to_find_signal < self.max_signal_search_attempts:
 
-                
+        # loop over the unoptimized coils.
+        for coil_ch in self.coil_scan_channels:
+            if not coil_ch.optimized:
+
+                self.print_async("optimizing", coil_ch.name)
+
+                self.laser_stabilizer.run()
+                delay(1*ms)
+                self.dds_FORT.sw.on()
+
+                boundary1_latched = False
+                boundary2_latched = False
+                needs_reverse_scan = False
+                for V in coil_ch.V_steps_array_forward:
+
+                    self.zotino0.write_dac(coil_ch.Zotino_ch_index, V)
+                    self.zotino0.load()
+
+                    # expose the SPCM
+                    there_is_still_a_signal = False
+                    for i in range(self.n_exposures):
+                        t_end = self.ttl0.gate_rising(self.dt_signal_exposure)
+                        counts_per_s = self.ttl0.count(t_end)/self.dt_signal_exposure
+                        delay(1 * ms)
+                        self.append_to_dataset(self.count_rate_dataset, counts_per_s)
+
+                        if counts_per_s > counts_per_s_threshold:
+                            if not boundary1_latched:
+                                # if we find any atom signal, we count that as having found the signal
+                                coil_ch.V_signal_boundary1 = V
+                                boundary1_latched = True
+                                self.print_async("found the single atom signal!")
+
+                                # technically, boundary 1 may be "behind" us, so we still need to scan
+                                # in the other direction later, so we flag this
+                                if V == coil_ch.V_default:
+                                    needs_reverse_scan = True
+                            else:
+                                there_is_still_a_signal = True
+
+                            # either we've just found boundary1, or we haven't reached boundary2, so we break
+                            break
+
+                    # if there was no signal found during that exposure loop, we've found boundary2
+                    if boundary1_latched and not there_is_still_a_signal:
+                        boundary2_latched = True
+                        coil_ch.V_signal_boundary2 = V
+                        V_signal_center = (coil_ch.V_signal_boundary2 + coil_ch.V_signal_boundary1)/2
+                        self.print_async(coil_ch.name,"set to the center of the signal range")
+                        self.zotino0.write_dac(coil_ch.Zotino_ch_index, V_signal_center)
+                        self.zotino0.load()
+                        break
+
+                if needs_reverse_scan:
+                    boundary1_latched = False
+
+                    self.zotino0.write_dac(coil_ch.Zotino_ch_index, coil_ch.V_default)
+                    self.zotino0.load()
+                    delay(self.t_MOT_loading)
+
+                    for V in coil_ch.V_steps_array_backward:
+
+                        self.zotino0.write_dac(coil_ch.Zotino_ch_index, V)
+                        self.zotino0.load()
+
+                        # expose the SPCM
+                        there_is_still_a_signal = False
+                        for i in range(self.n_exposures):
+                            t_end = self.ttl0.gate_rising(self.dt_signal_exposure)
+                            counts_per_s = self.ttl0.count(t_end) / self.dt_signal_exposure
+                            delay(1*ms)
+                            self.append_to_dataset(self.count_rate_dataset, counts_per_s)
+
+                            if counts_per_s > counts_per_s_threshold:
+                                there_is_still_a_signal = True
+                                break
+
+                        if not there_is_still_a_signal:
+                            boundary1_latched = True
+                            break
+
+                    if boundary1_latched and boundary2_latched:
+                        coil_ch.optimized = True
+                        n_optimized_coils += 1
+                        V_signal_center = (coil_ch.V_signal_boundary2 + coil_ch.V_signal_boundary1) / 2
+                        self.print_async(coil_ch.name, "set to the center of the signal range")
+                        self.zotino0.write_dac(coil_ch.Zotino_ch_index, V_signal_center)
+                        self.zotino0.load()
 
 
         self.dds_FORT.sw.off()
