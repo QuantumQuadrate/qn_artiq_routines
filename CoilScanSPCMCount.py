@@ -196,7 +196,6 @@ class CoilScanSPCMCount(EnvExperiment):
 
                             if self.enable_laser_feedback:
                                 if (step % self.AOM_feedback_period_cycles) == 0:
-                                    print("running feedback")
                                     self.core.break_realtime()
                                     self.laser_stabilizer.run()
                                     delay(10*ms)

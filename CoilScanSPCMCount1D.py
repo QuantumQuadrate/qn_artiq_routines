@@ -120,7 +120,7 @@ class CoilScanSPCMCount1D(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.control_volts_channels = [0, 1, 2, 3]  # the sampler channels to read
 
-        self.count_rate_dataset = 'SPCM_count_rate_Hz'
+        self.count_rate_dataset = 'SPCM_counts_per_s'
         self.set_dataset(self.count_rate_dataset,
                          [0.0],
                          broadcast=True)
