@@ -42,6 +42,8 @@ class CheckMOTBalance(EnvExperiment):
 
         self.detector_channel = 7
 
+        self.laser_stabilizer.leave_MOT_AOMs_on = False
+
         self.mot_beam_voltages = np.zeros(4) # store an average for each of the chip beams
 
     @rpc(flags={"async"})
@@ -70,9 +72,7 @@ class CheckMOTBalance(EnvExperiment):
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
 
-        self.dds_pumping_repump.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
+        self.laser_stabilizer.run()
 
         delay(1000 * ms)
 
@@ -92,6 +92,7 @@ class CheckMOTBalance(EnvExperiment):
         n_channels = 8
         iters = 50
         for j in range(self.n_steps):
+
             print("Loop #: ", j)
             delay(10 * ms)
 
@@ -144,6 +145,9 @@ class CheckMOTBalance(EnvExperiment):
             delay(tdelay)  # moves the cursor into the future
             self.core.wait_until_mu(time2 + tdelay_mu)
             delay(10 * ms)
+
+            self.laser_stabilizer.run()
+            delay(10*ms)
 
             for i in range(4):
                 ### Turn on ith fiber AOM
