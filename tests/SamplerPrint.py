@@ -20,7 +20,7 @@ class SamplerPrint(EnvExperiment):
 
     def prepare(self):
         self.base.prepare()
-        self.sampler_list = [self.sampler0, self.sampler1]
+        self.sampler_list = [self.sampler0, self.sampler1, self.sampler2]
         self.buffer = np.array([0.0]*8)
 
     @kernel
