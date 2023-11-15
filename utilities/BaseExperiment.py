@@ -41,11 +41,11 @@ from artiq.experiment import *
 
 import sys, os
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\')
 
 from subroutines.aom_feedback import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
-
 
 def dB_to_V(dB: float) -> float:
     """
@@ -68,49 +68,16 @@ class BaseExperiment:
         :return:
         """
 
-        # todo: find a way to extract the names of all of the variables
-        #  in ExperimentVariables.py, e.g. by reading them in from the
-        #  most recent hdf file?
-        self.experiment.variables = [
-            "f_FORT", "p_FORT_loading", "p_FORT_RO", "p_FORT_PGC",
-            "f_cooling_DP_MOT", "p_cooling_DP_MOT",
-            "f_cooling_DP_PGC", "p_cooling_DP_PGC",
-            "f_cooling_DP_RO", "p_cooling_DP_RO",
-            "f_D1_pumping_SP", "p_D1_pumping_SP",
-            "f_pumping_repump", "p_pumping_repump",
-            "AOM_A1_freq", "AOM_A1_power",
-            "AOM_A2_freq", "AOM_A2_power",
-            "AOM_A3_freq", "AOM_A3_power",
-            "AOM_A4_freq", "AOM_A4_power",
-            "AOM_A5_freq", "AOM_A5_power",
-            "AOM_A6_freq", "AOM_A6_power",
-            "AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT",
-            "AZ_bottom_volts_PGC", "AZ_top_volts_PGC", "AX_volts_PGC", "AY_volts_PGC",
-            "AZ_bottom_volts_RO", "AZ_top_volts_RO", "AX_volts_RO", "AY_volts_RO",
-            "Luca_trigger_for_feedback_verification",
-            "enable_laser_feedback",
-            "cooling_setpoint_mW",
-            "cooling_volts_ch",
-            "t_MOT_loading",
-            "t_FORT_loading",
-            "t_SPCM_exposure",
-            "set_point_PD0_AOM_cooling_DP",
-            "set_point_fW_AOM_A1",
-            "set_point_fW_AOM_A2",
-            "set_point_fW_AOM_A3",
-            "set_point_fW_AOM_A4",
-            "set_point_PD5_AOM_A5",
-            "set_point_PD6_AOM_A6",
-            'set_point_FORT_MM',
-            'MOT_beam_monitor_points',
-            'feedback_dds_list',
-            'aom_feedback_averages',
-            'aom_feedback_iterations',
-            'f_excitation',
-            'p_excitation',
-            "f_pumping_repump",
-            "p_pumping_repump"
-        ]
+        with open('C:\\Networking Experiment\\artiq codes\\artiq-master\\dataset_db.pyon') as f:
+            datasets_str = f.read()
+
+        # when the pyon file is saved python True and False are converted to lowercase...
+        datasets_str = datasets_str.replace("true", "True")
+        datasets_str = datasets_str.replace("false", "False")
+        datasets_dict = eval(datasets_str)
+
+        # these are the names of all of the datasets, which we're going to use to create attributes of the same name
+        self.experiment.variables = datasets_dict.keys()
 
         setattr_variables(self.experiment)
 
@@ -120,6 +87,7 @@ class BaseExperiment:
                             "zotino0",  # for controlling coils
                             "sampler0",  # for measuring laser power PD
                             "sampler1", # for reading in volts in the coil tune experiment
+                            "sampler2",
                             *[f"ttl{i}" for i in range(8)]]
         for dev in devices_no_alias:
             # print(f"setting {dev}")
@@ -138,15 +106,30 @@ class BaseExperiment:
             ]
         )
 
-        self.AZ_bottom_Zotino_channel = 0
-        self.AZ_top_Zotino_channel = 1
-        self.AX_Zotino_channel = 2
-        self.AY_Zotino_channel = 3
+        # for debugging/logging purposes in experiments
+        self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
 
-        self.experiment.coil_channels = [self.AZ_bottom_Zotino_channel,
-                                         self.AZ_top_Zotino_channel,
-                                         self.AX_Zotino_channel,
-                                         self.AY_Zotino_channel]
+        self.experiment.AZ_bottom_Zotino_channel = 0
+        self.experiment.AZ_top_Zotino_channel = 1
+        self.experiment.AX_Zotino_channel = 2
+        self.experiment.AY_Zotino_channel = 3
+
+        self.experiment.coil_channels = [self.experiment.AZ_bottom_Zotino_channel,
+                                         self.experiment.AZ_top_Zotino_channel,
+                                         self.experiment.AX_Zotino_channel,
+                                         self.experiment.AY_Zotino_channel]
+
+        # datasets
+        self.experiment.count_rate_dataset = 'SPCM_counts_per_s'
+
+        # functions
+
+        @rpc(flags={"async"})
+        def print_async(*x):
+            """print asynchronously so we don't block the RTIO counter.
+            useful for debugging"""
+            print(*x)
+        self.experiment.print_async = print_async
 
         # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
         # before any GUI arguments are defined, then this can be used to grab those later by taking a difference
@@ -169,6 +152,14 @@ class BaseExperiment:
         that needs to happen before we run stuff on the kernel.
         :return:
         """
+
+        # todo: because we only run feedback strictly <= once per experiment sequence,
+        #  different amplitude settings could be expressed as fractions of the amplitudes we feed back to.
+        #  e.g., the PGC amplitude for the cooling laser should be a fraction, say, 0.9, that we multiply the
+        #  MOT power by. if we want these amplitudes to be able to be tuned completely independently, then we
+        #  need to feedback to them individually, but the thermal equilibrium of the AOM is likely to be different
+        #  for each setting, so tuning up e.g. the cooling amplitude, may be completely "undone" by subsequently
+        #  finding the right amplitude for the PGC.
 
         # convert times to machine units
         seconds_to_mu = self.experiment.core.seconds_to_mu
@@ -216,6 +207,8 @@ class BaseExperiment:
         self.experiment.ttl6.output()  # for outputting a trigger
         self.experiment.ttl1.input()
         self.experiment.sampler0.init() # for reading laser feedback
+        self.experiment.sampler1.init() # for reading laser feedback
+        self.experiment.sampler2.init() # for reading laser feedback
 
         print("base initialize_hardware - done")
 
