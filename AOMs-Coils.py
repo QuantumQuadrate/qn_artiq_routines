@@ -116,7 +116,7 @@ class AOMsCoils(EnvExperiment):
         delay(1 * ms)
         print("Coils and AOMs done!")
 
-        if self.AOM_A1_ON and self.AOM_A2_ON and self.AOM_A3_ON and self.AOM_A4_ON and self.AOM_A5_ON and self.AOM_A6_ON:
+        if self.AOM_A1_ON and self.AOM_A2_ON and self.AOM_A3_ON and self.AOM_A4_ON and self.AOM_A5_ON and self.AOM_A6_ON and self.Cooling_DP_AOM_ON:
             if self.enable_laser_feedback_loop:
                 print("Will now run feedback and monitor powers until forcibly stopped")
                 delay(100*ms)
