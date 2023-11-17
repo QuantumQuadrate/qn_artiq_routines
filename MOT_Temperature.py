@@ -79,24 +79,24 @@ class MOTTemperature(EnvExperiment):
             for n in range(self.averages):
                 t = self.release_times_ms[i]
 
+                # reset coils and DDS to MOT settings
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                    channels=self.coil_channels)
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+                delay(10 * ms)
+
                 delay(10*ms)
                 self.laser_stabilizer.run()
 
                 delay(self.t_MOT_loading)
 
                 # self.load_MOT(PGC=self.do_PGC_in_MOT)
-                # set coils and DDS to MOT settings
-                # self.zotino0.set_dac(
-                #     [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                #     channels=self.coil_channels)
-                # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-                # delay(self.t_MOT_loading)
-                #
-                # if self.do_PGC_in_MOT:
-                #     # todo: for now, use the same amplitude as the MOT. see my note in BaseExperiment.prepare
-                #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
-                #     delay(self.t_PGC_in_MOT)
+                if self.do_PGC_in_MOT:
+                    # todo: for now, use the same amplitude as the MOT. see my note in BaseExperiment.prepare
+                    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
+                    delay(self.t_PGC_in_MOT)
 
                 # # trigger Luca to save an image - sanity check to make sure there is a MOT
                 # self.ttl6.pulse(5 * ms)
@@ -123,16 +123,16 @@ class MOTTemperature(EnvExperiment):
                 self.dds_AOM_A4.sw.on()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=2*self.ampl_cooling_DP_MOT)
                 self.ttl6.pulse(5*ms)
                 delay(self.t_Luca_exposure)
                 delay(10*ms)
 
-                # reset coils and DDS to MOT settings
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                    channels=self.coil_channels)
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-                delay(10 * ms)
+                # # reset coils and DDS to MOT settings
+                # self.zotino0.set_dac(
+                #     [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                #     channels=self.coil_channels)
+                # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+                # delay(10 * ms)
 
         print("MOT temperature measurement done!")
