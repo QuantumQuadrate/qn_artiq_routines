@@ -141,12 +141,14 @@ class SamplerMOTCoilTune(EnvExperiment):
                     delay(100*ms)
                     if self.FORT_AOM_on:
                         self.dds_FORT.sw.on()
+            else:
+                delay(10*ms)
 
             tend1 = self.ttl0.gate_rising(self.dt_exposure)
             count1 = self.ttl0.count(tend1)
-            count_rate_Hz = count1 / self.dt_exposure
+            count_rate_per_s = count1 / self.dt_exposure
             if self.print_count_rate:
-                print(round(count_rate_Hz))
+                print(round(count_rate_per_s))
             delay(10 * ms)
             volt1 = count1 * 5 / Satdt  # the voltage from zotino0, port 7. Saturation limit corresponds to 5V.
             self.zotino0.write_dac(ch, volt1)
@@ -154,11 +156,11 @@ class SamplerMOTCoilTune(EnvExperiment):
             delay(1 * ms)
 
             delay(1 * ms)
-            self.append_to_dataset(self.count_rate_dataset, count_rate_Hz)
-            if count_rate_Hz > max_count_rate:
-                max_count_rate = count_rate_Hz
+            self.append_to_dataset(self.count_rate_dataset, count_rate_per_s)
+            if count_rate_per_s > max_count_rate:
+                max_count_rate = count_rate_per_s
                 best_volts = control_volts
-                self.set_dataset(self.maxcount_dataset,[count_rate_Hz]+best_volts)
+                self.set_dataset(self.maxcount_dataset,[count_rate_per_s]+best_volts)
             delay(1 * ms)
 
             self.sampler1.sample(self.sampler_buffer)
@@ -193,10 +195,10 @@ class SamplerMOTCoilTune(EnvExperiment):
         volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
         if self.set_best_coil_volts_at_finish:
             for i in range(4):
-                self.set_dataset(volt_datasets[i], best_volts[i], broadcast=True)
+                self.set_dataset(volt_datasets[i], best_volts[i], broadcast=True, persist=True)
         elif self.set_current_coil_volts_at_finish:
             for i in range(4):
-                self.set_dataset(volt_datasets[i], control_volts[i], broadcast=True)
+                self.set_dataset(volt_datasets[i], control_volts[i], broadcast=True, persist=True)
 
         print("Best volts [VZ_bottom,VZ_top,Vx,Vy]:")
         print(best_volts)
