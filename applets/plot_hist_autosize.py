@@ -31,17 +31,11 @@ class HistogramPlot(pyqtgraph.PlotWidget):
                 color = 'b'
             else:
                 color = data[self.args.color][1][0]
+            if self.args.ignore_first_n_points is not None:
+                n = data[self.args.ignore_first_n_points][1]
+                y = y[n:]
         except KeyError:
             return
-
-        # bins = data.get(self.args.x, (False, 50))[1]
-        # try:
-        #     if len(bins) == 1:
-        #         bins = bins[0]
-        #     else:
-        #         bins = 50
-        # except Exception as e:
-        #     print(e)
 
         hist, bin_edges = np.histogram(y, bins=bins)
 
@@ -57,6 +51,7 @@ def main():
     applet.add_dataset("y", "Y values")
     applet.add_dataset("x", "Bin boundaries", required=False)
     applet.add_dataset("color", "Color", required=False)
+    applet.add_dataset("ignore_first_n_points", "the number of leading data points to ignore", required=False)
 
     applet.run()
 

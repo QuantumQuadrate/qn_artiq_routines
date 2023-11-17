@@ -162,6 +162,9 @@ class ExperimentVariables(EnvExperiment):
             # Plotting
             Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Plotting"),
+            # Plotting
+            Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
+                     'step': 1}, "Plotting"),
 
             # Laser feedback
             Variable("Luca_trigger_for_feedback_verification", False, BooleanValue, {}, "Laser feedback"),
