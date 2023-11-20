@@ -30,9 +30,10 @@ class SingleAtomTrapLifetime(EnvExperiment):
             self.setattr_argument("t_delay_between_shots", StringValue(
                 'np.array([0.0, 1.0, 10.0, 100.0,1000.])*ms'))
 
-        self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(50, ndecimals=0, step=1))
         self.setattr_argument("atom_counts_threshold", NumberValue(260, ndecimals=0, step=1))
-        self.setattr_argument("no_first_shot", BooleanValue(default=True))
+        self.setattr_argument("no_first_shot", BooleanValue(default=False))
+        self.setattr_argument("MOT_AOMs_always_on", BooleanValue(default=False)) # good for diagnosing readout heating
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
@@ -109,7 +110,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
         iteration = 0
         for t_delay_between_shots in self.t_delay_between_shots_list:
 
-            # for computing atom loading and retention statistics
+            # for computing atom loading and retention statistics, though I usually just do this in post
             self.atom_loaded = False
             self.atoms_loaded = 0
             self.atoms_retained = 0
@@ -148,7 +149,9 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 if self.do_PGC_in_MOT:
                     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
                     delay(self.t_PGC_in_MOT)
-                self.dds_cooling_DP.sw.off()
+
+                if not self.MOT_AOMs_always_on:
+                    self.dds_cooling_DP.sw.off()
 
                 delay(3*ms) # should wait several ms for the MOT to dissipate
 
@@ -170,7 +173,9 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
                 counts2 = self.ttl0.count(t_gate_end)
                 delay(1*ms)
-                self.dds_cooling_DP.sw.off()
+
+                if not self.MOT_AOMs_always_on:
+                    self.dds_cooling_DP.sw.off()
 
                 # todo: check the FORT extinction ratio here
                 # effectively turn the FORT AOM off
