@@ -57,9 +57,7 @@ class SamplerMOTCoilTune(EnvExperiment):
 
         self.base.prepare()
 
-        print(self.dt_exposure)
         self.n_steps = int(60*self.run_time_minutes/self.dt_exposure+0.5)
-        print(self.n_steps)
         self.sampler_buffer = np.zeros(8)
         self.control_volts_channels = [0,1,2,3] # the sampler channels to read
         self.default_volts = [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT]

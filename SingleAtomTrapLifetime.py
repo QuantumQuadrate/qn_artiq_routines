@@ -1,22 +1,5 @@
 """
-A simple experiment to look for a trapped single atom signal
-
-1. Turn on cooling and RP AOMs
-Experiment cycle (repeats n times)
-2. Turn on magnetic fields (Zotino)
-3. Turn on fiber AOMs (Urukul), wait some time to load the MOT
-4. Turn on the dipole trap AOM
-5. Turn off the quadrupole fields (PGC phase)
-6. Turn off the fiber AOMs
-7. Turn on the fiber AOMs and read from a single SPCM (TTL) for a certain exposure time
-8. Store the number of counts registered by the SPCM in an array
-End of experiment
-9. Save the array of counts to a file
-
-
-* Tested that all the delays and timings are functioning as expected by pulsing TTLs at different points and monitoring
-    with an oscilloscope.
-
+Two-shot experiment with a varying time between the shots over which the atom is held in the trap
 """
 
 from artiq.experiment import *
@@ -50,6 +33,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
         self.setattr_argument("atom_counts_threshold", NumberValue(260, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(default=True))
+        self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
 
@@ -152,25 +136,29 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 # wait for the MOT to load
                 delay_mu(self.t_MOT_loading_mu)
 
+                # try loading from a PGC phase
+
                 # turn on the dipole trap and wait to load atoms
                 self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
                 delay_mu(self.t_FORT_loading_mu)
 
-                # turn off the  MOT beams before we turn off the coils this can help avoid any unwanted forces
-                # while there are transient magnetic fields.
-                self.dds_cooling_DP.sw.off()
                 # turn off the coils
                 self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
                                      channels=self.coil_channels)
-                delay(1*ms) # should wait several ms for the MOT to dissipate
+                if self.do_PGC_in_MOT:
+                    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
+                    delay(self.t_PGC_in_MOT)
+                self.dds_cooling_DP.sw.off()
+
+                delay(3*ms) # should wait several ms for the MOT to dissipate
 
                 # set the cooling DP AOM to the readout settings
-                # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
 
                 if not self.no_first_shot:
                     # take the first shot
                     self.dds_cooling_DP.sw.on()
-                    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+                    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
                     counts = self.ttl0.count(t_gate_end)
                     delay(1*ms)
                     self.dds_cooling_DP.sw.off()
@@ -179,7 +167,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
 
                 # take the second shot
                 self.dds_cooling_DP.sw.on()
-                t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+                t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
                 counts2 = self.ttl0.count(t_gate_end)
                 delay(1*ms)
                 self.dds_cooling_DP.sw.off()
