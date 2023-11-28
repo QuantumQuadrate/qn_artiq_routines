@@ -138,21 +138,25 @@ class SingleAtomTemperature(EnvExperiment):
                 delay_mu(self.t_MOT_loading_mu)
 
                 # try loading from a PGC phase
+                if self.do_PGC_in_MOT:
+                    self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
+                    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
+                    delay(self.t_PGC_in_MOT)
+                self.dds_cooling_DP.sw.off()
 
                 # turn on the dipole trap and wait to load atoms
                 self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
                 delay_mu(self.t_FORT_loading_mu)
 
                 # turn off the coils
-                self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
-                                     channels=self.coil_channels)
-                if self.do_PGC_in_MOT:
-                    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
-                    delay(self.t_PGC_in_MOT)
-                self.dds_cooling_DP.sw.off()
+                if not self.do_PGC_in_MOT:
+                    self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
+                # if self.do_PGC_in_MOT:
+                #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
+                #     delay(self.t_PGC_in_MOT)
+                # self.dds_cooling_DP.sw.off()
 
-
-                delay(3*ms) # should wait several ms for the MOT to dissipate
+                delay(3*ms) # should wait for the MOT to dissipate
 
                 # set the cooling DP AOM to the readout settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
