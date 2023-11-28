@@ -54,9 +54,9 @@ class ExperimentVariables(EnvExperiment):
             Variable("f_FORT", 210.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
             Variable("p_FORT_loading", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                                   "FORT AOM"),
-            Variable("p_FORT_RO", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
-            Variable("p_FORT_PGC", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_FORT_PGC", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
 
             # Cooling double pass AOM
@@ -68,9 +68,11 @@ class ExperimentVariables(EnvExperiment):
                      "Cooling double pass AOM"),
             Variable("p_cooling_DP_MOT", -4, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
-            Variable("p_cooling_DP_RO", -4, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_cooling_DP_RO", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional)",
+                                                           'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
-            Variable("p_cooling_DP_PGC", -4, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_cooling_DP_PGC", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional)",
+                                                            'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
 
             # Cooling single pass AOM
@@ -167,6 +169,10 @@ class ExperimentVariables(EnvExperiment):
             # Plotting
             Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
                      'step': 1}, "Plotting"),
+
+            # Thresholds
+            Variable("single_atom_counts_threshold", 200, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
+                                                                          'step': 1}, "Plotting"),
 
             # Laser feedback
             Variable("Luca_trigger_for_feedback_verification", False, BooleanValue, {}, "Laser feedback"),

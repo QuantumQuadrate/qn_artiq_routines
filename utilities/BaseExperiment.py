@@ -169,15 +169,18 @@ class BaseExperiment:
 
         # converts RF power in dBm to amplitudes in V
         self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
-        self.experiment.ampl_FORT_RO = dB_to_V(self.experiment.p_FORT_RO)
-        self.experiment.ampl_FORT_PGC = dB_to_V(self.experiment.p_FORT_PGC)
+
         self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-        self.experiment.ampl_cooling_DP_PGC =  dB_to_V(self.experiment.p_cooling_DP_PGC)
-        self.experiment.ampl_cooling_DP_RO = dB_to_V(self.experiment.p_cooling_DP_RO)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
         self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
         self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
+
+        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback
+        self.experiment.ampl_FORT_RO = self.experiment.p_FORT_loading * self.experiment.p_FORT_RO
+        self.experiment.ampl_FORT_PGC = self.experiment.p_FORT_loading * self.experiment.p_FORT_PGC
+        self.experiment.ampl_cooling_DP_RO = self.experiment.p_cooling_DP_MOT * self.experiment.p_cooling_DP_RO
+        self.experiment.ampl_cooling_DP_PGC =  self.experiment.p_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
 
         self.experiment.AOM_A1_ampl = dB_to_V(self.experiment.AOM_A1_power)
         self.experiment.AOM_A2_ampl = dB_to_V(self.experiment.AOM_A2_power)
