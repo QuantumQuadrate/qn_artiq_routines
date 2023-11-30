@@ -5,52 +5,55 @@ import numpy as np
 
 
 class Card_Tests(EnvExperiment):
-# ### Testing TTLs:
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("ttl4")
-#         ### slef.setattr_device() is a built-in method in artiq that declares and configures a device such as core
-#         ### and ttl4. These devices can be accessed like self.ttl4. //Akbar
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#         self.ttl4.output()
-#
-#         delay(1 * us)
-#
-#         for x in range(50):
-#             self.ttl4.pulse(10*ms)
-#             delay(10*ms)
-#
-#         print("code done!")
-
-
-#### Testing DDSs:
+### Testing TTLs:
     def build(self):
-       self.setattr_device("core")
-       self.setattr_device("urukul0_cpld")
-       self.setattr_device("urukul0_ch0")
-       self.setattr_device("urukul0_ch3")
+        self.setattr_device("core")
+        self.setattr_device("ttl4")
+        ### slef.setattr_device() is a built-in method in artiq that declares and configures a device such as core
+        ### and ttl4. These devices can be accessed like self.ttl4. //Akbar
 
     @kernel
     def run(self):
-       self.core.reset()
-       self.urukul0_ch3.cpld.init()
-       self.urukul0_ch3.init()
-       self.urukul0_ch3.set_att(float(0))
+        self.core.reset()
+        self.ttl4.output()
 
-       # self.urukul0_cpld.set_profile(0)
+        delay(1 * us)
 
-       delay(10 * ms)
+        # self.ttl4.on()
+        self.ttl4.off()
 
-       self.urukul0_ch3.set(150.5 * MHz, amplitude=0.9)
-       self.urukul0_ch3.sw.on()
+        # for x in range(50):
+        #     self.ttl4.pulse(10*ms)
+        #     delay(10*ms)
 
-       # delay(2000 * ms)
-       # self.urukul0_ch0.sw.off()
+        print("code done!")
 
-       print("code done!")
+
+# #### Testing DDSs:
+#     def build(self):
+#        self.setattr_device("core")
+#        self.setattr_device("urukul0_cpld")
+#        self.setattr_device("urukul0_ch0")
+#        self.setattr_device("urukul0_ch3")
+#
+#     @kernel
+#     def run(self):
+#        self.core.reset()
+#        self.urukul0_ch3.cpld.init()
+#        self.urukul0_ch3.init()
+#        self.urukul0_ch3.set_att(float(0))
+#
+#        # self.urukul0_cpld.set_profile(0)
+#
+#        delay(10 * ms)
+#
+#        self.urukul0_ch3.set(150.5 * MHz, amplitude=0.9)
+#        self.urukul0_ch3.sw.on()
+#
+#        # delay(2000 * ms)
+#        # self.urukul0_ch0.sw.off()
+#
+#        print("code done!")
 
 
  # #### Testing Zotino:
