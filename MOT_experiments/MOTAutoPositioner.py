@@ -4,6 +4,9 @@ Simple-minded code for moving the MOT to optimize the atom loading rate.
 
 from artiq.experiment import *
 import numpy as np
+import sys
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+
 
 from utilities.BaseExperiment import BaseExperiment
 

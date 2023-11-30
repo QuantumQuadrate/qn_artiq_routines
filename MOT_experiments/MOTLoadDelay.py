@@ -7,6 +7,9 @@ Could be extended to measure the MOT loading rate.
 
 from artiq.experiment import *
 
+import sys
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+
 from utilities.BaseExperiment import BaseExperiment
 
 

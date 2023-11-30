@@ -6,8 +6,11 @@ This particular code outputs a trigger to a camera, but the camera setup (spooli
 and image processing are done elsewhere for now.
 """
 from artiq.experiment import *
+import sys
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 
 from utilities.BaseExperiment import BaseExperiment
+
 
 class MOTTemperature(EnvExperiment):
 
