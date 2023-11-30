@@ -17,6 +17,7 @@ DDS_DEFAULTS = {
     "dds_D1_pumping_SP": {"frequency": "f_D1_pumping_SP", "power": "p_D1_pumping_SP"},
     "dds_pumping_repump": {"frequency": "f_pumping_repump", "power": "p_pumping_repump"},
     "dds_excitation": {"frequency": "f_excitation", "power": "p_excitation"},
+    "dds_microwaves": {"frequency": "f_microwaves", "power": "p_microwaves"},
     "dds_AOM_A1": {"frequency": "AOM_A1_freq", "power": "AOM_A1_power"},
     "dds_AOM_A2": {"frequency": "AOM_A2_freq", "power": "AOM_A2_power"},
     "dds_AOM_A3": {"frequency": "AOM_A3_freq", "power": "AOM_A3_power"},
@@ -36,7 +37,8 @@ ALIAS_MAP = {
         "dds_AOM_A6": "urukul1_ch3",
         "dds_AOM_A4": "urukul2_ch0",
         "dds_AOM_A5": "urukul2_ch1",
-        "dds_excitation": "urukul0_ch3"
+        "dds_excitation": "urukul0_ch3",
+        "dds_microwaves": "urukul2_ch3"
 }
 
 @rpc(flags={"async"})  # means this code runs asynchronously; won't block the rtio counter

@@ -93,6 +93,9 @@ class BaseExperiment:
             # print(f"setting {dev}")
             self.experiment.setattr_device(dev)
 
+        # devices can also be nicknamed here:
+        self.experiment.ttl_microwave_switch = self.experiment.ttl4
+
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(
             experiment=self.experiment,
@@ -102,6 +105,7 @@ class BaseExperiment:
                 'dds_cooling_DP',
                 'dds_pumping_repump',
                 'dds_excitation',
+                'dds_microwaves',
                 *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
             ]
         )

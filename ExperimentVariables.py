@@ -127,6 +127,13 @@ class ExperimentVariables(EnvExperiment):
             Variable("AOM_A6_power", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
 
+            # Microwaves
+            # assumes the microwave source is set at 6.5 GHz
+            Variable("f_microwaves", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
+                     "Microwaves"),
+            Variable("p_microwaves", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Microwaves"),
+
             # Coils - MOT
             Variable("AZ_bottom_volts_MOT", 1.02, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
             Variable("AZ_top_volts_MOT", -3.4, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
