@@ -25,7 +25,7 @@ class SingleAtomTemperature(EnvExperiment):
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
-                self.setattr_argument(dataset, StringValue(value), group)
+                self.setattr_argument(dataset, StringValue(value))
         except KeyError as e:
             print(e)
             self.setattr_argument("t_delay_between_shots", StringValue(
@@ -142,7 +142,6 @@ class SingleAtomTemperature(EnvExperiment):
                     self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
                     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
                     delay(self.t_PGC_in_MOT)
-                self.dds_cooling_DP.sw.off()
 
                 # turn on the dipole trap and wait to load atoms
                 self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
@@ -151,10 +150,6 @@ class SingleAtomTemperature(EnvExperiment):
                 # turn off the coils
                 if not self.do_PGC_in_MOT:
                     self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
-                # if self.do_PGC_in_MOT:
-                #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
-                #     delay(self.t_PGC_in_MOT)
-                # self.dds_cooling_DP.sw.off()
 
                 delay(3*ms) # should wait for the MOT to dissipate
 

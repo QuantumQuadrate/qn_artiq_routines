@@ -24,7 +24,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
-                self.setattr_argument(dataset, StringValue(value), group)
+                self.setattr_argument(dataset, StringValue(value))
         except KeyError as e:
             print(e)
             self.setattr_argument("t_delay_between_shots", StringValue(
@@ -137,7 +137,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 # wait for the MOT to load
                 delay_mu(self.t_MOT_loading_mu)
 
-                # try loading from a PGC phase
+                # todo: try loading from a PGC phase
 
                 # turn on the dipole trap and wait to load atoms
                 self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
