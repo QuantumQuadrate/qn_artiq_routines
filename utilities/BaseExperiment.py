@@ -95,6 +95,8 @@ class BaseExperiment:
 
         # devices can also be nicknamed here:
         self.experiment.ttl_microwave_switch = self.experiment.ttl4
+        self.experiment.ttl_microwave_switch = self.experiment.ttl4
+        self.experiment.ttl_repump_switch = self.experiment.ttl5
 
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(
@@ -211,6 +213,8 @@ class BaseExperiment:
         """
         self.experiment.named_devices.initialize()
 
+        self.experiment.ttl_microwave_switch.output()
+        self.experiment.ttl_repump_switch.output()
         self.experiment.ttl6.output()  # for outputting a trigger
         self.experiment.ttl1.input()
         self.experiment.sampler0.init() # for reading laser feedback
