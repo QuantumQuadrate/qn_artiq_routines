@@ -158,6 +158,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_in_MOT", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
             # Set points
@@ -173,7 +174,6 @@ class ExperimentVariables(EnvExperiment):
             # Plotting
             Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Plotting"),
-            # Plotting
             Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
                      'step': 1}, "Plotting"),
 
