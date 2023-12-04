@@ -54,9 +54,12 @@ class ExperimentVariables(EnvExperiment):
             Variable("f_FORT", 210.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
             Variable("p_FORT_loading", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                                   "FORT AOM"),
-            Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
+            Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
-            Variable("p_FORT_PGC", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
+            Variable("p_FORT_PGC", 1, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
+                     "FORT AOM"),
+            Variable("p_FORT_blowaway", 0.5, NumberValue,
+                     {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
 
             # Cooling double pass AOM
@@ -68,10 +71,10 @@ class ExperimentVariables(EnvExperiment):
                      "Cooling double pass AOM"),
             Variable("p_cooling_DP_MOT", -4, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
-            Variable("p_cooling_DP_RO", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional)",
+            Variable("p_cooling_DP_RO", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                            'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
-            Variable("p_cooling_DP_PGC", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional)",
+            Variable("p_cooling_DP_PGC", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                             'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
 

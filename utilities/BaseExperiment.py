@@ -175,25 +175,24 @@ class BaseExperiment:
 
         # converts RF power in dBm to amplitudes in V
         self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
-
         self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
         self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
         self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
-
-        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback
-        self.experiment.ampl_FORT_RO = self.experiment.p_FORT_loading * self.experiment.p_FORT_RO
-        self.experiment.ampl_FORT_PGC = self.experiment.p_FORT_loading * self.experiment.p_FORT_PGC
-        self.experiment.ampl_cooling_DP_RO = self.experiment.p_cooling_DP_MOT * self.experiment.p_cooling_DP_RO
-        self.experiment.ampl_cooling_DP_PGC =  self.experiment.p_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
-
         self.experiment.AOM_A1_ampl = dB_to_V(self.experiment.AOM_A1_power)
         self.experiment.AOM_A2_ampl = dB_to_V(self.experiment.AOM_A2_power)
         self.experiment.AOM_A3_ampl = dB_to_V(self.experiment.AOM_A3_power)
         self.experiment.AOM_A4_ampl = dB_to_V(self.experiment.AOM_A4_power)
         self.experiment.AOM_A5_ampl = dB_to_V(self.experiment.AOM_A5_power)
         self.experiment.AOM_A6_ampl = dB_to_V(self.experiment.AOM_A6_power)
+
+        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback
+        self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
+        self.experiment.ampl_FORT_PGC = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_PGC
+        self.experiment.ampl_FORT_blowaway = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_blowaway
+        self.experiment.ampl_cooling_DP_RO = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_RO
+        self.experiment.ampl_cooling_DP_PGC = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
 
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
 
@@ -208,7 +207,7 @@ class BaseExperiment:
     @kernel
     def initialize_hardware(self):
         """
-        what it sounds like
+        hardware initialization and setting of ttl switches
         :return:
         """
         self.experiment.named_devices.initialize()
@@ -222,6 +221,14 @@ class BaseExperiment:
         self.experiment.sampler2.init() # for reading laser feedback
 
         print("base initialize_hardware - done")
+
+        # turn on any switches. this ensures that switches always start in a default state,
+        # which might not happen if we abort an experiment in the middle and don't reset it
+
+        self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
+        self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
+
+        # todo: turn off all dds channels
 
         self.experiment.core.break_realtime()
 
