@@ -69,6 +69,8 @@ class ExperimentVariables(EnvExperiment):
                      "Cooling double pass AOM"),
             Variable("f_cooling_DP_PGC", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
+            Variable("f_cooling_DP_resonant_2_to_3", 104.25 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Cooling double pass AOM"),
             Variable("p_cooling_DP_MOT", -4, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
             Variable("p_cooling_DP_RO", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",

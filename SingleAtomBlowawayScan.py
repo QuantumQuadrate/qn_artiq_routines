@@ -29,15 +29,21 @@ class SingleAtomBlowawayScan(EnvExperiment):
         except KeyError as e:
             print(e)
             self.setattr_argument("t_blowaway", StringValue(
-                'np.array([0.0, 0.01, 0.05, 0.1])*ms'))
+                'np.array([0.000, 0.005, 0.02,0.05])*ms'))
 
-        self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
-        self.setattr_argument("atom_counts_threshold", NumberValue(260, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
+        self.setattr_argument("atom_counts_threshold", NumberValue(180, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(False))
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
+        self.setattr_argument("blowaway_light_off", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
-        self.setattr_argument("control_experiment", BooleanValue(False))
+
+        self.setattr_argument("control_experiment", BooleanValue(False),"Control experiment")
+
+        # a control experiment in which the only difference is the blowaway light is off.
+        # if this is false, the control experiment does nothing between the two readouts.
+        self.setattr_argument("only_exclude_blowaway_light", BooleanValue(False), "Control experiment")
 
         self.base.set_datasets_from_gui_args()
         print("build - done")
@@ -178,71 +184,66 @@ class SingleAtomBlowawayScan(EnvExperiment):
                     delay(1*ms)
                     self.dds_cooling_DP.sw.off()
 
-                delay(self.t_delay_between_shots)
+                delay(3*ms)
 
                 if self.control_experiment and measurement % 2 == 0:
-                    # do nothing
-                    delay(self.t_delay_between_shots)
+                    if not self.only_exclude_blowaway_light:
+                        # do nothing
+                        delay(self.t_delay_between_shots)
                 else:
                     ############################
                     # blow-away phase - push out atoms in F=2 only
                     ############################
-                    self.ttl_repump_switch.on()  # turns off the RP AOM
-                    # use AOM A1 and A4 as push beams. in the future we could use the Readout AOM so we don't have to toggle the
-                    # other fiber AOMs off here
-                    with sequential:
 
-                        # lower FORT power
+                    if t_blowaway > 0.0:
+
+                        self.ttl_repump_switch.on()  # turns off the RP AOM
+
+                        with sequential:
+
+                            # lower FORT power
+                            self.dds_FORT.set(
+                                frequency=self.f_FORT,
+                                amplitude=self.ampl_FORT_blowaway)
+
+                            # set cooling light to be resonant with a free-space atom
+                            self.dds_cooling_DP.set(
+                                frequency=self.f_cooling_DP_resonant_2_to_3,
+                                amplitude=self.ampl_cooling_DP_MOT)
+
+                            self.dds_AOM_A1.sw.off()
+                            self.dds_AOM_A2.sw.off()
+                            self.dds_AOM_A3.sw.off()
+                            self.dds_AOM_A4.sw.off()
+                            self.dds_AOM_A5.sw.off()
+
+                            if self.blowaway_light_off:
+                                self.dds_AOM_A6.sw.off()
+                            elif self.control_experiment and self.only_exclude_blowaway_light and measurement % 2 == 0:
+                                self.dds_AOM_A6.sw.off()
+                            else:
+                                self.dds_cooling_DP.sw.on()
+
+                        delay(t_blowaway)
+
+                        # reset MOT power
+                        self.dds_cooling_DP.sw.off()
+                        self.dds_cooling_DP.set(
+                            frequency=self.f_cooling_DP_RO,
+                            amplitude=self.ampl_cooling_DP_MOT)
+
+                        # reset FORT power
                         self.dds_FORT.set(
                             frequency=self.f_FORT,
-                            amplitude=self.ampl_FORT_blowaway)
+                            amplitude=self.ampl_FORT_loading)
 
-                        # raise blow-away power
-                        # self.dds_cooling_DP.set(
-                        #     frequency=self.f_cooling_DP_RO,
-                        #     amplitude=self.ampl_cooling_DP_blowawa)
-                        # self.dds_AOM_A1.set(
-                        #     frequency=self.AOM_A1_freq,
-                        #     amplitude=1.5*self.AOM_A1_ampl)
-                        # self.dds_AOM_A4.set(
-                        #     frequency=self.AOM_A4_freq,
-                        #     amplitude=1.5*self.AOM_A4_ampl)
-
-                        # the commented AOM is the blow-away beam
-                        self.dds_AOM_A1.sw.off()
-                        self.dds_AOM_A2.sw.off()
-                        self.dds_AOM_A3.sw.off()
-                        self.dds_AOM_A4.sw.off()
-                        self.dds_AOM_A5.sw.off()
-                        # self.dds_AOM_A6.sw.off()
-                        self.dds_cooling_DP.sw.on()
-
-                    delay(t_blowaway)
-
-                    # reset MOT power
-                    # self.dds_cooling_DP.sw.off()
-                    # self.dds_cooling_DP.set(
-                    #     frequency=self.f_cooling_DP_RO,
-                    #     amplitude=self.ampl_cooling_DP_MOT)
-
-                    # reset FORT power
-                    self.dds_FORT.set(
-                        frequency=self.f_FORT,
-                        amplitude=self.ampl_FORT_loading)
-                    # self.dds_AOM_A1.set(
-                    #     frequency=self.AOM_A1_freq,
-                    #     amplitude=self.AOM_A1_ampl)
-                    # self.dds_AOM_A4.set(
-                    #     frequency=self.AOM_A4_freq,
-                    #     amplitude=self.AOM_A4_ampl)
-
-                    self.dds_AOM_A1.sw.on()
-                    self.dds_AOM_A2.sw.on()
-                    self.dds_AOM_A3.sw.on()
-                    self.dds_AOM_A4.sw.on()
-                    self.dds_AOM_A5.sw.on()
-                    self.dds_AOM_A6.sw.on()
-                    self.ttl_repump_switch.off()  # turns on the RP AOM
+                        self.dds_AOM_A1.sw.on()
+                        self.dds_AOM_A2.sw.on()
+                        self.dds_AOM_A3.sw.on()
+                        self.dds_AOM_A4.sw.on()
+                        self.dds_AOM_A5.sw.on()
+                        self.dds_AOM_A6.sw.on()
+                        self.ttl_repump_switch.off()  # turns on the RP AOM
 
                     delay(self.t_delay_between_shots - t_blowaway)
 
