@@ -88,7 +88,7 @@ class BaseExperiment:
                             "sampler0",  # for measuring laser power PD
                             "sampler1", # for reading in volts in the coil tune experiment
                             "sampler2",
-                            *[f"ttl{i}" for i in range(8)]]
+                            *[f"ttl{i}" for i in range(16)]]
         for dev in devices_no_alias:
             # print(f"setting {dev}")
             self.experiment.setattr_device(dev)
@@ -225,8 +225,11 @@ class BaseExperiment:
         # turn on any switches. this ensures that switches always start in a default state,
         # which might not happen if we abort an experiment in the middle and don't reset it
 
+        delay(1*ms)
         self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
+        delay(1*ms)
         self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
+        delay(1*ms)
 
         # todo: turn off all dds channels
 
