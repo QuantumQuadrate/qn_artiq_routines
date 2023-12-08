@@ -125,7 +125,7 @@ class BaseExperiment:
                                          self.experiment.AX_Zotino_channel,
                                          self.experiment.AY_Zotino_channel]
 
-        # datasets
+        # dataset names
         self.experiment.count_rate_dataset = 'SPCM_counts_per_s'
 
         # functions
@@ -207,7 +207,7 @@ class BaseExperiment:
     @kernel
     def initialize_hardware(self):
         """
-        hardware initialization and setting of ttl switches
+        hardware initialization and setting of ttl switches, and set datasets
         :return:
         """
         self.experiment.named_devices.initialize()
@@ -220,11 +220,10 @@ class BaseExperiment:
         self.experiment.sampler1.init() # for reading laser feedback
         self.experiment.sampler2.init() # for reading laser feedback
 
-        print("base initialize_hardware - done")
+        self.experiment.print_async("base initialize_hardware - done")
 
         # turn on any switches. this ensures that switches always start in a default state,
         # which might not happen if we abort an experiment in the middle and don't reset it
-
         delay(1*ms)
         self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
         delay(1*ms)
@@ -232,6 +231,7 @@ class BaseExperiment:
         delay(1*ms)
 
         # todo: turn off all dds channels
+
 
         self.experiment.core.break_realtime()
 

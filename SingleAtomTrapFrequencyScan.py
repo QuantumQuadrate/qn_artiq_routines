@@ -52,8 +52,6 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
         """
         self.base.prepare()
 
-        self.t_exp_trigger = 1*ms
-
         self.sampler_buffer = np.full(8, 0.0)
         self.cooling_volts_ch = 7
 
@@ -101,11 +99,10 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                              channels=self.coil_channels)
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0], broadcast=True)
-        self.set_dataset("photocounts2", [0], broadcast=True)
-
         self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("atom_retention", [0.0], broadcast=True)
+        self.set_dataset("photocounts", [0])
+        self.set_dataset("photocounts2", [0])
+
 
         # turn off AOMs we aren't using, in case they were on previously
         self.dds_D1_pumping_SP.sw.off()
@@ -118,7 +115,6 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
         self.dds_AOM_A1.sw.on()
         self.dds_AOM_A6.sw.on()
         self.dds_AOM_A4.sw.on()
-        self.dds_AOM_A5.sw.on()
         self.dds_AOM_A5.sw.on()
 
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
@@ -139,12 +135,19 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
         self.ttl12.off()
 
         iteration = 0
+
+        # this is the iteration loop, i.e. the variable steps for the experiment
         for V_modulation in self.V_modulation_list:
 
             # for computing atom loading and retention statistics
             self.atom_loaded = False
             self.atoms_loaded = 0
             self.atoms_retained = 0
+
+            # these are the datasets for plotting only, an we restart them each iteration
+            self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
+            self.set_dataset("photocounts2_current_iteration", [0], broadcast=True)
+            delay(1*ms)
 
             # loop the experiment sequence
             for measurement in range(self.n_measurements):
@@ -222,9 +225,14 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
 
                 delay(2*ms)
 
+                iteration += 1
+
                 # update the datasets
                 self.append_to_dataset('photocounts', counts)
                 self.append_to_dataset('photocounts2', counts2)
+                self.append_to_dataset('photocounts_current_iteration', counts)
+                self.append_to_dataset('photocounts2_current_iteration', counts2)
+                self.set_dataset("iteration", iteration, broadcast=True)
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT

@@ -80,16 +80,10 @@ class ExperimentVariables(EnvExperiment):
                                                             'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
 
-            # Cooling single pass AOM
-            Variable("f_D1_pumping_SP", 130.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
-                     "Cooling single pass AOM"),
-            Variable("p_D1_pumping_SP", 1, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
-                     "Cooling single pass AOM"),
-
             # D1 optical pumping, pumping repumper, and excitation
-            Variable("f_D1_pumping_SP", 100.00 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+            Variable("f_D1_pumping_SP", 90 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "OP and excitation AOMs"),
-            Variable("p_D1_pumping_SP", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_D1_pumping_SP", -9.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
             Variable("f_pumping_repump", 345.10 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "OP and excitation AOMs"),
@@ -99,12 +93,6 @@ class ExperimentVariables(EnvExperiment):
                      "OP and excitation AOMs"),
             Variable("p_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
-
-            # D1 optical pumping
-            Variable("f_D1_pumping_SP", 150.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
-                     "Repump AOMs"),
-            Variable("p_D1_pumping_SP", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
-                     "Repump AOMs"),
 
             # Fiber AOMs
             Variable("AOM_A1_freq", 78.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
@@ -165,6 +153,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_in_MOT", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_blowaway", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
             # Set points
             Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),

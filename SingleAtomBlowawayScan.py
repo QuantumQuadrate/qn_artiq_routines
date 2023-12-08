@@ -1,6 +1,6 @@
 """
-Two-shot experiment with a varying time between the shots over which the trap is turned off before being turned back
-on just before the second shot
+Two-shot experiment with a varying time between the shots during which the trap depth is lowered and a single
+MOT beam is turned on to push out a trapped atom.
 """
 
 from artiq.experiment import *
