@@ -16,11 +16,11 @@ import matplotlib.pyplot as plt
 from datetime import datetime as dt
 
 import sys
-sys.path.append('/qn_artiq_routines\\')
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 from utilities.BaseExperiment import BaseExperiment
 
 NUM_FRAMES = 1  # adjust to the desired number of frames
-dll_parent_dir = '/qn_artiq_routines/thorlabs'
+dll_parent_dir = 'C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\thorlabs'
 
 os.add_dll_directory(dll_parent_dir + "\\dlls")
 os.environ['PATH'] = dll_parent_dir + "\\dlls\\" + os.pathsep + os.environ['PATH']
