@@ -97,6 +97,7 @@ class BaseExperiment:
         self.experiment.ttl_microwave_switch = self.experiment.ttl4
         self.experiment.ttl_microwave_switch = self.experiment.ttl4
         self.experiment.ttl_repump_switch = self.experiment.ttl5
+        self.experiment.ttl_Luca_trigger = self.experiment.ttl6
 
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(

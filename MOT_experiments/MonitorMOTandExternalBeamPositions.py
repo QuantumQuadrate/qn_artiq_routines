@@ -16,11 +16,11 @@ import matplotlib.pyplot as plt
 from datetime import datetime as dt
 
 import sys
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('/qn_artiq_routines\\')
 from utilities.BaseExperiment import BaseExperiment
 
 NUM_FRAMES = 1  # adjust to the desired number of frames
-dll_parent_dir = 'C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\thorlabs'
+dll_parent_dir = '/qn_artiq_routines/thorlabs'
 
 os.add_dll_directory(dll_parent_dir + "\\dlls")
 os.environ['PATH'] = dll_parent_dir + "\\dlls\\" + os.pathsep + os.environ['PATH']
@@ -34,6 +34,9 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
 
         self.setattr_argument("run_time_minutes", NumberValue(60))
         self.setattr_argument("t_ThorCam_exposure_ms", NumberValue(100))
+
+        # take images every image_frequency iterations
+        self.setattr_argument("image_frequency", NumberValue(10))
         self.base.set_datasets_from_gui_args()
         print("build - done")
 
@@ -41,9 +44,12 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
         self.base.prepare()
 
         self.AOM_feedback_period_cycles = 10
+        self.last_photocounts_to_plot = 200 # how many datapoints will be broadcast
 
         self.n_steps = int(60 * self.run_time_minutes / (
-                self.t_MOT_loading + self.t_FORT_loading + 0.5 / self.AOM_feedback_period_cycles) + 0.5)
+                self.t_MOT_loading + self.t_FORT_loading + 0.5 / self.AOM_feedback_period_cycles) + 1)
+
+        self.t_Luca_exposure = 10*ms
 
         # where to store the data
         self.t_experiment_run = dt.now().strftime("%Y%m%d_%H%M%S")
@@ -60,7 +66,8 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
 
         self.set_dataset("photocount_bins", [50], broadcast=True)
         self.set_dataset("photocounts", [0])
-        self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
+        self.set_dataset("photocounts_current_iteration", [0], broadcast=True, archive=False)
+        self.set_dataset("FORT_TTI_volts", [0.0])
 
         # turn off AOMs we aren't using, in case they were on previously
         self.dds_D1_pumping_SP.sw.off()
@@ -87,6 +94,24 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
         self.ttl12.output()
         self.ttl12.off()
 
+        ############################
+        # take a background image with the shims offset so the MOT doesn't form
+        ############################
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT-0.5, self.AY_volts_MOT],
+            channels=self.coil_channels)
+        # delay(2 * ms)
+        self.dds_cooling_DP.sw.on()
+
+        # trigger the ThorCam with the Zotino
+        self.zotino0.write_dac(6, 4.0)
+        self.zotino0.load()
+        delay(self.t_ThorCam_exposure_ms * ms + 1 * ms)
+        self.zotino0.write_dac(6, 0.0)
+        self.zotino0.load()
+
+        delay(1*ms)
+
         # experiment loop
         for measurement in range(self.n_steps):
 
@@ -111,28 +136,31 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
 
             # trigger the Luca to capture scattering from MOT5,6
             # then capture the MOT with ThorCam
-            self.dds_AOM_A5.sw.off()
-            delay(1 * ms)
-            self.ttl_Luca_trigger.pulse(5 * ms)
-            delay(1 * ms)
-            self.dds_AOM_A5.sw.on()
 
-            # pulse off MOT6, take an image
-            self.dds_AOM_A6.sw.off()
-            delay(1 * ms)
-            self.ttl_Luca_trigger.pulse(5 * ms)
-            delay(1 * ms)
-            self.dds_AOM_A6.sw.on()
+            if measurement % self.image_frequency == 0:
+                self.dds_AOM_A5.sw.off()
+                delay(1 * ms)
+                self.ttl_Luca_trigger.pulse(5 * ms)
+                delay(self.t_Luca_exposure+100*ms)
+                self.dds_AOM_A5.sw.on()
+
+                # pulse off MOT6, take an image
+                self.dds_AOM_A6.sw.off()
+                delay(1 * ms)
+                self.ttl_Luca_trigger.pulse(5 * ms)
+                delay(self.t_Luca_exposure)
+                self.dds_AOM_A6.sw.on()
 
             # wait for the MOT to load
             delay_mu(self.t_MOT_loading_mu)
 
-            # trigger the ThorCam with the Zotino
-            self.zotino0.write_dac(6, 4.0)
-            self.zotino0.load()
-            delay(self.t_ThorCam_exposure_ms * ms + 1*ms)
-            self.zotino0.write_dac(6, 0.0)
-            self.zotino0.load()
+            if measurement % self.image_frequency == 0:
+                # trigger the ThorCam with the Zotino
+                self.zotino0.write_dac(6, 4.0)
+                self.zotino0.load()
+                delay(self.t_ThorCam_exposure_ms * ms + 1*ms)
+                self.zotino0.write_dac(6, 0.0)
+                self.zotino0.load()
 
             # turn on the dipole trap and wait to load atoms
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
@@ -171,5 +199,9 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
             # update the datasets
             self.append_to_dataset('photocounts', counts)
             self.append_to_dataset('photocounts_current_iteration', counts)
+
+            # so we don't store too much data in artiq-master
+            if measurement % self.last_photocounts_to_plot == 0:
+                self.set_dataset("photocounts_current_iteration", [0], broadcast=True, archive=False)
 
         print("Experiment finished")
