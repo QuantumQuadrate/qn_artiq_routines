@@ -25,14 +25,14 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
 
         # the voltage steps. the voltage controls the frequency of a Rigol DG1022Z
         rigol_group = "Rigol DG1022Z settings"
-        self.scan_datasets = ["f_modulation"]
+        self.scan_datasets = ["f_modulation_sequence"]
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
                 self.setattr_argument(dataset, StringValue(value),rigol_group)
         except KeyError as e:
             print(e)
-            self.setattr_argument("f_modulation", StringValue(
+            self.setattr_argument("f_modulation_sequence", StringValue(
                 'np.linspace(5.0, 20.0, 10)*kHz'),rigol_group)
 
         # these should correspond to the settings on the Rigol DG1022Z in order to correctly
@@ -55,7 +55,7 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.cooling_volts_ch = 7
 
-        self.f_modulation_list = eval(self.f_modulation)
+        self.f_modulation_list = eval(self.f_modulation_sequence)
 
         # make sure we aren't going to generate a voltage outside of the -5 to 5V range of the Rigol input
         assert min(self.f_modulation_list) >= self.carrier_frequency - self.FM_deviation, \

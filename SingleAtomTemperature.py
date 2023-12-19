@@ -21,14 +21,14 @@ class SingleAtomTemperature(EnvExperiment):
         self.base.build()
 
         # this is an argument for using a scan package, maybe
-        self.scan_datasets = ["t_delay_between_shots"]
+        self.scan_datasets = ["t_delay_between_shots_sequence"]
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
                 self.setattr_argument(dataset, StringValue(value))
         except KeyError as e:
             print(e)
-            self.setattr_argument("t_delay_between_shots", StringValue(
+            self.setattr_argument("t_delay_between_shots_sequence", StringValue(
                 'np.array([1.0, 10.0, 50.0, 100.])*us'))
 
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
@@ -55,7 +55,7 @@ class SingleAtomTemperature(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.cooling_volts_ch = 7
 
-        self.t_delay_between_shots_list = eval(self.t_delay_between_shots)
+        self.t_delay_between_shots_list = eval(self.t_delay_between_shots_sequence)
         self.n_iterations = len(self.t_delay_between_shots_list)
 
         self.atom_loaded = False

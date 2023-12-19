@@ -21,14 +21,14 @@ class SingleAtomBlowawayScan(EnvExperiment):
         self.base.build()
 
         # this is an argument for using a scan package, maybe
-        self.scan_datasets = ["t_blowaway"]
+        self.scan_datasets = ["t_blowaway_sequence"]
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
                 self.setattr_argument(dataset, StringValue(value))
         except KeyError as e:
             print(e)
-            self.setattr_argument("t_blowaway", StringValue(
+            self.setattr_argument("t_blowaway_sequence", StringValue(
                 'np.array([0.000, 0.005, 0.02,0.05])*ms'))
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
@@ -62,7 +62,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.cooling_volts_ch = 7
 
-        self.t_blowaway_list = eval(self.t_blowaway)
+        self.t_blowaway_list = eval(self.t_blowaway_sequence)
         self.n_iterations = len(self.t_blowaway_list)
 
         self.atom_loaded = False
