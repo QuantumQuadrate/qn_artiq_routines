@@ -150,7 +150,8 @@ class BaseExperiment:
             try:
                 self.experiment.set_dataset(name, getattr(self.experiment, name))
             except Exception as e:
-                print("ARTIQ complains about this when scanning repository HEAD but then gets over it...")
+                pass # this is terrible but ARTIQ prints out way too many of these
+                # print("ARTIQ complains about this when scanning repository HEAD but then gets over it...")
 
 
     def prepare(self):
