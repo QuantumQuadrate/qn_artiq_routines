@@ -33,6 +33,7 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(False))
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
+        self.setattr_argument("pumping_light_off", BooleanValue(False))
         self.setattr_argument("blowaway_light_off", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
@@ -61,7 +62,7 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
         self.cooling_volts_ch = 7
 
         self.t_pumping_list = eval(self.t_pumping_sequence)
-        self.n_iterations = len(self.t_blowaway_list)
+        self.n_iterations = len(self.t_pumping_list)
 
         print("prepare - done")
 
@@ -117,6 +118,10 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
 
         iteration = 0
         for t_pumping in self.t_pumping_list:
+
+            # these are the datasets for plotting only, an we restart them each iteration
+            self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
+            self.set_dataset("photocounts2_current_iteration", [0], broadcast=True)
 
             # loop the experiment sequence
             for measurement in range(self.n_measurements):
@@ -177,13 +182,45 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
                 if self.control_experiment and measurement % 2 == 0:
                     if not self.only_exclude_pumping_light:
                         # do nothing
-                        delay(self.t_delay_between_shots)
+                        delay(1*ms)
                 else:
+
+                    ############################
+                    # optical pumping phase - pumps atoms into F=1,m_F=0
+                    ############################
+
+                    if t_pumping > 0.0:
+                        self.ttl_repump_switch.on()  # turns off the RP AOM
+                        self.dds_cooling_DP.sw.off() # no MOT light
+
+                        with sequential:
+
+                            # lower FORT power
+                            self.dds_FORT.set(
+                                frequency=self.f_FORT,
+                                amplitude=self.ampl_FORT_blowaway)
+
+                            # this could be condensed but is left as is for clarity
+                            if self.pumping_light_off:
+                                self.dds_D1_pumping_SP.sw.off()
+                                self.dds_pumping_repump.sw.off()
+                            elif self.control_experiment and self.only_exclude_pumping_light and measurement % 2 == 0:
+                                self.dds_D1_pumping_SP.sw.off()
+                                self.dds_pumping_repump.sw.off()
+                            else:
+                                self.dds_D1_pumping_SP.sw.on()
+                                self.dds_pumping_repump.sw.on()
+
+                            delay(t_pumping)
+
+                            self.dds_D1_pumping_SP.sw.off()
+                            self.dds_pumping_repump.sw.off()
+
                     ############################
                     # blow-away phase - push out atoms in F=2 only
                     ############################
 
-                    if t_blowaway > 0.0:
+                    if self.t_blowaway > 0.0:
 
                         self.ttl_repump_switch.on()  # turns off the RP AOM
 
@@ -207,12 +244,10 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
 
                             if self.blowaway_light_off:
                                 self.dds_AOM_A6.sw.off()
-                            elif self.control_experiment and self.only_exclude_pumping_light and measurement % 2 == 0:
-                                self.dds_AOM_A6.sw.off()
                             else:
                                 self.dds_cooling_DP.sw.on()
 
-                        delay(t_blowaway)
+                        delay(self.t_blowaway)
 
                         # reset MOT power
                         self.dds_cooling_DP.sw.off()
@@ -233,7 +268,7 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
                         self.dds_AOM_A6.sw.on()
                         self.ttl_repump_switch.off()  # turns on the RP AOM
 
-                    delay(self.t_delay_between_shots - t_blowaway)
+                    delay(0.1*ms)
 
                 ############################
                 # take the second shot
