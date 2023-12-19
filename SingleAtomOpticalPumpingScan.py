@@ -1,6 +1,6 @@
 """
-Two-shot experiment with a varying time between the shots during which the trap depth is lowered and a single
-MOT beam is turned on to push out a trapped atom.
+Two-shot experiment with a varying time between the shots during which optical pumping is applied,
+followed by a blow-away phase.
 """
 
 from artiq.experiment import *
@@ -11,7 +11,7 @@ from datetime import datetime as dt
 from utilities.BaseExperiment import BaseExperiment
 
 
-class SingleAtomBlowawayScan(EnvExperiment):
+class SingleAtomOpticalPumpingScan(EnvExperiment):
 
     def build(self):
         """
@@ -20,15 +20,14 @@ class SingleAtomBlowawayScan(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
-        # this is an argument for using a scan package, maybe
-        self.scan_datasets = ["t_blowaway_sequence"]
+        self.scan_datasets = ["t_pumping"]
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
                 self.setattr_argument(dataset, StringValue(value))
         except KeyError as e:
             print(e)
-            self.setattr_argument("t_blowaway_sequence", StringValue(
+            self.setattr_argument("t_pumping", StringValue(
                 'np.array([0.000, 0.005, 0.02,0.05])*ms'))
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
@@ -43,7 +42,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
 
         # a control experiment in which the only difference is the blowaway light is off.
         # if this is false, the control experiment does nothing between the two readouts.
-        self.setattr_argument("only_exclude_blowaway_light", BooleanValue(False), "Control experiment")
+        self.setattr_argument("only_exclude_pumping_light", BooleanValue(False), "Control experiment")
 
         self.base.set_datasets_from_gui_args()
         print("build - done")
@@ -62,7 +61,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.cooling_volts_ch = 7
 
-        self.t_blowaway_list = eval(self.t_blowaway_sequence)
+        self.t_pumping_list = eval(self.t_pumping)
         self.n_iterations = len(self.t_blowaway_list)
 
         self.atom_loaded = False
@@ -89,8 +88,8 @@ class SingleAtomBlowawayScan(EnvExperiment):
                              channels=self.coil_channels)
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0])
-        self.set_dataset("photocounts2", [0])
+        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocounts2", [0], broadcast=True)
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
         self.set_dataset("atom_retention", [0.0], broadcast=True)
@@ -123,16 +122,12 @@ class SingleAtomBlowawayScan(EnvExperiment):
         counts2 = 0
 
         iteration = 0
-        for t_blowaway in self.t_blowaway_list:
+        for t_pumping in self.t_pumping_list:
 
             # for computing atom loading and retention statistics
             self.atom_loaded = False
             self.atoms_loaded = 0
             self.atoms_retained = 0
-
-            # these are the datasets for plotting only, an we restart them each iteration
-            self.set_dataset("photocounts_current_iteration", [0])
-            self.set_dataset("photocounts2_current_iteration", [0])
 
             # loop the experiment sequence
             for measurement in range(self.n_measurements):
@@ -191,7 +186,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
                 delay(3*ms)
 
                 if self.control_experiment and measurement % 2 == 0:
-                    if not self.only_exclude_blowaway_light:
+                    if not self.only_exclude_pumping_light:
                         # do nothing
                         delay(self.t_delay_between_shots)
                 else:
@@ -223,7 +218,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
 
                             if self.blowaway_light_off:
                                 self.dds_AOM_A6.sw.off()
-                            elif self.control_experiment and self.only_exclude_blowaway_light and measurement % 2 == 0:
+                            elif self.control_experiment and self.only_exclude_pumping_light and measurement % 2 == 0:
                                 self.dds_AOM_A6.sw.off()
                             else:
                                 self.dds_cooling_DP.sw.on()
@@ -278,17 +273,20 @@ class SingleAtomBlowawayScan(EnvExperiment):
 
                 delay(2*ms)
 
-                iteration += 1
-
                 # update the datasets
                 if not self.no_first_shot:
                     self.append_to_dataset('photocounts', counts)
-                    self.append_to_dataset('photocounts_current_iteration', counts)
-
-                # update the datasets
                 self.append_to_dataset('photocounts2', counts2)
-                self.append_to_dataset('photocounts2_current_iteration', counts2)
-                self.set_dataset("iteration", iteration, broadcast=True)
+
+
+            # compute the retention fraction based and update the dataset
+            if self.atoms_loaded > 0:
+                retention_fraction = self.atoms_retained/self.atoms_loaded
+            else:
+                retention_fraction = 0.0
+            self.atom_retention[iteration] = retention_fraction
+            self.set_dataset('atom_retention',self.atom_retention[:iteration+1],broadcast=True)
+            iteration += 1
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT

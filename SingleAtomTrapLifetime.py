@@ -86,11 +86,10 @@ class SingleAtomTrapLifetime(EnvExperiment):
                              channels=self.coil_channels)
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0], broadcast=True)
-        self.set_dataset("photocounts2", [0], broadcast=True)
+        self.set_dataset("photocounts", [0])
+        self.set_dataset("photocounts2", [0])
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
-        self.set_dataset("atom_retention", [0.0], broadcast=True)
 
         # turn on cooling MOT AOMs
         self.dds_cooling_DP.sw.on() # cooling double pass
@@ -118,6 +117,10 @@ class SingleAtomTrapLifetime(EnvExperiment):
             self.atom_loaded = False
             self.atoms_loaded = 0
             self.atoms_retained = 0
+
+            # these are the datasets for plotting only, an we restart them each iteration
+            self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
+            self.set_dataset("photocounts2_current_iteration", [0], broadcast=True)
 
             # loop the experiment sequence
             for measurement in range(self.n_measurements):
@@ -199,20 +202,17 @@ class SingleAtomTrapLifetime(EnvExperiment):
 
                 delay(2*ms)
 
+                iteration += 1
+
                 # update the datasets
                 if not self.no_first_shot:
                     self.append_to_dataset('photocounts', counts)
+                    self.append_to_dataset('photocounts_current_iteration', counts)
+
+                # update the datasets
                 self.append_to_dataset('photocounts2', counts2)
-
-
-            # compute the retention fraction based and update the dataset
-            if self.atoms_loaded > 0:
-                retention_fraction = self.atoms_retained/self.atoms_loaded
-            else:
-                retention_fraction = 0.0
-            self.atom_retention[iteration] = retention_fraction
-            self.set_dataset('atom_retention',self.atom_retention[:iteration+1],broadcast=True)
-            iteration += 1
+                self.append_to_dataset('photocounts2_current_iteration', counts2)
+                self.set_dataset("iteration", iteration, broadcast=True)
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT

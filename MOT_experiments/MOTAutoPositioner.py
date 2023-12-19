@@ -35,7 +35,6 @@ class MOTAutoPositioner(EnvExperiment):
 
         # this should be close to the mean signal from the atom
         self.setattr_argument("trapped_atom_counts_per_s", NumberValue(10000))
-
         self.base.set_datasets_from_gui_args()
         print("build - done")
 
@@ -48,10 +47,10 @@ class MOTAutoPositioner(EnvExperiment):
         self.sampler_buffer = np.zeros(8)
 
         # the zeroth step should be zero so that we first check the counts with the current coil settings
-        self.dVZ_bottom_steps_one_direction = np.linspace(0, 0.3, 20)
-        self.dVZ_top_steps_one_direction = np.linspace(0, 0.3, 20)
-        self.dVX_steps_one_direction = np.linspace(0,0.3,20)
-        self.dVY_steps_one_direction = np.linspace(0,0.3,20)
+        self.dVZ_bottom_steps_one_direction = np.linspace(0, 0.1, 40)
+        self.dVZ_top_steps_one_direction = np.linspace(0, 0.1, 40)
+        self.dVX_steps_one_direction = np.linspace(0,0.1,40)
+        self.dVY_steps_one_direction = np.linspace(0,0.1,40)
 
         self.AZ_bottom_scan_ch = CoilScanChannel(
             "AZ_bottom",
