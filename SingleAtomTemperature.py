@@ -32,7 +32,6 @@ class SingleAtomTemperature(EnvExperiment):
                 'np.array([1.0, 10.0, 50.0, 100.])*us'))
 
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
-        self.setattr_argument("atom_counts_threshold", NumberValue(260, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(False))
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
@@ -58,11 +57,6 @@ class SingleAtomTemperature(EnvExperiment):
         self.t_delay_between_shots_list = eval(self.t_delay_between_shots_sequence)
         self.n_iterations = len(self.t_delay_between_shots_list)
 
-        self.atom_loaded = False
-        self.atoms_loaded = 0
-        self.atoms_retained = 0
-        self.atom_retention = [0.0]*self.n_iterations
-
         print("prepare - done")
 
     @kernel
@@ -86,7 +80,7 @@ class SingleAtomTemperature(EnvExperiment):
         self.set_dataset("photocounts2", [0])
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
-        self.set_dataset("atom_retention", [0.0], broadcast=True)
+
 
         # turn on cooling MOT AOMs
         self.dds_cooling_DP.sw.on() # cooling double pass
@@ -109,11 +103,6 @@ class SingleAtomTemperature(EnvExperiment):
 
         iteration = 0
         for t_delay_between_shots in self.t_delay_between_shots_list:
-
-            # for computing atom loading and retention statistics
-            self.atom_loaded = False
-            self.atoms_loaded = 0
-            self.atoms_retained = 0
 
             # these are the datasets for plotting only, an we restart them each iteration
             self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
@@ -189,16 +178,6 @@ class SingleAtomTemperature(EnvExperiment):
                 self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
                 # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-
-                # analysis
-                if counts > self.atom_counts_threshold:
-                    self.atoms_loaded += 1
-                    self.atom_loaded = True
-                else:
-                    self.atom_loaded = False
-
-                if counts2 > self.atom_counts_threshold and self.atom_loaded:
-                    self.atoms_retained += 1
 
                 delay(2*ms)
 

@@ -35,7 +35,6 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 'np.array([0.0, 1.0, 10.0, 100.0,1000.])*ms'))
 
         self.setattr_argument("n_measurements", NumberValue(50, ndecimals=0, step=1))
-        self.setattr_argument("atom_counts_threshold", NumberValue(260, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(default=False))
         self.setattr_argument("MOT_AOMs_always_on", BooleanValue(default=False)) # good for diagnosing readout heating
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
@@ -61,11 +60,6 @@ class SingleAtomTrapLifetime(EnvExperiment):
 
         self.t_delay_between_shots_list = eval(self.t_delay_between_shots_sequence)
         self.n_iterations = len(self.t_delay_between_shots_list)
-
-        self.atom_loaded = False
-        self.atoms_loaded = 0
-        self.atoms_retained = 0
-        self.atom_retention = [0.0]*self.n_iterations
 
         print("prepare - done")
 
@@ -112,11 +106,6 @@ class SingleAtomTrapLifetime(EnvExperiment):
 
         iteration = 0
         for t_delay_between_shots in self.t_delay_between_shots_list:
-
-            # for computing atom loading and retention statistics, though I usually just do this in post
-            self.atom_loaded = False
-            self.atoms_loaded = 0
-            self.atoms_retained = 0
 
             # these are the datasets for plotting only, an we restart them each iteration
             self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
@@ -189,16 +178,6 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
                 # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-
-                # analysis
-                if counts > self.atom_counts_threshold:
-                    self.atoms_loaded += 1
-                    self.atom_loaded = True
-                else:
-                    self.atom_loaded = False
-
-                if counts2 > self.atom_counts_threshold and self.atom_loaded:
-                    self.atoms_retained += 1
 
                 delay(2*ms)
 

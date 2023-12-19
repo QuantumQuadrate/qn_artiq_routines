@@ -32,7 +32,6 @@ class SingleAtomBlowawayScan(EnvExperiment):
                 'np.array([0.000, 0.005, 0.02,0.05])*ms'))
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
-        self.setattr_argument("atom_counts_threshold", NumberValue(180, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(False))
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
         self.setattr_argument("blowaway_light_off", BooleanValue(False))
@@ -65,11 +64,6 @@ class SingleAtomBlowawayScan(EnvExperiment):
         self.t_blowaway_list = eval(self.t_blowaway_sequence)
         self.n_iterations = len(self.t_blowaway_list)
 
-        self.atom_loaded = False
-        self.atoms_loaded = 0
-        self.atoms_retained = 0
-        self.atom_retention = [0.0]*self.n_iterations
-
         print("prepare - done")
 
     @kernel
@@ -93,7 +87,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
         self.set_dataset("photocounts2", [0])
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
-        self.set_dataset("atom_retention", [0.0], broadcast=True)
+        
 
         # turn off AOMs we aren't using, in case they were on previously
         self.dds_D1_pumping_SP.sw.off()
@@ -124,11 +118,6 @@ class SingleAtomBlowawayScan(EnvExperiment):
 
         iteration = 0
         for t_blowaway in self.t_blowaway_list:
-
-            # for computing atom loading and retention statistics
-            self.atom_loaded = False
-            self.atoms_loaded = 0
-            self.atoms_retained = 0
 
             # these are the datasets for plotting only, an we restart them each iteration
             self.set_dataset("photocounts_current_iteration", [0])
@@ -265,16 +254,6 @@ class SingleAtomBlowawayScan(EnvExperiment):
                 self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
                 # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-
-                # analysis
-                if counts > self.atom_counts_threshold:
-                    self.atoms_loaded += 1
-                    self.atom_loaded = True
-                else:
-                    self.atom_loaded = False
-
-                if counts2 > self.atom_counts_threshold and self.atom_loaded:
-                    self.atoms_retained += 1
 
                 delay(2*ms)
 

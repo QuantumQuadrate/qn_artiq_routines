@@ -20,18 +20,17 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
-        self.scan_datasets = ["t_pumping"]
+        self.scan_datasets = ["t_pumping_sequence"]
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
                 self.setattr_argument(dataset, StringValue(value))
         except KeyError as e:
             print(e)
-            self.setattr_argument("t_pumping", StringValue(
+            self.setattr_argument("t_pumping_sequence", StringValue(
                 'np.array([0.000, 0.005, 0.02,0.05])*ms'))
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
-        self.setattr_argument("atom_counts_threshold", NumberValue(180, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(False))
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
         self.setattr_argument("blowaway_light_off", BooleanValue(False))
@@ -61,13 +60,8 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.cooling_volts_ch = 7
 
-        self.t_pumping_list = eval(self.t_pumping)
+        self.t_pumping_list = eval(self.t_pumping_sequence)
         self.n_iterations = len(self.t_blowaway_list)
-
-        self.atom_loaded = False
-        self.atoms_loaded = 0
-        self.atoms_retained = 0
-        self.atom_retention = [0.0]*self.n_iterations
 
         print("prepare - done")
 
@@ -88,11 +82,11 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
                              channels=self.coil_channels)
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0], broadcast=True)
-        self.set_dataset("photocounts2", [0], broadcast=True)
+        self.set_dataset("photocounts", [0])
+        self.set_dataset("photocounts2", [0])
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
-        self.set_dataset("atom_retention", [0.0], broadcast=True)
+        
 
         # turn off AOMs we aren't using, in case they were on previously
         self.dds_D1_pumping_SP.sw.off()
@@ -123,11 +117,6 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
 
         iteration = 0
         for t_pumping in self.t_pumping_list:
-
-            # for computing atom loading and retention statistics
-            self.atom_loaded = False
-            self.atoms_loaded = 0
-            self.atoms_retained = 0
 
             # loop the experiment sequence
             for measurement in range(self.n_measurements):
@@ -261,32 +250,20 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
                 # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-                # analysis
-                if counts > self.atom_counts_threshold:
-                    self.atoms_loaded += 1
-                    self.atom_loaded = True
-                else:
-                    self.atom_loaded = False
-
-                if counts2 > self.atom_counts_threshold and self.atom_loaded:
-                    self.atoms_retained += 1
-
                 delay(2*ms)
+
+                iteration += 1
 
                 # update the datasets
                 if not self.no_first_shot:
                     self.append_to_dataset('photocounts', counts)
+                    self.append_to_dataset('photocounts_current_iteration', counts)
+
+                # update the datasets
                 self.append_to_dataset('photocounts2', counts2)
+                self.append_to_dataset('photocounts2_current_iteration', counts2)
+                self.set_dataset("iteration", iteration, broadcast=True)
 
-
-            # compute the retention fraction based and update the dataset
-            if self.atoms_loaded > 0:
-                retention_fraction = self.atoms_retained/self.atoms_loaded
-            else:
-                retention_fraction = 0.0
-            self.atom_retention[iteration] = retention_fraction
-            self.set_dataset('atom_retention',self.atom_retention[:iteration+1],broadcast=True)
-            iteration += 1
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT
