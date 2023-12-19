@@ -42,7 +42,7 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.setattr_argument("dt_exposure", NumberValue(300 * ms, unit='ms'), group)
         # saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
         self.setattr_argument("sat1s", NumberValue(1 * 10 ** 5), group)  # saturation limit in counts/dt.
-        self.setattr_argument("print_count_rate", BooleanValue(True), group)
+        self.setattr_argument("print_count_rate", BooleanValue(False), group)
 
         # when to run the AOM feedback (after how many iterations in the for loops)
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(200), "Laser feedback")
