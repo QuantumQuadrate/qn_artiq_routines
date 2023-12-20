@@ -61,6 +61,9 @@ class ExperimentVariables(EnvExperiment):
             Variable("p_FORT_blowaway", 0.5, NumberValue,
                      {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
+            Variable("p_FORT_OP", 0.5, NumberValue,
+                     {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
+                     "FORT AOM"),
 
             # Cooling double pass AOM
             Variable("f_cooling_DP_MOT", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
@@ -128,22 +131,48 @@ class ExperimentVariables(EnvExperiment):
                      "Microwaves"),
 
             # Coils - MOT
-            Variable("AZ_bottom_volts_MOT", 1.02, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AZ_top_volts_MOT", -3.4, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AX_volts_MOT", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AY_volts_MOT", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
+            Variable("AZ_bottom_volts_MOT", 1.02, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AZ_top_volts_MOT", -3.4, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AX_volts_MOT", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AY_volts_MOT", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
 
             # Coils - PGC
-            Variable("AZ_bottom_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AZ_top_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AX_volts_PGC", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AY_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
+            Variable("AZ_bottom_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AZ_top_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AX_volts_PGC", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AY_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
 
             # Coils - Readout
-            Variable("AZ_bottom_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AZ_top_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AX_volts_RO", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AY_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
+            Variable("AZ_bottom_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AZ_top_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AX_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AY_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+
+            # Coils - state prep and science
+            Variable("AZ_bottom_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "MOT coil settings"),
+
+            # about 1 G along the parabolic mirror axis.
+            Variable("AZ_bottom_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AZ_top_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AX_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AY_volts_OP", 2.105, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
 
             # Timing
             Variable("t_MOT_loading", 500*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),

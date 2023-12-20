@@ -160,7 +160,9 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
 
                 # turn off the coils
                 if not self.do_PGC_in_MOT:
-                    self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
+                    self.zotino0.set_dac(
+                        [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                        channels=self.coil_channels)
 
                 delay(3*ms) # should wait for the MOT to dissipate
 
@@ -179,10 +181,9 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
 
                 delay(3*ms)
 
-                if self.control_experiment and measurement % 2 == 0:
-                    if not self.only_exclude_pumping_light:
-                        # do nothing
-                        delay(1*ms)
+                if self.control_experiment and not self.only_exclude_pumping_light and measurement % 2 == 0:
+                    # do nothing
+                    delay(1*ms)
                 else:
 
                     ############################
@@ -193,12 +194,18 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
                         self.ttl_repump_switch.on()  # turns off the RP AOM
                         self.dds_cooling_DP.sw.off() # no MOT light
 
+                        # set coils for pumping
+                        self.zotino0.set_dac(
+                            [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                            channels=self.coil_channels)
+                        delay(0.1 * ms)
+
                         with sequential:
 
                             # lower FORT power
                             self.dds_FORT.set(
                                 frequency=self.f_FORT,
-                                amplitude=self.ampl_FORT_blowaway)
+                                amplitude=self.ampl_FORT_OP)
 
                             # this could be condensed but is left as is for clarity
                             if self.pumping_light_off:
@@ -216,6 +223,12 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
                             self.dds_D1_pumping_SP.sw.off()
                             self.dds_pumping_repump.sw.off()
 
+                            # reset MOT power
+                            self.dds_cooling_DP.sw.off()
+                            self.dds_cooling_DP.set(
+                                frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT)
+
                     ############################
                     # blow-away phase - push out atoms in F=2 only
                     ############################
@@ -223,6 +236,12 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
                     if self.t_blowaway > 0.0:
 
                         self.ttl_repump_switch.on()  # turns off the RP AOM
+
+                        # set coils for readout # todo: update with blowaway specific values later
+                        self.zotino0.set_dac(
+                            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                            channels=self.coil_channels)
+                        delay(0.1 * ms)
 
                         with sequential:
 
@@ -273,6 +292,12 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
                 ############################
                 # take the second shot
                 ############################
+
+                # set coils for readout
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                    channels=self.coil_channels)
+                delay(0.1*ms)
 
                 self.dds_cooling_DP.sw.on()
                 t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
