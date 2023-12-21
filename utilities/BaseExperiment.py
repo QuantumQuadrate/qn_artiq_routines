@@ -126,6 +126,14 @@ class BaseExperiment:
                                          self.experiment.AX_Zotino_channel,
                                          self.experiment.AY_Zotino_channel]
 
+        # this is an attribute of of the experiment in case we want to access it elsewhere
+        self.experiment.all_dds_channels = [getattr(self.experiment,f'urukul{card}_ch{channel}')
+                                 for card in range(3) for channel in range(4)]
+
+        # todo: should limit this list to the channels which are outputs
+        # self.experiment.all_ttl_channels = [getattr(self.experiment, 'ttl{channel}')
+        #                                     for channel in range(16)]
+
         # dataset names
         self.experiment.count_rate_dataset = 'SPCM_counts_per_s'
 
@@ -233,8 +241,11 @@ class BaseExperiment:
         self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
         delay(1*ms)
 
-        # todo: turn off all dds channels
+        # turn off all dds channels
+        for ch in self.experiment.all_dds_channels:
+            ch.sw.off()
 
+        # todo: turn off all Zotino channels?
 
         self.experiment.core.break_realtime()
 
