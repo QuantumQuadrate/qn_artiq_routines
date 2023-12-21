@@ -101,7 +101,6 @@ class SingleAtomOpticalPumpingScan(EnvExperiment):
         self.dds_AOM_A6.sw.on()
         self.dds_AOM_A4.sw.on()
         self.dds_AOM_A5.sw.on()
-        self.dds_AOM_A5.sw.on()
 
         # FORT is effectively off but AOM will thermalize
         # self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)

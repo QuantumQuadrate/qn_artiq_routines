@@ -162,15 +162,12 @@ class ExperimentVariables(EnvExperiment):
 
             # Coils - state prep and science
             Variable("AZ_bottom_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "MOT coil settings"),
-
-            # about 1 G along the parabolic mirror axis.
-            Variable("AZ_bottom_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
             Variable("AZ_top_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
             Variable("AX_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
+            # about 1 G along the parabolic mirror axis.
             Variable("AY_volts_OP", 2.105, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
 
@@ -183,7 +180,14 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_in_MOT", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_blowaway", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+
+            # Booleans
+            Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
+            Variable("do_PGC_in_MOT", False, BooleanValue, {}, "Booleans"),
+            Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
+            Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
 
             # Set points
             Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),

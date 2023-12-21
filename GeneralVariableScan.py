@@ -11,6 +11,8 @@ from datetime import datetime as dt
 import sys
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 from utilities.BaseExperiment import BaseExperiment
+
+# this is where your experiment function should live
 from subroutines.experiment_functions import *
 
 class GeneralVariableScan(EnvExperiment):
@@ -40,7 +42,7 @@ class GeneralVariableScan(EnvExperiment):
         self.setattr_argument('experiment_function', StringValue('test'))
 
         # toggles an interleaved control experiment, but what this means or whether
-        # it has an effect depends on the experiment script
+        # it has an effect depends on experiment_function
         self.setattr_argument("control_experiment", BooleanValue(False), "Control experiment")
 
         self.base.set_datasets_from_gui_args()
@@ -59,7 +61,6 @@ class GeneralVariableScan(EnvExperiment):
         assert hasattr(self,self.scan_variable1), (f"There is no ExperimentVariable "+self.scan_variable1+
                                                   ". Did you mistype it?")
         # todo: add some error handling
-        # self.scan_variable1 = eval(self.scan_variable1) # probably neither necessary nor desired
         self.scan_sequence1 = eval(self.scan_sequence1)
         self.n_iterations1 = len(self.scan_sequence1) # this might not get used
 
@@ -67,9 +68,9 @@ class GeneralVariableScan(EnvExperiment):
             assert hasattr(self, self.scan_variable2), (f"There is no ExperimentVariable " + self.scan_variable2 +
                                                         ". Did you mistype it?")
             # todo: add some error handling
-            # self.scan_variable2 = eval(self.scan_variable2)
             self.n_iterations2 = len(self.scan_sequence2)
         else:
+            self.scan_variable2 = None
             self.scan_sequence2 = np.zeros(1) # we need a non-empty array to have a definite type for ARTIQ
             self.n_iterations2 = 0
 
@@ -80,66 +81,75 @@ class GeneralVariableScan(EnvExperiment):
             print(f"The function {experiment_name} is not defined. Did you forget to import it?")
             raise
 
-    @rpc #(flags={"async"})
-    def update_variable(self, variable_name, value):
-        """
-        update an ExperimentVariable by setting it to value
-
-        this avoid updating the dataset, which would change the default on the next experiment we run
-        and could therefore lead to unexpected behavior.
-        """
-        setattr(self, variable_name, value)
+        self.measurement = 0
 
     @kernel
     def hardware_init(self):
         self.base.initialize_hardware()
 
-    def run(self):
-
-        for variable1_value in self.scan_sequence1:
-            setattr(self, self.scan_variable1, variable1_value)
-            self.hardware_init()
-
-            for measurement in range(self.n_measurements):
-                self.experiment_function()
-
-    @kernel
+    # todo: this should really be determined by the specific experiment eventually
     def initialize_datasets(self):
         self.set_dataset("photocounts", [0])
         self.set_dataset("photocounts2", [0])
         self.set_dataset("photocount_bins", [50], broadcast=True)
+        self.set_dataset("iteration", 0, broadcast=True)
 
-    # @kernel
-    # def reinitialize_datasets(self):
-    #     # todo
-    #
-    @kernel
-    def update_datasets(self,variable1_value):
-        self.set_dataset(self.scan_variable1, variable1_value) # don't broadcast
-
-    @kernel
-    def experiment_loop(self):
+    def reset_datasets(self):
         """
-        The experiment loop.
+        set datasets that are redefined each iteration.
 
-        Anything that could be experiment-specific, such as photocount datasets, should be dealt
-        with in experiment_waveform.
+        typically these datasets are used for plotting which would be meaningless if we continued to append to the data,
+        e.g. for the second readout histogram which we expect in general will change as experiment parameters induce
+        different amount of atom loss.
         :return:
         """
+        self.set_dataset("test_dataset", [0], broadcast=True)
+        self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
+        self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
 
-        # todo: set datasets that will be useful for plotting
+    def run(self):
+        """
+        Step through the variable values defined by the scan sequences and run the experiment function.
 
-        # for variable1_value in self.scan_sequence1:
+        Because the scan variables can be any ExperimentVariable, which includes values used to initialize
+        hardware (e.g. a frequency for a dds channel), the hardware is reinitialized in each step of the
+        variable scan.
+        """
 
-        # # this doesn't succeed at updating the variable.
-        # self.update_variable(self.scan_variable1, variable1_value)
-        # # self.set_dataset(self.scan_variable1, variable1_value) # don't broadcast
-        #
-        # # for measurement in ...
-        self.experiment_function(self)
+        self.initialize_datasets()
+
+        # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
+        iteration = 0
+        for variable1_value in self.scan_sequence1:
+            # update the variable
+            setattr(self, self.scan_variable1, variable1_value)
+
+            self.hardware_init()
+            self.reset_datasets()
+
+            for variable2_value in self.scan_sequence2:
+
+                if self.scan_variable2 != None:
+                    setattr(self, self.scan_variable2, variable2_value)
+
+                for measurement in range(self.n_measurements):
+                    self.measurement = measurement  # this is sometimes used by the experiment function
+                    self.experiment_function()
+
+                iteration += 1
+                self.set_dataset("iteration", iteration, broadcast=True)
+
+    @kernel
+    def measurement_loop(self):
+
+        # self.core.break_realtime()
+
+        for measurement in range(self.n_measurements):
+            self.measurement = measurement  # this is sometimes used by the experiment function
+            self.experiment_function()
 
 
-        self.print_async("Experiment loop finished")
+
 
 
 
