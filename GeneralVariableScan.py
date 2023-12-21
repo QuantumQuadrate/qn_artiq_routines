@@ -132,21 +132,10 @@ class GeneralVariableScan(EnvExperiment):
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
 
-                for measurement in range(self.n_measurements):
-                    self.measurement = measurement  # this is sometimes used by the experiment function
-                    self.experiment_function()
+                self.experiment_function()
 
                 iteration += 1
                 self.set_dataset("iteration", iteration, broadcast=True)
-
-    @kernel
-    def measurement_loop(self):
-
-        # self.core.break_realtime()
-
-        for measurement in range(self.n_measurements):
-            self.measurement = measurement  # this is sometimes used by the experiment function
-            self.experiment_function()
 
 
 
