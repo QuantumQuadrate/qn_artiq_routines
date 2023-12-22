@@ -346,7 +346,7 @@ class AOMPowerStabilizer:
                                        t_measure_delay=ch_params['t_measure_delay'],
                                        error_history_length=self.iterations
                                        )
-        self.exp.set_dataset(self.FORT_ch.dataset, [1.0], broadcast=True, persist=True)
+        self.exp.set_dataset(self.FORT_ch.dataset, [1.0], broadcast=True)
 
         self.num_samplers = len(self.sampler_list)
         self.measurement_array = np.full(8 * self.num_samplers, 0.0)
@@ -358,7 +358,7 @@ class AOMPowerStabilizer:
 
         # for logging the measured voltages
         for ch in self.all_channels: # todo: update with the last value from the dataset
-            self.exp.set_dataset(ch.dataset, [1.0], broadcast=True, persist=True)
+            self.exp.set_dataset(ch.dataset, [1.0], broadcast=True)
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -368,7 +368,7 @@ class AOMPowerStabilizer:
     def write_dds_settings(self):
         for ch in self.all_channels:
             dB = 10*(np.log10(ch.amplitude**2/(2*50)) + 3)
-            self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True, persist=True)
+            self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True)
 
     @kernel
     def measure(self):
