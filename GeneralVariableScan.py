@@ -67,6 +67,7 @@ class GeneralVariableScan(EnvExperiment):
         if self.scan_variable2 != '':
             assert hasattr(self, self.scan_variable2), (f"There is no ExperimentVariable " + self.scan_variable2 +
                                                         ". Did you mistype it?")
+            self.scan_sequence2 = eval(self.scan_sequence2)
             # todo: add some error handling
             self.n_iterations2 = len(self.scan_sequence2)
         else:
@@ -124,18 +125,19 @@ class GeneralVariableScan(EnvExperiment):
             # update the variable
             setattr(self, self.scan_variable1, variable1_value)
 
-            self.hardware_init()
-            self.reset_datasets()
-
             for variable2_value in self.scan_sequence2:
+
+                self.set_dataset("iteration", iteration, broadcast=True)
 
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
 
+                self.hardware_init()
+                self.reset_datasets()
+
                 self.experiment_function()
 
                 iteration += 1
-                self.set_dataset("iteration", iteration, broadcast=True)
 
 
 
