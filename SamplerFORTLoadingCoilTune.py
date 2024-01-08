@@ -24,6 +24,7 @@ class SamplerCoilTuneFORTLoading(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        self.setattr_argument("continues_loading", BooleanValue(True))
         self.setattr_argument("set_current_coil_volts_at_finish", BooleanValue(False))
         self.setattr_argument("leave_coils_on_at_finish", BooleanValue(True))
         self.setattr_argument("run_time_minutes", NumberValue(2))
@@ -67,7 +68,7 @@ class SamplerCoilTuneFORTLoading(EnvExperiment):
         self.base.initialize_hardware()
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocounts_per_s", [0], broadcast=True)
 
         self.set_dataset("photocount_bins", [50], broadcast=True)
 
@@ -99,17 +100,9 @@ class SamplerCoilTuneFORTLoading(EnvExperiment):
 
         print("ready!")
 
-        for i in range(self.n_steps):
+        delay(10*ms)
 
-            if self.enable_laser_feedback:
-                if (i % self.AOM_feedback_period_cycles) == 0:
-                    print("running feedback")
-                    self.core.break_realtime()
-                    self.laser_stabilizer.run()
-                    delay(1*ms)
-                    self.dds_FORT.sw.on()
-            else:
-                delay(1*ms)
+        for i in range(self.n_steps):
 
             self.sampler1.sample(self.sampler_buffer)
             if self.differential_mode:
@@ -131,58 +124,102 @@ class SamplerCoilTuneFORTLoading(EnvExperiment):
                 channels=self.coil_channels)
             self.dds_cooling_DP.sw.on()
 
-            # wait for the MOT to load
-            delay_mu(self.t_MOT_loading_mu)
+            if self.continues_loading:
+                if self.enable_laser_feedback:
+                    if (i % (self.AOM_feedback_period_cycles*10)) == 0:
+                        print("running feedback")
+                        self.core.break_realtime()
+                        self.laser_stabilizer.run()
+                        delay(1 * ms)
+                        self.dds_FORT.sw.on()
+                else:
+                    delay(1 * ms)
+                delay(50 * ms)
+                t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+                counts = self.ttl0.count(t_gate_end)
 
-            # turn on the dipole trap and wait to load atoms
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-            delay_mu(self.t_FORT_loading_mu)
+                delay(3 * ms)
 
-            # turn off the coils
-            self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
+                # update the datasets
+                self.append_to_dataset('photocounts_per_s', counts / self.t_SPCM_first_shot)
 
-            delay(3 * ms)  # should wait for the MOT to dissipate
 
-            # set the cooling DP AOM to the readout settings
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+                for j in range(4):
+                    try:
+                        self.zotino0.write_dac(self.coil_channels[j], control_volts[j])
+                        if saturated_coils[j]:  # shouldn't get here unless we're no longer saturated
+                            self.print_async("no longer saturated")
+                            saturated_coils[j] = False
+                    except ValueError:
+                        if not saturated_coils[j]:
+                            self.print_async("warning: voltage saturated for", self.coil_names[j])
+                            saturated_coils[j] = True
+                        sign = control_volts[j] / (control_volts[j] ** 2) ** (1 / 2)
+                        self.zotino0.write_dac(self.coil_channels[j], sign * 9.9)
+                    self.zotino0.load()
 
-            ############################
-            # take the first shot
-            ############################
-            self.dds_cooling_DP.sw.on()
-            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
-            counts = self.ttl0.count(t_gate_end)
-            delay(1 * ms)
-            self.dds_cooling_DP.sw.off()
+            else:
+                if self.enable_laser_feedback:
+                    if (i % self.AOM_feedback_period_cycles) == 0:
+                        print("running feedback")
+                        self.core.break_realtime()
+                        self.laser_stabilizer.run()
+                        delay(1 * ms)
+                        self.dds_FORT.sw.on()
+                else:
+                    delay(1 * ms)
+                # wait for the MOT to load
+                delay_mu(self.t_MOT_loading_mu)
 
-            # delay to mimic a plausible real experiment
-            delay(10 * ms)
+                # turn on the dipole trap and wait to load atoms
+                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+                delay_mu(self.t_FORT_loading_mu)
 
-            # effectively turn the FORT AOM off
-            self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
-            # set the cooling DP AOM to the MOT settings
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+                # turn off the coils
+                self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
 
-            delay(2 * ms)
+                delay(3 * ms)  # should wait for the MOT to dissipate
 
-            # update the datasets
-            self.append_to_dataset('photocounts', counts)
+                # set the cooling DP AOM to the readout settings
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
 
-            delay(1*ms)
+                ############################
+                # take the first shot
+                ############################
+                self.dds_cooling_DP.sw.on()
+                t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+                counts = self.ttl0.count(t_gate_end)
+                delay(1 * ms)
+                self.dds_cooling_DP.sw.off()
 
-            for j in range(4):
-                try:
-                    self.zotino0.write_dac(self.coil_channels[j], control_volts[j])
-                    if saturated_coils[j]: # shouldn't get here unless we're no longer saturated
-                        self.print_async("no longer saturated")
-                        saturated_coils[j] = False
-                except ValueError:
-                    if not saturated_coils[j]:
-                        self.print_async("warning: voltage saturated for", self.coil_names[j])
-                        saturated_coils[j] = True
-                    sign = control_volts[j]/(control_volts[j]**2)**(1/2)
-                    self.zotino0.write_dac(self.coil_channels[j], sign*9.9)
-                self.zotino0.load()
+                # delay to mimic a plausible real experiment
+                delay(10 * ms)
+
+                # effectively turn the FORT AOM off
+                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                # set the cooling DP AOM to the MOT settings
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+
+                delay(2 * ms)
+
+                # update the datasets
+                self.append_to_dataset('photocounts_per_s', counts/self.t_SPCM_first_shot)
+
+                delay(1*ms)
+
+                for j in range(4):
+                    try:
+                        self.zotino0.write_dac(self.coil_channels[j], control_volts[j])
+                        if saturated_coils[j]: # shouldn't get here unless we're no longer saturated
+                            self.print_async("no longer saturated")
+                            saturated_coils[j] = False
+                    except ValueError:
+                        if not saturated_coils[j]:
+                            self.print_async("warning: voltage saturated for", self.coil_names[j])
+                            saturated_coils[j] = True
+                        sign = control_volts[j]/(control_volts[j]**2)**(1/2)
+                        self.zotino0.write_dac(self.coil_channels[j], sign*9.9)
+                    self.zotino0.load()
 
         if not self.leave_coils_on_at_finish:
             for ch in self.coil_channels:
