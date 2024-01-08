@@ -44,7 +44,7 @@ class MOTMonitorEverything(EnvExperiment):
 
         self.t_SPCM_exposure = self.dt_SPCM_exposure
 
-        self.count_rate_dataset = 'SPCM_counts_per_s'
+        self.count_rate_dataset = 'photocounts_per_s'
         self.set_dataset(self.count_rate_dataset,
                          [0.0],
                          broadcast=True)

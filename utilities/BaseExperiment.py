@@ -135,7 +135,7 @@ class BaseExperiment:
         #                                     for channel in range(16)]
 
         # dataset names
-        self.experiment.count_rate_dataset = 'SPCM_counts_per_s'
+        self.experiment.count_rate_dataset = 'photocounts_per_s'
 
         # functions
 
