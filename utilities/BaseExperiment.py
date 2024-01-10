@@ -46,6 +46,7 @@ sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\')
 from subroutines.aom_feedback import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
+from utilities.write_h5 import write_results
 
 def dB_to_V(dB: float) -> float:
     """
@@ -145,6 +146,7 @@ class BaseExperiment:
             useful for debugging"""
             print(*x)
         self.experiment.print_async = print_async
+        self.experiment.write_results = lambda: write_results(experiment=self.experiment)
 
         # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
         # before any GUI arguments are defined, then this can be used to grab those later by taking a difference
