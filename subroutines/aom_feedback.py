@@ -368,7 +368,7 @@ class AOMPowerStabilizer:
     def write_dds_settings(self):
         for ch in self.all_channels:
             dB = 10*(np.log10(ch.amplitude**2/(2*50)) + 3)
-            self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True)
+            self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True, persist=True)
 
     @kernel
     def measure(self):
