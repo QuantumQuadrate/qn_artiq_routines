@@ -38,7 +38,7 @@ class MyExp(EnvExperiment):
 ----
 """
 from artiq.experiment import *
-
+import logging
 import sys, os
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\')
@@ -151,7 +151,7 @@ class BaseExperiment:
         # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
         # before any GUI arguments are defined, then this can be used to grab those later by taking a difference
         self.exp_var_names = dir(self.experiment)
-        print("base build - done")
+        logging.debug("base build - done")
 
 
     def set_datasets_from_gui_args(self):
@@ -215,7 +215,7 @@ class BaseExperiment:
                                                     averages=self.experiment.aom_feedback_averages,
                                                     leave_MOT_AOMs_on=True)
 
-        print("base prepare - done")
+        logging.debug("base prepare - done")
 
     @kernel
     def initialize_hardware(self):
