@@ -25,22 +25,34 @@ class MultipleKernelCalls(EnvExperiment):
         self.core.reset()
         self.led0.pulse(10 * us)
 
+    def do_some_math(self, x: TFloat) -> TFloat:
+        return 2*x
+
     def caller(self, func):
         res = func()
         print(res)
 
+    # # multiple kernel functions called within run
+    # def run(self):
+    #     # self.setup()
+    #     res = self.my_function()
+    #     res = self.my_function()
+    #     self.my_function2()
+    #
+    #     print(res)
+    #     print("experiment finished")
+    #
+    # # similar to previous example but use a wrapper function for the kernels
+    # def run(self):
+    #     for i in range(10):
+    #         self.caller(self.my_function)
+    #
+    #     print("experiment finished")
+
+    # we can call functions which do not have kernel flags from inside the kernel so long
+    # as the contents can be run on the kernel
+    @kernel
     def run(self):
-        # self.setup()
-        res = self.my_function()
-        res = self.my_function()
-        self.my_function2()
-
-        print(res)
-        print("experiment finished")
-
-    # similar to previous example but use a wrapper function for the kernels
-    def run(self):
-        for i in range(10):
-            self.caller(self.my_function)
-
-        print("experiment finished")
+        x = 2.0
+        y = 0.0
+        y = self.do_some_math(x)
