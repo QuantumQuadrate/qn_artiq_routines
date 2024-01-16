@@ -34,14 +34,17 @@ class AtomLoadingOptimizer(EnvExperiment):
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("atom_counts_threshold", NumberValue(180))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
-        self.setattr_argument("n_measurements", NumberValue(100, type='int', scale=1, ndecimals=0, step=1)) # may be necessary to up this if loading rate < 1%
+        self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1)) # may be necessary to up this if loading rate < 1%
         group = "coil volts boundaries"
-        self.setattr_argument("V_AZ_min", NumberValue(3.8,unit="V"), group)
-        self.setattr_argument("V_AZ_max", NumberValue(4.5,unit="V"), group)
-        self.setattr_argument("V_AX_min", NumberValue(-0.2,unit="V"), group)
-        self.setattr_argument("V_AX_max", NumberValue(0.2,unit="V"), group)
-        self.setattr_argument("V_AY_min", NumberValue(-0.2, unit="V"), group)
-        self.setattr_argument("V_AY_max", NumberValue(0.2, unit="V"), group)
+        self.setattr_argument("V_AZ_min", NumberValue(3.5,unit="V"), group)
+        self.setattr_argument("V_AZ_max", NumberValue(4.8,unit="V"), group)
+        self.setattr_argument("V_AX_min", NumberValue(-0.5,unit="V"), group)
+        self.setattr_argument("V_AX_max", NumberValue(0.5,unit="V"), group)
+        self.setattr_argument("V_AY_min", NumberValue(-0.5, unit="V"), group)
+        self.setattr_argument("V_AY_max", NumberValue(0.5, unit="V"), group)
+        group1 = "optimizer settings"
+        self.setattr_argument("scipy_minimize_args",StringValue("{'method':'Nelder-Mead'}"),group1)
+        self.setattr_argument("scipy_minimize_options",StringValue("{'maxiter':10}"),group1)
 
         # this should be close to the mean signal from the atom
         self.base.set_datasets_from_gui_args()
@@ -51,6 +54,8 @@ class AtomLoadingOptimizer(EnvExperiment):
         self.base.prepare()
 
         self.sampler_buffer = np.zeros(8)
+        self.minimize_args = eval(self.scipy_minimize_args)
+        self.minimize_options = eval(self.scipy_minimize_options)
 
         self.coil_volts_default = [self.AZ_bottom_volts_MOT,
                                    self.AZ_top_volts_MOT,
@@ -82,10 +87,11 @@ class AtomLoadingOptimizer(EnvExperiment):
         result = sp.optimize.minimize(fun=self.optimization_routine,
                                       x0=self.coil_volts_default,
                                       bounds=self.coil_volts_boundaries,
-                                      method='Nelder-Mead',
-                                      options={'xatol':0.003*V # don't try to tune the coils finer than this
-                                               } # tolerance in the cost function
-                                      )
+                                      **self.minimize_args,
+                                      options=self.minimize_options)
+                                      # options={'xatol':0.003*V, # don't try to tune the coils finer than this
+                                      #          'maxiter'} # tolerance in the cost function
+                                      # )
         print("optimization successful?",result.success)
         print("best coil values (AZ_bottom,AZ_top,AX,AY):",result.x)
 
@@ -121,20 +127,29 @@ class AtomLoadingOptimizer(EnvExperiment):
         delay(1*s)
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
+        """return -1*(number of atoms loaded)**2"""
 
-        atom_events = 0
-        for x in data:
-            if x > self.atom_counts_threshold:
-                atom_events += 1
+        q = 0 # whether the counts exceeded the atom threshold
+        atoms_loaded = 0
+        q_last = (data[0] > self.atom_counts_threshold)
+        for x in data[1:]:
+            q = x > self.atom_counts_threshold
+            if q != q_last and q_last:
+                atoms_loaded += 1
+                self.print_async("optimizer found the single atom signal!")
+            q_last = q
+        return -1 if 0 < atoms_loaded < 10 else -1*atoms_loaded
 
-        if atom_events > 0:
-            self.print_async("optimizer found the single atom signal!")
-
-        return -1*atom_events
 
     @kernel
     def optimization_routine(self, coil_values: TArray(TFloat)) -> TInt32:
+        """
+        the function that will be passed to the optimizer
 
+        coil_values: array of coil control volt values
+        return:
+            cost: the cost for the optimizer
+        """
         self.core.reset()
         delay(1*ms)
 
@@ -151,7 +166,7 @@ class AtomLoadingOptimizer(EnvExperiment):
             t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
             counts_per_s = self.ttl0.count(t_end)/self.t_SPCM_exposure
             delay(1 * ms)
-            self.append_to_dataset(self.count_rate_dataset, counts_per_s)
+            # self.append_to_dataset(self.count_rate_dataset, counts_per_s)
             self.counts_list[i] = counts_per_s*self.t_SPCM_exposure
 
         cost = self.get_cost(self.counts_list)
