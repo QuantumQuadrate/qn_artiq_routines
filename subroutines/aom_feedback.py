@@ -247,11 +247,6 @@ class FeedbackChannel:
 
 class AOMPowerStabilizer:
 
-    # this avoids an underflow error in the run method, because the compiler knows it doesn't need to
-    # compute the result of the if statement in every iteration of the feedback loop (because the
-    # result doesn't change over the life of the kernel)
-    kernel_invariants = {"Luca_trigger_for_feedback_verification"}
-
     def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_MOT_AOMs_on=False,
                  update_dds_settings=True, dry_run=False, open_loop_monitor_names=[]):
         """
