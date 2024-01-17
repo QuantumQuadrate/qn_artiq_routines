@@ -1,17 +1,5 @@
 """
-Simple-minded code for moving the MOT to optimize the atom loading rate.
-
-issues with the current method to be addressed:
-- there should be some sort of multidimensional scan, rather than a series of 1D scans
-- it might be desirable to fine tune the coil values using an optimization algorithm within the 4-dimensional
-  volume defined by the boundaries found with the 1D scans, as parking each coil in the middle of the range
-   is unlikely to correspond the global optimum.
-
-better approach:
-- loop over coil values to find atom signal, but order the scan arrays to alternate direction
- (i.e. [-2,-1,0,1,2] would be ordered [0,-1,1,-2,2])
-- once the signal has been found, 
-
+Atom loading optimization which positions the MOT using scipy.minimize to maximize the number of loaded atoms
 """
 
 from artiq.experiment import *
@@ -127,8 +115,6 @@ class AtomLoadingOptimizer(EnvExperiment):
         delay(1*s)
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
-        """return -1*(number of atoms loaded)**2"""
-
         q = 0 # whether the counts exceeded the atom threshold
         atoms_loaded = 0
         q_last = (data[0] > self.atom_counts_threshold)
@@ -138,8 +124,8 @@ class AtomLoadingOptimizer(EnvExperiment):
                 atoms_loaded += 1
                 self.print_async("optimizer found the single atom signal!")
             q_last = q
-        return -1 if 0 < atoms_loaded < 10 else -1*atoms_loaded
-
+        # return -1 if 0 < atoms_loaded < 10 else -1*atoms_loaded # threshold should depend on number of measurements
+        return -1 * atoms_loaded
 
     @kernel
     def optimization_routine(self, coil_values: TArray(TFloat)) -> TInt32:
@@ -161,6 +147,9 @@ class AtomLoadingOptimizer(EnvExperiment):
         self.dds_FORT.sw.on()
 
         delay(self.t_MOT_loading)
+
+        # reset the counts dataset each run so we don't overwhelm the dashboard when plotting
+        self.set_dataset(self.count_rate_dataset,[0.0],broadcast=True)
 
         for i in range(self.n_measurements):
             t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
