@@ -63,8 +63,16 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("atom_counts_threshold", NumberValue(220))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
-        self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1)) # may be necessary to up this if loading rate < 1%
-        group = "coil volts boundaries"
+        self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1))
+        self.setattr_argument("set_best_coil_volts_at_finish", BooleanValue(True))
+
+        group = "differential coil volts boundaries"
+        self.setattr_argument("use_differential_boundaries",BooleanValue(True),group)
+        self.setattr_argument("dV_AZ_bottom", NumberValue(0.05, unit="V"), group)
+        self.setattr_argument("dV_AZ_top", NumberValue(0.05, unit="V"), group)
+        self.setattr_argument("dV_AX", NumberValue(0.05, unit="V"), group)
+        self.setattr_argument("dV_AY", NumberValue(0.05, unit="V"), group)
+        group = "absolute coil volts boundaries"
         self.setattr_argument("V_AZ_bottom_min", NumberValue(3.5,unit="V"), group)
         self.setattr_argument("V_AZ_bottom_max", NumberValue(4.8,unit="V"), group)
         self.setattr_argument("V_AZ_top_min", NumberValue(4.8,unit="V"), group)
@@ -73,6 +81,8 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         self.setattr_argument("V_AX_max", NumberValue(0.5,unit="V"), group)
         self.setattr_argument("V_AY_min", NumberValue(-0.5, unit="V"), group)
         self.setattr_argument("V_AY_max", NumberValue(0.5, unit="V"), group)
+
+        # todo: include these so we can send keyword args to the mloop interface
         # group1 = "optimizer settings"
         # self.setattr_argument("scipy_minimize_args",StringValue("{'method':'Nelder-Mead'}"),group1)
         # self.setattr_argument("scipy_minimize_options",StringValue("{'maxiter':10}"),group1)
@@ -88,12 +98,18 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         # self.minimize_args = eval(self.scipy_minimize_args)
         # self.minimize_options = eval(self.scipy_minimize_options)
 
-        self.coil_volts_default = [self.AZ_bottom_volts_MOT,
-                                   self.AZ_top_volts_MOT,
-                                   self.AX_volts_MOT,
-                                   self.AY_volts_MOT]
+        # whether to use boundaries which are defined as +/- dV around the current settings
+        if self.use_differential_boundaries:
+            # override the absolute boundaries
+            self.V_AZ_bottom_min = self.AZ_bottom_volts_MOT - self.dV_AZ_bottom
+            self.V_AZ_top_min = self.AZ_top_volts_MOT - self.dV_AZ_top
+            self.V_AX_min = self.AX_volts_MOT - self.dV_AX
+            self.V_AY_min = self.AY_volts_MOT - self.dV_AY
 
-        # todo: assert that the coil_volts_defaults are within the boundaries
+            self.V_AZ_bottom_max = self.AZ_bottom_volts_MOT + self.dV_AZ_bottom
+            self.V_AZ_top_max = self.AZ_top_volts_MOT + self.dV_AZ_top
+            self.V_AX_max = self.AX_volts_MOT + self.dV_AX
+            self.V_AY_max = self.AY_volts_MOT + self.dV_AY
 
         self.counts_list = np.zeros(self.n_measurements)
         self.set_dataset(self.count_rate_dataset,
@@ -105,6 +121,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                          [0.0],
                          broadcast=True)
 
+        # instantiate the MLOOP interface
         interface = MLOOPInterface()
         interface.get_next_cost_dict = self.get_next_cost_dict_for_mloop
 
@@ -113,8 +130,14 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                                            max_num_runs=100,
                                            target_cost=-0.5*self.n_measurements, # number of atoms to load
                                            num_params=4,
-                                           min_boundary=[self.V_AZ_bottom_min,self.V_AZ_top_min,self.V_AX_min,self.V_AY_min],
-                                           max_boundary=[self.V_AZ_bottom_max,self.V_AZ_top_max,self.V_AX_max,self.V_AY_max])
+                                           min_boundary=[self.V_AZ_bottom_min,
+                                                         self.V_AZ_top_min,
+                                                         self.V_AX_min,
+                                                         self.V_AY_min],
+                                           max_boundary=[self.V_AZ_bottom_max,
+                                                         self.V_AZ_top_max,
+                                                         self.V_AX_max,
+                                                         self.V_AY_max])
 
     def run(self):
         self.initialize_hardware()
@@ -124,6 +147,13 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         print('Best parameters found:')
         print(self.mloop_controller.best_params)
+        best_volts = self.mloop_controller.best_params
+
+        volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
+        if self.set_best_coil_volts_at_finish:
+            print("updating coil values")
+            for i in range(4):
+                self.set_dataset(volt_datasets[i], best_volts[i], broadcast=True, persist=True)
 
     @kernel
     def initialize_hardware(self):
@@ -172,7 +202,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
     @kernel
     def optimization_routine(self, coil_values: TArray(TFloat)) -> TInt32:
         """
-        the function that will be passed to the optimizer
+        the function that will be called by the optimizer.
+
+        for use with M-LOOP, this should be called in the interface's "get_next_cost_dict"
+        method.
 
         coil_values: array of coil control volt values
         return:
@@ -211,7 +244,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         params = params_dict['params']
 
         cost = self.optimization_routine(params)
-        uncertainty = 1/np.sqrt(-1*cost) if cost > 0 else 0
+        uncertainty = 1/np.sqrt(-1*cost) if cost < 0 else 0
 
         cost_dict = {'cost': cost, 'uncer': uncertainty}
         return cost_dict
