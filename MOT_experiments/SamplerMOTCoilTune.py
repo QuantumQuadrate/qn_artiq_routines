@@ -72,7 +72,7 @@ class SamplerMOTCoilTune(EnvExperiment):
 
         self.maxcount_dataset = 'SPCM_max_counts_and_volts'
         self.set_dataset(self.count_rate_dataset,
-                         [0.0, *self.default_volts],
+                         [0.0],
                          broadcast=True)
         print("prepare - done")
 
