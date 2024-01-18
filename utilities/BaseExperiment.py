@@ -171,14 +171,6 @@ class BaseExperiment:
         :return:
         """
 
-        # todo: because we only run feedback strictly <= once per experiment sequence,
-        #  different amplitude settings could be expressed as fractions of the amplitudes we feed back to.
-        #  e.g., the PGC amplitude for the cooling laser should be a fraction, say, 0.9, that we multiply the
-        #  MOT power by. if we want these amplitudes to be able to be tuned completely independently, then we
-        #  need to feedback to them individually, but the thermal equilibrium of the AOM is likely to be different
-        #  for each setting, so tuning up e.g. the cooling amplitude, may be completely "undone" by subsequently
-        #  finding the right amplitude for the PGC.
-
         # convert times to machine units
         seconds_to_mu = self.experiment.core.seconds_to_mu
         self.experiment.t_MOT_loading_mu = seconds_to_mu(self.experiment.t_MOT_loading)
