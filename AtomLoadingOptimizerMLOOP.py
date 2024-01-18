@@ -65,8 +65,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
         self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1)) # may be necessary to up this if loading rate < 1%
         group = "coil volts boundaries"
-        self.setattr_argument("V_AZ_min", NumberValue(3.5,unit="V"), group)
-        self.setattr_argument("V_AZ_max", NumberValue(4.8,unit="V"), group)
+        self.setattr_argument("V_AZ_bottom_min", NumberValue(3.5,unit="V"), group)
+        self.setattr_argument("V_AZ_bottom_max", NumberValue(4.8,unit="V"), group)
+        self.setattr_argument("V_AZ_top_min", NumberValue(4.8,unit="V"), group)
+        self.setattr_argument("V_AZ_top_max", NumberValue(4.8,unit="V"), group)
         self.setattr_argument("V_AX_min", NumberValue(-0.5,unit="V"), group)
         self.setattr_argument("V_AX_max", NumberValue(0.5,unit="V"), group)
         self.setattr_argument("V_AY_min", NumberValue(-0.5, unit="V"), group)
@@ -91,11 +93,6 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                                    self.AX_volts_MOT,
                                    self.AY_volts_MOT]
 
-        self.coil_volts_boundaries = [[self.V_AZ_min,self.V_AZ_max],
-                                      [self.V_AZ_min, self.V_AZ_max],
-                                      [self.V_AX_min,self.V_AX_max],
-                                      [self.V_AY_min,self.V_AY_max]]
-
         # todo: assert that the coil_volts_defaults are within the boundaries
 
         self.counts_list = np.zeros(self.n_measurements)
@@ -114,10 +111,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         # Next create the controller. Provide it with your interface and any options you want to set
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=100,
-                                           target_cost=-0.2*self.n_measurements, # number of atoms to load
+                                           target_cost=-0.5*self.n_measurements, # number of atoms to load
                                            num_params=4,
-                                           min_boundary=[self.V_AZ_min,self.V_AZ_min,self.V_AX_min,self.V_AY_min],
-                                           max_boundary=[self.V_AZ_max,self.V_AZ_max,self.V_AX_max,self.V_AY_max])
+                                           min_boundary=[self.V_AZ_bottom_min,self.V_AZ_top_min,self.V_AX_min,self.V_AY_min],
+                                           max_boundary=[self.V_AZ_bottom_max,self.V_AZ_top_max,self.V_AX_max,self.V_AY_max])
 
     def run(self):
         self.initialize_hardware()
@@ -126,7 +123,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         self.mloop_controller.optimize()
 
         print('Best parameters found:')
-        print(controller.best_params)
+        print(self.mloop_controller.best_params)
 
     @kernel
     def initialize_hardware(self):
@@ -200,7 +197,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
             counts_per_s = self.ttl0.count(t_end)/self.t_SPCM_exposure
             delay(1 * ms)
-            # self.append_to_dataset(self.count_rate_dataset, counts_per_s)
+            self.append_to_dataset(self.count_rate_dataset, counts_per_s)
             self.counts_list[i] = counts_per_s*self.t_SPCM_exposure
 
         cost = self.get_cost(self.counts_list)
@@ -213,19 +210,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         # Get parameters from the provided dictionary
         params = params_dict['params']
 
-        # Here you can include the code to run your experiment given a particular set of parameters
-        # In this example we will just evaluate a sum of sinc functions
         cost = self.optimization_routine(params)
-        # There is no uncertainty in our result
-        uncertainty = np.sqrt(-1*cost)
-        # # The evaluation will always be a success
-        # bad = False
-        # # Add a small time delay to mimic a real experiment
-        # time.sleep(1)
+        uncertainty = 1/np.sqrt(-1*cost) if cost > 0 else 0
 
-        # The cost, uncertainty and bad boolean must all be returned as a dictionary
-        # You can include other variables you want to record as well if you want
-        cost_dict = {'cost': cost, 'uncertainty': uncertainty} #, 'bad': bad}
+        cost_dict = {'cost': cost, 'uncer': uncertainty}
         return cost_dict
 
 
