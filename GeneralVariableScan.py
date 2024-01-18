@@ -14,6 +14,7 @@ from utilities.BaseExperiment import BaseExperiment
 
 # this is where your experiment function should live
 from subroutines.experiment_functions import *
+import subroutines.experiment_functions as exp_functions
 
 class GeneralVariableScan(EnvExperiment):
 
@@ -38,8 +39,14 @@ class GeneralVariableScan(EnvExperiment):
         self.setattr_argument("scan_sequence2", StringValue(
             'np.linspace(-2,2,5)*V'))
 
+        experiment_function_names_list = [x for x in dir(exp_functions)
+            if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"
+                and 'experiment' in x)]
+
         # a function that take no arguments that gets imported and run
-        self.setattr_argument('experiment_function', StringValue('test'))
+        # self.setattr_argument('experiment_function', StringValue('test'))
+        self.setattr_argument('experiment_function',
+                              EnumerationValue(experiment_function_names_list))
 
         # toggles an interleaved control experiment, but what this means or whether
         # it has an effect depends on experiment_function
@@ -138,6 +145,8 @@ class GeneralVariableScan(EnvExperiment):
                 self.experiment_function()
 
                 iteration += 1
+
+        self.write_results()  # write the h5 file here in case worker refuses to die
 
 
 
