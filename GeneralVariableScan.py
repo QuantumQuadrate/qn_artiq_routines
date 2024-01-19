@@ -103,7 +103,6 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("iteration", 0, broadcast=True)
 
     def reset_datasets(self):
         """
@@ -131,13 +130,13 @@ class GeneralVariableScan(EnvExperiment):
 
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
+        self.set_dataset("iteration", iteration, broadcast=True)
+
         for variable1_value in self.scan_sequence1:
             # update the variable
             setattr(self, self.scan_variable1, variable1_value)
 
             for variable2_value in self.scan_sequence2:
-
-                self.set_dataset("iteration", iteration, broadcast=True)
 
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
@@ -149,6 +148,7 @@ class GeneralVariableScan(EnvExperiment):
                 self.experiment_function()
 
                 iteration += 1
+                self.set_dataset("iteration", iteration, broadcast=True)
 
         self.write_results({'name':self.experiment_name[:-11]})  # write the h5 file here in case worker refuses to die
 
