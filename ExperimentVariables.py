@@ -179,6 +179,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_in_MOT", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_MOT_dissipation", 3 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_blowaway", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
@@ -190,6 +191,9 @@ class ExperimentVariables(EnvExperiment):
             Variable("do_PGC_in_MOT", False, BooleanValue, {}, "Booleans"),
             Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
+
+            # Thresholds and cut-offs
+            Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
             Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),

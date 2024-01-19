@@ -146,7 +146,12 @@ class BaseExperiment:
             useful for debugging"""
             print(*x)
         self.experiment.print_async = print_async
-        self.experiment.write_results = lambda: write_results(experiment=self.experiment)
+
+        def write_results_wrapper(kwargs=None):
+            return write_results(experiment=self.experiment, **kwargs)
+        self.experiment.write_results = write_results_wrapper
+
+        # self.experiment.write_results = lambda **kwargs: write_results(experiment=self.experiment, **kwargs)
 
         # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
         # before any GUI arguments are defined, then this can be used to grab those later by taking a difference

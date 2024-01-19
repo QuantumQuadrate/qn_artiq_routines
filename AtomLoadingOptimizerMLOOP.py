@@ -153,7 +153,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         if self.set_best_coil_volts_at_finish:
             print("updating coil values")
             for i in range(4):
-                self.set_dataset(volt_datasets[i], best_volts[i], broadcast=True, persist=True)
+                self.set_dataset(volt_datasets[i], float(best_volts[i]), broadcast=True, persist=True)
 
     @kernel
     def initialize_hardware(self):
