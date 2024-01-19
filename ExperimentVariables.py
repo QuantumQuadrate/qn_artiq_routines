@@ -50,6 +50,9 @@ class ExperimentVariables(EnvExperiment):
         # these datasets can be referenced by other experiments instead of declaring the variable locally in each
         # experiment.
         self.vars_list = [
+            # debugging
+            Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
+
             # FORT AOM
             Variable("f_FORT", 210.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
             Variable("p_FORT_loading", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
@@ -67,6 +70,8 @@ class ExperimentVariables(EnvExperiment):
 
             # Cooling double pass AOM
             Variable("f_cooling_DP_MOT", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Cooling double pass AOM"),
+            Variable("f_cooling_DP_MOT_phase2", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
             Variable("f_cooling_DP_RO", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
@@ -173,6 +178,7 @@ class ExperimentVariables(EnvExperiment):
 
             # Timing
             Variable("t_MOT_loading", 500*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_MOT_phase2", 500 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_loading", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
@@ -226,7 +232,6 @@ class ExperimentVariables(EnvExperiment):
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback")
 
-            # File saving # todo: move away from saving csv files and save instead to the experiment's hdf
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so

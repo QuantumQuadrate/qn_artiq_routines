@@ -11,39 +11,7 @@ arguments for having a wrapper class for each experiment
  - experiments often are set to end a certain way (e.g., leave the MOT on,
  but not the FORT), and the function that does this should be experiment specific
  - all of the usual OOP arguments
- 
 """
-
-# def SingleAtomExperiment(ABC):
-#     """
-#     A wrapper class for methods that are common to the single atom experiments we run.
-#
-#     Experiments below that are generally of the format "load a MOT, load a single atom
-#     do a readout, do something, do a second readout" should inherit from this class.
-#     :return:
-#     """
-#
-#     def initialize_datasets(self):
-#         pass
-#
-#     def load_MOT(self):
-#         pass
-#
-#     def load_FORT(self):
-#         pass
-#
-# def TestExperiment():
-#     """Test class"""
-#
-#     @staticmethod
-#     def initialize_datasets(self):
-#         self.set_dataset("test_dataset", [0])
-#
-#     @staticmethod
-#     def experiment_function(self):
-#         x = self.t_blowaway
-#         self.append_to_dataset('test_dataset', x)
-#         self.print_async(x)
 
 @kernel
 def load_MOT_and_FORT(self):
@@ -67,7 +35,12 @@ def load_MOT_and_FORT(self):
     self.dds_cooling_DP.sw.on()
 
     # wait for the MOT to load
-    delay_mu(self.t_MOT_loading_mu)
+    delay(self.t_MOT_loading - self.t_MOT_phase2)
+
+    if self.t_MOT_phase2 > 0:
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
+                                amplitude=self.ampl_cooling_DP_MOT) # todo: make a variable for phase 2
+        delay(self.t_MOT_phase2)
 
     # todo: try loading from a PGC phase
 
