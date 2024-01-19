@@ -37,7 +37,6 @@ class XYPlot(pyqtgraph.PlotWidget):
         counts_shot1 = data[self.args.counts_shot1][1][1:]
         counts_shot2 = data[self.args.counts_shot2][1][1:]
         measurements = data[self.args.measurements][1]
-        iteration = int(data[self.args.iteration][1])
 
         if (self.args.threshold_cts_per_s is not None and
                 self.args.t_exposure is not None):
@@ -46,6 +45,8 @@ class XYPlot(pyqtgraph.PlotWidget):
             cutoff = int(t_exposure*threshold_cts_per_s)
         else:
             cutoff = 220 # for testing purposes # todo: compute this
+
+        iteration = len(counts_shot1)//measurements
 
         retention_array = np.zeros(iteration)
         loading_rate_array = np.zeros(iteration)
