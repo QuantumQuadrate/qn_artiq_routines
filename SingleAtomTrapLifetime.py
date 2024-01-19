@@ -181,7 +181,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
 
                 delay(2*ms)
 
-                iteration += 1
+
 
                 # update the datasets
                 if not self.no_first_shot:
@@ -192,6 +192,8 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 self.append_to_dataset('photocounts2', counts2)
                 self.append_to_dataset('photocounts2_current_iteration', counts2)
                 self.set_dataset("iteration", iteration, broadcast=True)
+
+            iteration += 1
 
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT

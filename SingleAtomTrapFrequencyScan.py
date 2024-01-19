@@ -22,6 +22,7 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
+        # self.setattr_argument("require_loading", BooleanValue(True))
 
         # the voltage steps. the voltage controls the frequency of a Rigol DG1022Z
         rigol_group = "Rigol DG1022Z settings"
@@ -100,8 +101,8 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
 
         # todo: these are going to be regularly used, so put these in the base experiment
         self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("photocounts", [0])
-        self.set_dataset("photocounts2", [0])
+        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocounts2", [0], broadcast=True)
 
 
         # turn off AOMs we aren't using, in case they were on previously
@@ -225,8 +226,6 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
 
                 delay(2*ms)
 
-                iteration += 1
-
                 # update the datasets
                 self.append_to_dataset('photocounts', counts)
                 self.append_to_dataset('photocounts2', counts2)
@@ -234,8 +233,13 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                 self.append_to_dataset('photocounts2_current_iteration', counts2)
                 self.set_dataset("iteration", iteration, broadcast=True)
 
+        iteration += 1
+
         delay(1*ms)
         # leave MOT on at end of experiment, but turn off the FORT
         self.dds_cooling_DP.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+
+        # finally, in case the worker refuses to die
+        self.write_results()
