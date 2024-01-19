@@ -10,6 +10,7 @@ import numpy as np
 from datetime import datetime as dt
 
 from utilities.BaseExperiment import BaseExperiment
+from subroutines.experiment_functions import load_MOT_and_FORT
 
 
 class SingleAtomTrapFrequencyScan(EnvExperiment):
@@ -161,31 +162,11 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                     self.dds_FORT.sw.on()
                     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
 
-                self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
-
                 ############################
-                # load the MOT
+                # load the MOT and FORT
                 ############################
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                    channels=self.coil_channels)
-                # delay(2 * ms)
-                self.dds_cooling_DP.sw.on()
 
-                # wait for the MOT to load
-                delay_mu(self.t_MOT_loading_mu)
-
-                # turn on the dipole trap and wait to load atoms
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-                delay_mu(self.t_FORT_loading_mu)
-
-                # turn off the coils
-                self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
-
-                delay(3*ms) # should wait for the MOT to dissipate
-
-                # set the cooling DP AOM to the readout settings
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+                load_MOT_and_FORT(self)
 
                 ############################
                 # take the first shot
