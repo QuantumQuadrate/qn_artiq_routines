@@ -83,7 +83,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         self.setattr_argument("V_AY_max", NumberValue(0.5, unit="V"), group)
 
         group1 = "optimizer settings"
-        # self.setattr_argument("max_runs",NumberValue(70, type='int', scale=1, ndecimals=0, step=1),group1)
+        self.setattr_argument("max_runs",NumberValue(70, type='int', scale=1, ndecimals=0, step=1),group1)
 
         # this should be close to the mean signal from the atom
         self.base.set_datasets_from_gui_args()
@@ -125,7 +125,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         # Next create the controller. Provide it with your interface and any options you want to set
         self.mloop_controller = mlc.create_controller(interface,
-                                           max_num_runs=100#,self.max_runs,
+                                           max_num_runs=self.max_runs,
                                            target_cost=-0.5*self.n_measurements, # number of atoms to load
                                            num_params=4,
                                            min_boundary=[self.V_AZ_bottom_min,

@@ -206,11 +206,34 @@ class BaseExperiment:
 
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
 
+
+        # fast_feedback_dds_channels = ['dds_FORT']
+        # fast_feedback_dds_list = []
+        # slow_feedback_dds_list = []
+        # for dds_name in self.experiment.feedback_dds_list:
+        #     if dds_name in fast_feedback_dds_channels:
+        #         fast_feedback_dds_list.append(dds_name)
+        #     else:
+        #         slow_feedback_dds_list.append(dds_name)
+
+        slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
+        fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
+
         self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
-                                                    dds_names=dds_feedback_list,
-                                                    iterations=self.experiment.aom_feedback_iterations,
-                                                    averages=self.experiment.aom_feedback_averages,
-                                                    leave_MOT_AOMs_on=True)
+                                                              dds_names=slow_feedback_dds_list,
+                                                              iterations=self.experiment.aom_feedback_iterations,
+                                                              averages=self.experiment.aom_feedback_averages,
+                                                              leave_AOMs_on=True)
+
+        # feedback channels which are fast enough to include both every atom loading attempt.
+        # this excludes the on-chip MOT beams because the fW detectors have slow rise time.
+        # The external MOT beams and cooling laser could technically be in this list, but
+        # why change what isn't broken.
+        self.experiment.fast_laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+                                                              dds_names=fast_feedback_dds_list,
+                                                              iterations=self.experiment.aom_feedback_iterations,
+                                                              averages=self.experiment.aom_feedback_averages,
+                                                              leave_AOMs_on=True)
 
         if hasattr(self.experiment, 'n_measurements'):
             self.experiment.set_dataset("n_measurements",self.experiment.n_measurements,broadcast=True)

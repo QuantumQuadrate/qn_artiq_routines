@@ -42,7 +42,7 @@ class CheckMOTBalance(EnvExperiment):
 
         self.detector_channel = 7
 
-        self.laser_stabilizer.leave_MOT_AOMs_on = False
+        self.laser_stabilizer.leave_AOMs_on = False
 
         self.mot_beam_voltages = np.zeros(4) # store an average for each of the chip beams
 

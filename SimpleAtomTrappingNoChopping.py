@@ -37,7 +37,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
-        self.setattr_argument("print_measurement_number", BooleanValue(True))
+        self.setattr_argument("print_measurement_number", BooleanValue(False))
         self.setattr_argument("dt_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("iteration_delay", NumberValue(0 * s, unit='s'))
         self.setattr_argument("drop_MOT", BooleanValue(False))
@@ -102,7 +102,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         for measurement in range(self.n_measurements):
 
             if self.enable_laser_feedback:
-                if measurement % 20 == 0:
+                if measurement % 10 == 0:
                     self.laser_stabilizer.run()
                     delay(1 * ms)
                 self.dds_FORT.sw.on()
@@ -187,7 +187,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             # self.dds_AOM_A4.sw.off()
             # self.dds_AOM_A5.sw.off()
             # self.dds_FORT.sw.off()  # FORT AOM off
-            self.dds_FORT.set(frequency=self.f_FORT-30*MHz, amplitude=self.ampl_FORT_loading)
+
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
             self.append_to_dataset('photocounts_per_s', counts/self.t_SPCM_exposure)
@@ -209,3 +209,4 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.dds_AOM_A5.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)

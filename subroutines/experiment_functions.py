@@ -13,6 +13,12 @@ arguments for having a wrapper class for each experiment
  - all of the usual OOP arguments
 """
 
+###############################################################################
+# SUBROUTINE FUNCTIONS
+# These are functions
+###############################################################################
+
+
 @kernel
 def load_MOT_and_FORT(self):
     """
@@ -59,6 +65,15 @@ def load_MOT_and_FORT(self):
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
 @kernel
+def test_experiment(self):
+    """
+    self is the experiment instance to which ExperimentVariables are bound
+    """
+    x = self.t_blowaway
+    self.append_to_dataset('test_dataset', x)
+    self.print_async(x)
+
+@kernel
 def atom_loading_experiment(self):
     """
     :param self: an experiment instance.
@@ -75,6 +90,9 @@ def atom_loading_experiment(self):
         if self.enable_laser_feedback:
             if measurement % 10 == 0:
                 self.laser_stabilizer.run()
+            self.fast_laser_stabilizer.run() # this controls the FORT AOM
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+
 
         load_MOT_and_FORT(self)
 
@@ -115,18 +133,6 @@ def atom_loading_experiment(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
 
 @kernel
-def test_experiment(self):
-    """
-    self is the experiment instance to which ExperimentVariables are bound
-    """
-    x = self.t_blowaway
-    self.append_to_dataset('test_dataset', x)
-    self.print_async(x)
-
-# @kernel(self):
-# def load_atoms(self):
-
-@kernel
 def optical_pumping_experiment(self):
     """
     self is the experiment instance to which ExperimentVariables are bound
@@ -147,43 +153,14 @@ def optical_pumping_experiment(self):
         if self.enable_laser_feedback:
             if measurement % 10 == 0:
                 self.laser_stabilizer.run()
-                delay(1 * ms)
-            self.dds_FORT.sw.on()
+            self.fast_laser_stabilizer.run()  # this controls the FORT AOM
             self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
 
-        self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
-
         ############################
-        # load the MOT
+        # load the MOT and FORT
         ############################
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-            channels=self.coil_channels)
-        self.dds_cooling_DP.sw.on()
 
-        # wait for the MOT to load
-        delay_mu(self.t_MOT_loading_mu)
-
-        # load atom from a PGC phase
-        if self.do_PGC_in_MOT:
-            self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
-            delay(self.t_PGC_in_MOT)
-
-        # turn on the dipole trap and wait to load atoms
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-        delay_mu(self.t_FORT_loading_mu)
-
-        # turn off the coils
-        if not self.do_PGC_in_MOT:
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-                channels=self.coil_channels)
-
-        delay(3 * ms)  # should wait for the MOT to dissipate
-
-        # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+        load_MOT_and_FORT(self)
 
         ############################
         # take the first shot
