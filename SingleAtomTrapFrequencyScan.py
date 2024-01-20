@@ -200,8 +200,6 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                 delay(1*ms)
                 self.dds_cooling_DP.sw.off()
 
-                # effectively turn the FORT AOM off
-                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
                 # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
@@ -214,13 +212,16 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                 self.append_to_dataset('photocounts2_current_iteration', counts2)
                 self.set_dataset("iteration", iteration, broadcast=True)
 
-        iteration += 1
+            iteration += 1
 
         delay(1*ms)
-        # leave MOT on at end of experiment, but turn off the FORT
+        # leave MOT on at end of experiment
         self.dds_cooling_DP.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+
+        # effectively turn the FORT AOM off
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
 
         # finally, in case the worker refuses to die
         self.write_results()

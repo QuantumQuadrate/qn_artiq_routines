@@ -146,10 +146,6 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 if not self.MOT_AOMs_always_on:
                     self.dds_cooling_DP.sw.off()
 
-                # todo: check the FORT extinction ratio here
-                # effectively turn the FORT AOM off
-                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
-                # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
                 delay(2*ms)
@@ -173,3 +169,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
         self.dds_cooling_DP.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+
+        # effectively turn the FORT AOM off
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        # set the cooling DP AOM to the MOT settings
