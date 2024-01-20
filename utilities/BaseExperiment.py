@@ -147,8 +147,8 @@ class BaseExperiment:
             print(*x)
         self.experiment.print_async = print_async
 
-        def write_results_wrapper(kwargs=None):
-            return write_results(experiment=self.experiment, **kwargs)
+        def write_results_wrapper(kwargs={}):
+            write_results(experiment=self.experiment, **kwargs)
         self.experiment.write_results = write_results_wrapper
 
         # self.experiment.write_results = lambda **kwargs: write_results(experiment=self.experiment, **kwargs)
@@ -211,6 +211,9 @@ class BaseExperiment:
                                                     iterations=self.experiment.aom_feedback_iterations,
                                                     averages=self.experiment.aom_feedback_averages,
                                                     leave_MOT_AOMs_on=True)
+
+        if hasattr(self.experiment, 'n_measurements'):
+            self.experiment.set_dataset("n_measurements",self.experiment.n_measurements,broadcast=True)
 
         logging.debug("base prepare - done")
 
