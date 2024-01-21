@@ -1,5 +1,10 @@
 """
-Plot the signals from each PD measuring the laser beam powers
+Plot the signals representing the laser beam powers. units are determined by the datasets
+
+applet command:
+python "C:\...\qn_artiq_routines\applets\plot_MOT_powers.py"
+MOT1_monitor MOT2_monitor MOT3_monitor MOT4_monitor MOT5_monitor MOT6_monitor
+MOT_switchyard_monitor MOT_beam_monitor_points
 """
 
 import numpy as np

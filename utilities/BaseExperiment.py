@@ -38,7 +38,7 @@ class MyExp(EnvExperiment):
 ----
 """
 from artiq.experiment import *
-
+import logging
 import sys, os
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\')
@@ -46,6 +46,7 @@ sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\')
 from subroutines.aom_feedback import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
+from utilities.write_h5 import write_results
 
 def dB_to_V(dB: float) -> float:
     """
@@ -88,13 +89,16 @@ class BaseExperiment:
                             "sampler0",  # for measuring laser power PD
                             "sampler1", # for reading in volts in the coil tune experiment
                             "sampler2",
-                            *[f"ttl{i}" for i in range(8)]]
+                            *[f"ttl{i}" for i in range(16)]]
         for dev in devices_no_alias:
             # print(f"setting {dev}")
             self.experiment.setattr_device(dev)
 
         # devices can also be nicknamed here:
         self.experiment.ttl_microwave_switch = self.experiment.ttl4
+        self.experiment.ttl_microwave_switch = self.experiment.ttl4
+        self.experiment.ttl_repump_switch = self.experiment.ttl5
+        self.experiment.ttl_Luca_trigger = self.experiment.ttl6
 
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(
@@ -123,8 +127,16 @@ class BaseExperiment:
                                          self.experiment.AX_Zotino_channel,
                                          self.experiment.AY_Zotino_channel]
 
-        # datasets
-        self.experiment.count_rate_dataset = 'SPCM_counts_per_s'
+        # this is an attribute of of the experiment in case we want to access it elsewhere
+        self.experiment.all_dds_channels = [getattr(self.experiment,f'urukul{card}_ch{channel}')
+                                 for card in range(3) for channel in range(4)]
+
+        # todo: should limit this list to the channels which are outputs
+        # self.experiment.all_ttl_channels = [getattr(self.experiment, 'ttl{channel}')
+        #                                     for channel in range(16)]
+
+        # dataset names
+        self.experiment.count_rate_dataset = 'photocounts_per_s'
 
         # functions
 
@@ -135,10 +147,16 @@ class BaseExperiment:
             print(*x)
         self.experiment.print_async = print_async
 
+        def write_results_wrapper(kwargs={}):
+            write_results(experiment=self.experiment, **kwargs)
+        self.experiment.write_results = write_results_wrapper
+
+        # self.experiment.write_results = lambda **kwargs: write_results(experiment=self.experiment, **kwargs)
+
         # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
         # before any GUI arguments are defined, then this can be used to grab those later by taking a difference
         self.exp_var_names = dir(self.experiment)
-        print("base build - done")
+        logging.debug("base build - done")
 
 
     def set_datasets_from_gui_args(self):
@@ -147,7 +165,8 @@ class BaseExperiment:
             try:
                 self.experiment.set_dataset(name, getattr(self.experiment, name))
             except Exception as e:
-                print("ARTIQ complains about this when scanning repository HEAD but then gets over it...")
+                pass # this is terrible but ARTIQ prints out way too many of these
+                # print("ARTIQ complains about this when scanning repository HEAD but then gets over it...")
 
 
     def prepare(self):
@@ -157,14 +176,6 @@ class BaseExperiment:
         :return:
         """
 
-        # todo: because we only run feedback strictly <= once per experiment sequence,
-        #  different amplitude settings could be expressed as fractions of the amplitudes we feed back to.
-        #  e.g., the PGC amplitude for the cooling laser should be a fraction, say, 0.9, that we multiply the
-        #  MOT power by. if we want these amplitudes to be able to be tuned completely independently, then we
-        #  need to feedback to them individually, but the thermal equilibrium of the AOM is likely to be different
-        #  for each setting, so tuning up e.g. the cooling amplitude, may be completely "undone" by subsequently
-        #  finding the right amplitude for the PGC.
-
         # convert times to machine units
         seconds_to_mu = self.experiment.core.seconds_to_mu
         self.experiment.t_MOT_loading_mu = seconds_to_mu(self.experiment.t_MOT_loading)
@@ -173,19 +184,11 @@ class BaseExperiment:
 
         # converts RF power in dBm to amplitudes in V
         self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
-
         self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
         self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
         self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
-
-        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback
-        self.experiment.ampl_FORT_RO = self.experiment.p_FORT_loading * self.experiment.p_FORT_RO
-        self.experiment.ampl_FORT_PGC = self.experiment.p_FORT_loading * self.experiment.p_FORT_PGC
-        self.experiment.ampl_cooling_DP_RO = self.experiment.p_cooling_DP_MOT * self.experiment.p_cooling_DP_RO
-        self.experiment.ampl_cooling_DP_PGC =  self.experiment.p_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
-
         self.experiment.AOM_A1_ampl = dB_to_V(self.experiment.AOM_A1_power)
         self.experiment.AOM_A2_ampl = dB_to_V(self.experiment.AOM_A2_power)
         self.experiment.AOM_A3_ampl = dB_to_V(self.experiment.AOM_A3_power)
@@ -193,31 +196,81 @@ class BaseExperiment:
         self.experiment.AOM_A5_ampl = dB_to_V(self.experiment.AOM_A5_power)
         self.experiment.AOM_A6_ampl = dB_to_V(self.experiment.AOM_A6_power)
 
+        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback
+        self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
+        self.experiment.ampl_FORT_PGC = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_PGC
+        self.experiment.ampl_FORT_blowaway = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_blowaway
+        self.experiment.ampl_FORT_OP = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_OP
+        self.experiment.ampl_cooling_DP_RO = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_RO
+        self.experiment.ampl_cooling_DP_PGC = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
+
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
 
-        self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
-                                                    dds_names=dds_feedback_list,
-                                                    iterations=self.experiment.aom_feedback_iterations,
-                                                    averages=self.experiment.aom_feedback_averages,
-                                                    leave_MOT_AOMs_on=True)
 
-        print("base prepare - done")
+        # fast_feedback_dds_channels = ['dds_FORT']
+        # fast_feedback_dds_list = []
+        # slow_feedback_dds_list = []
+        # for dds_name in self.experiment.feedback_dds_list:
+        #     if dds_name in fast_feedback_dds_channels:
+        #         fast_feedback_dds_list.append(dds_name)
+        #     else:
+        #         slow_feedback_dds_list.append(dds_name)
+
+        slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
+        fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
+
+        self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+                                                              dds_names=slow_feedback_dds_list,
+                                                              iterations=self.experiment.aom_feedback_iterations,
+                                                              averages=self.experiment.aom_feedback_averages,
+                                                              leave_AOMs_on=True)
+
+        # feedback channels which are fast enough to include both every atom loading attempt.
+        # this excludes the on-chip MOT beams because the fW detectors have slow rise time.
+        # The external MOT beams and cooling laser could technically be in this list, but
+        # why change what isn't broken.
+        self.experiment.fast_laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+                                                              dds_names=fast_feedback_dds_list,
+                                                              iterations=self.experiment.aom_feedback_iterations,
+                                                              averages=self.experiment.aom_feedback_averages,
+                                                              leave_AOMs_on=True)
+
+        if hasattr(self.experiment, 'n_measurements'):
+            self.experiment.set_dataset("n_measurements",self.experiment.n_measurements,broadcast=True)
+
+        logging.debug("base prepare - done")
 
     @kernel
     def initialize_hardware(self):
         """
-        what it sounds like
+        hardware initialization and setting of ttl switches, and set datasets
         :return:
         """
         self.experiment.named_devices.initialize()
 
+        self.experiment.ttl_microwave_switch.output()
+        self.experiment.ttl_repump_switch.output()
         self.experiment.ttl6.output()  # for outputting a trigger
         self.experiment.ttl1.input()
         self.experiment.sampler0.init() # for reading laser feedback
         self.experiment.sampler1.init() # for reading laser feedback
         self.experiment.sampler2.init() # for reading laser feedback
 
-        print("base initialize_hardware - done")
+        self.experiment.print_async("base initialize_hardware - done")
+
+        # turn on any switches. this ensures that switches always start in a default state,
+        # which might not happen if we abort an experiment in the middle and don't reset it
+        delay(1*ms)
+        self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
+        delay(1*ms)
+        self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
+        delay(1*ms)
+
+        # turn off all dds channels
+        for ch in self.experiment.all_dds_channels:
+            ch.sw.off()
+
+        # todo: turn off all Zotino channels?
 
         self.experiment.core.break_realtime()
 

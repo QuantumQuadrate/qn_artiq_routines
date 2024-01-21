@@ -50,41 +50,48 @@ class ExperimentVariables(EnvExperiment):
         # these datasets can be referenced by other experiments instead of declaring the variable locally in each
         # experiment.
         self.vars_list = [
+            # debugging
+            Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
+
             # FORT AOM
             Variable("f_FORT", 210.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
             Variable("p_FORT_loading", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                                   "FORT AOM"),
-            Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
+            Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
-            Variable("p_FORT_PGC", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
+            Variable("p_FORT_PGC", 1, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
+                     "FORT AOM"),
+            Variable("p_FORT_blowaway", 0.5, NumberValue,
+                     {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
+                     "FORT AOM"),
+            Variable("p_FORT_OP", 0.5, NumberValue,
+                     {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
 
             # Cooling double pass AOM
             Variable("f_cooling_DP_MOT", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
+            Variable("f_cooling_DP_MOT_phase2", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Cooling double pass AOM"),
             Variable("f_cooling_DP_RO", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
             Variable("f_cooling_DP_PGC", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
+            Variable("f_cooling_DP_resonant_2_to_3", 104.25 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Cooling double pass AOM"),
             Variable("p_cooling_DP_MOT", -4, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
-            Variable("p_cooling_DP_RO", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional)",
+            Variable("p_cooling_DP_RO", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                            'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
-            Variable("p_cooling_DP_PGC", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional)",
+            Variable("p_cooling_DP_PGC", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                             'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
 
-            # Cooling single pass AOM
-            Variable("f_D1_pumping_SP", 130.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
-                     "Cooling single pass AOM"),
-            Variable("p_D1_pumping_SP", 1, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
-                     "Cooling single pass AOM"),
-
             # D1 optical pumping, pumping repumper, and excitation
-            Variable("f_D1_pumping_SP", 100.00 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+            Variable("f_D1_pumping_SP", 90 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "OP and excitation AOMs"),
-            Variable("p_D1_pumping_SP", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_D1_pumping_SP", -9.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
             Variable("f_pumping_repump", 345.10 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "OP and excitation AOMs"),
@@ -94,12 +101,6 @@ class ExperimentVariables(EnvExperiment):
                      "OP and excitation AOMs"),
             Variable("p_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
-
-            # D1 optical pumping
-            Variable("f_D1_pumping_SP", 150.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
-                     "Repump AOMs"),
-            Variable("p_D1_pumping_SP", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
-                     "Repump AOMs"),
 
             # Fiber AOMs
             Variable("AOM_A1_freq", 78.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
@@ -135,31 +136,72 @@ class ExperimentVariables(EnvExperiment):
                      "Microwaves"),
 
             # Coils - MOT
-            Variable("AZ_bottom_volts_MOT", 1.02, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AZ_top_volts_MOT", -3.4, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AX_volts_MOT", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AY_volts_MOT", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
+            Variable("AZ_bottom_volts_MOT", 1.02, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AZ_top_volts_MOT", -3.4, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AX_volts_MOT", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AY_volts_MOT", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
 
             # Coils - PGC
-            Variable("AZ_bottom_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AZ_top_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AX_volts_PGC", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AY_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
+            Variable("AZ_bottom_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AZ_top_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AX_volts_PGC", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AY_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
 
             # Coils - Readout
-            Variable("AZ_bottom_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AZ_top_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AX_volts_RO", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
-            Variable("AY_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3}, "MOT coil settings"),
+            Variable("AZ_bottom_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AZ_top_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AX_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+            Variable("AY_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+
+            # Coils - state prep and science
+            Variable("AZ_bottom_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AZ_top_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AX_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            # about 1 G along the parabolic mirror axis.
+            Variable("AY_volts_OP", 2.105, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
 
             # Timing
             Variable("t_MOT_loading", 500*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_MOT_phase2", 500 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_loading", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_in_MOT", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_MOT_dissipation", 3 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_blowaway", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
+            Variable("t_photon_collection_delay", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
+            Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
+            # Booleans
+            Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
+            Variable("do_PGC_in_MOT", False, BooleanValue, {}, "Booleans"),
+            Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
+            Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
+
+            # Thresholds and cut-offs
+            Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_counts_threshold", 270, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
+                                                                        'step': 1}, "Thresholds and cut-offs"),
             # Set points
             Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_fW_AOM_A1", 0.768, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
@@ -173,26 +215,21 @@ class ExperimentVariables(EnvExperiment):
             # Plotting
             Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Plotting"),
-            # Plotting
             Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
                      'step': 1}, "Plotting"),
-
-            # Thresholds
-            Variable("single_atom_counts_threshold", 200, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
-                                                                          'step': 1}, "Plotting"),
 
             # Laser feedback
             Variable("Luca_trigger_for_feedback_verification", False, BooleanValue, {}, "Laser feedback"),
             Variable("enable_laser_feedback", False, BooleanValue, {}, "Laser feedback"),
-            Variable("feedback_dds_list", "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', "
+            Variable("slow_feedback_dds_list", "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', "
                                           "'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
                                       "'dds_AOM_A6','dds_cooling_DP']", StringValue, {}, "Laser feedback"),
+            Variable("fast_feedback_dds_list", "['dds_FORT']", StringValue, {}, "Laser feedback"),
             Variable("aom_feedback_averages", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback")
 
-            # File saving # todo: move away from saving csv files and save instead to the experiment's hdf
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so

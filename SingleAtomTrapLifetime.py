@@ -8,6 +8,7 @@ import numpy as np
 from datetime import datetime as dt
 
 from utilities.BaseExperiment import BaseExperiment
+from subroutines.experiment_functions import load_MOT_and_FORT
 
 
 class SingleAtomTrapLifetime(EnvExperiment):
@@ -20,18 +21,21 @@ class SingleAtomTrapLifetime(EnvExperiment):
         self.base.build()
 
         # this is an argument for using a scan package, maybe
-        self.scan_datasets = ["t_delay_between_shots"]
+        self.scan_datasets = ["t_delay_between_shots_sequence"]
         try:
             for dataset in self.scan_datasets:
                 value = self.get_dataset(dataset)
-                self.setattr_argument(dataset, StringValue(value), group)
+                try:
+                    len(value)
+                except TypeError:
+                    value = [value]
+                self.setattr_argument(dataset, StringValue(value))
         except KeyError as e:
             print(e)
-            self.setattr_argument("t_delay_between_shots", StringValue(
+            self.setattr_argument("t_delay_between_shots_sequence", StringValue(
                 'np.array([0.0, 1.0, 10.0, 100.0,1000.])*ms'))
 
         self.setattr_argument("n_measurements", NumberValue(50, ndecimals=0, step=1))
-        self.setattr_argument("atom_counts_threshold", NumberValue(260, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(default=False))
         self.setattr_argument("MOT_AOMs_always_on", BooleanValue(default=False)) # good for diagnosing readout heating
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
@@ -55,13 +59,8 @@ class SingleAtomTrapLifetime(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.cooling_volts_ch = 7
 
-        self.t_delay_between_shots_list = eval(self.t_delay_between_shots)
+        self.t_delay_between_shots_list = eval(self.t_delay_between_shots_sequence)
         self.n_iterations = len(self.t_delay_between_shots_list)
-
-        self.atom_loaded = False
-        self.atoms_loaded = 0
-        self.atoms_retained = 0
-        self.atom_retention = [0.0]*self.n_iterations
 
         print("prepare - done")
 
@@ -82,11 +81,10 @@ class SingleAtomTrapLifetime(EnvExperiment):
                              channels=self.coil_channels)
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0], broadcast=True)
-        self.set_dataset("photocounts2", [0], broadcast=True)
+        self.set_dataset("photocounts", [0])
+        self.set_dataset("photocounts2", [0])
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
-        self.set_dataset("atom_retention", [0.0], broadcast=True)
 
         # turn on cooling MOT AOMs
         self.dds_cooling_DP.sw.on() # cooling double pass
@@ -110,10 +108,9 @@ class SingleAtomTrapLifetime(EnvExperiment):
         iteration = 0
         for t_delay_between_shots in self.t_delay_between_shots_list:
 
-            # for computing atom loading and retention statistics, though I usually just do this in post
-            self.atom_loaded = False
-            self.atoms_loaded = 0
-            self.atoms_retained = 0
+            # these are the datasets for plotting only, an we restart them each iteration
+            self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
+            self.set_dataset("photocounts2_current_iteration", [0], broadcast=True)
 
             # loop the experiment sequence
             for measurement in range(self.n_measurements):
@@ -125,35 +122,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
                     self.dds_FORT.sw.on()
                     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
 
-                self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
-
-                # Turn on the MOT coils and cooling light
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                    channels=self.coil_channels)
-                # delay(2 * ms)
-                self.dds_cooling_DP.sw.on()
-
-                # wait for the MOT to load
-                delay_mu(self.t_MOT_loading_mu)
-
-                # try loading from a PGC phase
-
-                # turn on the dipole trap and wait to load atoms
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-                delay_mu(self.t_FORT_loading_mu)
-
-                # turn off the coils
-                self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
-                                     channels=self.coil_channels)
-                if self.do_PGC_in_MOT:
-                    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
-                    delay(self.t_PGC_in_MOT)
-
-                if not self.MOT_AOMs_always_on:
-                    self.dds_cooling_DP.sw.off()
-
-                delay(3*ms) # should wait several ms for the MOT to dissipate
+                load_MOT_and_FORT(self)
 
                 # set the cooling DP AOM to the readout settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
@@ -177,37 +146,22 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 if not self.MOT_AOMs_always_on:
                     self.dds_cooling_DP.sw.off()
 
-                # todo: check the FORT extinction ratio here
-                # effectively turn the FORT AOM off
-                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
-                # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-                # analysis
-                if counts > self.atom_counts_threshold:
-                    self.atoms_loaded += 1
-                    self.atom_loaded = True
-                else:
-                    self.atom_loaded = False
-
-                if counts2 > self.atom_counts_threshold and self.atom_loaded:
-                    self.atoms_retained += 1
-
                 delay(2*ms)
+
+
 
                 # update the datasets
                 if not self.no_first_shot:
                     self.append_to_dataset('photocounts', counts)
+                    self.append_to_dataset('photocounts_current_iteration', counts)
+
+                # update the datasets
                 self.append_to_dataset('photocounts2', counts2)
+                self.append_to_dataset('photocounts2_current_iteration', counts2)
+                self.set_dataset("iteration", iteration, broadcast=True)
 
-
-            # compute the retention fraction based and update the dataset
-            if self.atoms_loaded > 0:
-                retention_fraction = self.atoms_retained/self.atoms_loaded
-            else:
-                retention_fraction = 0.0
-            self.atom_retention[iteration] = retention_fraction
-            self.set_dataset('atom_retention',self.atom_retention[:iteration+1],broadcast=True)
             iteration += 1
 
         delay(1*ms)
@@ -215,3 +169,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
         self.dds_cooling_DP.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+
+        # effectively turn the FORT AOM off
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        # set the cooling DP AOM to the MOT settings

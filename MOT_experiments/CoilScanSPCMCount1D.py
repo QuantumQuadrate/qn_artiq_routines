@@ -9,8 +9,12 @@ from artiq.experiment import *
 import csv
 from datetime import datetime as dt
 import numpy as np
+import sys
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 
 from utilities.BaseExperiment import BaseExperiment
+
+
 
 class CoilScanSPCMCount1D(EnvExperiment):
 
@@ -120,7 +124,7 @@ class CoilScanSPCMCount1D(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.control_volts_channels = [0, 1, 2, 3]  # the sampler channels to read
 
-        self.count_rate_dataset = 'SPCM_counts_per_s'
+        self.count_rate_dataset = 'photocounts_per_s'
         self.set_dataset(self.count_rate_dataset,
                          [0.0],
                          broadcast=True)

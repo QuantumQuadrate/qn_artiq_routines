@@ -40,9 +40,11 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.setattr_argument("print_measurement_number", BooleanValue(False))
         self.setattr_argument("dt_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("iteration_delay", NumberValue(0 * s, unit='s'))
-        self.setattr_argument("expose_with_MOT_on", BooleanValue(False))
+        self.setattr_argument("drop_MOT", BooleanValue(False))
+        ### When selected, the MOT is dropped after atom loading.
+
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
-        self.setattr_argument("print_counts", BooleanValue(True))
+        self.setattr_argument("print_counts", BooleanValue(False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
         self.setattr_argument("control_experiment", BooleanValue(False))
 
@@ -73,7 +75,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
         self.expt()
-        print("Experiment finished.")
+        print("******************** Experiment finished *****************")
 
     @kernel
     def expt(self):
@@ -85,7 +87,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
                              channels=self.coil_channels)
 
-        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocounts_per_s", [0], broadcast=True)
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
 
         # turn on cooling/RP AOMs
@@ -129,27 +131,44 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             self.dds_AOM_A5.sw.on()
             delay(1 * ms)
 
-            # wait for the MOT to load
+            # ### turn on the dipole trap with the MOT beams
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+
+            ### wait for the MOT to load
             delay_mu(self.t_MOT_loading_mu)
 
-            # turn on the dipole trap and wait to load atoms
+            ### turn on the dipole trap and wait to load atoms
             # self.dds_FORT.sw.on()
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
             delay_mu(self.t_FORT_loading_mu)
 
-            if not self.expose_with_MOT_on:
-                # change the magnetic fields for imaging
+            if self.drop_MOT:
+                ### Turn off the coils
                 self.zotino0.set_dac(
                     [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
                     channels=self.coil_channels)
-                delay(10 * ms)
+                delay(1 * ms)
 
-                # change AOMs to "imaging" settings
-                # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
-                delay(1000 * ms)
+                ### turning off the MOT beams
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A6.sw.off()
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+                delay(50 * ms)
 
-            # take the shot
+                ### turning on the MOT beams for imaging
+                # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A6.sw.on()
+                self.dds_AOM_A4.sw.on()
+                self.dds_AOM_A5.sw.on()
+                # delay(1 * ms)
+
+            ### take the shot
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
             counts = self.ttl0.count(t_gate_end)
             delay(1*ms)
@@ -168,10 +187,10 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             # self.dds_AOM_A4.sw.off()
             # self.dds_AOM_A5.sw.off()
             # self.dds_FORT.sw.off()  # FORT AOM off
-            self.dds_FORT.set(frequency=self.f_FORT-30*MHz, amplitude=self.ampl_FORT_loading)
+
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-            self.append_to_dataset('photocounts', counts)
+            self.append_to_dataset('photocounts_per_s', counts/self.t_SPCM_exposure)
 
             if self.print_measurement_number:
                 print("measurement", measurement)
@@ -190,3 +209,4 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.dds_AOM_A5.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)

@@ -2,6 +2,8 @@
 This code turns on the MOT AOMs and also the MOT coils.
 """
 from artiq.experiment import *
+import sys
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 
 from utilities.BaseExperiment import BaseExperiment
 
@@ -42,7 +44,7 @@ class MOTMonitorEverything(EnvExperiment):
 
         self.t_SPCM_exposure = self.dt_SPCM_exposure
 
-        self.count_rate_dataset = 'SPCM_counts_per_s'
+        self.count_rate_dataset = 'photocounts_per_s'
         self.set_dataset(self.count_rate_dataset,
                          [0.0],
                          broadcast=True)

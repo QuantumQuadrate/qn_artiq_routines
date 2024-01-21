@@ -3,6 +3,9 @@ First turn on the AOMs with the AOMs-coils code, then run this code to change th
 see SPCM counts to put the MOT at the right location.
 """
 from artiq.experiment import *
+
+import sys
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 from ExperimentVariables import setattr_variables
 
 
