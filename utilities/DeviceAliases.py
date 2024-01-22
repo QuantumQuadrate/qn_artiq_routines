@@ -109,3 +109,12 @@ class DeviceAliases:
             self.dds_list[i].set(frequency=self.dds_frequencies[i],
                     amplitude=ampl)
             delay(1*ms)
+
+    @kernel
+    def set_dds_default_settings(self):
+
+        for i in range(len(self.dds_list)):
+            ampl = (2*50*10**(self.dds_powers[i]/10 - 3))**(1/2) # convert dBm to volts
+            self.dds_list[i].set(frequency=self.dds_frequencies[i],
+                    amplitude=ampl)
+            delay(1*ms)

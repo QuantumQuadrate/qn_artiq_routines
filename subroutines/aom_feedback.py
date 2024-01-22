@@ -18,6 +18,9 @@ the AOM powers, or monitor() to, well, you get it.
 See tests/AOMFeedbackTest for example usage.
 
 Preston's notes:
+todo: should set the AOMs to default frequency setting internally, rather than rely on the user to remember to do this
+    in their code, as long as we also undo our setting change at the end. or, promise nothing, and do everything
+    externally, i.e. in the experiment code.
 todo: should be able to modify setpoints so we can optimize them as needed.
 one way to do this would be to make the stabilizer dict a json file and
 update the json file, e.g. after doing an optimizer routine with the AOM
@@ -458,6 +461,10 @@ class AOMPowerStabilizer:
         #  the stabilizer was instantiated. not sure how to do this since getattr can not be
         #  used in the kernel, and I don't want to have to pass in a variable explicitly.
 
+        # todo: modify this to only affect the DDSs we're feeding back to?
+        # make sure that all of the DDSs are set the default frequency and power levels
+        self.exp.named_devices.set_dds_default_settings()
+
         for ch in self.all_channels:
             ch.get_dds_settings()
             delay(1*ms)
@@ -465,23 +472,6 @@ class AOMPowerStabilizer:
             delay(1*ms)
 
         with sequential:
-
-            # todo: FORT polarization feedback first, then the AOM part can be done in parallel with other channels
-            # self.FORT_ch.get_dds_settings()
-            # delay(1*ms)
-            # self.FORT_ch.dds_obj.sw.on()
-            # delay(10*ms)
-            # self.measure()
-            # delay(1*ms)
-            # if not (self.dry_run or monitor_only):
-            #     self.FORT_ch.feedback(self.measurement_array - self.background_array)
-            # else:
-            #     self.FORT_ch.set_value((self.measurement_array - self.background_array)[self.FORT_ch.buffer_index])
-            # delay(1*ms)
-            # self.FORT_ch.dds_obj.sw.off()
-            # delay(1*ms)
-            # self.exp.append_to_dataset(self.FORT_ch.dataset, self.FORT_ch.value_normalized)
-            # delay(1*ms)
 
             # don't blind the fW detector
             self.exp.dds_FORT.sw.off()

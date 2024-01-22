@@ -205,17 +205,6 @@ class BaseExperiment:
         self.experiment.ampl_cooling_DP_PGC = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
 
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
-
-
-        # fast_feedback_dds_channels = ['dds_FORT']
-        # fast_feedback_dds_list = []
-        # slow_feedback_dds_list = []
-        # for dds_name in self.experiment.feedback_dds_list:
-        #     if dds_name in fast_feedback_dds_channels:
-        #         fast_feedback_dds_list.append(dds_name)
-        #     else:
-        #         slow_feedback_dds_list.append(dds_name)
-
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
         fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
 
