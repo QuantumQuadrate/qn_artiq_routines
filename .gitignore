@@ -23,3 +23,5 @@ analysis/csv_data/20230906_173637_coil_scan.csv
 analysis/physics_scratchpad.ipynb
 tests/Card_Test.py
 thorlabs/images
+run_artiq.bat
+device_db.py
