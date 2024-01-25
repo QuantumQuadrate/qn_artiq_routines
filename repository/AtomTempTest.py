@@ -13,7 +13,8 @@ from utilities.physconsts import *
 
 from utilities.rbconsts import *
 from utilities.dipole_trap import dipole_trap
-
+from utilities.rbensemble import RbEnsemble as ensemble
+from utilities.dropsimulation import *
 class AtomExperimentSim(EnvExperiment):
     """
     Atom Temp Test
@@ -30,7 +31,7 @@ class AtomExperimentSim(EnvExperiment):
     def run(self):
         w0 = 2.5e-6  # [m]
         TFORT = 1.5e-3  # [K]
-        Tatom = 500e-5  # [K]
+        Tatom = 5e-5  # [K]
         steps = 100
         lmda =1.064e-6
         tlist = linspace(0, steps, steps)  # time [us]
@@ -62,26 +63,73 @@ class AtomExperimentSim(EnvExperiment):
 
         tlist, reten = tempexp.drop_recap(tlist, base_retention=.95)"""
 
-        def start_sim(t, Tatom):
-            """ A dipole trap object with the beams potential and distribution of
-                atoms specified by Tatom.
-                'wx': x beam waist in focal plane (z=0)
-                'wy': Assumed equal to wx by default
-                'Tdepth'
-                'Tatom'
+        def drop_recap(tlist, T=None, events=None, base_retention=None, Tdepth=None,
+                       progress=False, b=1, c=0):
+            """ Procedure for simulating a release ("drop") and recapture experiment
+                to deduce the temperature of actual atoms in such an experiment.
+
+                Based on code by Mark, with some corrections
+                'wx': waist
+                'Tdepth': FORT temperature depth
+                'T': atom temp
+                'tmax': max time in units us
+                'steps': number of FORT drop outs
+                'events': number of release-recapture events per data pt
+                'wy': optional waist for eliptical FORT
             """
-            base_retention = 0.95
-            w0 = 2.5e-6  # [m]
-            TFORT = 1.5e-3  # [K]
-            lmda = 1.064e-6
-            tempexp = dipole_trap(w0, lmda, TFORT, Tatom)
+            zR = pi * wx ** 2 / lmda
 
-            reten = tempexp.retention_at_t(t=t, T=Tatom, base_retention=(np.float64(base_retention)), events=100)
+            tlist = 1e-6 * tlist
 
-            #print("first TList",tlist)
-            # print("Second Tlist1",tlist1)
-            # print(tlist1-tlist)
-            return reten
+            if events is None:
+                events = 2000
+            if base_retention is None:
+                base_retention = 1  # the retention baseline with no fort drop
+
+            retention = empty(len(tlist))
+
+            xlist, ylist, zlist = xdist(T, events)
+            vzlist, vxlist, vylist = vdist(T, events)
+            # print(xlist)
+            g_scaled = g * 1e3
+            for j, t in enumerate(tlist):
+
+                escape = 0
+                nhot = 0  # this is an untrapped atom
+
+                for i in range(events):
+                    hot = 0
+                    KE = .5 * mRb * ((vxlist[i] - g * t) ** 2 + vylist[i] ** 2
+                                     + vzlist[i] ** 2)
+                    PE0 = U(xlist[i], ylist[i], zlist[i])
+                    PE = U(xlist[i] + t * vxlist[i] + .5 * g * (t) ** 2,
+                           ylist[i] + t * vylist[i],
+                           zlist[i] + t * vzlist[i])
+
+                    if KE + PE0 > 0:
+                        hot = 1
+                    nhot += hot
+                    if KE + PE > 0:
+                        escape += 1 - hot
+                retention[j] = base_retention * (1 - escape / events)
+
+                if progress is not False:
+                    if j % 10 == 0:
+                        print(f"timestep {j}: t = {t * 1e6:.0f} [us], ret = {retention[j]:.2f}")
+
+            retention = (retention * b - c)
+            tlist *= 1e6
+            plt.plot(tlist, retention, label=f'{T / 1e-6:.0f} uK')  # show time in units [us]
+            #         plt.xlabel("time [us]")
+            #         plt.ylabel("retention")
+            #         plt.ylim((0,1))
+            #         plt.legend()
+            #         plt.show()
+
+            print(f"finished. T={T * 1e6} [uK], r = {base_retention}")
+            return tlist, retention
+
+
 
 
 
@@ -91,22 +139,23 @@ class AtomExperimentSim(EnvExperiment):
         lower_bounds = [1e-5]
 
 
-        print(np.full(9, fill_value=0.1))
 
-        popt, pcov = curve_fit(start_sim, xdata=tlist_1, ydata=reten_1*600, p0=p0) #bounds = [lower_bounds,upper_bounds])
-        Topt = popt[0]
-        time.sleep(5)
-        print(*popt)
+        TLIST = linspace(0, 160, 20)  # time [us]
+        R1 = retention_at_t_3(TLIST, 5e-5, base_retention=0.9)
+
+        Topt, ropt, modeled_r = start_modeling(TLIST,R1)
+
+        sigma = modeled_r / sqrt(670)
+
         self.set_dataset("optimal_temp_k", Topt, broadcast=True)
-        # self.set_dataset("r_opt", ropt, broadcast=True)
-        tempexp1 = dipole_trap(lmda = lmda, wx = w0, Tdepth=1.5e-3,Tatom=Topt)
-        tlist, reten = tempexp.drop_recap(tlist_1, T=Topt, base_retention=0.95)
+        self.set_dataset("r_opt", ropt, broadcast=True)
+        self.set_dataset("modeled_r", modeled_r, broadcast=True)
+        self.set_dataset("sigma", sigma, broadcast=True)
 
-        self.set_dataset("real_t_data", real_t_data, broadcast=True)
-        self.set_dataset("real_ret_data", real_ret_data, broadcast=True)
-        self.set_dataset("f_tlist", tlist_1, broadcast=True)
-        print(f"{reten}")
-        self.set_dataset("f_reten", reten, broadcast=True)
+        self.set_dataset("model_t_data", TLIST, broadcast=True)
+        self.set_dataset("model_ret_data", R1, broadcast=True)
+        #print(f"{reten}")
+        #self.set_dataset("f_reten", reten, broadcast=True)
 
     def create_applet(self):
         return -1
