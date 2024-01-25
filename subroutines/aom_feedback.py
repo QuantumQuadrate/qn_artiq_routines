@@ -134,7 +134,7 @@ stabilizer_dict = {
                     'sampler_ch': 7, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A4', # volts
-                    'p': 0.005, # the proportionality constant
+                    'p': 0.01, # the proportionality constant
                     'i': 0.0, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT4_monitor',

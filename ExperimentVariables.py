@@ -50,6 +50,9 @@ class ExperimentVariables(EnvExperiment):
         # these datasets can be referenced by other experiments instead of declaring the variable locally in each
         # experiment.
         self.vars_list = [
+
+            Variable("n_measurements", 50, NumberValue, {'type': 'int', 'ndecimals':0, 'step':1, 'scale':1}, "general"),
+
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
 

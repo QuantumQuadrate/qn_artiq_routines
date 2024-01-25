@@ -27,7 +27,7 @@ class ExperimentCycler(EnvExperiment):
 
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
-        self.setattr_argument("n_measurements", NumberValue(50, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
 
         experiment_function_names_list = [x for x in dir(exp_functions)
             if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"
@@ -107,6 +107,11 @@ class ExperimentCycler(EnvExperiment):
             if self.scheduler.check_pause():
                 self.core.comm.close()  # put the hardware in a safe state before checking pause
                 self.scheduler.pause()  # check if we need to run a new experiment*
+
+                # todo: build executes but doesn't seem to update the parameters used by the
+                #  experiment. I tried updating n_measurements
+                # after pause is done, we want to re-initialize variables in case they have changed
+                self.base.build()
 
             # todo: add in compute loading so we can log the rate and retention
 
