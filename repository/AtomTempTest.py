@@ -14,7 +14,8 @@ from utilities.physconsts import *
 from utilities.rbconsts import *
 from utilities.dipole_trap import dipole_trap
 from utilities.rbensemble import RbEnsemble as ensemble
-from utilities.dropsimulation import *
+#from utilities.dropsimulation import *
+from repository.run_modeling import *
 class AtomExperimentSim(EnvExperiment):
     """
     Atom Temp Test
@@ -141,21 +142,21 @@ class AtomExperimentSim(EnvExperiment):
 
 
         TLIST = linspace(0, 160, 20)  # time [us]
-        R1 = retention_at_t_3(TLIST, 5e-5, base_retention=0.9)
+        R1 =retention_at_t_3(TLIST, 5e-5, base_retention=0.9)
+        args = {}
+        args = TLIST, R1
+        Topt, ropt, modeled_r = start_modeling("temperature", args)
 
-        Topt, ropt, modeled_r = start_modeling(TLIST,R1)
-
-        sigma = modeled_r / sqrt(670)
+        sigma = np.ones((len(modeled_r))) / sqrt(72)
 
         self.set_dataset("optimal_temp_k", Topt, broadcast=True)
         self.set_dataset("r_opt", ropt, broadcast=True)
         self.set_dataset("modeled_r", modeled_r, broadcast=True)
         self.set_dataset("sigma", sigma, broadcast=True)
-
         self.set_dataset("model_t_data", TLIST, broadcast=True)
         self.set_dataset("model_ret_data", R1, broadcast=True)
-        #print(f"{reten}")
-        #self.set_dataset("f_reten", reten, broadcast=True)
+
+
 
     def create_applet(self):
         return -1

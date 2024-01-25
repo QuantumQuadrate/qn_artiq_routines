@@ -4,7 +4,7 @@ from artiq.applets.simple import SimpleApplet
 
 
 class DemoWidget(QtWidgets.QLabel):
-    def __init__(self, args, ctl):
+    def __init__(self, args, req):
         QtWidgets.QLabel.__init__(self)
         self.dataset_name = args.dataset
 

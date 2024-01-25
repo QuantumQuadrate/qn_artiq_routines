@@ -6,7 +6,7 @@ from scipy.optimize import minimize
 from scipy.special import factorial
 from scipy import stats
 from scipy.stats import poisson
-
+from repository.run_modeling import *
 # a no-hardware simulation that we can use to test plotting
 
 class SingleAtomLoading(EnvExperiment):
@@ -58,12 +58,12 @@ class SingleAtomLoading(EnvExperiment):
         mu_sig = 100  # the signal mean
 
         def count_dist(x_data, bg, sig):
-            return poisson.pmf(x_data, bg) + 2*poisson.pmf(x_data-sig,bg)
+            return 1.5*poisson.pmf(x_data, bg) + poisson.pmf(x_data-sig,bg)
 
         domain = [0, 500]  # assume we don't measure fewer than 0 or more than 500 counts
         x1, x2 = domain
 
-        fmax = poisson.pmf(mu_bg, mu_bg)  # the maximum
+        fmax = 1.5*poisson.pmf(mu_bg, mu_bg)  # the maximum
 
         # these arrays exist so we could plot the points (x,f) and (x,y) to verify the distribution sampling
         y_dist = np.empty(n)
@@ -99,21 +99,20 @@ class SingleAtomLoading(EnvExperiment):
             range(int(np.min(x_dist)) + int(self.counts_per_bin), int(np.max(x_dist))),
             key=lambda th: otsu_intraclass_variance(x_dist, th)
         )
-        """load_error = np.array([1 / np.sqrt(n) if n > 0 else 0 for n in y_dist])
-        if load_error is not None:
-            # See https://github.com/pyqtgraph/pyqtgraph/issues/211
-            if hasattr(load_error, "__len__") and not isinstance(load_error, np.ndarray):
-                error = np.array(load_error)
-        errbars = pyqtgraph.ErrorBarItem(
-            x=x_dist, y=y_dist, height=load_error, pen=(255, 0, 0))
-        atoms_loaded = [x > cutoff for x in shot1]"""
+        error = []
+        load_error = np.array([1 / np.sqrt(n) if n > 0 else 0 for n in y_dist])
+        print(len(load_error))
+        atoms_loaded = np.sum(x_dist[:] >= otsu_threshold)
 
+        #args = x_dist, y_dist
+        #print(start_modeling("count_dist", args))
         self.set_dataset("otsu_threshold", otsu_threshold, broadcast=True)
         self.set_dataset("trapped_ct", (np.sum(x_dist[:] >= otsu_threshold)), broadcast=True)
+        # self.set_dataset("atoms_loaded", atoms_loaded, broadcast = True)
         self.set_dataset("x_dist", x_dist, broadcast=True)
         self.set_dataset("y_dist", y_dist, broadcast=True)
         self.set_dataset("f_dist", f_dist, broadcast=True)
-        # self.set_dataset("err_bars", errbars, broadcast = True)
+        self.set_dataset("err_bars", load_error, broadcast = True)
 
         # result is a scipy optimize result object, the fit parameters
         # are stored in result.x
@@ -123,19 +122,26 @@ class SingleAtomLoading(EnvExperiment):
         hist_bins = np.zeros(self.bins,dtype=int)
         self.set_dataset("photocounts", hist_bins, broadcast=True)
 
+        #hdbins = np.array(range(0,np.max(),self.counts_per_bin))
+
+
 
         print("starting")
         self.sample_cts_fit()
+        max_val = -1
         for counts in self.sample_photocounts():
-        
+            if counts > max_val:
+                max_val = counts
             bin = int(counts/self.counts_per_bin)
             if bin < self.bins:
                 hist_bins[bin] += 1
-                self.mutate_dataset("photocounts", bin, hist_bins[bin])
-            # print("counts=",counts,"bin=",bin)
+                self.mutate_dataset("photocounts", bin, hist_bins[bin], )
+
+            print("counts=",counts,"bin=",bin)
             time.sleep(0.1)
         print("finished")
-
+        hdbins = np.array(range(0, max_val, max_val/self.counts_per_bin))
+        self.set_dataset("hdbins", hdbins, broadcast=True)
         print("creating Applet")
 
 

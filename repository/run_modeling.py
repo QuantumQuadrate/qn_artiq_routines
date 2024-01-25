@@ -6,7 +6,8 @@ from numpy.linalg import eig
 from numpy.random import normal
 from scipy.optimize import curve_fit
 from random import random as rand
-
+from scipy import stats
+from scipy.stats import poisson
 
 
 #### local files
@@ -16,7 +17,7 @@ from utilities.rbensemble import RbEnsemble as ensemble
 from utilities.dipole_trap import dipole_trap
 
 
-def retention_at_t_3(t, T=None, base_retention=0.9, ):
+def retention_at_t_3(t, T=None, base_retention=0.9):
         """ Procedure for simulating a release ("drop") and recapture experiment
             to deduce the temperature of actual atoms in such an experiment.
 
@@ -113,9 +114,81 @@ def retention_at_t_3(t, T=None, base_retention=0.9, ):
 
         return retention
 
-def start_modeling(tlist, retention):
-        popt, pcov, infodict, msg, ier = curve_fit(retention_at_t_3, tlist, retention, p0=[4e-5,retention[0]], absolute_sigma=False,
-                                                   maxfev=1000000000, full_output=True, epsfcn=1)
+
+def sample_cts_fit(measurements, mu_bg = 100, mu_sg = 100, ):
+        """generator function to sample counts from background + single atom distribution"""
+
+        n = measurements
+
+        mu_bg = mu_bg  # the mean background
+        mu_sig = 100  # the signal mean
+
+        def count_dist(x_data, bg, sig):
+                return 1.5 * poisson.pmf(x_data, bg) + poisson.pmf(x_data - sig, bg)
+
+        domain = [0, 500]  # assume we don't measure fewer than 0 or more than 500 counts
+        x1, x2 = domain
+
+        fmax = 1.5 * poisson.pmf(mu_bg, mu_bg)  # the maximum
+        counts_per_bin = 10
+        # these arrays exist so we could plot the points (x,f) and (x,y) to verify the distribution sampling
+        y_dist = np.empty(n)
+        f_dist = np.empty(n)
+        x_dist = np.empty(n)  # this is the distribution we want
+        j = 0  # dist index
+
+        while j < n:
+
+                x = int((x2 - x1) * np.random.rand() + 0.5)  # rand val on domain of f(x)
+                f = count_dist(x, mu_bg, mu_sig)
+                y = np.random.rand() * fmax  # rand val on range of f(x)
+                if y <= f:
+                        y_dist[j] = y
+                        f_dist[j] = f
+                        x_dist[j] = x  # x vals with approximate gaussian pdf
+                        j += 1
+
+        def otsu_intraclass_variance(image, threshold):
+                """
+                Otsu’s intra-class variance.
+                If all pixels are above or below the threshold, this will throw a warning that can safely be ignored.
+                """
+                return np.nansum([
+                        np.mean(cls) * np.var(image, where=cls)
+                        #   weight   ·  intra-class variance
+                        for cls in [image >= threshold, image < threshold]
+                ])
+
+        otsu_threshold = min(
+                range(int(np.min(x_dist)) + int(counts_per_bin), int(np.max(x_dist))),
+                key=lambda th: otsu_intraclass_variance(x_dist, th)
+        )
+        error = []
+        load_error = np.array([1 / np.sqrt(n) if n > 0 else 0 for n in y_dist])
+        print(len(load_error))
+        atoms_loaded = np.sum(x_dist[:] >= otsu_threshold)
+
+def temperature(tlist, retention, p0 = None):
+        if p0 == None:
+                p0 = [4e-5,retention[0]]
+
+        print(tlist, retention)
+        popt, pcov = curve_fit(retention_at_t_3, tlist, retention, p0=p0, absolute_sigma=False,
+                                                   maxfev=1000000000, epsfcn=1)
         Topt, ropt = popt
         modeled_y = retention_at_t_3(tlist,Topt,ropt)
         return Topt, ropt, modeled_y
+
+def count_distribution(xdata, ydata, p0 = None):
+
+
+        return
+
+def start_modeling(model = "temperature", args = None):
+        if model == "temperature":
+                return temperature(*args)
+        elif model == "count_dist":
+                return count_distribution(*args)
+        else:
+                print(f"Model :{model} was not found")
+                return -1
