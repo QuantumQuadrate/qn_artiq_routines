@@ -189,6 +189,7 @@ class BaseExperiment:
         self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
         self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
         self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
+        self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
         self.experiment.AOM_A1_ampl = dB_to_V(self.experiment.AOM_A1_power)
         self.experiment.AOM_A2_ampl = dB_to_V(self.experiment.AOM_A2_power)
         self.experiment.AOM_A3_ampl = dB_to_V(self.experiment.AOM_A3_power)

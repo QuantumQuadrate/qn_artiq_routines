@@ -136,13 +136,22 @@ class ExperimentVariables(EnvExperiment):
                      "Microwaves"),
 
             # Coils - MOT
-            Variable("AZ_bottom_volts_MOT", 1.02, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+            Variable("AZ_bottom_volts_MOT", 4.896, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
-            Variable("AZ_top_volts_MOT", -3.4, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+            Variable("AZ_top_volts_MOT", 5.405, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
-            Variable("AX_volts_MOT", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+            Variable("AX_volts_MOT", 0.419, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
-            Variable("AY_volts_MOT", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+            Variable("AY_volts_MOT", 0.255, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+
+            Variable("AZ_bottom_volts_MOT_phase2", 4.896, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "MOT coil settings"),
+            Variable("AZ_top_volts_MOT_phase2", 5.405, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "MOT coil settings"),
+            Variable("AX_volts_MOT_phase2", 0.419, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "MOT coil settings"),
+            Variable("AY_volts_MOT_phase2", 0.255, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "MOT coil settings"),
 
             # Coils - PGC
