@@ -84,6 +84,7 @@ class BaseExperiment:
 
         # devices without nicknames. core should come first
         devices_no_alias = ["core",
+                            "scheduler",
                             "urukul0_cpld", "urukul1_cpld", "urukul2_cpld",
                             "zotino0",  # for controlling coils
                             "sampler0",  # for measuring laser power PD
@@ -263,7 +264,6 @@ class BaseExperiment:
         # todo: turn off all Zotino channels?
 
         self.experiment.core.break_realtime()
-
 
 # do this so the code above will not actually run when ARTIQ scans the repository
 if __name__ == '__main__':
