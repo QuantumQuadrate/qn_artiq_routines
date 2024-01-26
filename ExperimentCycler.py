@@ -111,7 +111,7 @@ class ExperimentCycler(EnvExperiment):
                 # todo: build executes but doesn't seem to update the parameters used by the
                 #  experiment. I tried updating n_measurements
                 # after pause is done, we want to re-initialize variables in case they have changed
-                self.base.build()
+                # self.base.build()
 
             # todo: add in compute loading so we can log the rate and retention
 
