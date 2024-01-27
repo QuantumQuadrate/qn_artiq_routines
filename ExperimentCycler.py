@@ -75,15 +75,22 @@ class ExperimentCycler(EnvExperiment):
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.
-
-        typically these datasets are used for plotting which would be meaningless if we continued to append to the data,
-        e.g. for the second readout histogram which we expect in general will change as experiment parameters induce
-        different amount of atom loss.
         :return:
         """
         self.set_dataset("test_dataset", [0], broadcast=True)
+
+        # typically these datasets are used for plotting which would be meaningless if we continued to append to the data,
+        # e.g. for the second readout histogram which we expect in general will change as experiment parameters induce
+        # different amount of atom loss.
         self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
         self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
+
+        # no reason to let these datasets grow to huge lengths
+        for ch in self.laser_stabilizer.all_channels:
+            self.set_dataset(ch.dataset, [1.0], broadcast=True)
+
+        for ch in self.fast_laser_stabilizer.all_channels:
+            self.set_dataset(ch.dataset, [1.0], broadcast=True)
 
     def run(self):
         """
