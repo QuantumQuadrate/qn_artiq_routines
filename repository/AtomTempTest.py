@@ -46,23 +46,8 @@ class AtomExperimentSim(EnvExperiment):
         self.set_dataset("y_trap", y, broadcast=True)
         self.set_dataset("tlist_1", tlist_1, broadcast=True)
         self.set_dataset("ret_1", reten_1, broadcast=True)
-        # try to fit the datas
-        real_t_data = array([0.00000000000000000000000000, 2.0, 4.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0,
-                        20.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0, 160.0])
-        real_ret_data = [0.94079207920792083, 0.94999999999999996, 0.95000000000000005,
-                    0.89000000000000001, 0.88999999999999995, 0.90000000000000002,
-                    0.93999999999999995, 0.89999999999999998, 0.85999999999999999,
-                    0.81000000000000005, 0.74000000000000004, 0.50000000000000001,
-                    0.28712871287128711, 0.27000000000000002, 0.16, 0.10000000000000001,
-                    0.089999999999999997]
 
-        """w0 = 2.5e-6  # [m]
-        TFORT = 1.5e-3  # [K]
-        Tatom = 3.e-5  # [K] # this will be a fit guess
-        steps = 100
-        tempexp = dipole_trap(w0,lmda, TFORT, Tatom)
 
-        tlist, reten = tempexp.drop_recap(tlist, base_retention=.95)"""
 
         def drop_recap(tlist, T=None, events=None, base_retention=None, Tdepth=None,
                        progress=False, b=1, c=0):
@@ -142,7 +127,7 @@ class AtomExperimentSim(EnvExperiment):
 
 
         TLIST = linspace(0, 160, 20)  # time [us]
-        R1 =retention_at_t_3(TLIST, 5e-5, base_retention=0.9)
+        R1 =retention_at_t(TLIST, 5e-5, base_retention=0.9)
         args = {}
         args = TLIST, R1
         Topt, ropt, modeled_r = start_modeling("temperature", args)

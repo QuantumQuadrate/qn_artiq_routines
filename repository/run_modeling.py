@@ -8,8 +8,8 @@ from scipy.optimize import curve_fit
 from random import random as rand
 from scipy import stats
 from scipy.stats import poisson
-
-
+from matplotlib import pyplot as plt
+import time
 #### local files
 from utilities.physconsts import *
 from utilities.rbconsts import *
@@ -17,7 +17,7 @@ from utilities.rbensemble import RbEnsemble as ensemble
 from utilities.dipole_trap import dipole_trap
 
 
-def retention_at_t_3(t, T=None, base_retention=0.9):
+def retention_at_t(t, T=None, base_retention=0.9):
         """ Procedure for simulating a release ("drop") and recapture experiment
             to deduce the temperature of actual atoms in such an experiment.
 
@@ -114,81 +114,85 @@ def retention_at_t_3(t, T=None, base_retention=0.9):
 
         return retention
 
-
-def sample_cts_fit(measurements, mu_bg = 100, mu_sg = 100, ):
-        """generator function to sample counts from background + single atom distribution"""
-
-        n = measurements
-
-        mu_bg = mu_bg  # the mean background
-        mu_sig = 100  # the signal mean
-
-        def count_dist(x_data, bg, sig):
-                return 1.5 * poisson.pmf(x_data, bg) + poisson.pmf(x_data - sig, bg)
-
-        domain = [0, 500]  # assume we don't measure fewer than 0 or more than 500 counts
-        x1, x2 = domain
-
-        fmax = 1.5 * poisson.pmf(mu_bg, mu_bg)  # the maximum
-        counts_per_bin = 10
-        # these arrays exist so we could plot the points (x,f) and (x,y) to verify the distribution sampling
-        y_dist = np.empty(n)
-        f_dist = np.empty(n)
-        x_dist = np.empty(n)  # this is the distribution we want
-        j = 0  # dist index
-
-        while j < n:
-
-                x = int((x2 - x1) * np.random.rand() + 0.5)  # rand val on domain of f(x)
-                f = count_dist(x, mu_bg, mu_sig)
-                y = np.random.rand() * fmax  # rand val on range of f(x)
-                if y <= f:
-                        y_dist[j] = y
-                        f_dist[j] = f
-                        x_dist[j] = x  # x vals with approximate gaussian pdf
-                        j += 1
-
-        def otsu_intraclass_variance(image, threshold):
-                """
-                Otsu’s intra-class variance.
-                If all pixels are above or below the threshold, this will throw a warning that can safely be ignored.
-                """
-                return np.nansum([
-                        np.mean(cls) * np.var(image, where=cls)
-                        #   weight   ·  intra-class variance
-                        for cls in [image >= threshold, image < threshold]
-                ])
-
-        otsu_threshold = min(
-                range(int(np.min(x_dist)) + int(counts_per_bin), int(np.max(x_dist))),
-                key=lambda th: otsu_intraclass_variance(x_dist, th)
-        )
-        error = []
-        load_error = np.array([1 / np.sqrt(n) if n > 0 else 0 for n in y_dist])
-        print(len(load_error))
-        atoms_loaded = np.sum(x_dist[:] >= otsu_threshold)
-
-def temperature(tlist, retention, p0 = None):
+def temp(tlist, retention, p0 = None):
         if p0 == None:
                 p0 = [4e-5,retention[0]]
 
         print(tlist, retention)
-        popt, pcov = curve_fit(retention_at_t_3, tlist, retention, p0=p0, absolute_sigma=False,
+        popt, pcov = curve_fit(retention_at_t, tlist, retention, p0=p0, absolute_sigma=False,
                                                    maxfev=1000000000, epsfcn=1)
         Topt, ropt = popt
-        modeled_y = retention_at_t_3(tlist,Topt,ropt)
+        modeled_y = retention_at_t(tlist,Topt,ropt)
         return Topt, ropt, modeled_y
 
-def count_distribution(xdata, ydata, p0 = None):
 
+def atom_loading_fit(xdata=None, measurements=500,):
+        ret_args = {}
+        print("Proceding with atom_loading_fit at time:", time.time())
 
-        return
+        if False:
+                print("Incorrect paratemeters passed: exiting with return -1")
+                return -1
+        else:
+                iteration = 0
+
+                def double_poissonian_model(counts, a=100, b=100, ma=1, mb=1, wa=1, wb=1):
+                        """
+                                histogram fit. neglect two atom loading
+                                a,b: amplitudes of the distribution
+                                ma,b: the x offsets
+                                wa,b: the dist widths
+                        """
+                        print("Proceding with poisson: x")
+
+                        return a * exp(-((counts - ma) / wa) ** 2) + b * exp(-((counts - mb) / wb) ** 2)
+                print("Entered fit:")
+                def otsu_intraclass_variance(image, threshold):
+                        """
+                                Otsu’s intra-class variance.
+                                If all pixels are above or below the threshold, this will throw a warning that can safely be ignored.
+                        """
+                        return np.nansum([
+                                np.mean(cls) * np.var(image, where=cls)
+                                #   weight   ·  intra-class variance
+                                for cls in [image >= threshold, image < threshold]
+                        ])
+                otsu_threshold = min(range(int(np.min(xdata)) + int(10), int(np.max(xdata))),
+                                     key=lambda th: otsu_intraclass_variance(xdata, th)
+                                     )
+                print(f"Otsu Threshold is {otsu_threshold}")
+                domain = [0, 300]
+                counts_pruned = np.array([x for x in xdata if x < domain[1]])
+                ypts, bins, _ = plt.hist(counts_pruned * 0.01, bins=40)
+                plt.show()
+                xpts = np.linspace(min(counts_pruned) * 0.01, max(counts_pruned) * 0.01, len(bins) - 1)
+                atoms_loaded = np.sum(counts_pruned[:] >= otsu_threshold)
+                print("fitting")
+                popt, pcov = curve_fit(double_poissonian_model, xpts, ypts, ftol=1e-15, maxfev=1000000, xtol=1e-15)
+                # rint(popt)
+                popt[2] = popt[2]*100
+                popt[3] = popt[3] * 100
+                popt[4] = popt[4] * 100
+                popt[5] = popt[5] * 100
+                y_dat = double_poissonian_model(xpts * 100, *popt)
+                x_dat = xpts * 100
+                ret_args['atoms_loaded'] = atoms_loaded
+                ret_args['otsu_threshold'] = otsu_threshold
+                ret_args['opt_params'] = popt
+                ret_args['modeled_func'] = x_dat, y_dat
+                #self.set_dataset("atoms_loaded", atoms_loaded, broadcast=True)
+                #self.set_dataset("real_dat", counts_pruned, broadcast=True)
+                #self.set_dataset("height_dat", self.y_dist, broadcast=True)
+                #self.set_dataset("count_dat", modeled_func[0], broadcast=True)
+                #self.set_dataset("bin_dat", modeled_func[1], broadcast=True)
+                return ret_args
+
 
 def start_modeling(model = "temperature", args = None):
         if model == "temperature":
-                return temperature(*args)
+                return temp(*args)
         elif model == "count_dist":
-                return count_distribution(*args)
+                return atom_loading_fit(*args)
         else:
                 print(f"Model :{model} was not found")
                 return -1
