@@ -12,6 +12,7 @@ examples/old_experiments/__pycache__/*
 subroutines/__pycache__/*
 examples/old_experiments/__pycache__/*
 subroutines/__pycache__/*
+repository
 */*/__pycache__/*
 */__pycache__/*
 ./**/*.pyc
@@ -25,3 +26,10 @@ tests/Card_Test.py
 thorlabs/images
 run_artiq.bat
 device_db.py
+repository
+.idea
+.ipynb_checkpoints
+artiqenv.bat
+dataset_db.pyon
+last_rid.pyon
+results
