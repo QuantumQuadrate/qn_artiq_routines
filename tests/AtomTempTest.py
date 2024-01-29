@@ -24,9 +24,9 @@ class AtomExperimentSim(EnvExperiment):
         steps = 100
         lmda =1.064e-6
         tlist = linspace(0, steps, steps)  # time [us]
+        p0 = None
 
-
-        reten_1 = retention_at_t(tlist, Tatom, base_retention=.95)
+        reten_1 = retention_at_t(tlist, Tatom, base_retention=.95, Tdepth=TFORT, wx = w0, wy = w0)
 
 
         self.set_dataset("tlist", tlist, broadcast=True)

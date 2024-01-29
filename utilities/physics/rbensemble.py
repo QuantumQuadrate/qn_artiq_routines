@@ -8,14 +8,12 @@ A class for generating Rb atom distributions to be passed to various simulations
 ## libraries
 # from matplotlib import pyplot as plt
 import numpy as np
-from numpy import linspace,sin,cos,log,exp
-import math as m
-from math import sqrt,pi,e,exp
+from numpy import exp
+from math import sqrt, exp
 from random import random as rand
 
 ## local files
-from utilities.physconsts import  *
-from utilities.rbconsts import *
+from utilities.physics.rbconsts import *
 
 ## classes 
 

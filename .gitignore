@@ -26,6 +26,7 @@ tests/Card_Test.py
 thorlabs/images
 run_artiq.bat
 device_db.py
+repository
 .idea
 .ipynb_checkpoints
 artiqenv.bat
