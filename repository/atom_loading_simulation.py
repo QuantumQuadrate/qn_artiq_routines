@@ -129,7 +129,7 @@ class SingleAtomLoading(EnvExperiment):
         counts = self.sample_photocounts()
         domain = [0,300]
         counts_pruned = np.array([x for x in counts if x < domain[1]])
-        ypts, bins, _ = plt.hist(counts_pruned, bins=50)
+        ypts, bins, _ = plt.hist(counts_pruned, bins=40)
         xpts = np.linspace(min(counts_pruned), max(counts_pruned), len(bins) - 1)
         self.set_dataset("x1", xpts, broadcast=True)
         self.set_dataset("y1", ypts, broadcast=True)
@@ -162,6 +162,10 @@ class SingleAtomLoading(EnvExperiment):
 
         # NaNs only arise if the class is empty, in which case the contribution should be zero, which `nansum` accomplishes.
 class SingleAtomTest(EnvExperiment):
+    """
+    Count Fiting
+    """
+
     def build(self):
         self.name = "Atom Loading Fit Testing"
         self.setattr_argument("measurements", NumberValue(100, ndecimals=0, step=1))
@@ -174,7 +178,8 @@ class SingleAtomTest(EnvExperiment):
         domain = [0,500]
         counts_pruned = np.array([x for x in self.counts if x < domain[1]])
         print("counts pruned")
-        args = [counts_pruned, self.measurements]
+        p0 = [100, 100, 100, 200, 100, 100]
+        args = [counts_pruned, p0]
 
         params = start_modeling("count_dist", args=args)
         atoms_loaded = params['atoms_loaded']
@@ -182,6 +187,8 @@ class SingleAtomTest(EnvExperiment):
         modeled_func = params['modeled_func']
         opt_params = params['opt_params']
 
+        print(opt_params)
+        self.set_dataset("otsu_threshold", otsu_threshold, broadcast=True)
         self.set_dataset("atoms_loaded", atoms_loaded, broadcast = True)
         self.set_dataset("real_dat", counts_pruned, broadcast = True)
         self.set_dataset("height_dat", self.y_dist, broadcast=True)

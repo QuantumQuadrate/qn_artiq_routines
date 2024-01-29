@@ -126,7 +126,7 @@ def temp(tlist, retention, p0 = None):
         return Topt, ropt, modeled_y
 
 
-def atom_loading_fit(xdata=None, measurements=500,):
+def atom_loading_fit(xdata=None, p0 = None):
         ret_args = {}
         print("Proceding with atom_loading_fit at time:", time.time())
 
@@ -143,7 +143,7 @@ def atom_loading_fit(xdata=None, measurements=500,):
                                 ma,b: the x offsets
                                 wa,b: the dist widths
                         """
-                        print("Proceding with poisson: x")
+                        #print("Proceding with poisson: x")
 
                         return a * exp(-((counts - ma) / wa) ** 2) + b * exp(-((counts - mb) / wb) ** 2)
                 print("Entered fit:")
@@ -163,12 +163,19 @@ def atom_loading_fit(xdata=None, measurements=500,):
                 print(f"Otsu Threshold is {otsu_threshold}")
                 domain = [0, 300]
                 counts_pruned = np.array([x for x in xdata if x < domain[1]])
-                ypts, bins, _ = plt.hist(counts_pruned * 0.01, bins=40)
-                plt.show()
+                ypts, bins, _ = plt.hist(counts_pruned * 0.01, bins=50)
+                plt.close()
                 xpts = np.linspace(min(counts_pruned) * 0.01, max(counts_pruned) * 0.01, len(bins) - 1)
                 atoms_loaded = np.sum(counts_pruned[:] >= otsu_threshold)
                 print("fitting")
-                popt, pcov = curve_fit(double_poissonian_model, xpts, ypts, ftol=1e-15, maxfev=1000000, xtol=1e-15)
+                if p0!=None:
+                        popt, pcov = curve_fit(double_poissonian_model, xpts, ypts, p0=p0, ftol=1e-15, maxfev=1000000,
+                                               xtol=1e-15,)
+                else:
+                        popt, pcov = curve_fit(double_poissonian_model, xpts, ypts, ftol=1e-15, maxfev=1000000,
+                                               xtol=1e-15)
+
+
                 # rint(popt)
                 popt[2] = popt[2]*100
                 popt[3] = popt[3] * 100
@@ -180,18 +187,19 @@ def atom_loading_fit(xdata=None, measurements=500,):
                 ret_args['otsu_threshold'] = otsu_threshold
                 ret_args['opt_params'] = popt
                 ret_args['modeled_func'] = x_dat, y_dat
-                #self.set_dataset("atoms_loaded", atoms_loaded, broadcast=True)
-                #self.set_dataset("real_dat", counts_pruned, broadcast=True)
-                #self.set_dataset("height_dat", self.y_dist, broadcast=True)
-                #self.set_dataset("count_dat", modeled_func[0], broadcast=True)
-                #self.set_dataset("bin_dat", modeled_func[1], broadcast=True)
+
                 return ret_args
 
 
 def start_modeling(model = "temperature", args = None):
         if model == "temperature":
                 return temp(*args)
+
         elif model == "count_dist":
+                """ 
+                *args = (xdata, p0)
+                p0 should be provided with good guess to ensure consistency
+                """
                 return atom_loading_fit(*args)
         else:
                 print(f"Model :{model} was not found")
