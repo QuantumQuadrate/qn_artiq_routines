@@ -35,19 +35,31 @@ try:
     acquired = 0
     (acquired, unread, skipped, size) = cam.get_frames_status()
 
+    # this always says acquired is 0. weird
     for stat, lbl in zip((acquired, unread, skipped, size),
                          ("acquired", "unread", "skipped", "size")):
         print(lbl,": ",stat)
     cam.stop_acquisition()
-    frame = cam.grab()
-    print(np.array(frame).shape)
+    frame = np.array(cam.grab())
+    print(frame.shape)
     plt.imshow(frame[0])
     plt.show()
 
-    # frames = cam.grab(nframes=size)
-    # for i in range(size):
-    #     plt.imshow(frames[i])
-    #     plt.show()
+    # show some ROIs
+    fig, axes = plt.subplots(nrows=2,ncols=2)
+
+    ROI1 = ((280,335), (500,800))
+    ROI2 = ((540,595), (500,800))
+    ROI3 = ((280,335), (500,800))
+    ROI4 = ((280,330), (300,600))
+
+    ROIs = [ROI1, ROI2, ROI3, ROI4]
+
+    for ax,ROI in zip(axes.flat,ROIs):
+        ROI_rows,ROI_cols = ROI
+        ax.imshow(frame[0,slice(*ROI_rows),slice(*ROI_cols)])
+        ax.set_aspect('auto')
+    plt.show()
 
 except KeyboardInterrupt:
     print("keyboard interrupt. quitting nicely.")
