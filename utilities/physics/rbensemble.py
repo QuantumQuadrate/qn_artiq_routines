@@ -120,7 +120,7 @@ class RbEnsemble:
 				direction from a flat distribution. 
 		"""
 		m = self.m
-		print(self.temp)
+
 		if size is None:
 			size = self.size
 		if T is None:
@@ -128,10 +128,7 @@ class RbEnsemble:
 		
 		n = size 
 		v1,v2 = domain # capped at 1 [m/s] by default
-		print(kB)
-		print(T)
-		print(m)
-		print(self.units)
+
 		mean = sqrt(2 * kB * T / m) / self.units
 		mean = sqrt(2*kB*T/m)/self.units
 		fmax = self.maxboltzv(T,mean) # the maximum

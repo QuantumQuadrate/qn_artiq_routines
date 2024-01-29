@@ -73,7 +73,7 @@ def retention_at_t(t, T=None, base_retention=0.9, Tdepth = 1e-3, wx = 0.7e-6, wy
         if base_retention is None:
                 base_retention = 1  #the retention baseline with no fort drop
 
-        escape = np.float64(np.empty(len(t)))
+        escape = float64(empty(len(t)))
 
         for i in range(events):
                 KE = .5 * mRb * ((vxlist[i] - g * t) ** 2 + vylist[i] ** 2
@@ -88,24 +88,24 @@ def retention_at_t(t, T=None, base_retention=0.9, Tdepth = 1e-3, wx = 0.7e-6, wy
                 init_E = KE + PE0
                 hot_E = KE + PE
 
-                escape += ((np.float64((np.greater(hot_E, 0)))) - (np.float64((np.greater(init_E, 0)))))
+                escape += ((float64((greater(hot_E, 0)))) - (float64((greater(init_E, 0)))))
 
-        retention = base_retention * (1 - escape / np.float64(events))
+        retention = base_retention * (1 - escape / float64(events))
 
-        print(f"finished. T={T * 1e6} [uK], r = {base_retention}, b = , c = ")
+        print(f"finished. T={T * 1e6} [uK], r = {base_retention}")
 
         return retention
 
 def temp(tlist, retention, p0 = None):
         if p0 == None:
-                p0 = [4e-5, retention[0]]
+                p0 = [4e-5, retention[0], 1e-3, 0.7e-6, 0.7e-6]
 
-        print(tlist, retention)
+
         popt, pcov = curve_fit(retention_at_t, tlist, retention, p0=p0, absolute_sigma=False,
                                                    maxfev=1000000000, epsfcn=1)
-        Topt, ropt = popt
-        modeled_y = retention_at_t(tlist,Topt,ropt)
-        return Topt, ropt, modeled_y
+
+        modeled_y = retention_at_t(tlist, *popt)
+        return popt, modeled_y
 
 
 def atom_loading_fit(xdata=None, p0 = None, bin_count = 40, measurements = 500):
@@ -185,10 +185,10 @@ def start_modeling(model = "temperature", args = None):
                 """
                 *args = (xdata, retention, p0,)
                 xdata should be time in terms of micro seconds
-                if p0 is not provided, p0 = (40(uK), retention[0])
+                if p0 is not provided, p0 = (40(uK), retention[0], Tdepth = 1e-3, wx = 0.7e-6, wy =0.7e-6 )
                 """
                 ret_args = temp(*args)
-                print(f"Completed: {model} after {starting_time-time.time()} seconds")
+                print(f"Completed: {model} after {(time.time() - starting_time)} seconds")
                 return ret_args
 
         elif model == "count_dist":
