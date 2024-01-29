@@ -126,10 +126,10 @@ def temp(tlist, retention, p0 = None):
         return Topt, ropt, modeled_y
 
 
-def atom_loading_fit(xdata=None, p0 = None):
+def atom_loading_fit(xdata=None, p0 = None, bin_count = 40, measurements = 500):
         ret_args = {}
         print("Proceding with atom_loading_fit at time:", time.time())
-
+        factor = 1 / 100
         if False:
                 print("Incorrect paratemeters passed: exiting with return -1")
                 return -1
@@ -163,26 +163,30 @@ def atom_loading_fit(xdata=None, p0 = None):
                 print(f"Otsu Threshold is {otsu_threshold}")
                 domain = [0, 300]
                 counts_pruned = np.array([x for x in xdata if x < domain[1]])
-                ypts, bins, _ = plt.hist(counts_pruned * 0.01, bins=50)
-                plt.close()
-                xpts = np.linspace(min(counts_pruned) * 0.01, max(counts_pruned) * 0.01, len(bins) - 1)
+                ypts, bins, _ = plt.hist(counts_pruned * factor, bins=bin_count)
+                plt.show()
+                xpts = np.linspace(min(counts_pruned) * factor, max(counts_pruned) * factor, len(bins) - 1)
                 atoms_loaded = np.sum(counts_pruned[:] >= otsu_threshold)
-                print("fitting")
+                print("Fitting to integrated counts")
                 if p0!=None:
-                        popt, pcov = curve_fit(double_poissonian_model, xpts, ypts, p0=p0, ftol=1e-15, maxfev=1000000,
+                        p0[2] = p0[2] * factor
+                        p0[3] = p0[3] * factor
+                        p0[4] = p0[4] * factor
+                        p0[5] = p0[5] * factor
+                        popt, pcov = curve_fit(double_poissonian_model, xpts, ypts, p0=p0, ftol=1e-15, maxfev=10000000,
                                                xtol=1e-15,)
                 else:
-                        popt, pcov = curve_fit(double_poissonian_model, xpts, ypts, ftol=1e-15, maxfev=1000000,
+                        popt, pcov = curve_fit(double_poissonian_model, xpts, ypts, ftol=1e-15, maxfev=10000000,
                                                xtol=1e-15)
 
 
                 # rint(popt)
-                popt[2] = popt[2]*100
+                popt[2] = popt[2]* 100
                 popt[3] = popt[3] * 100
                 popt[4] = popt[4] * 100
                 popt[5] = popt[5] * 100
-                y_dat = double_poissonian_model(xpts * 100, *popt)
-                x_dat = xpts * 100
+                y_dat = double_poissonian_model(xpts * (1/factor), *popt)
+                x_dat = xpts * (1/factor)
                 ret_args['atoms_loaded'] = atoms_loaded
                 ret_args['otsu_threshold'] = otsu_threshold
                 ret_args['opt_params'] = popt
@@ -192,15 +196,29 @@ def atom_loading_fit(xdata=None, p0 = None):
 
 
 def start_modeling(model = "temperature", args = None):
+        starting_time = time.time()
+        print(f"Attempting to run: {model} at {starting_time}")
+
         if model == "temperature":
-                return temp(*args)
+                """
+                *args = (xdata, retention, p0,)
+                
+                if p0 is not provided, p0 = (40(uK), retention[0])
+                """
+                ret_args = temp(*args)
+                print(f"Completed: {model} after {starting_time-time.time()} seconds")
+                return ret_args
 
         elif model == "count_dist":
                 """ 
-                *args = (xdata, p0)
-                p0 should be provided with good guess to ensure consistency
+                *args = (xdata, p0, bin_count,)
+                p0 should be provided with good guess to ensure consistency, will be scaled down but rescaled
+                on return of optimal parameters
+                bin_count = number of points the count data will be summed to 
                 """
-                return atom_loading_fit(*args)
+                ret_args = atom_loading_fit(*args)
+                print(f"Completed: {model} after {time.time()-starting_time} seconds")
+                return ret_args
         else:
-                print(f"Model :{model} was not found")
+                print(f"Model :{model} was not found after {time.time()-starting_time} seconds")
                 return -1

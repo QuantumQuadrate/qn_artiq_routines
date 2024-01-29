@@ -176,10 +176,12 @@ class SingleAtomTest(EnvExperiment):
     def run(self):
         print(f"START: {self.name}")
         domain = [0,500]
-        counts_pruned = np.array([x for x in self.counts if x < domain[1]])
-        print("counts pruned")
-        p0 = [100, 100, 100, 200, 100, 100]
-        args = [counts_pruned, p0]
+        counts_pruned = np.array([x for x in self.counts if (x < domain[1])] )
+        #print("counts pruned")
+
+        p0 = [5, 10, 100, 200, 10, 1]
+        bin_count = self.bins
+        args = [counts_pruned, p0, bin_count]
 
         params = start_modeling("count_dist", args=args)
         atoms_loaded = params['atoms_loaded']
@@ -187,7 +189,7 @@ class SingleAtomTest(EnvExperiment):
         modeled_func = params['modeled_func']
         opt_params = params['opt_params']
 
-        print(opt_params)
+        #print(opt_params)
         self.set_dataset("otsu_threshold", otsu_threshold, broadcast=True)
         self.set_dataset("atoms_loaded", atoms_loaded, broadcast = True)
         self.set_dataset("real_dat", counts_pruned, broadcast = True)
