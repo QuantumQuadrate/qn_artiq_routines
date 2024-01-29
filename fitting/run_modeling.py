@@ -14,7 +14,7 @@ import time
 from utilities.physconsts import *
 from utilities.rbconsts import *
 from utilities.rbensemble import RbEnsemble as ensemble
-from utilities.dipole_trap import dipole_trap
+
 
 
 def retention_at_t(t, T=None, base_retention=0.9):

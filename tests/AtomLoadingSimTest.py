@@ -1,12 +1,6 @@
 from artiq.experiment import *
-import numpy as np
-import time
-from scipy.optimize import curve_fit
-from scipy.optimize import minimize
-from scipy.special import factorial
-from scipy import stats
 from scipy.stats import poisson
-from repository.run_modeling import *
+from fitting.run_modeling import *
 import matplotlib.pyplot as plt
 # a no-hardware simulation that we can use to test plotting
 
