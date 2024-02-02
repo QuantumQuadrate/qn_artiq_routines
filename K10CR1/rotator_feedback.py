@@ -47,9 +47,6 @@ class RotatorFeedbackChannel():
     def _abs_pos(self, rotor_num = 0):
         return self._pos(rotor_num) % 360
 
-    def test(self):
-        return -1
-
     #@kernel
     def _measure(self):
         return 0
@@ -155,12 +152,12 @@ class RotatorFeedbackChannel():
         self.stage[1].close()
         print("Closed successfully")
 
-    def optimise_for_rotor(self, rotor_num = 0, pos = 0, restrict_to_near = True, range = 20):
+    def optimise_for_rotor(self, rotor_num = 0, init_pos = 0, restrict_to_near = True, range = 45, favor_start = 1):
         stage = self.stage[rotor_num]
         stage.stop()
-        stage.move_to(position=pos)
+        stage.move_to(position=init_pos)
         stage.wait_for_stop()
-        
+
         starting_time = time()
 
         stage.setup_jog(max_velocity=10, acceleration=10)
@@ -169,21 +166,26 @@ class RotatorFeedbackChannel():
         i = 0
 
         degree = stage.get_position()
-        print(degree)
-        i_max = self.measure()
+        print(f"Starting position is {self._abs_pos(rotor_num=rotor_num)} degrees")
+        # User can pass a float variable through favor_start so it takes a larger percentage change in intensity
+        # to change it from it's original position
+
         max_degree = degree
-        min_possible = 0
-        max_possible = 0
+        i_max = self.measure() * favor_start
+        restriction_factor = 2 * favor_start
+
+
+
         if restrict_to_near:
-            min_possible = pos - range
-            max_possible = pos + range
+            min_possible = init_pos - range
+            max_possible = init_pos + range
         else:
             min_possible = 361
             max_possible = -361
 
         reversals = 0
         moving_forward = True
-        factor = 2
+
         time_wait = 0.1
         speed = 10
 
@@ -198,16 +200,16 @@ class RotatorFeedbackChannel():
                 was_above = True
                 reversals = 0
 
-            elif intensity <= i_max / factor or (degree >= max_possible or degree <= min_possible):
-                factor /= 1.3
+            elif intensity <= i_max / restriction_factor or (degree >= max_possible or degree <= min_possible):
+                restriction_factor /= 1.3
 
-                if factor <= 1:
-                    factor = 1.001
+                if restriction_factor <= 1:
+                    restriction_factor = 1.001
 
                 stage.stop()
 
                 if moving_forward is True:
-                    stage.setup_jog(max_velocity=speed/(reversals+1), acceleration=10)
+                    stage.setup_jog(max_velocity=speed/(reversals+2), acceleration=10)
                     stage.jog(direction="-")
                     moving_forward = False
                     # max_possible = degree
@@ -216,7 +218,7 @@ class RotatorFeedbackChannel():
                         d = stage.get_position()
                         sleep(0.1)"""
                 else:
-                    stage.setup_jog(max_velocity=speed / (reversals + 1), acceleration=10)
+                    stage.setup_jog(max_velocity=speed / (reversals + 2), acceleration=10)
                     stage.jog(direction="+")
                     moving_forward = True
                     # min_possible = degree
@@ -234,8 +236,12 @@ class RotatorFeedbackChannel():
 
             sleep(time_wait)
             i += 1
-            if i == 10000:
+            if i == 1000:
                 stage.stop()
+        # If the user passed a factor to favor the starting position it is factored out
+        if favor_start != 1:
+            i_max/=favor_start
+
         print(f"Rotor number{rotor_num}\n--------------------------")
         print(f"Max degree:{max_degree}\nIntensity at degree:{i_max}")
         print(f"time to optimize rotor number {rotor_num}: ({time()-starting_time} seconds)")
