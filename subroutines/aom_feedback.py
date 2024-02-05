@@ -1,8 +1,4 @@
 """
-# todo: add an attribute to AOMPowerStabilizers which is a list of AOMs we want to leave on after the feedback is run,
-#  if any. this list can then be overwritten in prepare at the experiment level, even if we give a default list in
-#  Base experiment
-
 A subroutine feedback loop using Urukul channels and Samplers.
 While ARTIQ has a Servo instrument for doing feedback, it does not allow
 using the Urukul and Sampler channels for other purposes. I.e. it is for
@@ -22,21 +18,9 @@ todo: should set the AOMs to default frequency setting internally, rather than r
     in their code, as long as we also undo our setting change at the end. or, promise nothing, and do everything
     externally, i.e. in the experiment code.
 todo: should be able to modify setpoints so we can optimize them as needed.
-one way to do this would be to make the stabilizer dict a json file and
-update the json file, e.g. after doing an optimizer routine with the AOM
-powers. then whatever the voltages are after doing this routine, we update
-the file. however, it might be preferable to scan over the setpoints
-themselves (with proper caps on the AOM RF power), in which case, they
-should be experiment variables. not obvious how to do this. the MOT can
-likely be moved only using the shim fields, but the beam pairs themselves
-will need to be precisely balanced in order to do good PGC. so adjusting
-these setpoints will be a necessity in a matter of time.
-Another desirable feature would be to disentangle the broadcasting of MOT
-beam powers from the feedback routine. as it is, only the powers that are
-stabilized will be broadcast, whereas we may want to broadcast powers that
-are not stabilized for testing, or broadcast powers at other points in the
-experiment for some reason.
-
+todo: add an attribute to AOMPowerStabilizers which is a list of AOMs we want to leave on after the feedback is run,
+ if any. this list can then be overwritten in prepare at the experiment level, even if we give a default list in
+ Base experiment
 todo: make number of measurements to average specific to each feedback channel,
  because some detectors give better SNR (e.g. the I2Vs compared to the fW detector)
 """
@@ -45,100 +29,104 @@ from artiq.experiment import *
 import numpy as np
 import time
 
-# group all dds channels and feedback params by sampler card
-# todo: set_point should reference an ExperimentVariable name
-#  and the set_point should be updated at the beginning of the run method
+import sys
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+
+from utilities.conversions import dB_to_V
+
+"""
+Group all dds channels and feedback params by sampler card
+
+Notes about entries below. 
+- All dds channel names should follow the convention "dds_description". 
+THIS IS ASSUMED BY THE CODE IN AOMPowerStabilizer.
+"""
 stabilizer_dict = {
     'sampler0':
         {
             'dds_cooling_DP': # signal monitored by PD0
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
-                    # 'transfer_function': lambda x : x, # converts volts to optical mW
                     'set_point': 'set_point_PD0_AOM_cooling_DP', # volts
                     'p': 0.08, # the proportionality constant
                     'i': 0.0, # the integral coefficient
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor',
                     'power_dataset':'p_cooling_DP_MOT', # the dataset for the RF power in dB; see ExperimentVariables
+                    # 'amplitudes': 'DummyAmplitudes',
                     't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
                     'max_dB': 0
                 },
             'dds_AOM_A5': # signal monitored by PD5
                 {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
-                    # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_PD5_AOM_A5', # volts 0.214 before I lowered it for the test
                     'p': 0.1, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset':'MOT5_monitor',
-                    'power_dataset':'AOM_A5_power',
+                    'power_dataset':'p_AOM_A5',
+                    # 'amplitudes': 'DummyAmplitudes',
                     't_measure_delay':1*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A6': # signal monitored by PD6
                 {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
-                    # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_PD6_AOM_A6', # volts
                     'p': 0.1, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT6_monitor',
-                    'power_dataset':'AOM_A6_power',
+                    'power_dataset':'p_AOM_A6',
                     't_measure_delay':1*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A1': # signal monitored by Thorlabs fW detector
                 {
                     'sampler_ch': 7, # the channel connected to the appropriate PD
-                    # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A1', # volts
                     'p': 0.012, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT1_monitor',
-                    'power_dataset':'AOM_A1_power',
+                    'power_dataset':'p_AOM_A1',
                     't_measure_delay':50*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A2': # signal monitored by Thorlabs fW detector
                 {
                     'sampler_ch': 7, # the channel connected to the appropriate PD
-                    # 'transfer_function': lambda x : x,  # arbitrary units
                     'set_point': 'set_point_fW_AOM_A2', # volts
                     'p': 0.012, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT2_monitor',
-                    'power_dataset':'AOM_A2_power',
+                    'power_dataset':'p_AOM_A2',
                     't_measure_delay':50*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A3': # signal monitored by Thorlabs fW detector
                 {
                     'sampler_ch': 7, # the channel connected to the appropriate PD
-                    # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A3', # volts
                     'p': 0.015, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT3_monitor',
-                    'power_dataset':'AOM_A3_power',
+                    'power_dataset':'p_AOM_A3',
                     't_measure_delay':50*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A4': # signal monitored by Thorlabs fW detector
                 {
                     'sampler_ch': 7, # the channel connected to the appropriate PD
-                    # 'transfer_function': lambda x : x,
                     'set_point': 'set_point_fW_AOM_A4', # volts
                     'p': 0.01, # the proportionality constant
                     'i': 0.0, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT4_monitor',
-                    'power_dataset':'AOM_A4_power',
+                    'power_dataset':'p_AOM_A4',
                     't_measure_delay':50*ms,
                     'max_dB': 0
                 },
@@ -148,13 +136,12 @@ stabilizer_dict = {
             'dds_FORT': # signal monitored by TTI detector connected to MM fiber
                 {
                     'sampler_ch': 6, # the channel connected to the appropriate PD
-                    # 'transfer_function': lambda x : x, # converts volts to optical mW
                     'set_point': 'set_point_FORT_MM',
                     'p': 0.7, #
                     'i': 0.0, # the integral coefficient
                     'series': True, # setting to True because there's a bug with parallel
                     'dataset':'FORT_monitor',
-                    'power_dataset':'p_FORT_loading', # the dataset for the RF power in dB; see ExperimentVariables
+                    'power_dataset':'p_FORT_loading',
                     't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
                     'max_dB': 5
                 },
@@ -163,6 +150,7 @@ stabilizer_dict = {
         {
         }
 }
+
 
 class FeedbackChannel:
 
@@ -198,6 +186,7 @@ class FeedbackChannel:
         self.error_history_length = error_history_length
         self.cumulative_error = 0.0 # will store a sum of the
         self.max_dB = max_dB
+        self.ampl_default = 0.0
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -328,31 +317,21 @@ class AOMPowerStabilizer:
                                             max_dB=ch_params['max_dB']
                         )
 
+                        # make the feedback channel an attribute of the AOMPowerStabilizer instance itself
+                        # so we can conveniently access the updated dds amplitudes in our experiments
+                        stabilizer_ch_name = "stabilizer"+ch_name[3:]
+                        setattr(self.exp, stabilizer_ch_name, fb_channel)
+                        # fb_channel_ref = getattr(self.exp, stabilizer_ch_name) # use this going forward
+
                         if ch_params['series']:
-                            self.series_channels.append(fb_channel)
+                            # self.series_channels.append(fb_channel)
+                            self.series_channels.append(getattr(self.exp, stabilizer_ch_name))
                         else:
-                            self.parallel_channels.append(fb_channel)
+                            # self.parallel_channels.append(fb_channel)
+                            self.parallel_channels.append(getattr(self.exp, stabilizer_ch_name))
 
                         if ch_name in self.open_loop_monitor_names:
-                            self.open_loop_monitor_channels.append(fb_channel)
-
-        # # todo: make the FORT a 'parallel' channel later
-        # i = 0 # sampler index
-        # ch_name = 'dds_FORT'
-        # ch_params = stabilizer_dict[f'sampler{i}'][ch_name]
-        # self.FORT_ch = FeedbackChannel(name=ch_name,
-        #                                dds_obj=getattr(self.exp, ch_name),
-        #                                buffer_index=ch_params['sampler_ch'] + i * 8,
-        #                                # g=ch_params['transfer_function'],
-        #                                set_point=getattr(self.exp, ch_params['set_point']),
-        #                                p=ch_params['p'],
-        #                                i=ch_params['i'],
-        #                                dataset=ch_params['dataset'],
-        #                                dB_dataset=ch_params['power_dataset'],
-        #                                t_measure_delay=ch_params['t_measure_delay'],
-        #                                error_history_length=self.iterations
-        #                                )
-        # self.exp.set_dataset(self.FORT_ch.dataset, [1.0], broadcast=True)
+                            self.open_loop_monitor_channels.append(getattr(self.exp, stabilizer_ch_name))
 
         self.num_samplers = len(self.sampler_list)
         self.measurement_array = np.full(8 * self.num_samplers, 0.0)
@@ -375,6 +354,11 @@ class AOMPowerStabilizer:
         for ch in self.all_channels:
             dB = 10*(np.log10(ch.amplitude**2/(2*50)) + 3)
             self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True, persist=True)
+
+            # if ch.amplitude_setter != None:
+            # ch.amplitude_setter.ampl_default = ch.amplitude
+            # self.exp.dds_profiles[ch.name]["default"] = ch.amplitude
+            # self.exp.__setattr__("test_amplitude",ch.amplitude)
 
     @kernel
     def measure(self):

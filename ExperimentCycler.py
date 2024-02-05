@@ -69,7 +69,7 @@ class ExperimentCycler(EnvExperiment):
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("iteration", np.nan, broadcast=True)
+        self.set_dataset("iteration", 0, broadcast=True)
 
 
     def reset_datasets(self):
@@ -94,14 +94,13 @@ class ExperimentCycler(EnvExperiment):
 
     def run(self):
         """
-        Step through the variable values defined by the scan sequences and run the experiment function.
-
-        Because the scan variables can be any ExperimentVariable, which includes values used to initialize
-        hardware (e.g. a frequency for a dds channel), the hardware is reinitialized in each step of the
-        variable scan, i.e., each iteration.
+        Loop the experiment function, pausing only for higher-priority experiments
+        in the same pipeline
         """
 
         self.initialize_datasets()
+
+        iteration = 0
 
         while True:
 
@@ -119,6 +118,9 @@ class ExperimentCycler(EnvExperiment):
                 #  experiment. I tried updating n_measurements
                 # after pause is done, we want to re-initialize variables in case they have changed
                 # self.base.build()
+
+            iteration += 1
+            self.set_dataset("iteration", iteration, broadcast=True)
 
             # todo: add in compute loading so we can log the rate and retention
 
