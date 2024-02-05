@@ -48,7 +48,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD0_AOM_cooling_DP', # volts
-                    'p': 0.08, # the proportionality constant
+                    'p': 0.00, # the proportionality constant
                     'i': 0.0, # the integral coefficient
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor',
@@ -84,9 +84,9 @@ stabilizer_dict = {
                 },
             'dds_AOM_A1': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 7, # the channel connected to the appropriate PD
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
                     'set_point': 'set_point_fW_AOM_A1', # volts
-                    'p': 0.012, # the proportionality constant
+                    'p': 0.0, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT1_monitor',
@@ -96,9 +96,9 @@ stabilizer_dict = {
                 },
             'dds_AOM_A2': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 7, # the channel connected to the appropriate PD
+                    'sampler_ch': 5, # the channel connected to the appropriate PD
                     'set_point': 'set_point_fW_AOM_A2', # volts
-                    'p': 0.012, # the proportionality constant
+                    'p': 0.0, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT2_monitor',
@@ -108,9 +108,9 @@ stabilizer_dict = {
                 },
             'dds_AOM_A3': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 7, # the channel connected to the appropriate PD
+                    'sampler_ch': 3, # the channel connected to the appropriate PD
                     'set_point': 'set_point_fW_AOM_A3', # volts
-                    'p': 0.015, # the proportionality constant
+                    'p': 0.0, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT3_monitor',
@@ -120,9 +120,9 @@ stabilizer_dict = {
                 },
             'dds_AOM_A4': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 7, # the channel connected to the appropriate PD
+                    'sampler_ch': 4, # the channel connected to the appropriate PD
                     'set_point': 'set_point_fW_AOM_A4', # volts
-                    'p': 0.01, # the proportionality constant
+                    'p': 0.0, # the proportionality constant
                     'i': 0.0, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT4_monitor',

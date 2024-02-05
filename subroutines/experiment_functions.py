@@ -88,6 +88,66 @@ def test_experiment(self):
     self.print_async(x)
 
 @kernel
+def atom_loading_beta_experiment(self):
+    """
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+
+    counts = 0
+    counts2 = 0
+
+    for measurement in range(self.n_measurements):
+
+        if self.enable_laser_feedback:
+            if measurement % 10 == 0:
+                self.laser_stabilizer.run()  # this tunes the MOT AOMs
+                self.fast_laser_stabilizer.run()  # this tunes the FORT AOM
+
+        delay(10*ms)
+        print(self.ampl_FORT_loading)
+        delay(10*ms)
+
+
+        load_MOT_and_FORT(self)
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+
+        if not self.no_first_shot:
+            # take the first shot
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+            counts = self.ttl0.count(t_gate_end)
+            delay(1 * ms)
+            self.dds_cooling_DP.sw.off()
+
+        delay(self.t_delay_between_shots)
+
+        # take the second shot
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        counts2 = self.ttl0.count(t_gate_end)
+
+        delay(1 * ms)
+
+        # update the datasets
+        if not self.no_first_shot:
+            self.append_to_dataset('photocounts', counts)
+            self.append_to_dataset('photocounts_current_iteration', counts)
+
+        # update the datasets
+        self.append_to_dataset('photocounts2', counts2)
+        self.append_to_dataset('photocounts2_current_iteration', counts2)
+
+    # effectively turn the FORT AOM off
+    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        # set the cooling DP AOM to the MOT settings
+        # set the cooling DP AOM to the MOT settings
+
+@kernel
 def atom_loading_experiment(self):
     """
     :param self: an experiment instance.
