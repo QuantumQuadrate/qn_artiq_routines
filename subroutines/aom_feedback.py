@@ -26,6 +26,7 @@ todo: make number of measurements to average specific to each feedback channel,
 """
 
 from artiq.experiment import *
+import logging
 import numpy as np
 import time
 
@@ -57,11 +58,59 @@ stabilizer_dict = {
                     't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
                     'max_dB': 0
                 },
+            'dds_AOM_A1': # signal monitored by Thorlabs fW detector
+                {
+                    'sampler_ch': 7, # the channel connected to the appropriate PD
+                    'set_point': 'set_point_PD1_AOM_A1', # volts
+                    'p': 0.001, # the proportionality constant
+                    'i': 0.000, # the integral coefficient
+                    'series': True,
+                    'dataset': 'MOT1_monitor',
+                    'power_dataset':'p_AOM_A1',
+                    't_measure_delay':1*ms,
+                    'max_dB': 0
+                },
+            'dds_AOM_A2': # signal monitored by Thorlabs fW detector
+                {
+                    'sampler_ch': 5, # the channel connected to the appropriate PD
+                    'set_point': 'set_point_PD2_AOM_A2', # volts
+                    'p': 0.1, # the proportionality constant
+                    'i': 0.00, # the integral coefficient
+                    'series': True,
+                    'dataset': 'MOT2_monitor',
+                    'power_dataset':'p_AOM_A2',
+                    't_measure_delay':1*ms,
+                    'max_dB': 0
+                },
+            'dds_AOM_A3': # signal monitored by Thorlabs fW detector
+                {
+                    'sampler_ch': 3, # the channel connected to the appropriate PD
+                    'set_point': 'set_point_PD3_AOM_A3', # volts
+                    'p': 0.2, # the proportionality constant
+                    'i': 0.000, # the integral coefficient
+                    'series': True,
+                    'dataset': 'MOT3_monitor',
+                    'power_dataset':'p_AOM_A3',
+                    't_measure_delay':1*ms,
+                    'max_dB': 0
+                },
+            'dds_AOM_A4': # signal monitored by Thorlabs fW detector
+                {
+                    'sampler_ch': 4, # the channel connected to the appropriate PD
+                    'set_point': 'set_point_PD4_AOM_A4', # volts
+                    'p': 0.2, # the proportionality constant
+                    'i': 0.0, # the integral coefficient
+                    'series': True,
+                    'dataset': 'MOT4_monitor',
+                    'power_dataset':'p_AOM_A4',
+                    't_measure_delay':1*ms,
+                    'max_dB': 0
+                },
             'dds_AOM_A5': # signal monitored by PD5
                 {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_PD5_AOM_A5', # volts 0.214 before I lowered it for the test
-                    'p': 0.1, # the proportionality constant
+                    'set_point': 'set_point_PD5_AOM_A5',
+                    'p': 0.08, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset':'MOT5_monitor',
@@ -80,54 +129,6 @@ stabilizer_dict = {
                     'dataset': 'MOT6_monitor',
                     'power_dataset':'p_AOM_A6',
                     't_measure_delay':1*ms,
-                    'max_dB': 0
-                },
-            'dds_AOM_A1': # signal monitored by Thorlabs fW detector
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_fW_AOM_A1', # volts
-                    'p': 0.0, # the proportionality constant
-                    'i': 0.000, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT1_monitor',
-                    'power_dataset':'p_AOM_A1',
-                    't_measure_delay':50*ms,
-                    'max_dB': 0
-                },
-            'dds_AOM_A2': # signal monitored by Thorlabs fW detector
-                {
-                    'sampler_ch': 5, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_fW_AOM_A2', # volts
-                    'p': 0.0, # the proportionality constant
-                    'i': 0.00, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT2_monitor',
-                    'power_dataset':'p_AOM_A2',
-                    't_measure_delay':50*ms,
-                    'max_dB': 0
-                },
-            'dds_AOM_A3': # signal monitored by Thorlabs fW detector
-                {
-                    'sampler_ch': 3, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_fW_AOM_A3', # volts
-                    'p': 0.0, # the proportionality constant
-                    'i': 0.000, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT3_monitor',
-                    'power_dataset':'p_AOM_A3',
-                    't_measure_delay':50*ms,
-                    'max_dB': 0
-                },
-            'dds_AOM_A4': # signal monitored by Thorlabs fW detector
-                {
-                    'sampler_ch': 4, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_fW_AOM_A4', # volts
-                    'p': 0.0, # the proportionality constant
-                    'i': 0.0, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT4_monitor',
-                    'power_dataset':'p_AOM_A4',
-                    't_measure_delay':50*ms,
                     'max_dB': 0
                 },
 
@@ -343,7 +344,11 @@ class AOMPowerStabilizer:
 
         # for logging the measured voltages
         for ch in self.all_channels: # todo: update with the last value from the dataset
-            self.exp.set_dataset(ch.dataset, [1.0], broadcast=True)
+            try:
+                self.exp.set_dataset(ch.dataset, [self.exp.get_dataset(ch.dataset)[-1]], broadcast=True)
+            except Exception as e:
+                logging.warning(e)
+                self.exp.set_dataset(ch.dataset, [1.0], broadcast=True)
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -441,6 +446,8 @@ class AOMPowerStabilizer:
         loop has been run.
         """
 
+        self.exp.ttl7.pulse(1*ms) # scope trigger
+
         # todo: up-date the set points for all channels in case they have been changed since
         #  the stabilizer was instantiated. not sure how to do this since getattr can not be
         #  used in the kernel, and I don't want to have to pass in a variable explicitly.
@@ -448,6 +455,10 @@ class AOMPowerStabilizer:
         # todo: modify this to only affect the DDSs we're feeding back to?
         # make sure that all of the DDSs are set the default frequency and power levels
         self.exp.named_devices.set_dds_default_settings()
+
+        # turn off the repumps which are mixed into the cooling light
+        self.exp.ttl_repump_switch.on() # block RF to the RP AOM
+        # todo include pumping repump
 
         for ch in self.all_channels:
             ch.get_dds_settings()
@@ -541,3 +552,7 @@ class AOMPowerStabilizer:
         delay(1 * ms)
         if self.update_dds_settings:
             self.write_dds_settings()
+
+        # turn on the repumps which are mixed into the cooling light
+        self.exp.ttl_repump_switch.on()  # block RF to the RP AOM
+        # todo include pumping repump
