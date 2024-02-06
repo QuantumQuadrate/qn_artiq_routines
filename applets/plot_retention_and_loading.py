@@ -1,7 +1,4 @@
 """
-plot the atom retention, i.e., the fraction of atoms detected in the first readout which
-survive the science phase and are hence detected in the second readout
-
 arguments are counts, counts2, and a defined threshold to discriminate between atom
 and background. todo: make the threshold parameter optional and instead determine it
 with a fit
@@ -37,7 +34,6 @@ class XYPlot(pyqtgraph.PlotWidget):
         counts_shot1 = data[self.args.counts_shot1][1][1:]
         counts_shot2 = data[self.args.counts_shot2][1][1:]
         measurements = data[self.args.measurements][1]
-        iteration = int(data[self.args.iteration][1])
 
         if (self.args.threshold_cts_per_s is not None and
                 self.args.t_exposure is not None):
@@ -46,6 +42,8 @@ class XYPlot(pyqtgraph.PlotWidget):
             cutoff = int(t_exposure*threshold_cts_per_s)
         else:
             cutoff = 220 # for testing purposes # todo: compute this
+
+        iteration = len(counts_shot1)//measurements
 
         retention_array = np.zeros(iteration)
         loading_rate_array = np.zeros(iteration)
@@ -77,8 +75,15 @@ class XYPlot(pyqtgraph.PlotWidget):
                       symbolBrush=(0, 100, 100),
                       symbolPen='w',
                       name='loading')
+
+            self.setYRange(-0.05, 1.05, padding=0)
             self.setTitle(title)
-            self.addLegend()
+            # self.addLegend()
+
+            # the text that shows up is huge. # todo
+            # xaxis = pyqtgraph.AxisItem('bottom')#,text='my x axis')
+            # xaxis.setLabel(text='test')
+            # self.addItem(xaxis)
 
             #
             if error is not None:

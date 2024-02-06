@@ -50,6 +50,9 @@ class ExperimentVariables(EnvExperiment):
         # these datasets can be referenced by other experiments instead of declaring the variable locally in each
         # experiment.
         self.vars_list = [
+            # debugging
+            Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
+
             # FORT AOM
             Variable("f_FORT", 210.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
             Variable("p_FORT_loading", 3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
@@ -67,6 +70,8 @@ class ExperimentVariables(EnvExperiment):
 
             # Cooling double pass AOM
             Variable("f_cooling_DP_MOT", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Cooling double pass AOM"),
+            Variable("f_cooling_DP_MOT_phase2", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
             Variable("f_cooling_DP_RO", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
@@ -173,12 +178,14 @@ class ExperimentVariables(EnvExperiment):
 
             # Timing
             Variable("t_MOT_loading", 500*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_MOT_phase2", 500 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_loading", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_in_MOT", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_MOT_dissipation", 3 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_blowaway", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
@@ -191,6 +198,10 @@ class ExperimentVariables(EnvExperiment):
             Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
 
+            # Thresholds and cut-offs
+            Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_counts_threshold", 270, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
+                                                                        'step': 1}, "Thresholds and cut-offs"),
             # Set points
             Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_fW_AOM_A1", 0.768, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
@@ -207,22 +218,18 @@ class ExperimentVariables(EnvExperiment):
             Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
                      'step': 1}, "Plotting"),
 
-            # Thresholds
-            Variable("single_atom_counts_threshold", 200, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
-                                                                          'step': 1}, "Plotting"),
-
             # Laser feedback
             Variable("Luca_trigger_for_feedback_verification", False, BooleanValue, {}, "Laser feedback"),
             Variable("enable_laser_feedback", False, BooleanValue, {}, "Laser feedback"),
-            Variable("feedback_dds_list", "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', "
+            Variable("slow_feedback_dds_list", "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', "
                                           "'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"
                                       "'dds_AOM_A6','dds_cooling_DP']", StringValue, {}, "Laser feedback"),
+            Variable("fast_feedback_dds_list", "['dds_FORT']", StringValue, {}, "Laser feedback"),
             Variable("aom_feedback_averages", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback")
 
-            # File saving # todo: move away from saving csv files and save instead to the experiment's hdf
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so

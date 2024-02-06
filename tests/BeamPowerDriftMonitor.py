@@ -41,7 +41,7 @@ class BeamPowerDriftMonitor(EnvExperiment):
         self.laser_stabilizer = AOMPowerStabilizer(experiment=self,
                                            dds_names=dds_list,
                                            iterations=1,
-                                           leave_MOT_AOMs_on=True)
+                                           leave_AOMs_on=True)
 
     @kernel
     def run(self):

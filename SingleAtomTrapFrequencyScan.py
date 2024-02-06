@@ -10,6 +10,7 @@ import numpy as np
 from datetime import datetime as dt
 
 from utilities.BaseExperiment import BaseExperiment
+from subroutines.experiment_functions import load_MOT_and_FORT
 
 
 class SingleAtomTrapFrequencyScan(EnvExperiment):
@@ -22,6 +23,7 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
+        # self.setattr_argument("require_loading", BooleanValue(True))
 
         # the voltage steps. the voltage controls the frequency of a Rigol DG1022Z
         rigol_group = "Rigol DG1022Z settings"
@@ -100,8 +102,8 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
 
         # todo: these are going to be regularly used, so put these in the base experiment
         self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("photocounts", [0])
-        self.set_dataset("photocounts2", [0])
+        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocounts2", [0], broadcast=True)
 
 
         # turn off AOMs we aren't using, in case they were on previously
@@ -160,31 +162,11 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                     self.dds_FORT.sw.on()
                     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
 
-                self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
-
                 ############################
-                # load the MOT
+                # load the MOT and FORT
                 ############################
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                    channels=self.coil_channels)
-                # delay(2 * ms)
-                self.dds_cooling_DP.sw.on()
 
-                # wait for the MOT to load
-                delay_mu(self.t_MOT_loading_mu)
-
-                # turn on the dipole trap and wait to load atoms
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-                delay_mu(self.t_FORT_loading_mu)
-
-                # turn off the coils
-                self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
-
-                delay(3*ms) # should wait for the MOT to dissipate
-
-                # set the cooling DP AOM to the readout settings
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+                load_MOT_and_FORT(self)
 
                 ############################
                 # take the first shot
@@ -218,14 +200,10 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                 delay(1*ms)
                 self.dds_cooling_DP.sw.off()
 
-                # effectively turn the FORT AOM off
-                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
                 # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
                 delay(2*ms)
-
-                iteration += 1
 
                 # update the datasets
                 self.append_to_dataset('photocounts', counts)
@@ -234,8 +212,16 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                 self.append_to_dataset('photocounts2_current_iteration', counts2)
                 self.set_dataset("iteration", iteration, broadcast=True)
 
+            iteration += 1
+
         delay(1*ms)
-        # leave MOT on at end of experiment, but turn off the FORT
+        # leave MOT on at end of experiment
         self.dds_cooling_DP.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+
+        # effectively turn the FORT AOM off
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+
+        # finally, in case the worker refuses to die
+        self.write_results()

@@ -32,7 +32,7 @@ from artiq import __version__ as artiq_version
 
 
 @rpc(flags={"async"})
-def write_results(experiment):
+def write_results(experiment, name=None):
     try:    
         experiment.setattr_device("scheduler")
         rid = experiment.scheduler.rid
@@ -42,7 +42,10 @@ def write_results(experiment):
         expid = experiment.scheduler.expid
         dataset_mgr = experiment._HasEnvironment__dataset_mgr
         ## rid_counter.py in master relies on the previously used RID if the RID cache is cleared.
-        filename = "{:09}-{}Synchronous.h5".format(rid, experiment.__class__.__name__) 
+        if name != None:
+            filename = "{:09}-{}_{}.h5".format(rid, experiment.__class__.__name__, name)
+        else:
+            filename = "{:09}-{}Synchronous.h5".format(rid, experiment.__class__.__name__)
         with h5py.File(filename, "w") as f:
             dataset_mgr.write_hdf5(f)
             f["artiq_version"] = artiq_version

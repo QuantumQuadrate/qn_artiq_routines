@@ -13,39 +13,59 @@ arguments for having a wrapper class for each experiment
  - all of the usual OOP arguments
 """
 
-# def SingleAtomExperiment(ABC):
-#     """
-#     A wrapper class for methods that are common to the single atom experiments we run.
-#
-#     Experiments below that are generally of the format "load a MOT, load a single atom
-#     do a readout, do something, do a second readout" should inherit from this class.
-#     :return:
-#     """
-#
-#     def initialize_datasets(self):
-#         pass
-#
-#     def load_MOT(self):
-#         pass
-#
-#     def load_FORT(self):
-#         pass
-#
-# def TestExperiment():
-#     """Test class"""
-#
-#     @staticmethod
-#     def initialize_datasets(self):
-#         self.set_dataset("test_dataset", [0])
-#
-#     @staticmethod
-#     def experiment_function(self):
-#         x = self.t_blowaway
-#         self.append_to_dataset('test_dataset', x)
-#         self.print_async(x)
+###############################################################################
+# SUBROUTINE FUNCTIONS
+# These are functions
+###############################################################################
+
 
 @kernel
-def test(self):
+def load_MOT_and_FORT(self):
+    """
+    The FORT loading sequence, from loading a MOT to hopefully trapping one atom
+
+    :param self: the experiment instance
+    :return:
+    """
+
+    self.dds_FORT.sw.on()
+    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+
+    self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+
+    # Turn on the MOT coils and cooling light
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        channels=self.coil_channels)
+    # delay(2 * ms)
+    self.dds_cooling_DP.sw.on()
+
+    # wait for the MOT to load
+    delay(self.t_MOT_loading - self.t_MOT_phase2)
+
+    if self.t_MOT_phase2 > 0:
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
+                                amplitude=self.ampl_cooling_DP_MOT) # todo: make a variable for phase 2
+        delay(self.t_MOT_phase2)
+
+    # todo: try loading from a PGC phase
+
+    # turn on the dipole trap and wait to load atoms
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+    delay_mu(self.t_FORT_loading_mu)
+
+    # turn off the coils
+    self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
+                         channels=self.coil_channels)
+
+    if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
+        delay(self.t_PGC_in_MOT)
+
+    delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+
+@kernel
+def test_experiment(self):
     """
     self is the experiment instance to which ExperimentVariables are bound
     """
@@ -54,7 +74,66 @@ def test(self):
     self.print_async(x)
 
 @kernel
-def optical_pumping(self):
+def atom_loading_experiment(self):
+    """
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+
+    counts = 0
+    counts2 = 0
+
+    for measurement in range(self.n_measurements):
+
+        if self.enable_laser_feedback:
+            if measurement % 10 == 0:
+                self.laser_stabilizer.run()
+            self.fast_laser_stabilizer.run() # this controls the FORT AOM
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+
+
+        load_MOT_and_FORT(self)
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+
+        if not self.no_first_shot:
+            # take the first shot
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+            counts = self.ttl0.count(t_gate_end)
+            delay(1 * ms)
+            self.dds_cooling_DP.sw.off()
+
+        delay(self.t_delay_between_shots)
+
+        # take the second shot
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        counts2 = self.ttl0.count(t_gate_end)
+        delay(1 * ms)
+
+        # todo: check the FORT extinction ratio here
+        # effectively turn the FORT AOM off
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        # set the cooling DP AOM to the MOT settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+
+        delay(2 * ms)
+
+        # update the datasets
+        if not self.no_first_shot:
+            self.append_to_dataset('photocounts', counts)
+            self.append_to_dataset('photocounts_current_iteration', counts)
+
+        # update the datasets
+        self.append_to_dataset('photocounts2', counts2)
+        self.append_to_dataset('photocounts2_current_iteration', counts2)
+
+@kernel
+def optical_pumping_experiment(self):
     """
     self is the experiment instance to which ExperimentVariables are bound
     """
@@ -67,47 +146,21 @@ def optical_pumping(self):
 
     for measurement in range(self.n_measurements):
 
+        self.core.reset()
+        delay(1 * ms)
+
         # make sure any beams that can mess up the fW measurement (e.g. OP, excitation) are turned off
         if self.enable_laser_feedback:
             if measurement % 10 == 0:
                 self.laser_stabilizer.run()
-                delay(1 * ms)
-            self.dds_FORT.sw.on()
+            self.fast_laser_stabilizer.run()  # this controls the FORT AOM
             self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
 
-        self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
-
         ############################
-        # load the MOT
+        # load the MOT and FORT
         ############################
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-            channels=self.coil_channels)
-        self.dds_cooling_DP.sw.on()
 
-        # wait for the MOT to load
-        delay_mu(self.t_MOT_loading_mu)
-
-        # load atom from a PGC phase
-        if self.do_PGC_in_MOT:
-            self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
-            delay(self.t_PGC_in_MOT)
-
-        # turn on the dipole trap and wait to load atoms
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
-        delay_mu(self.t_FORT_loading_mu)
-
-        # turn off the coils
-        if not self.do_PGC_in_MOT:
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-                channels=self.coil_channels)
-
-        delay(3 * ms)  # should wait for the MOT to dissipate
-
-        # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+        load_MOT_and_FORT(self)
 
         ############################
         # take the first shot
@@ -257,7 +310,7 @@ def optical_pumping(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
 
 @kernel
-def single_photons(self): # for debugging
+def single_photons_experiment(self): # for debugging
     """
     self is the experiment instance to which ExperimentVariables are bound
     """
@@ -425,4 +478,3 @@ def single_photons(self): # for debugging
         # update the datasets
         self.append_to_dataset('photocounts2', counts2)
         self.append_to_dataset('photocounts2_current_iteration', counts2)
-

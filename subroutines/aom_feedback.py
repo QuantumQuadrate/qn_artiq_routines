@@ -58,7 +58,8 @@ stabilizer_dict = {
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor',
                     'power_dataset':'p_cooling_DP_MOT', # the dataset for the RF power in dB; see ExperimentVariables
-                    't_measure_delay':1*ms # time to wait between AOM turned on and measurement
+                    't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
+                    'max_dB': 0
                 },
             'dds_AOM_A5': # signal monitored by PD5
                 {
@@ -70,7 +71,8 @@ stabilizer_dict = {
                     'series': True,
                     'dataset':'MOT5_monitor',
                     'power_dataset':'AOM_A5_power',
-                    't_measure_delay':1*ms
+                    't_measure_delay':1*ms,
+                    'max_dB': 0
                 },
             'dds_AOM_A6': # signal monitored by PD6
                 {
@@ -82,7 +84,8 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT6_monitor',
                     'power_dataset':'AOM_A6_power',
-                    't_measure_delay':1*ms
+                    't_measure_delay':1*ms,
+                    'max_dB': 0
                 },
             'dds_AOM_A1': # signal monitored by Thorlabs fW detector
                 {
@@ -94,7 +97,8 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT1_monitor',
                     'power_dataset':'AOM_A1_power',
-                    't_measure_delay':50*ms
+                    't_measure_delay':50*ms,
+                    'max_dB': 0
                 },
             'dds_AOM_A2': # signal monitored by Thorlabs fW detector
                 {
@@ -106,7 +110,8 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT2_monitor',
                     'power_dataset':'AOM_A2_power',
-                    't_measure_delay':50*ms
+                    't_measure_delay':50*ms,
+                    'max_dB': 0
                 },
             'dds_AOM_A3': # signal monitored by Thorlabs fW detector
                 {
@@ -118,7 +123,8 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT3_monitor',
                     'power_dataset':'AOM_A3_power',
-                    't_measure_delay':50*ms
+                    't_measure_delay':50*ms,
+                    'max_dB': 0
                 },
             'dds_AOM_A4': # signal monitored by Thorlabs fW detector
                 {
@@ -130,22 +136,24 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT4_monitor',
                     'power_dataset':'AOM_A4_power',
-                    't_measure_delay':50*ms
+                    't_measure_delay':50*ms,
+                    'max_dB': 0
                 },
 
             # todo: the FORT should ideally have a dedicated feedback stage, since we will need to first
             #  feedback to motorized waveplates and then feedback to the AOM.
-            'dds_FORT': # signal monitored by PD0
+            'dds_FORT': # signal monitored by TTI detector connected to MM fiber
                 {
                     'sampler_ch': 6, # the channel connected to the appropriate PD
                     # 'transfer_function': lambda x : x, # converts volts to optical mW
                     'set_point': 'set_point_FORT_MM',
-                    'p': 0.00, #
+                    'p': 0.7, #
                     'i': 0.0, # the integral coefficient
-                    'series': False, # if series = True then these channels are fed-back to one at a time
+                    'series': True, # setting to True because there's a bug with parallel
                     'dataset':'FORT_monitor',
-                    'power_dataset':'p_FORT', # the dataset for the RF power in dB; see ExperimentVariables
-                    't_measure_delay':1*ms # time to wait between AOM turned on and measurement
+                    'power_dataset':'p_FORT_loading', # the dataset for the RF power in dB; see ExperimentVariables
+                    't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
+                    'max_dB': 5
                 },
         },
     'sampler1':
@@ -156,7 +164,7 @@ stabilizer_dict = {
 class FeedbackChannel:
 
     def __init__(self, name, dds_obj, buffer_index, set_point, p, i, dataset, dB_dataset, t_measure_delay,
-                 error_history_length):
+                 error_history_length, max_dB):
         """
         class which defines a DDS feedback channel
 
@@ -186,6 +194,7 @@ class FeedbackChannel:
         self.error_buffer = np.full(error_history_length-1,0.0)
         self.error_history_length = error_history_length
         self.cumulative_error = 0.0 # will store a sum of the
+        self.max_dB = max_dB
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -216,7 +225,7 @@ class FeedbackChannel:
         self.cumulative_error = sum(self.error_history_arr)
 
     @kernel
-    def feedback(self, buffer, max_dB = 0):
+    def feedback(self, buffer):
         """ feedback to this channel
         buffer: a list of length storing the measurement result from all samplers
         """
@@ -231,7 +240,7 @@ class FeedbackChannel:
         ampl = self.amplitude + self.p * err + self.i * self.cumulative_error
 
         self.set_value(measured)
-        max_ampl = (2 * 50 * 10 ** (max_dB / 10 - 3)) ** (1 / 2)
+        max_ampl = (2 * 50 * 10 ** (self.max_dB / 10 - 3)) ** (1 / 2)
 
         # todo print some warning to alert the user if we couldn't reach the setpoint,
         if ampl < 0:
@@ -247,7 +256,7 @@ class FeedbackChannel:
 
 class AOMPowerStabilizer:
 
-    def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_MOT_AOMs_on=False,
+    def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False,
                  update_dds_settings=True, dry_run=False, open_loop_monitor_names=[]):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
@@ -259,7 +268,7 @@ class AOMPowerStabilizer:
         'dds_names': a list of the names of the dds channels to feedback to
         'iterations': integer number of feedback cycles to converge to the setpoints
         'averages':
-        'leave_MOT_AOMs_on':
+        'leave_AOMs_on':
         'udpate_dds_settings':
         'dry_run':
         """
@@ -269,7 +278,7 @@ class AOMPowerStabilizer:
         self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.averages = averages
-        self.leave_MOT_AOMs_on = leave_MOT_AOMs_on
+        self.leave_AOMs_on = leave_AOMs_on
         self.update_dds_settings = update_dds_settings
         self.dry_run = dry_run
         self.open_loop_monitor_names = open_loop_monitor_names
@@ -312,7 +321,8 @@ class AOMPowerStabilizer:
                                             dataset=ch_params['dataset'],
                                             dB_dataset=ch_params['power_dataset'],
                                             t_measure_delay=ch_params['t_measure_delay'],
-                                            error_history_length=self.iterations
+                                            error_history_length=self.iterations,
+                                            max_dB=ch_params['max_dB']
                         )
 
                         if ch_params['series']:
@@ -323,25 +333,23 @@ class AOMPowerStabilizer:
                         if ch_name in self.open_loop_monitor_names:
                             self.open_loop_monitor_channels.append(fb_channel)
 
-        # the FORT is special so set it up separately:
-        # todo: right now we only want to monitor it, but eventually we will need to feedback
-        #  to tune both amplitude and polarization
-        i = 0 # sampler index
-        ch_name = 'dds_FORT'
-        ch_params = stabilizer_dict[f'sampler{i}'][ch_name]
-        self.FORT_ch = FeedbackChannel(name=ch_name,
-                                       dds_obj=getattr(self.exp, ch_name),
-                                       buffer_index=ch_params['sampler_ch'] + i * 8,
-                                       # g=ch_params['transfer_function'],
-                                       set_point=getattr(self.exp, ch_params['set_point']),
-                                       p=ch_params['p'],
-                                       i=ch_params['i'],
-                                       dataset=ch_params['dataset'],
-                                       dB_dataset=ch_params['power_dataset'],
-                                       t_measure_delay=ch_params['t_measure_delay'],
-                                       error_history_length=self.iterations
-                                       )
-        self.exp.set_dataset(self.FORT_ch.dataset, [1.0], broadcast=True)
+        # # todo: make the FORT a 'parallel' channel later
+        # i = 0 # sampler index
+        # ch_name = 'dds_FORT'
+        # ch_params = stabilizer_dict[f'sampler{i}'][ch_name]
+        # self.FORT_ch = FeedbackChannel(name=ch_name,
+        #                                dds_obj=getattr(self.exp, ch_name),
+        #                                buffer_index=ch_params['sampler_ch'] + i * 8,
+        #                                # g=ch_params['transfer_function'],
+        #                                set_point=getattr(self.exp, ch_params['set_point']),
+        #                                p=ch_params['p'],
+        #                                i=ch_params['i'],
+        #                                dataset=ch_params['dataset'],
+        #                                dB_dataset=ch_params['power_dataset'],
+        #                                t_measure_delay=ch_params['t_measure_delay'],
+        #                                error_history_length=self.iterations
+        #                                )
+        # self.exp.set_dataset(self.FORT_ch.dataset, [1.0], broadcast=True)
 
         self.num_samplers = len(self.sampler_list)
         self.measurement_array = np.full(8 * self.num_samplers, 0.0)
@@ -459,20 +467,29 @@ class AOMPowerStabilizer:
         with sequential:
 
             # todo: FORT polarization feedback first, then the AOM part can be done in parallel with other channels
-            self.FORT_ch.get_dds_settings()
-            delay(1*ms)
-            self.FORT_ch.dds_obj.sw.on()
-            delay(10*ms)
-            self.measure()
-            delay(1*ms)
-            self.FORT_ch.set_value(self.measurement_array[self.FORT_ch.buffer_index])
-            delay(1*ms)
-            self.FORT_ch.dds_obj.sw.off()
-            delay(1*ms)
-            self.exp.append_to_dataset(self.FORT_ch.dataset, self.FORT_ch.value_normalized)
-            delay(1*ms)
+            # self.FORT_ch.get_dds_settings()
+            # delay(1*ms)
+            # self.FORT_ch.dds_obj.sw.on()
+            # delay(10*ms)
+            # self.measure()
+            # delay(1*ms)
+            # if not (self.dry_run or monitor_only):
+            #     self.FORT_ch.feedback(self.measurement_array - self.background_array)
+            # else:
+            #     self.FORT_ch.set_value((self.measurement_array - self.background_array)[self.FORT_ch.buffer_index])
+            # delay(1*ms)
+            # self.FORT_ch.dds_obj.sw.off()
+            # delay(1*ms)
+            # self.exp.append_to_dataset(self.FORT_ch.dataset, self.FORT_ch.value_normalized)
+            # delay(1*ms)
 
-            # self.measure_background() # this updates the background list
+            # don't blind the fW detector
+            self.exp.dds_FORT.sw.off()
+
+            for ch in self.series_channels:
+                ch.dds_obj.sw.off()
+            delay(1 * ms)
+
             delay(1*ms)
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
@@ -543,7 +560,7 @@ class AOMPowerStabilizer:
 
         delay(1*ms)
 
-        if self.leave_MOT_AOMs_on:
+        if self.leave_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
 

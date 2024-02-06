@@ -14,6 +14,7 @@ from utilities.BaseExperiment import BaseExperiment
 
 # this is where your experiment function should live
 from subroutines.experiment_functions import *
+import subroutines.experiment_functions as exp_functions
 
 class GeneralVariableScan(EnvExperiment):
 
@@ -38,8 +39,14 @@ class GeneralVariableScan(EnvExperiment):
         self.setattr_argument("scan_sequence2", StringValue(
             'np.linspace(-2,2,5)*V'))
 
+        experiment_function_names_list = [x for x in dir(exp_functions)
+            if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"
+                and 'experiment' in x)]
+
         # a function that take no arguments that gets imported and run
-        self.setattr_argument('experiment_function', StringValue('test'))
+        # self.setattr_argument('experiment_function', StringValue('test'))
+        self.setattr_argument('experiment_function',
+                              EnumerationValue(experiment_function_names_list))
 
         # toggles an interleaved control experiment, but what this means or whether
         # it has an effect depends on experiment_function
@@ -76,13 +83,15 @@ class GeneralVariableScan(EnvExperiment):
             self.n_iterations2 = 0
 
         try:
-            experiment_name = self.experiment_function
-            self.experiment_function = lambda :eval(experiment_name)(self)
+            self.experiment_name = self.experiment_function
+            self.experiment_function = lambda :eval(self.experiment_name)(self)
         except NameError as e:
             print(f"The function {experiment_name} is not defined. Did you forget to import it?")
             raise
 
         self.measurement = 0
+        self.counts = 0
+        self.counts2 = 0
 
     @kernel
     def hardware_init(self):
@@ -90,10 +99,10 @@ class GeneralVariableScan(EnvExperiment):
 
     # todo: this should really be determined by the specific experiment eventually
     def initialize_datasets(self):
-        self.set_dataset("photocounts", [0])
-        self.set_dataset("photocounts2", [0])
+        self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
+        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("iteration", 0, broadcast=True)
 
     def reset_datasets(self):
         """
@@ -114,20 +123,20 @@ class GeneralVariableScan(EnvExperiment):
 
         Because the scan variables can be any ExperimentVariable, which includes values used to initialize
         hardware (e.g. a frequency for a dds channel), the hardware is reinitialized in each step of the
-        variable scan.
+        variable scan, i.e., each iteration.
         """
 
         self.initialize_datasets()
 
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
+        self.set_dataset("iteration", iteration, broadcast=True)
+
         for variable1_value in self.scan_sequence1:
             # update the variable
             setattr(self, self.scan_variable1, variable1_value)
 
             for variable2_value in self.scan_sequence2:
-
-                self.set_dataset("iteration", iteration, broadcast=True)
 
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
@@ -135,10 +144,13 @@ class GeneralVariableScan(EnvExperiment):
                 self.hardware_init()
                 self.reset_datasets()
 
+                # the measurement loop.
                 self.experiment_function()
 
                 iteration += 1
+                self.set_dataset("iteration", iteration, broadcast=True)
 
+        self.write_results({'name':self.experiment_name[:-11]})  # write the h5 file here in case worker refuses to die
 
 
 
