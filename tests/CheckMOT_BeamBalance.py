@@ -31,7 +31,8 @@ class CheckMOTBalance(EnvExperiment):
         self.setattr_argument("n_steps",
                               NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
 
-        self.setattr_argument("loop_delay", NumberValue(1.0 * s, ndecimals=3, unit='s'))
+        self.setattr_argument("loop_delay", NumberValue(0.001 * s, ndecimals=3, unit='s'))
+        self.setattr_argument("t_Luca_exposure", NumberValue(0.5 * s, ndecimals=3, unit='s'))
 
         # the Luca will be setup here using pylablib and the analysis will be carried
         # out in self.analyze
@@ -139,7 +140,7 @@ class CheckMOTBalance(EnvExperiment):
 
             ### time to wait for camera to take the image
             time2 = now_mu()
-            tdelay = 300 * ms
+            tdelay = self.t_Luca_exposure + 200 * ms # extra delay just to be safe
             tdelay_mu = self.core.seconds_to_mu(tdelay)
             delay(tdelay)  # moves the cursor into the future
             self.core.wait_until_mu(time2 + tdelay_mu)
@@ -159,7 +160,7 @@ class CheckMOTBalance(EnvExperiment):
 
                 ### this is necessary to have the triggering signal after a certain delay. Otherwise, we do not get a trig signal.
                 time1 = now_mu()
-                tdelay = 300 * ms
+                tdelay = self.t_Luca_exposure + 200 * ms # extra delay just to be safe
                 tdelay_mu = self.core.seconds_to_mu(tdelay)
                 delay(tdelay)  # moves the cursor into the future
                 self.core.wait_until_mu(time1 + tdelay_mu)  # wait for the cursor to get there
