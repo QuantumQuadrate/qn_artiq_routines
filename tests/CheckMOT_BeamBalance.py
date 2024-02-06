@@ -52,7 +52,7 @@ class CheckMOTBalance(EnvExperiment):
         self.laser_stabilizer.leave_AOMs_on = False
         self.monitor_only = not self.enable_feedback
 
-        self.i2V_channels = [7,5,3,4] # the sampler channels for i2Vs PD1,2,3,4
+        self.i2V_channels = [0,5,3,4] # the sampler channels for i2Vs PD1,2,3,4
         self.mot_beam_voltages = np.zeros(4) # store an average for each of the chip beams
 
         if self.control_Luca_in_software:
@@ -149,8 +149,12 @@ class CheckMOTBalance(EnvExperiment):
             self.laser_stabilizer.run(monitor_only=self.monitor_only)
             delay(10*ms)
 
-            for i in range(len(self.ddsList)):
-                self.ddsList[i].sw.off()
+            self.dds_AOM_A1.sw.off()
+            self.dds_AOM_A2.sw.off()
+            self.dds_AOM_A3.sw.off()
+            self.dds_AOM_A4.sw.off()
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
             for i in range(len(self.ddsList)):
                 # self.core.reset()
