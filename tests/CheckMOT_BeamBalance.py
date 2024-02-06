@@ -29,30 +29,25 @@ class CheckMOTBalance(EnvExperiment):
         self.setattr_argument("n_steps",
                               NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
 
-        self.setattr_argument("LoopDelay", NumberValue(1.0 * s, ndecimals=3, unit='s')," how often to run the loop in (s)")
+        self.setattr_argument("loop_delay", NumberValue(1.0 * s, ndecimals=3, unit='s'))
 
         # the Luca will be setup here using pylablib and the analysis will be carried
         # out in self.analyze
-        self.setattr_argument("control_Luca_in_software", BooleanValue(True))
-
-        self.setattr_argument("datadir", StringValue('C:\\Users\\QC\\OneDrive - UW-Madison\\Pictures\\'
-                                                     'Andor Luca images\\'), "Record counts")
-
-        self.setattr_argument("datafile", StringValue('LaserPowers.csv'), "Record counts")
+        self.setattr_argument("control_Luca_in_software", BooleanValue(False))
+        self.setattr_argument("enable_feedback", BooleanValue(True))
 
         self.base.set_datasets_from_gui_args()
 
     def prepare(self):
         self.base.prepare()
         self.ddsList = [self.dds_AOM_A1, self.dds_AOM_A2, self.dds_AOM_A3, self.dds_AOM_A4]
-        self.datafile = self.datadir + self.datafile
 
         n_channels = 8
         self.smp = np.zeros(n_channels, dtype=float)
         self.avg = np.zeros(n_channels, dtype=float)
 
-
         self.laser_stabilizer.leave_AOMs_on = False
+        self.monitor_only = not self.enable_feedback
 
         self.i2V_channels = [7,5,3,4] # the sampler channels for i2Vs PD1,2,3,4
         self.mot_beam_voltages = np.zeros(4) # store an average for each of the chip beams
@@ -98,19 +93,6 @@ class CheckMOTBalance(EnvExperiment):
 
         return acquired
 
-    @rpc(flags={"async"})
-    def file_setup(self, rowheaders=[]):
-        # open file once, then close it at end of the experiment
-        self.file_obj = open(self.datafile, 'a', newline='')
-        self.csvwriter = csv.writer(self.file_obj)
-        if rowheaders != []:
-            self.csvwriter.writerow(rowheaders)
-
-    @rpc(flags={"async"})
-    def file_write(self, data):
-        self.csvwriter.writerow(data)
-        self.file_obj.flush()
-
     @kernel
     def run(self):
         self.base.initialize_hardware()
@@ -121,13 +103,11 @@ class CheckMOTBalance(EnvExperiment):
             print("*****************************  REMEMBER TO START THE CAMERA ACQUISITION  *****************************")
             delay(1000*ms)
 
-        self.file_setup(rowheaders=['cooling_1percent', 'cooling_99percent', '6th_MOT'])
-
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
 
-        self.laser_stabilizer.run()
-        # self.laser_stabilizer.run(monitor_only=True) # don't actually feedback
+        # self.laser_stabilizer.run()
+        self.laser_stabilizer.run(monitor_only=self.monitor_only) # don't actually feedback
 
         delay(1000 * ms)
 
@@ -150,15 +130,10 @@ class CheckMOTBalance(EnvExperiment):
             self.avg /= iters
             self.print_async(self.avg)
 
-            delay(1*ms)
-
-            self.file_write([self.avg[7], self.avg[0], self.avg[1]])
-
             delay(10 * ms)
 
             ### trigger for Andor_Luca camera by TTL:
             self.ttl6.pulse(5 * ms)
-
 
             ### time to wait for camera to take the image
             time2 = now_mu()
@@ -168,11 +143,14 @@ class CheckMOTBalance(EnvExperiment):
             self.core.wait_until_mu(time2 + tdelay_mu)
             delay(10 * ms)
 
-            self.laser_stabilizer.run()
+            self.laser_stabilizer.run(monitor_only=self.monitor_only)
             delay(10*ms)
 
-            for i in range(4):
-                self.core.reset()
+            for i in range(len(self.ddsList)):
+                self.ddsList[i].sw.off()
+
+            for i in range(len(self.ddsList)):
+                # self.core.reset()
 
                 ### Turn on ith fiber AOM
                 self.ddsList[i].sw.on()
@@ -192,10 +170,10 @@ class CheckMOTBalance(EnvExperiment):
                 time2 = now_mu()
                 tdelay = 300 * ms
 
-                # if self.control_Luca_in_software:
-                #     self.core.break_realtime()
-                #     acquired = self.get_frame()
-                #     delay(1*ms)
+                if self.control_Luca_in_software:
+                    self.core.break_realtime()
+                    acquired = self.get_frame()
+                    delay(1*ms)
 
                 self.sampler0.sample(self.smp)
                 self.mot_beam_voltages[i] += self.smp[self.i2V_channels[i]]
@@ -211,12 +189,10 @@ class CheckMOTBalance(EnvExperiment):
 
             ### Wait several seconds (e.g. 10s) for the next loop... why??
             time3 = now_mu()
-            LoopDelay_mu = self.core.seconds_to_mu(self.LoopDelay)
-            delay(self.LoopDelay)
-            self.core.wait_until_mu(time3 + LoopDelay_mu)
+            loop_delay_mu = self.core.seconds_to_mu(self.loop_delay)
+            delay(self.loop_delay)
+            self.core.wait_until_mu(time3 + loop_delay_mu)
             delay(10 * ms)
-
-
 
         print("MOT beam i2V voltages (1-4):")
         print(self.mot_beam_voltages/self.n_steps)
