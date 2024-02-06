@@ -103,8 +103,7 @@ def atom_loading_beta_experiment(self):
 
         if self.enable_laser_feedback:
             if measurement % 10 == 0:
-                self.laser_stabilizer.run()  # this tunes the MOT AOMs
-                self.fast_laser_stabilizer.run()  # this tunes the FORT AOM
+                self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         delay(10*ms)
         print(self.ampl_FORT_loading)
@@ -163,8 +162,7 @@ def atom_loading_experiment(self):
 
         if self.enable_laser_feedback:
             if measurement % 10 == 0:
-                self.laser_stabilizer.run()  # this tunes the MOT AOMs
-                self.fast_laser_stabilizer.run()  # this tunes the FORT AOM
+                self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
 
@@ -217,8 +215,7 @@ def optical_pumping_experiment(self):
 
         if self.enable_laser_feedback:
             if self.measurement % 10 == 0:
-                self.laser_stabilizer.run()  # this tunes the MOT AOMs
-                self.fast_laser_stabilizer.run()  # this tunes the FORT AOM
+                self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
 
@@ -387,8 +384,7 @@ def microwave_experiment(self):
 
         if self.enable_laser_feedback:
             if measurement % 10 == 0:
-                self.laser_stabilizer.run()
-                self.fast_laser_stabilizer.run()  # this controls the FORT AOM
+                self.laser_stabilizer.run() # this tunes the MOT and FORT AOMs
 
         ############################
         # load the MOT and FORT

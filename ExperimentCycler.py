@@ -87,10 +87,7 @@ class ExperimentCycler(EnvExperiment):
 
         # no reason to let these datasets grow to huge lengths
         for ch in self.laser_stabilizer.all_channels:
-            self.set_dataset(ch.dataset, [1.0], broadcast=True)
-
-        for ch in self.fast_laser_stabilizer.all_channels:
-            self.set_dataset(ch.dataset, [1.0], broadcast=True)
+            self.set_dataset(ch.dataset, [self.get_dataset(ch.dataset)[-1]], broadcast=True)
 
     def run(self):
         """

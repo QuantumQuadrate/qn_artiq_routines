@@ -293,17 +293,18 @@ class BaseExperiment:
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
         fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
 
-        self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
-                                                              dds_names=slow_feedback_dds_list,
-                                                              iterations=self.experiment.aom_feedback_iterations,
-                                                              averages=self.experiment.aom_feedback_averages,
-                                                              leave_AOMs_on=True)
+        # could implement this but it isn't needed right now
+        # self.experiment.slow_laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+        #                                                       dds_names=slow_feedback_dds_list,
+        #                                                       iterations=self.experiment.aom_feedback_iterations,
+        #                                                       averages=self.experiment.aom_feedback_averages,
+        #                                                       leave_AOMs_on=True)
 
         # feedback channels which are fast enough to include both every atom loading attempt.
         # this excludes the on-chip MOT beams because the fW detectors have slow rise time.
         # The external MOT beams and cooling laser could technically be in this list, but
         # why change what isn't broken.
-        self.experiment.fast_laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+        self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
                                                               dds_names=fast_feedback_dds_list,
                                                               iterations=self.experiment.aom_feedback_iterations,
                                                               averages=self.experiment.aom_feedback_averages,
