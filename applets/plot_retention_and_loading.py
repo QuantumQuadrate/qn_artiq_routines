@@ -1,10 +1,7 @@
 """
-plot the atom retention and loading rate
-
-retention: the fraction of atoms detected in the first readout which
-survive the science phase and are hence detected in the second readout
-
-loading rate: the fraction of successful attempts to load an atom which
+arguments are counts, counts2, and a defined threshold to discriminate between atom
+and background. todo: make the threshold parameter optional and instead determine it
+with a fit
 
 applet command:
 python "C:\..\qn_artiq_routines\applets\plot_retention_and_loading.py"
@@ -78,6 +75,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                       symbolBrush=(0, 100, 100),
                       symbolPen='w',
                       name='loading')
+
             self.setYRange(-0.05, 1.05, padding=0)
             self.setTitle(title)
             # self.addLegend()
