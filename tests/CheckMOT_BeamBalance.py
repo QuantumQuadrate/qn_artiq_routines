@@ -1,8 +1,10 @@
 """
-This code turns on and off the fiber AOMs one by one and sends a triggering signal to save series of images with
-Andor_Luca. At the same time, record the laser power going into the experiment box, as well as the TA power after
-coupling into a fiber. The goal is to analyze the images to see how much each the power in each MOT arm fluctuates
-over seconds, minutes, and hours.
+This code turns on and off the on-chip fiber AOMs one by one and sends a triggering signal to save series of images
+with Andor_Luca. This can be used, e.g., to measure the on-chip MOT beam imbalance by looking at the fluorescence
+from each MOT beam in the chamber.
+
+The option to control the Luca in software currently does not work. It does not seem that spooling setup is
+accessible within pylablib.
 """
 from artiq.experiment import *
 import logging
@@ -55,6 +57,7 @@ class CheckMOTBalance(EnvExperiment):
         if self.control_Luca_in_software:
             self.setup_Luca()
             self.frame_list = [] # empty list should be okay off the kernel
+        self.shots_per_measurement = len(self.ddsList)+1 # +1 accounts for the dark image
 
         self.MOT1_i2V_list = [0.0]
         self.MOT2_i2V_list = [0.0]
@@ -106,7 +109,6 @@ class CheckMOTBalance(EnvExperiment):
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
 
-        # self.laser_stabilizer.run()
         self.laser_stabilizer.run(monitor_only=self.monitor_only) # don't actually feedback
 
         delay(1000 * ms)
@@ -132,7 +134,7 @@ class CheckMOTBalance(EnvExperiment):
 
             delay(10 * ms)
 
-            ### trigger for Andor_Luca camera by TTL:
+            ### trigger for Andor_Luca camera by TTL - takes a dark image
             self.ttl6.pulse(5 * ms)
 
             ### time to wait for camera to take the image
@@ -170,10 +172,11 @@ class CheckMOTBalance(EnvExperiment):
                 time2 = now_mu()
                 tdelay = 300 * ms
 
-                if self.control_Luca_in_software:
-                    self.core.break_realtime()
-                    acquired = self.get_frame()
-                    delay(1*ms)
+                # if self.control_Luca_in_software:
+                #     self.core.break_realtime()
+                #     delay(1*s)
+                #     acquired = self.get_frame()
+                #     delay(100*ms)
 
                 self.sampler0.sample(self.smp)
                 self.mot_beam_voltages[i] += self.smp[self.i2V_channels[i]]
@@ -187,7 +190,6 @@ class CheckMOTBalance(EnvExperiment):
 
                 delay(10 * ms)
 
-            ### Wait several seconds (e.g. 10s) for the next loop... why??
             time3 = now_mu()
             loop_delay_mu = self.core.seconds_to_mu(self.loop_delay)
             delay(self.loop_delay)
@@ -208,14 +210,28 @@ class CheckMOTBalance(EnvExperiment):
             blocked, and the only way to solve it would be to restart the PC.
             - pylablib docs
             """
+
+            try:
+                self.frame_array = np.array(self.cam.grab(nframes=self.n_steps*self.shots_per_measurement))
+                logging.info("frame acquired")
+            except Exception as e:
+                logging.info(e)
+
+            (acquired, unread, skipped, size) = self.cam.get_frames_status()
+            for stat, lbl in zip((acquired, unread, skipped, size),
+                                 ("acquired", "unread", "skipped", "size")):
+                print(lbl, ": ", stat)
+
             self.cam.stop_acquisition()
             self.cam.close()
 
-            # analysis here
-            plt.imshow(self.frame_list[0][0,:,:])
-            plt.show()
-
-            fig,axes = plt.subplots(ncols = 5)
-            for ax,frame in zip(axes.flat(),self.frames_list):
-                ax.imshow(frame[0,:,:])
-            plt.imshow()
+            print(self.frame_array.shape)
+            #
+            # # analysis here
+            # plt.imshow(self.frame_list[0][0,:,:])
+            # plt.show()
+            #
+            # fig,axes = plt.subplots(ncols = 5)
+            # for ax,frame in zip(axes.flat(),self.frames_list):
+            #     ax.imshow(frame[0,:,:])
+            # plt.imshow()
