@@ -26,7 +26,7 @@ def load_MOT_and_FORT(self):
 
     # FORT is on to thermalize but frequency shifted to not couple to the fiber
     self.dds_FORT.sw.on()
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
     # set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
@@ -57,7 +57,7 @@ def load_MOT_and_FORT(self):
     # todo: try loading from a PGC phase
 
     # turn on the dipole trap and wait to load atoms
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
     delay_mu(self.t_FORT_loading_mu)
 
     # turn off the coils
@@ -65,7 +65,8 @@ def load_MOT_and_FORT(self):
                          channels=self.coil_channels)
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_PGC)
         delay(self.t_PGC_in_MOT)
 
     self.dds_cooling_DP.sw.off()
@@ -167,7 +168,8 @@ def atom_loading_experiment(self):
         load_MOT_and_FORT(self)
 
         # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
 
         if not self.no_first_shot:
             # take the first shot
@@ -196,7 +198,7 @@ def atom_loading_experiment(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
 
     # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
         # set the cooling DP AOM to the MOT settings
 
 @kernel

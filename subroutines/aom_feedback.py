@@ -9,15 +9,36 @@ Sampler for other purposes.
 Intended usage:
 1. Instantiate the servo in the prepare method of the parent artiq experiment (e.g. the BaseExperiment)
 2. Call run() during the parent experiment loop whenever it is desired to tune up
-the AOM powers, or monitor() to, well, you get it.
+the AOM powers, or monitor() to measure each channel and update the monitor datasets but without actually
+feeding back to the measurement.
+3. See the example code block below for a typical use example and some important things to note.
 
-See tests/AOMFeedbackTest for example usage.
+class MyStableExperiment(EnvExperiment):
+    ... BaseExperiment setup happens in self.build, including instantiation of an AOMPowerStabilizer
+
+    @kernel
+    def run(self):
+        base.initialize_hardware()
+
+        for n in range(self.n_measurements):
+
+            # feedback to adjust the AOMs. this adjusts the default powers, given in DeviceAliases.DDS_DEFAULTS.
+            # e.g., the default power for dds_FORT is p_FORT_loading. the set point we try to meet refers to
+            # the voltage we try to reach on the detector for this particular RF setting.
+            self.laser_stabilizer.run()
+            self.dds_FORT.sw.on()
+
+            # set the amplitude of the FORT to the default level. laser_stabilizer updates the p_FORT_loading
+            # dataset, but we can't get_dataset on the kernel, so use the amplitude attribute that is
+            # associated with a stabilizer channel as follows. The naming convention for the stabilizer
+            # channel is "stabilizer_name" if your dds is named "dds_name".
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+
+            # now, when if we want to do PGC, we lower the FORT by some fraction of the amplitude that
+            # we set with the stabilizer. here, maybe self.p_FORT_PGC = 0.4, for example.
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_PGC*self.stabilizer_FORT.amplitude)
 
 Preston's notes:
-todo: should set the AOMs to default frequency setting internally, rather than rely on the user to remember to do this
-    in their code, as long as we also undo our setting change at the end. or, promise nothing, and do everything
-    externally, i.e. in the experiment code.
-todo: should be able to modify setpoints so we can optimize them as needed.
 todo: add an attribute to AOMPowerStabilizers which is a list of AOMs we want to leave on after the feedback is run,
  if any. this list can then be overwritten in prepare at the experiment level, even if we give a default list in
  Base experiment
@@ -34,13 +55,14 @@ import sys
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 
 from utilities.conversions import dB_to_V
+from utilities.DeviceAliases import DDS_DEFAULTS
 
 """
 Group all dds channels and feedback params by sampler card
 
 Notes about entries below. 
-- All dds channel names should follow the convention "dds_description". 
-THIS IS ASSUMED BY THE CODE IN AOMPowerStabilizer.
+- All dds channel names should follow the convention "dds_description", and the "dds_description" must be one of the
+keys in DeviceAliases.DDS_DEFAULTS. THIS IS ASSUMED BY THE CODE IN AOMPowerStabilizer.
 """
 stabilizer_dict = {
     'sampler0':
@@ -54,7 +76,6 @@ stabilizer_dict = {
                     'series': False, # if series = True then these channels are fed-back to one at a time
                     'dataset':'MOT_switchyard_monitor',
                     'power_dataset':'p_cooling_DP_MOT', # the dataset for the RF power in dB; see ExperimentVariables
-                    # 'amplitudes': 'DummyAmplitudes',
                     't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
                     'max_dB': 0
                 },
@@ -62,7 +83,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 7, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD1_AOM_A1', # volts
-                    'p': 0.001, # the proportionality constant
+                    'p': 0.005, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT1_monitor',
@@ -115,7 +136,6 @@ stabilizer_dict = {
                     'series': True,
                     'dataset':'MOT5_monitor',
                     'power_dataset':'p_AOM_A5',
-                    # 'amplitudes': 'DummyAmplitudes',
                     't_measure_delay':1*ms,
                     'max_dB': 0
                 },
@@ -155,18 +175,24 @@ stabilizer_dict = {
 
 class FeedbackChannel:
 
-    def __init__(self, name, dds_obj, buffer_index, set_point, p, i, dataset, dB_dataset, t_measure_delay,
-                 error_history_length, max_dB):
+    def __init__(self, name, dds_obj, buffer_index, set_point, p, i, frequency, amplitude, dataset,
+                 dB_dataset, t_measure_delay, error_history_length, max_dB):
         """
         class which defines a DDS feedback channel
 
         parameters:
         'name': the name of the dds channel, e.g. dds_AOM_A1
         'dds_obj': the experiment reference to the dds object with name 'name', e.g. experiment.dds_AOM_A1
-        'g(x: float)->float': a callable that converts the measured voltage to the units of the setpoint, e.g. mW
+        'buffer_index': int, the Sampler channel, e.g., 3, which we measure from.
         'set_point': the float value we are trying to reach
         'p': the proportional constant for feedback
+        'i': the integral constant. typically zero, as integral doesn't make much sense for our feedback scheme
+        'frequency': the default frequency for the dds. see DeviceAliases.py
+        'dataset': the dataset which stores the process value normalized to the setpoint
+        'dB_dataset': the dataset which stores the power for the dds channel in dB
+        't_measure_delay': time to wait after turning on the dds before making a measurement
         'error_history_length->int':, how many errors to store for the integral term
+        'max_dB': the maximum dB we can attempt to set for the dds channel
         """
         self.name = name
         self.dds_obj = dds_obj
@@ -175,8 +201,8 @@ class FeedbackChannel:
         self.set_point = set_point
         self.p = p
         self.i = i
-        self.frequency = 100*MHz
-        self.amplitude = 0.0
+        self.frequency = frequency
+        self.amplitude = amplitude
         self.value = 0.0 # the last value of the measurement
         self.value_normalized = 0.0 # self.value normalized to the set point
         self.dataset = dataset
@@ -192,11 +218,6 @@ class FeedbackChannel:
     @rpc(flags={"async"})
     def print(self, x):
         print(x)
-
-    @kernel
-    def get_dds_settings(self):
-        """ get the frequency and amplitude """
-        self.frequency, _, self.amplitude = self.dds_obj.get()
 
     @kernel
     def set_value(self, value):
@@ -244,6 +265,16 @@ class FeedbackChannel:
             self.amplitude = ampl
 
         # update the dds amplitude
+        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
+
+    @kernel
+    def set_dds_to_defaults(self):
+        """
+        sets the dds channel to the default frequency and to the most recent amplitude
+
+        Except for the first time the feedback runs in your experiment, the amplitude stored in
+        self.amplitude will be the one that was set at the end of the feedback routine.
+        """
         self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
 
 
@@ -307,10 +338,11 @@ class AOMPowerStabilizer:
                         fb_channel = FeedbackChannel(name=ch_name,
                                             dds_obj=getattr(self.exp, ch_name),
                                             buffer_index=ch_params['sampler_ch'] + i*8,
-                                            # g=ch_params['transfer_function'],
                                             set_point=getattr(self.exp,ch_params['set_point']),
                                             p=ch_params['p'],
                                             i=ch_params['i'],
+                                            frequency=getattr(self.exp,DDS_DEFAULTS[ch_name]["frequency"]),
+                                            amplitude=dB_to_V(getattr(self.exp,DDS_DEFAULTS[ch_name]["power"])),
                                             dataset=ch_params['dataset'],
                                             dB_dataset=ch_params['power_dataset'],
                                             t_measure_delay=ch_params['t_measure_delay'],
@@ -355,15 +387,10 @@ class AOMPowerStabilizer:
         print(x)
 
     @kernel
-    def write_dds_settings(self):
+    def update_dB_dataset(self):
         for ch in self.all_channels:
             dB = 10*(np.log10(ch.amplitude**2/(2*50)) + 3)
             self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True, persist=True)
-
-            # if ch.amplitude_setter != None:
-            # ch.amplitude_setter.ampl_default = ch.amplitude
-            # self.exp.dds_profiles[ch.name]["default"] = ch.amplitude
-            # self.exp.__setattr__("test_amplitude",ch.amplitude)
 
     @kernel
     def measure(self):
@@ -454,17 +481,20 @@ class AOMPowerStabilizer:
 
         # todo: modify this to only affect the DDSs we're feeding back to?
         # make sure that all of the DDSs are set the default frequency and power levels
-        self.exp.named_devices.set_dds_default_settings()
+        # self.exp.named_devices.set_dds_default_settings()
 
         # turn off the repumps which are mixed into the cooling light
         self.exp.ttl_repump_switch.on() # block RF to the RP AOM
         # todo include pumping repump
 
         for ch in self.all_channels:
-            ch.get_dds_settings()
-            delay(1*ms)
-            ch.dds_obj.sw.off()
-            delay(1*ms)
+            ch.set_dds_to_defaults()
+
+        # for ch in self.all_channels:
+        #     ch.get_dds_settings()
+        #     delay(1*ms)
+        #     ch.dds_obj.sw.off()
+        #     delay(1*ms)
 
         with sequential:
 
@@ -551,7 +581,7 @@ class AOMPowerStabilizer:
 
         delay(1 * ms)
         if self.update_dds_settings:
-            self.write_dds_settings()
+            self.update_dB_dataset()
 
         # turn on the repumps which are mixed into the cooling light
         self.exp.ttl_repump_switch.on()  # block RF to the RP AOM
