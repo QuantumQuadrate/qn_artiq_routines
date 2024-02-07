@@ -18,7 +18,7 @@ class XYPlot(pyqtgraph.PlotWidget):
     def __init__(self, args):
         pyqtgraph.PlotWidget.__init__(self)
         self.args = args
-        self.labels = [f'MOT{i + 1}' for i in range(6)] + ['MOT_switchyard_input']
+        self.labels = [f'MOT{i + 1}' for i in range(6)]
         # red-green color-blind friendly RGB colors from ChatGPT
         self.colors = [(0, 92, 169),  # blue
                         (255, 138, 0),  # orange
@@ -28,7 +28,6 @@ class XYPlot(pyqtgraph.PlotWidget):
                         (139, 69, 19),  # brown
                         (255, 105, 180)]  # pink
 
-        self.symbols = ['o', 't', 's', 't2', 'h', 't1', 'd']
 
     def data_changed(self, data, mods, title):
         try:
@@ -43,6 +42,7 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             if MOT_switchyard_input is not None:
                 MOT_data.append(data[self.args.MOT_switchyard_input][1][-1])
+                self.labels += ['MOT_switchyard_input']
 
         except KeyError:
             return
@@ -58,7 +58,16 @@ class XYPlot(pyqtgraph.PlotWidget):
         self.addItem(bar_graph)
         self.plot(xpts, np.full(len(xpts), 1), pen='red', style=PyQt5.QtCore.Qt.DashLine, width=0.2)
         self.setTitle(title)
-        self.addLegend()
+
+        for i,datum in enumerate(MOT_data):
+            if datum > 0.5:
+                self.text = pyqtgraph.TextItem(str(round(datum,3)),color=(0,0,0))
+                self.addItem(self.text)
+                self.text.setPos(i-w/3, round(datum,3)-0.05)
+            else:
+                self.text = pyqtgraph.TextItem(str(round(datum, 3)), color=(255, 255, 255))
+                self.addItem(self.text)
+                self.text.setPos(i - w / 3, round(datum, 3) + 0.1)
 
 def main():
     applet = TitleApplet(XYPlot)
