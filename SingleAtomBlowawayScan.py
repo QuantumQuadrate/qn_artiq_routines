@@ -105,7 +105,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
         self.dds_AOM_A5.sw.on()
 
         # FORT is effectively off but AOM will thermalize
-        # self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        # self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
         # self.dds_FORT.sw.on()
 
         delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
@@ -133,7 +133,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
                         self.laser_stabilizer.run()
                         delay(1 * ms)
                     self.dds_FORT.sw.on()
-                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
                 self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
 
@@ -208,7 +208,7 @@ class SingleAtomBlowawayScan(EnvExperiment):
                         # reset FORT power
                         self.dds_FORT.set(
                             frequency=self.f_FORT,
-                            amplitude=self.ampl_FORT_loading)
+                            amplitude=self.stabilizer_FORT.amplitude)
 
                         self.dds_AOM_A1.sw.on()
                         self.dds_AOM_A2.sw.on()
@@ -254,4 +254,4 @@ class SingleAtomBlowawayScan(EnvExperiment):
                              channels=self.coil_channels)
 
         # effectively turn the FORT AOM off
-        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)

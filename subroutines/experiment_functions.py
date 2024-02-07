@@ -107,7 +107,7 @@ def atom_loading_beta_experiment(self):
                 self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         delay(10*ms)
-        print(self.ampl_FORT_loading)
+        print(self.stabilizer_FORT.amplitude)
         delay(10*ms)
 
 
@@ -143,9 +143,8 @@ def atom_loading_beta_experiment(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
 
     # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
-        # set the cooling DP AOM to the MOT settings
-        # set the cooling DP AOM to the MOT settings
+    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+
 
 @kernel
 def atom_loading_experiment(self):
@@ -324,7 +323,7 @@ def optical_pumping_experiment(self):
             # reset FORT power
             self.dds_FORT.set(
                 frequency=self.f_FORT,
-                amplitude=self.ampl_FORT_loading)
+                amplitude=self.stabilizer_FORT.amplitude)
 
             self.dds_AOM_A1.sw.on()
             self.dds_AOM_A2.sw.on()
@@ -368,7 +367,7 @@ def optical_pumping_experiment(self):
         self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
     # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
 @kernel
 def microwave_experiment(self):
@@ -452,7 +451,7 @@ def microwave_experiment(self):
         # raise FORT power back to default
         self.dds_FORT.set(
             frequency=self.f_FORT,
-            amplitude=self.ampl_FORT_loading)
+            amplitude=self.stabilizer_FORT.amplitude)
 
         ############################
         # microwave phase
@@ -510,7 +509,7 @@ def microwave_experiment(self):
             # reset FORT power
             self.dds_FORT.set(
                 frequency=self.f_FORT,
-                amplitude=self.ampl_FORT_loading)
+                amplitude=self.stabilizer_FORT.amplitude)
 
             self.dds_AOM_A1.sw.on()
             self.dds_AOM_A2.sw.on()
@@ -554,7 +553,7 @@ def microwave_experiment(self):
         self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
     # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
 @kernel
 def single_photons_experiment(self): # for debugging
@@ -576,7 +575,7 @@ def single_photons_experiment(self): # for debugging
                 self.laser_stabilizer.run()
                 delay(1 * ms)
             self.dds_FORT.sw.on()
-            self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+            self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
         self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
@@ -605,7 +604,7 @@ def single_photons_experiment(self): # for debugging
             delay(self.t_PGC_in_MOT)
 
         # turn on the dipole trap and wait to load atoms
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
         delay_mu(self.t_FORT_loading_mu)
 
         # turn off the coils
@@ -711,7 +710,7 @@ def single_photons_experiment(self): # for debugging
         self.dds_AOM_A6.sw.on()
 
         # effectively turn the FORT AOM off
-        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
         # set the cooling DP AOM to the MOT settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 

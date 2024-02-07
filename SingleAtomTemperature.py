@@ -117,7 +117,7 @@ class SingleAtomTemperature(EnvExperiment):
                         self.laser_stabilizer.run()
                         delay(1 * ms)
                     self.dds_FORT.sw.on()
-                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
                 load_MOT_and_FORT(self)
 
@@ -133,12 +133,12 @@ class SingleAtomTemperature(EnvExperiment):
                     self.dds_cooling_DP.sw.off()
 
                 # turn the FORT off
-                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
                 delay(t_delay_between_shots)
 
                 # turn the FORT on
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
                 delay(1*ms)
 
                 # take the second shot
@@ -170,5 +170,5 @@ class SingleAtomTemperature(EnvExperiment):
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
         # effectively turn the FORT AOM off
-        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
         # set the cooling DP AOM to the MOT settings
