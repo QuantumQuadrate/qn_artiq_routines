@@ -18,12 +18,12 @@ DDS_DEFAULTS = {
     "dds_pumping_repump": {"frequency": "f_pumping_repump", "power": "p_pumping_repump"},
     "dds_excitation": {"frequency": "f_excitation", "power": "p_excitation"},
     "dds_microwaves": {"frequency": "f_microwaves", "power": "p_microwaves"},
-    "dds_AOM_A1": {"frequency": "AOM_A1_freq", "power": "AOM_A1_power"},
-    "dds_AOM_A2": {"frequency": "AOM_A2_freq", "power": "AOM_A2_power"},
-    "dds_AOM_A3": {"frequency": "AOM_A3_freq", "power": "AOM_A3_power"},
-    "dds_AOM_A4": {"frequency": "AOM_A4_freq", "power": "AOM_A4_power"},
-    "dds_AOM_A5": {"frequency": "AOM_A5_freq", "power": "AOM_A5_power"},
-    "dds_AOM_A6": {"frequency": "AOM_A6_freq", "power": "AOM_A6_power"},
+    "dds_AOM_A1": {"frequency": "AOM_A1_freq", "power": "p_AOM_A1"},
+    "dds_AOM_A2": {"frequency": "AOM_A2_freq", "power": "p_AOM_A2"},
+    "dds_AOM_A3": {"frequency": "AOM_A3_freq", "power": "p_AOM_A3"},
+    "dds_AOM_A4": {"frequency": "AOM_A4_freq", "power": "p_AOM_A4"},
+    "dds_AOM_A5": {"frequency": "AOM_A5_freq", "power": "p_AOM_A5"},
+    "dds_AOM_A6": {"frequency": "AOM_A6_freq", "power": "p_AOM_A6"},
 }
 
 ALIAS_MAP = {
@@ -106,6 +106,28 @@ class DeviceAliases:
             # print_async(self.dds_names_aliases[i])
             ampl = (2*50*10**(self.dds_powers[i]/10 - 3))**(1/2) # convert dBm to volts
             # print_async([self.dds_powers[i], ampl])
+            self.dds_list[i].set(frequency=self.dds_frequencies[i],
+                    amplitude=ampl)
+            delay(1*ms)
+
+    @kernel
+    def set_dds_default_settings(self):
+        """
+        sets the dds frequencies and amplitudes to the defaults defined by experiment variables
+
+        WARNING: this does not get the most up-to-date values from the datasets, which may have
+        changed if aom_feedback was running
+        :return:
+        """
+
+        # for i in range(len(self.dds_list)):
+        #     ampl = (2*50*10**(self.dds_powers[i]/10 - 3))**(1/2) # convert dBm to volts
+        #     self.dds_list[i].set(frequency=self.dds_frequencies[i],
+        #             amplitude=ampl)
+        #     delay(1*ms)
+
+        for i in range(len(self.dds_list)):
+            ampl = (2*50*10**(self.dds_powers[i]/10 - 3))**(1/2) # convert dBm to volts
             self.dds_list[i].set(frequency=self.dds_frequencies[i],
                     amplitude=ampl)
             delay(1*ms)

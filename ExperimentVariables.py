@@ -50,6 +50,9 @@ class ExperimentVariables(EnvExperiment):
         # these datasets can be referenced by other experiments instead of declaring the variable locally in each
         # experiment.
         self.vars_list = [
+
+            Variable("n_measurements", 50, NumberValue, {'type': 'int', 'ndecimals':0, 'step':1, 'scale':1}, "general"),
+
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
 
@@ -105,27 +108,27 @@ class ExperimentVariables(EnvExperiment):
             # Fiber AOMs
             Variable("AOM_A1_freq", 78.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "Fiber AOMs"),
-            Variable("AOM_A1_power", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_AOM_A1", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
             Variable("AOM_A2_freq", 78.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "Fiber AOMs"),
-            Variable("AOM_A2_power", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_AOM_A2", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
             Variable("AOM_A3_freq", 78.503 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "Fiber AOMs"),
-            Variable("AOM_A3_power", -3, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_AOM_A3", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
             Variable("AOM_A4_freq", 78.504 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "Fiber AOMs"),
-            Variable("AOM_A4_power", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_AOM_A4", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
             Variable("AOM_A5_freq", 78.505 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "Fiber AOMs"),
-            Variable("AOM_A5_power", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_AOM_A5", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
             Variable("AOM_A6_freq", 78.506 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "Fiber AOMs"),
-            Variable("AOM_A6_power", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_AOM_A6", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
 
             # Microwaves
@@ -136,13 +139,22 @@ class ExperimentVariables(EnvExperiment):
                      "Microwaves"),
 
             # Coils - MOT
-            Variable("AZ_bottom_volts_MOT", 1.02, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+            Variable("AZ_bottom_volts_MOT", 4.896, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
-            Variable("AZ_top_volts_MOT", -3.4, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+            Variable("AZ_top_volts_MOT", 5.405, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
-            Variable("AX_volts_MOT", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+            Variable("AX_volts_MOT", 0.419, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
-            Variable("AY_volts_MOT", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+            Variable("AY_volts_MOT", 0.255, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
+                     "MOT coil settings"),
+
+            Variable("AZ_bottom_volts_MOT_phase2", 4.896, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "MOT coil settings"),
+            Variable("AZ_top_volts_MOT_phase2", 5.405, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "MOT coil settings"),
+            Variable("AX_volts_MOT_phase2", 0.419, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "MOT coil settings"),
+            Variable("AY_volts_MOT_phase2", 0.255, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "MOT coil settings"),
 
             # Coils - PGC
@@ -204,10 +216,10 @@ class ExperimentVariables(EnvExperiment):
                                                                         'step': 1}, "Thresholds and cut-offs"),
             # Set points
             Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-            Variable("set_point_fW_AOM_A1", 0.768, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
-            Variable("set_point_fW_AOM_A2", 0.644, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-            Variable("set_point_fW_AOM_A3", 0.956, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-            Variable("set_point_fW_AOM_A4", 0.588, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
+            Variable("set_point_PD2_AOM_A2", 0.148, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_PD3_AOM_A3", 0.293, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_PD4_AOM_A4", 0.286, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD5_AOM_A5", 0.214, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD6_AOM_A6", 0.296, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable('set_point_FORT_MM', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),

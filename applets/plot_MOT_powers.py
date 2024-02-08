@@ -40,14 +40,18 @@ class XYPlot(pyqtgraph.PlotWidget):
             MOT_data = []
             for i in range(6):
                 MOT_data.append(data[getattr(self.args, self.labels[i])][1][-pts:])
-            MOT_data.append(data[self.args.MOT_switchyard_input][1][-pts:])
+
+            MOT_switchyard_input = data.get(self.args.MOT_switchyard_input, (False, None))[1]
+
+            if MOT_switchyard_input is not None:
+                MOT_data.append(data[self.args.MOT_switchyard_input][1][-pts:])
 
         except KeyError:
             return
 
         all_updated = True
         # check that all datasets are the same length
-        for i in range(6):
+        for i in range(len(MOT_data)-1):
             if len(MOT_data[i+1]) != len(MOT_data[i]):
                 all_updated = False
                 break
@@ -63,7 +67,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                 x = x[-pts:]
 
             self.clear()
-            for i in range(7):
+            for i in range(6): #len(MOT_data)):
                 self.plot(x, MOT_data[i],
                           pen=self.colors[i],
                           symbol=self.symbols[i],
@@ -84,8 +88,8 @@ def main():
     applet.add_dataset("MOT4", "MOT4 fW PD voltage")
     applet.add_dataset("MOT5", "MOT5 fW PD voltage")
     applet.add_dataset("MOT6", "MOT6 fW PD voltage")
-    applet.add_dataset("MOT_switchyard_input", "MOT PD0 voltage")
     applet.add_dataset("pts", "number of points to display")
+    applet.add_dataset("MOT_switchyard_input", "MOT PD0 voltage", required=False)
     applet.add_dataset("x", "X values", required=False)
     applet.run()
 

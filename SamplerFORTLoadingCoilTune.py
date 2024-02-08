@@ -172,7 +172,7 @@ class SamplerCoilTuneFORTLoading(EnvExperiment):
                 delay_mu(self.t_MOT_loading_mu)
 
                 # turn on the dipole trap and wait to load atoms
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
                 delay_mu(self.t_FORT_loading_mu)
 
                 # turn off the coils
@@ -196,7 +196,7 @@ class SamplerCoilTuneFORTLoading(EnvExperiment):
                 delay(10 * ms)
 
                 # effectively turn the FORT AOM off
-                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
                 # set the cooling DP AOM to the MOT settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
