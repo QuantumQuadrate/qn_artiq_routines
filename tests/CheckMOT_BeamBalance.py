@@ -110,7 +110,10 @@ class CheckMOTBalance(EnvExperiment):
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
 
-        self.laser_stabilizer.run(monitor_only=self.monitor_only) # don't actually feedback
+        # warm up
+        for i in range(10):
+            self.laser_stabilizer.run(monitor_only=self.monitor_only)
+            delay(1*s)
 
         delay(1000 * ms)
 

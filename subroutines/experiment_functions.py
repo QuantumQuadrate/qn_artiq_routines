@@ -89,6 +89,14 @@ def test_experiment(self):
     self.print_async(x)
 
 @kernel
+def MOT_loading_experiment(self):
+    self.core.reset()
+
+    for measurement in range(self.n_measurements):
+        self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+        load_MOT_and_FORT(self)
+
+@kernel
 def atom_loading_beta_experiment(self):
     """
     :param self: an experiment instance.
