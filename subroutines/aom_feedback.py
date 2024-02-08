@@ -56,6 +56,8 @@ sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repositor
 
 from utilities.conversions import dB_to_V
 from utilities.DeviceAliases import DDS_DEFAULTS
+from utilities.helper_functions import print_async
+
 
 """
 Group all dds channels and feedback params by sampler card
@@ -81,9 +83,9 @@ stabilizer_dict = {
                 },
             'dds_AOM_A1': # signal monitored by Thorlabs fW detector
                 {
-                    'sampler_ch': 7, # the channel connected to the appropriate PD
+                    'sampler_ch': 0, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD1_AOM_A1', # volts
-                    'p': 0.005, # the proportionality constant
+                    'p': 0.1, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT1_monitor',
@@ -203,6 +205,7 @@ class FeedbackChannel:
         self.i = i
         self.frequency = frequency
         self.amplitude = amplitude
+        self.feedback_sign = 1.0
         self.value = 0.0 # the last value of the measurement
         self.value_normalized = 0.0 # self.value normalized to the set point
         self.dataset = dataset
@@ -244,23 +247,45 @@ class FeedbackChannel:
         buffer: a list of length storing the measurement result from all samplers
         """
 
-        # measured = self.g(buffer[self.buffer_index]) # the value of the sampler ch in setpoint units
+        measured_last = self.value
+        ampl_last = self.amplitude
+
         measured = buffer[self.buffer_index]
         err = self.set_point - measured
 
         # runs off the kernel, else the error array isn't correctly updated
         self.update_error_history(err)
 
-        ampl = self.amplitude + self.p * err + self.i * self.cumulative_error
+        ampl = self.amplitude + self.feedback_sign*self.p * err + self.i * self.cumulative_error
+
+        # this is to account for the fact that the laser power does not increase monotonically with RF amplitude
+        # but decreases after hitting a maximum. if we overshoot this, we want to go back rather than get stuck
+        # driving the AOM with too much power which is usually worse than not being quite able to reach the setpoint
+        # if self.name == 'dds_AOM_A5':
+        #     try:
+        #         slope = ((measured - measured_last) / (ampl - ampl_last))
+        #         print_async(slope)
+        #         if slope > 0:
+        #             self.feedback_sign = 1.0 #slope/((slope)**2)**(1/2)
+        #         else:
+        #             self.feedback_sign = 1.0 # slope/((slope)**2)**(1/2)
+        #     except ZeroDivisionError:
+        #         pass
+        #         # print_async(measured, measured_last, ampl, ampl_last)
 
         self.set_value(measured)
         max_ampl = (2 * 50 * 10 ** (self.max_dB / 10 - 3)) ** (1 / 2)
 
-        # todo print some warning to alert the user if we couldn't reach the setpoint,
         if ampl < 0:
             self.amplitude = 0.0
         elif ampl > max_ampl:
-            self.amplitude = max_ampl
+            # self.amplitude = max_ampl
+
+            # we either overcorrected  or there is not enough laser power right now to reach the setpoint
+            # and in either case we are now stuck because the slope changed sign, so we throw ourselves
+            # back to the bottom of the correct side of the laser power vs RF amplitude curve
+            self.amplitude = (2 * 50 * 10 ** (-20 / 10 - 3)) ** (1 / 2)
+
         else:  # valid amplitude for DDS
             self.amplitude = ampl
 
@@ -433,8 +458,8 @@ class AOMPowerStabilizer:
         dummy_background /= self.averages
         self.background_array = dummy_background
 
-        self.print("self.background_array:")
-        self.print(self.background_array)
+        print_async("self.background_array:")
+        print_async(self.background_array)
 
     @kernel
     def open_loop_monitor(self):
@@ -584,5 +609,5 @@ class AOMPowerStabilizer:
             self.update_dB_dataset()
 
         # turn on the repumps which are mixed into the cooling light
-        self.exp.ttl_repump_switch.on()  # block RF to the RP AOM
+        self.exp.ttl_repump_switch.off()  # block RF to the RP AOM
         # todo include pumping repump

@@ -60,14 +60,18 @@ class XYPlot(pyqtgraph.PlotWidget):
         self.setTitle(title)
 
         for i,datum in enumerate(MOT_data):
-            if datum > 0.5:
-                self.text = pyqtgraph.TextItem(str(round(datum,3)),color=(0,0,0))
+            if datum > 1.0:
+                self.text = pyqtgraph.TextItem(str(round(datum, 3)) + "\n" + self.labels[i], color=(0, 0, 0))
                 self.addItem(self.text)
-                self.text.setPos(i-w/3, round(datum,3)-0.05)
+                self.text.setPos(i - w / 3, 0.95)
+            elif datum > 0.5:
+                self.text = pyqtgraph.TextItem(str(round(datum,3))+"\n"+self.labels[i],color=(0,0,0))
+                self.addItem(self.text)
+                self.text.setPos(i- w/3, round(datum,3)-0.05)
             else:
-                self.text = pyqtgraph.TextItem(str(round(datum, 3)), color=(255, 255, 255))
+                self.text = pyqtgraph.TextItem(str(round(datum, 3))+"\n"+self.labels[i], color=(255, 255, 255))
                 self.addItem(self.text)
-                self.text.setPos(i - w / 3, round(datum, 3) + 0.1)
+                self.text.setPos(i - w / 3, round(datum, 3) + 0.4)
 
 def main():
     applet = TitleApplet(XYPlot)
