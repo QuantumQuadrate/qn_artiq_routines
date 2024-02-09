@@ -1,12 +1,5 @@
 from artiq.experiment import *
-
 import numpy as np
-
-import cv2
-from PIL import Image
-from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
-import matplotlib.pyplot as plt
-from datetime import datetime as dt
 
 import sys, os
 # get the current working directory
@@ -23,6 +16,7 @@ import subroutines.experiment_functions as exp_functions
 class ExperimentCycler(EnvExperiment):
 
     def build(self):
+
         """
         declare hardware and user-configurable independent variables
         """
@@ -46,6 +40,7 @@ class ExperimentCycler(EnvExperiment):
         print("build - done")
 
     def prepare(self):
+
         """
         performs initial calculations and sets parameter values before
         running the experiment.
@@ -66,6 +61,8 @@ class ExperimentCycler(EnvExperiment):
     @kernel
     def hardware_init(self):
         self.base.initialize_hardware()
+
+
 
     # todo: this should really be determined by the specific experiment eventually
     def initialize_datasets(self):
