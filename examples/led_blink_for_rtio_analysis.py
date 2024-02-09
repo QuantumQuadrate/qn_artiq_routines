@@ -11,10 +11,13 @@ Only uncomment the run function that you want to analyze.
 """
 
 from artiq.experiment import *
-
+import os
+current_working_directory = os.getcwd()
+print(current_working_directory)
 
 class BlinkForever(EnvExperiment):
     def build(self):
+        # get the current working directory
         self.setattr_device("core")
         self.setattr_device("led0")
 
@@ -44,6 +47,8 @@ class BlinkForever(EnvExperiment):
     # more complicated example
     @kernel
     def run(self):
+
+
         self.core.reset()
         for i in range(10):
             for i in range(10):

@@ -40,15 +40,19 @@ class MyExp(EnvExperiment):
 from artiq.experiment import *
 import logging
 import sys, os
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\')
+# get the current working directory
+current_working_directory = os.getcwd()
+cwd = os.getcwd() + "\\"
 
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+
+from repository.qn_artiq_routines import *
 from subroutines.aom_feedback import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
 from utilities.write_h5 import write_results
 from utilities.conversions import dB_to_V
-
 
 class BaseExperiment:
 
@@ -65,7 +69,7 @@ class BaseExperiment:
         :return:
         """
 
-        with open('C:\\Networking Experiment\\artiq codes\\artiq-master\\dataset_db.pyon') as f:
+        with open(cwd + 'dataset_db.pyon\\') as f:
             datasets_str = f.read()
 
         # when the pyon file is saved python True and False are converted to lowercase...

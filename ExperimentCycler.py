@@ -9,7 +9,11 @@ import matplotlib.pyplot as plt
 from datetime import datetime as dt
 
 import sys
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+# get the current working directory
+current_working_directory = os.getcwd()
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 from utilities.BaseExperiment import BaseExperiment
 
 # this is where your experiment function should live
