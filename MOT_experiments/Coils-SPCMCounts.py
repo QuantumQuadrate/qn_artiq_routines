@@ -4,18 +4,12 @@ see SPCM counts to put the MOT at the right location.
 """
 from artiq.experiment import *
 
-<<<<<<< HEAD
 import sys, os
 # get the current working directory
 current_working_directory = os.getcwd()
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
-=======
-import sys
-sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\qn_artiq_routines\\')
-sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\')
->>>>>>> 989bec7 (unshelved)
 from ExperimentVariables import setattr_variables
 
 

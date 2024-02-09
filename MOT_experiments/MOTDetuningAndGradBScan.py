@@ -18,19 +18,12 @@ from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
 import matplotlib.pyplot as plt
 from datetime import datetime as dt
 
-<<<<<<< HEAD
 import sys, os
 # get the current working directory
 current_working_directory = os.getcwd()
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
-=======
-import sys
-sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\qn_artiq_routines\\')
-sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\')
-
->>>>>>> 989bec7 (unshelved)
 from utilities.BaseExperiment import BaseExperiment
 
 NUM_FRAMES = 1  # adjust to the desired number of frames
