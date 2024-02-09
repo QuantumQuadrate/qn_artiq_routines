@@ -92,8 +92,9 @@ class BaseExperiment:
 
         # devices can also be nicknamed here:
         self.experiment.ttl_microwave_switch = self.experiment.ttl4
-        self.experiment.ttl_microwave_switch = self.experiment.ttl4
         self.experiment.ttl_repump_switch = self.experiment.ttl5
+        self.experiment.ttl_SPCM0 = self.experiment.ttl0
+        self.experiment.ttl_scope_trigger = self.experiment.ttl7
         self.experiment.ttl_Luca_trigger = self.experiment.ttl6
 
         # initialize named channels.
@@ -143,6 +144,13 @@ class BaseExperiment:
             write_results(experiment=self.experiment, **kwargs)
         self.experiment.write_results = write_results_wrapper
 
+        """
+        Note that the amplitudes below can be used for setting the urukul channels, but are kernel invariants.
+        If you are running the laser_stabilizer in your experiment, and you want to set one of the dds channels we
+        feedback to (i.e. it is in one of the dds_feedback_lists in ExperimentVariables), then you should use the
+        amplitude attribute of the feedback channel. See subroutines/aom_feedback.py for more details.
+        """
+
         # converts RF power in dBm to amplitudes in V
         self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
         self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
@@ -158,101 +166,13 @@ class BaseExperiment:
         self.experiment.ampl_AOM_A5 = dB_to_V(self.experiment.p_AOM_A5)
         self.experiment.ampl_AOM_A6 = dB_to_V(self.experiment.p_AOM_A6)
 
-        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback
+        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback.
         self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
         self.experiment.ampl_FORT_PGC = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_PGC
         self.experiment.ampl_FORT_blowaway = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_blowaway
         self.experiment.ampl_FORT_OP = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_OP
         self.experiment.ampl_cooling_DP_RO = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_RO
         self.experiment.ampl_cooling_DP_PGC = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
-
-        self.experiment.test_amplitude = 7
-
-        # # just the defaults for now. rename if testing works
-        # self.experiment.dds_profiles = {
-        #     'dds_FORT': self.experiment.ampl_FORT_loading,
-        #     'dds_cooling_DP': self.experiment.ampl_cooling_DP_MOT,
-        # }
-        # for i in range(6):
-        #     self.experiment.dds_profiles[f'dds_AOM_A{i + 1}'] = getattr(self.experiment, f'ampl_AOM_A{i + 1}')
-        # self.experiment.dds_profiles = {
-        #     'dds_FORT':{"default":self.experiment.ampl_FORT_loading},
-        #     'dds_cooling_DP':{"default":self.experiment.ampl_cooling_DP_MOT},
-        # }
-        # for i in range(6):
-        #     self.experiment.dds_profiles[f'dds_AOM_A{i+1}'] = {
-        #         "default":getattr(self.experiment, f'ampl_AOM_A{i+1}')}
-
-
-        #######################################################################
-        # DDS profile classes. these define setters for the dds amplitude
-        # experiment variables so we can update these without explicit
-        # references, as in AOMPowerStabilizer
-        #######################################################################
-        #
-        # class DDSAmplitudes:
-        #
-        #     def __init__(self, experiment):
-        #         self.experiment = experiment
-        #         self._ampl_default = self.experiment.ampl_FORT_loading
-        #
-        #     @property
-        #     def ampl_default(self)-> TFloat:
-        #         return self._ampl_default
-        #
-        #     @ampl_default.setter
-        #     def ampl_default(self, value: TFloat):
-        #         """
-        #         set the experiment variable and update dependent variables
-        #         :param value:
-        #         :return:
-        #         """
-        #         self.ampl_default = value
-        #         self.experiment.ampl_PGC = self.experiment.ampl_default * self.experiment.p_FORT_PGC
-        #
-        #
-        # class FORTAmplitudes:
-        #
-        #     def __init__(self, experiment):
-        #         self.experiment = experiment
-        #         self._ampl_default = self.experiment.ampl_FORT_loading
-        #
-        #     @property
-        #     def ampl_default(self)-> TFloat:
-        #         return self._ampl_default
-        #
-        #     @ampl_default.setter
-        #     def ampl_default(self, value: TFloat):
-        #         """
-        #         set the experiment variable and update dependent variables
-        #         :param value:
-        #         :return:
-        #         """
-        #         self.ampl_default = value
-        #         self.experiment.ampl_PGC = self.experiment.ampl_default * self.experiment.p_FORT_PGC
-        #
-        # class DummyAmplitudes:
-        #
-        #     def __init__(self, experiment):
-        #         self.experiment = experiment
-        #         self._ampl_default = self.experiment.ampl_FORT_loading
-        #
-        #     @property
-        #     def ampl_default(self)-> TFloat:
-        #         return self._ampl_default
-        #
-        #     @ampl_default.setter
-        #     def ampl_default(self, value: TFloat):
-        #         """
-        #         set the experiment variable and update dependent variables
-        #         :param value:
-        #         :return:
-        #         """
-        #         self.ampl_default = value
-        #         # self.experiment.ampl_PGC = self.experiment.ampl_default * self.experiment.p_FORT_PGC
-        #
-        # self.experiment.FORTAmplitudes = FORTAmplitudes(self.experiment)
-        # self.experiment.DummyAmplitudes = DummyAmplitudes(self.experiment)
 
         # THIS MUST COME LAST IN BASE.BUILD
         # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
@@ -344,6 +264,16 @@ class BaseExperiment:
         # turn off all dds channels
         for ch in self.experiment.all_dds_channels:
             ch.sw.off()
+
+        # check that the SPCM is plugged in #todo add other SPCM channels as they are added to the experiment
+        self.experiment.dds_FORT.sw.on() # we'll get enough Raman scattering to see something
+        delay(1*ms)
+        t_gate_end = self.experiment.ttl_SPCM0.gate_rising(10*ms)
+        counts = self.experiment.ttl_SPCM0.count(t_gate_end)
+        delay(1 * ms)
+        self.experiment.dds_FORT.sw.off()
+
+        assert counts > 0, "SPCM0 is likely unplugged"
 
         # todo: turn off all Zotino channels?
 
