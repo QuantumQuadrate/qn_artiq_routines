@@ -40,8 +40,12 @@ class MyExp(EnvExperiment):
 from artiq.experiment import *
 import logging
 import sys, os
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\')
+# get the current working directory
+current_working_directory = os.getcwd()
+cwd = os.getcwd() + "\\"
+
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from subroutines.aom_feedback import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
