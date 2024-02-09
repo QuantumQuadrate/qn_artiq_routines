@@ -2,7 +2,7 @@
 This code turns on the MOT AOMs and also the MOT coils.
 """
 from artiq.experiment import *
-import sys
+import sys, os
 # get the current working directory
 current_working_directory = os.getcwd()
 cwd = os.getcwd() + "\\"
