@@ -2,19 +2,24 @@
 from time import sleep, time
 from pylablib.devices import Thorlabs # for Kinesis instrument control
 import nidaqmx as daq
+from artiq.experiment import *
 import nidaqmx.constants as daq_constants
 from nidaqmx.errors import DaqError, DaqWarning
 from nidaqmx.error_codes import DAQmxErrors, DAQmxWarnings
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from K10CR1.k10cr1 import K10CR1
 # a dictionary specifying channels we want to optimize
 
 class RotatorFeedbackChannel():
 
-    def __init__(self,ch_name, dds_channel=1, rotator_sn=['55105674', '55000741'], dry_run=True, max_runs=10, leave_laser_on=False):
+    def __init__(self,ch_name, dds_channel=1, rotator_sn=['55105674', '55000741'], dry_run = False , max_runs=10, leave_laser_on=False):
         self.dry_run = dry_run
+        self.task = daq.Task()
+        self.task.ai_channels.add_ai_voltage_chan("Dev1/ai0")
+        self.task.ai_channels.add_ai_voltage_chan("Dev1/ai1")
+        print(self.task.read())
+        print()
         if self.dry_run:
             self.measure = self.measure_dryrun  # use this for testing since you don't have access to artiq hardware yet
         else:
@@ -49,7 +54,9 @@ class RotatorFeedbackChannel():
 
     #@kernel
     def _measure(self):
-        return 0
+        data = self.task.read()
+        print(data)
+        return data[0]-data[1]
 
     # measure and update self.detector_volts
 
@@ -115,8 +122,8 @@ class RotatorFeedbackChannel():
         r0.move_to(0)
         r1.move_to(0)
 
-        self.optimise_for_rotor(0, pos = 137, restrict_to_near=True, range = 10)
-        self.optimise_for_rotor(1, pos = 42)
+        self.optimise_for_rotor(0, init_pos = 137, restrict_to_near=True, range = 10)
+        self.optimise_for_rotor(1, init_pos = 42)
         self.close()
         # self.dds_channel.sw.on() # switch on the laser. don't worry about this
         """
@@ -345,25 +352,15 @@ def test():
     #rotor1.print_pos()
     #rotor1.test()
 
-def main():
+class RotorExperiment(EnvExperiment):
 
-
-    devices = Thorlabs.list_kinesis_devices()  # can use this to print out the detected devices
-    print(devices)
-    rotor1 = RotatorFeedbackChannel(ch_name="dipole_trap1", rotator_sn=["55105674", "55000741"])
-    """print(rotor1.stage[0].get_all_channels())
-    rotor1.print_pos()
-    ref_degs = 0  # the angle of the polarizer about which to move +/-
-    rotor1.print_pos()
-    print(rotor1.move_by(10,))
-    sleep(10)
-    rotor1.move_by(-10)"""
-    rotor1.stage[0].setup_velocity(max_velocity=10)
-    rotor1.optimize()
-    rotor1.close()
-
-if __name__ == '__main__':
-    main()
+    def run(self):
+        #devices = Thorlabs.list_kinesis_devices()  # can use this to print out the detected devices
+        #print(devices)
+        rotor1 = RotatorFeedbackChannel(ch_name="dipole_trap1", rotator_sn=["55105674", "55000741"])
+        rotor1.stage[0].setup_velocity(max_velocity=10)
+        rotor1.optimize()
+        rotor1.close()
 
 
 

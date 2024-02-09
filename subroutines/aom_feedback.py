@@ -328,6 +328,7 @@ class AOMPowerStabilizer:
 
         # initialized by user
         self.exp = experiment
+
         self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.averages = averages

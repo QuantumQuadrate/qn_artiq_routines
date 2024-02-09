@@ -213,7 +213,6 @@ class BaseExperiment:
         self.experiment.t_FORT_loading_mu = seconds_to_mu(self.experiment.t_FORT_loading)
         self.experiment.t_SPCM_exposure_mu = seconds_to_mu(self.experiment.t_SPCM_exposure)
 
-        dds_feedback_list = eval(self.experiment.feedback_dds_list)
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
         fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
 
