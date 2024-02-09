@@ -18,11 +18,7 @@ pll.par["devices/dlls/andor_sdk2"] = "C:\\Program Files\\Andor SOLIS"
 from pylablib.devices import Andor
 
 import sys, os
-# get the current working directory
-current_working_directory = os.getcwd()
-cwd = os.getcwd() + "\\"
-sys.path.append(cwd)
-sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
 
 from utilities.BaseExperiment import BaseExperiment
 
