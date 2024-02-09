@@ -11,7 +11,6 @@ ThorCam code adapted from Thorlabs' Camera_Examples\Python\grab_single_frame.py
 from artiq.experiment import *
 
 import numpy as np
-import os
 import cv2
 from PIL import Image
 from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
