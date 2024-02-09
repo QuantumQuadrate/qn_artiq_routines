@@ -267,10 +267,10 @@ class BaseExperiment:
 
         # check that the SPCM is plugged in #todo add other SPCM channels as they are added to the experiment
         self.experiment.dds_FORT.sw.on() # we'll get enough Raman scattering to see something
-        delay(1*ms)
-        t_gate_end = self.experiment.ttl_SPCM0.gate_rising(10*ms)
+        delay(100*ms)
+        t_gate_end = self.experiment.ttl_SPCM0.gate_rising(100*ms)
         counts = self.experiment.ttl_SPCM0.count(t_gate_end)
-        delay(1 * ms)
+        delay(10 * ms)
         self.experiment.dds_FORT.sw.off()
 
         assert counts > 0, "SPCM0 is likely unplugged"
