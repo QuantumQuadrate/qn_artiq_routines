@@ -29,23 +29,25 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.setattr_argument("set_current_coil_volts_at_finish", BooleanValue(False))
         self.setattr_argument("set_best_coil_volts_at_finish", BooleanValue(False)) # this will override the previous value
         self.setattr_argument("leave_coils_on_at_finish", BooleanValue(True))
+        self.setattr_argument("tune_MOT_phase_2_coil_settings", BooleanValue(False))
         self.setattr_argument("run_time_minutes", NumberValue(1))
         self.setattr_argument("coil_volts_multiplier",
-                              NumberValue(3.3)) # scales the value read by the Sampler
+                              NumberValue(3.0)) # scales the value read by the Sampler
         self.setattr_argument("differential_mode",
                               BooleanValue(False),"differential mode (tune voltage wrt current coil settings)") # scan the coils with respect to the current settings
+
         self.setattr_argument("differential_multiplier",
-                              NumberValue(1),"differential mode (tune voltage wrt current coil settings)") # scales the value read by the Sampler
+                              NumberValue(0.5),"differential mode (tune voltage wrt current coil settings)") # scales the value read by the Sampler
 
         group = "SPCM settings"
          # exposure time of the SPCM
-        self.setattr_argument("dt_exposure", NumberValue(300 * ms, unit='ms'), group)
+        self.setattr_argument("dt_exposure", NumberValue(15 * ms, unit='ms'), group)
         # saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
         self.setattr_argument("sat1s", NumberValue(1 * 10 ** 5), group)  # saturation limit in counts/dt.
         self.setattr_argument("print_count_rate", BooleanValue(False), group)
 
         # when to run the AOM feedback (after how many iterations in the for loops)
-        self.setattr_argument("AOM_feedback_period_cycles", NumberValue(200), "Laser feedback")
+        self.setattr_argument("AOM_feedback_period_cycles", NumberValue(500), "Laser feedback")
         self.setattr_argument("enable_laser_feedback", BooleanValue(True), "Laser feedback")
 
         self.base.set_datasets_from_gui_args()
@@ -64,7 +66,17 @@ class SamplerMOTCoilTune(EnvExperiment):
         self.n_steps = int(60*self.run_time_minutes/self.dt_exposure+0.5)
         self.sampler_buffer = np.zeros(8)
         self.control_volts_channels = [0,1,2,3] # the sampler channels to read
-        self.default_volts = [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT]
+
+        if self.tune_MOT_phase_2_coil_settings:
+            self.default_volts = [self.AZ_bottom_volts_MOT_phase2, self.AZ_top_volts_MOT_phase2,
+                                  self.AX_volts_MOT_phase2, self.AY_volts_MOT_phase2]
+            self.volt_datasets = ["AZ_bottom_volts_MOT_phase2", "AZ_top_volts_MOT_phase2", "AX_volts_MOT_phase2",
+                                  "AY_volts_MOT_phase2"]
+
+        else:
+            self.default_volts = [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT,
+                                  self.AX_volts_MOT, self.AY_volts_MOT]
+            self.volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
 
         self.set_dataset(self.count_rate_dataset,
                              [0.0],
@@ -194,13 +206,12 @@ class SamplerMOTCoilTune(EnvExperiment):
             self.zotino0.load()
             delay(1 * ms)
 
-        volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
         if self.set_best_coil_volts_at_finish:
             for i in range(4):
-                self.set_dataset(volt_datasets[i], best_volts[i], broadcast=True, persist=True)
+                self.set_dataset(self.volt_datasets[i], best_volts[i], broadcast=True, persist=True)
         elif self.set_current_coil_volts_at_finish:
             for i in range(4):
-                self.set_dataset(volt_datasets[i], control_volts[i], broadcast=True, persist=True)
+                self.set_dataset(self.volt_datasets[i], control_volts[i], broadcast=True, persist=True)
 
         print("Best volts [VZ_bottom,VZ_top,Vx,Vy]:")
         print(best_volts)

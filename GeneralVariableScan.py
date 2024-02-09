@@ -1,12 +1,20 @@
+"""
+For scanning a defined experiment function over an ExperimentVariable
+
+In many cases, we want the flexibility to be able to scan an experiment over a wide range of parameters--
+in principle, over any of the defined ExperimentVariables. Including all of these as ARTIQ ScanVariables
+in the GUI would be cumbersome for one experiment, not to mention including this for several experiments.
+This code allows the user to scan up in up to 2 dimensions by supplying ExperimentVariables by name,
+corresponding python sequences defining the scan steps, and an experiment function defined in
+utilities/experiment_functions.py. As some of these variables pertain to hardware settings, such as DDS power,
+it is necessary in general to re-initialize hardware at each scan step. We accomplish this by calling
+base.build before each call of the experiment function, i.e., at the start of each scan step.
+"""
+
+
 from artiq.experiment import *
 
 import numpy as np
-import os
-import cv2
-from PIL import Image
-from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
-import matplotlib.pyplot as plt
-from datetime import datetime as dt
 
 import sys
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
@@ -97,7 +105,6 @@ class GeneralVariableScan(EnvExperiment):
     def hardware_init(self):
         self.base.initialize_hardware()
 
-    # todo: this should really be determined by the specific experiment eventually
     def initialize_datasets(self):
         self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
         self.set_dataset("photocounts", [0], broadcast=True)
