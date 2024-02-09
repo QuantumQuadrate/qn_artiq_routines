@@ -120,7 +120,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
                         self.laser_stabilizer.run()
                         delay(1 * ms)
                     self.dds_FORT.sw.on()
-                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
                 load_MOT_and_FORT(self)
 
@@ -171,5 +171,5 @@ class SingleAtomTrapLifetime(EnvExperiment):
                              channels=self.coil_channels)
 
         # effectively turn the FORT AOM off
-        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
         # set the cooling DP AOM to the MOT settings

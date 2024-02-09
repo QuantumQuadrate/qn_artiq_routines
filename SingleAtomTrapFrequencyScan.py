@@ -160,7 +160,7 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                         self.laser_stabilizer.run()
                         delay(1 * ms)
                     self.dds_FORT.sw.on()
-                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
                 ############################
                 # load the MOT and FORT
@@ -221,7 +221,7 @@ class SingleAtomTrapFrequencyScan(EnvExperiment):
                              channels=self.coil_channels)
 
         # effectively turn the FORT AOM off
-        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
         # finally, in case the worker refuses to die
         self.write_results()

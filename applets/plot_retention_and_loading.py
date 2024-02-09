@@ -65,6 +65,7 @@ class XYPlot(pyqtgraph.PlotWidget):
             error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
 
             x = np.arange(iteration)
+            self.clear()
             self.plot(x, retention_array, pen=(255, 0, 0),
                       symbol='o',
                       symbolBrush=(255, 0, 0),

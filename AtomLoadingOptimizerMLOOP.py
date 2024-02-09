@@ -192,7 +192,8 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             q = x > self.atom_counts_threshold
             if q != q_last and q_last:
                 atoms_loaded += 1
-                self.print_async("optimizer found the single atom signal!")
+                # todo: replace with logging statement?
+                # self.print_async("optimizer found the single atom signal!")
             q_last = q
         # return -1 if 0 < atoms_loaded < 10 else -1*atoms_loaded # threshold should depend on number of measurements
         return -1 * atoms_loaded

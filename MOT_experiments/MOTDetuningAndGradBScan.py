@@ -135,7 +135,7 @@ class MOTDetuningAndGradBScan(EnvExperiment):
                         self.dds_FORT.sw.on()
 
                     # effectively turn the FORT AOM off
-                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
                     # set the cooling DP AOM to the MOT settings
                     self.dds_cooling_DP.set(frequency=f_cooling_DP, amplitude=self.ampl_cooling_DP_MOT)
 
@@ -160,7 +160,7 @@ class MOTDetuningAndGradBScan(EnvExperiment):
                     self.zotino0.load()
 
                     # turn on the dipole trap and wait to load atoms
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
                     delay_mu(self.t_FORT_loading_mu)
 
                     # turn off the coils
@@ -193,7 +193,7 @@ class MOTDetuningAndGradBScan(EnvExperiment):
                     self.append_to_dataset('photocounts_current_iteration', counts)
 
         # effectively turn the FORT AOM off
-        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
         # set the cooling DP AOM and coils to the MOT settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         self.zotino0.set_dac(

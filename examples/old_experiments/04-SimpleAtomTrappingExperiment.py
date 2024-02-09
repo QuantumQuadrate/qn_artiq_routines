@@ -162,7 +162,7 @@ class SimpleAtomTrapping(EnvExperiment):
         # converts RF power in dBm to amplitudes in V
         # self.AOM1_ampl = math.sqrt(2 * 50 * 10 ** (self.p_FORT_loading / 10 - 3))
         # self.AOM2_ampl = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_MOT / 10 - 3))
-        self.ampl_FORT_loading = math.sqrt(2 * 50 * 10 ** (self.p_FORT_loading / 10 - 3))
+        self.stabilizer_FORT.amplitude = math.sqrt(2 * 50 * 10 ** (self.p_FORT_loading / 10 - 3))
         self.ampl_FORT_RO = math.sqrt(2 * 50 * 10 ** (self.p_FORT_RO / 10 - 3))
         self.ampl_FORT_PGC = math.sqrt(2 * 50 * 10 ** (self.p_FORT_PGC / 10 - 3))
         self.ampl_cooling_DP_MOT = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_MOT / 10 - 3))
@@ -355,7 +355,7 @@ class SimpleAtomTrapping(EnvExperiment):
 
         # URUKUL 0 - FORT, MOT and D2 state prep AOMs:
         delay(1 * ms)
-        self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+        self.urukul0_ch0.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
         delay(1 * ms)
         self.urukul0_ch1.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)

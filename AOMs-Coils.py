@@ -123,7 +123,6 @@ class AOMsCoils(EnvExperiment):
 
                 while True:
                     self.laser_stabilizer.run()
-                    self.fast_laser_stabilizer.run()
                     delay(1*ms)
                     if self.FORT_AOM_ON == True: # todo delete
                         self.dds_FORT.sw.on()
@@ -131,8 +130,7 @@ class AOMsCoils(EnvExperiment):
                     delay(self.t_feedback_period)
 
             elif self.run_laser_feedback_once:
-                self.laser_stabilizer.run()
-                self.fast_laser_stabilizer.run()
+                self.laser_stabilizer.run() # this tunes the MOT and FORT AOMs
                 delay(1 * ms)
                 if self.FORT_AOM_ON == True:
                     self.dds_FORT.sw.on()
@@ -140,7 +138,6 @@ class AOMsCoils(EnvExperiment):
             else:
                 # posts one data point for each beam
                 self.laser_stabilizer.monitor()
-                self.fast_laser_stabilizer.monitor()
                 delay(1*ms)
                 if self.FORT_AOM_ON == True:
                     self.dds_FORT.sw.on()

@@ -47,13 +47,7 @@ from subroutines.aom_feedback import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
 from utilities.write_h5 import write_results
-
-def dB_to_V(dB: float) -> float:
-    """
-    convert power in dB to volts for setting DDS amplitudes
-    :return amplitude: float in volts
-    """
-    return (2 * 50 * 10 ** (dB / 10 - 3)) ** (1 / 2)
+from utilities.conversions import dB_to_V
 
 
 class BaseExperiment:
@@ -64,6 +58,8 @@ class BaseExperiment:
     def build(self):
         """
         Put this in your experiment's build method with experiment=self
+
+        Assigning attributes, methods, and devices to the experiment should be done here.
 
         :param experiment: your experiment.
         :return:
@@ -84,6 +80,7 @@ class BaseExperiment:
 
         # devices without nicknames. core should come first
         devices_no_alias = ["core",
+                            "scheduler",
                             "urukul0_cpld", "urukul1_cpld", "urukul2_cpld",
                             "zotino0",  # for controlling coils
                             "sampler0",  # for measuring laser power PD
@@ -91,13 +88,13 @@ class BaseExperiment:
                             "sampler2",
                             *[f"ttl{i}" for i in range(16)]]
         for dev in devices_no_alias:
-            # print(f"setting {dev}")
             self.experiment.setattr_device(dev)
 
         # devices can also be nicknamed here:
         self.experiment.ttl_microwave_switch = self.experiment.ttl4
-        self.experiment.ttl_microwave_switch = self.experiment.ttl4
         self.experiment.ttl_repump_switch = self.experiment.ttl5
+        self.experiment.ttl_SPCM0 = self.experiment.ttl0
+        self.experiment.ttl_scope_trigger = self.experiment.ttl7
         self.experiment.ttl_Luca_trigger = self.experiment.ttl6
 
         # initialize named channels.
@@ -131,10 +128,6 @@ class BaseExperiment:
         self.experiment.all_dds_channels = [getattr(self.experiment,f'urukul{card}_ch{channel}')
                                  for card in range(3) for channel in range(4)]
 
-        # todo: should limit this list to the channels which are outputs
-        # self.experiment.all_ttl_channels = [getattr(self.experiment, 'ttl{channel}')
-        #                                     for channel in range(16)]
-
         # dataset names
         self.experiment.count_rate_dataset = 'photocounts_per_s'
 
@@ -151,8 +144,37 @@ class BaseExperiment:
             write_results(experiment=self.experiment, **kwargs)
         self.experiment.write_results = write_results_wrapper
 
-        # self.experiment.write_results = lambda **kwargs: write_results(experiment=self.experiment, **kwargs)
+        """
+        Note that the amplitudes below can be used for setting the urukul channels, but are kernel invariants.
+        If you are running the laser_stabilizer in your experiment, and you want to set one of the dds channels we
+        feedback to (i.e. it is in one of the dds_feedback_lists in ExperimentVariables), then you should use the
+        amplitude attribute of the feedback channel. See subroutines/aom_feedback.py for more details.
+        """
 
+        # converts RF power in dBm to amplitudes in V
+        self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
+        self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
+        self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
+        self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
+        self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
+        self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
+        self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
+        self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
+        self.experiment.ampl_AOM_A2 = dB_to_V(self.experiment.p_AOM_A2)
+        self.experiment.ampl_AOM_A3 = dB_to_V(self.experiment.p_AOM_A3)
+        self.experiment.ampl_AOM_A4 = dB_to_V(self.experiment.p_AOM_A4)
+        self.experiment.ampl_AOM_A5 = dB_to_V(self.experiment.p_AOM_A5)
+        self.experiment.ampl_AOM_A6 = dB_to_V(self.experiment.p_AOM_A6)
+
+        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback.
+        self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
+        self.experiment.ampl_FORT_PGC = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_PGC
+        self.experiment.ampl_FORT_blowaway = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_blowaway
+        self.experiment.ampl_FORT_OP = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_OP
+        self.experiment.ampl_cooling_DP_RO = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_RO
+        self.experiment.ampl_cooling_DP_PGC = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
+
+        # THIS MUST COME LAST IN BASE.BUILD
         # get a list of all attributes of experiment up to this point. if base.build is called in your experiment
         # before any GUI arguments are defined, then this can be used to grab those later by taking a difference
         self.exp_var_names = dir(self.experiment)
@@ -160,14 +182,19 @@ class BaseExperiment:
 
 
     def set_datasets_from_gui_args(self):
+        """
+        This should be called at the end of your experiment's build method to archive the GUI arguments.
+
+        For this to work, it is assumed that the line 'self.exp_var_names = dir(self.experiment)' comes
+        last in base.build above.
+        :return:
+        """
         new_exp_var_names = [x for x in dir(self.experiment) if x not in self.exp_var_names]
         for name in new_exp_var_names:
             try:
                 self.experiment.set_dataset(name, getattr(self.experiment, name))
             except Exception as e:
-                pass # this is terrible but ARTIQ prints out way too many of these
-                # print("ARTIQ complains about this when scanning repository HEAD but then gets over it...")
-
+                logging.debug(e)
 
     def prepare(self):
         """
@@ -182,54 +209,22 @@ class BaseExperiment:
         self.experiment.t_FORT_loading_mu = seconds_to_mu(self.experiment.t_FORT_loading)
         self.experiment.t_SPCM_exposure_mu = seconds_to_mu(self.experiment.t_SPCM_exposure)
 
-        # converts RF power in dBm to amplitudes in V
-        self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
-        self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-        self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
-        self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
-        self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
-        self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
-        self.experiment.AOM_A1_ampl = dB_to_V(self.experiment.AOM_A1_power)
-        self.experiment.AOM_A2_ampl = dB_to_V(self.experiment.AOM_A2_power)
-        self.experiment.AOM_A3_ampl = dB_to_V(self.experiment.AOM_A3_power)
-        self.experiment.AOM_A4_ampl = dB_to_V(self.experiment.AOM_A4_power)
-        self.experiment.AOM_A5_ampl = dB_to_V(self.experiment.AOM_A5_power)
-        self.experiment.AOM_A6_ampl = dB_to_V(self.experiment.AOM_A6_power)
-
-        # RF powers defined as fractions of the defaults, e.g. the ones we tune during the AOM feedback
-        self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
-        self.experiment.ampl_FORT_PGC = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_PGC
-        self.experiment.ampl_FORT_blowaway = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_blowaway
-        self.experiment.ampl_FORT_OP = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_OP
-        self.experiment.ampl_cooling_DP_RO = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_RO
-        self.experiment.ampl_cooling_DP_PGC = self.experiment.ampl_cooling_DP_MOT * self.experiment.p_cooling_DP_PGC
-
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
-
-
-        # fast_feedback_dds_channels = ['dds_FORT']
-        # fast_feedback_dds_list = []
-        # slow_feedback_dds_list = []
-        # for dds_name in self.experiment.feedback_dds_list:
-        #     if dds_name in fast_feedback_dds_channels:
-        #         fast_feedback_dds_list.append(dds_name)
-        #     else:
-        #         slow_feedback_dds_list.append(dds_name)
-
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
         fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
 
-        self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
-                                                              dds_names=slow_feedback_dds_list,
-                                                              iterations=self.experiment.aom_feedback_iterations,
-                                                              averages=self.experiment.aom_feedback_averages,
-                                                              leave_AOMs_on=True)
+        # could implement this but it isn't needed right now
+        # self.experiment.slow_laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+        #                                                       dds_names=slow_feedback_dds_list,
+        #                                                       iterations=self.experiment.aom_feedback_iterations,
+        #                                                       averages=self.experiment.aom_feedback_averages,
+        #                                                       leave_AOMs_on=True)
 
         # feedback channels which are fast enough to include both every atom loading attempt.
         # this excludes the on-chip MOT beams because the fW detectors have slow rise time.
         # The external MOT beams and cooling laser could technically be in this list, but
         # why change what isn't broken.
-        self.experiment.fast_laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+        self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
                                                               dds_names=fast_feedback_dds_list,
                                                               iterations=self.experiment.aom_feedback_iterations,
                                                               averages=self.experiment.aom_feedback_averages,
@@ -270,10 +265,19 @@ class BaseExperiment:
         for ch in self.experiment.all_dds_channels:
             ch.sw.off()
 
+        # check that the SPCM is plugged in #todo add other SPCM channels as they are added to the experiment
+        self.experiment.dds_FORT.sw.on() # we'll get enough Raman scattering to see something
+        delay(1*ms)
+        t_gate_end = self.experiment.ttl_SPCM0.gate_rising(10*ms)
+        counts = self.experiment.ttl_SPCM0.count(t_gate_end)
+        delay(1 * ms)
+        self.experiment.dds_FORT.sw.off()
+
+        assert counts > 0, "SPCM0 is likely unplugged"
+
         # todo: turn off all Zotino channels?
 
         self.experiment.core.break_realtime()
-
 
 # do this so the code above will not actually run when ARTIQ scans the repository
 if __name__ == '__main__':

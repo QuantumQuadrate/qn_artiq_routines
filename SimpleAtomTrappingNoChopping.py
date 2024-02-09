@@ -106,7 +106,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
                     self.laser_stabilizer.run()
                     delay(1 * ms)
                 self.dds_FORT.sw.on()
-                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+                self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
             self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
 
@@ -132,14 +132,14 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             delay(1 * ms)
 
             # ### turn on the dipole trap with the MOT beams
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
             ### wait for the MOT to load
             delay_mu(self.t_MOT_loading_mu)
 
             ### turn on the dipole trap and wait to load atoms
             # self.dds_FORT.sw.on()
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_loading)
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
             delay_mu(self.t_FORT_loading_mu)
 
             if self.drop_MOT:
@@ -209,4 +209,4 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.dds_AOM_A5.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
-        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.ampl_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)

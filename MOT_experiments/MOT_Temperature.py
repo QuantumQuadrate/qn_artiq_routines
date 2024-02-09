@@ -4,7 +4,13 @@ The resulting images can be fit to Gaussians to extract the temperature.
 
 This particular code outputs a trigger to a camera, but the camera setup (spooling, etc)
 and image processing are done elsewhere for now.
+
+If using the ThorCam, run
+C:\\Networking Experiment\\Camera_Examples\\Python\\save_ims_with_hardware_trigger.py
+If using Luca, run Andor Solis, enable spooling and fast external triggering,
+with exposure time=1 ms.
 """
+
 from artiq.experiment import *
 import sys
 sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
@@ -23,9 +29,10 @@ class MOTTemperature(EnvExperiment):
         # from the Luca and fit them
 
         self.setattr_argument("release_times_ms", StringValue(
-                '[0.001, 0.5]'))
+                '[0.001,0.005,0.01,0.05, 0.5]'))
+        self.setattr_argument("camera_model", EnumerationValue(['Luca','ThorCam'],default='ThorCam'))
         # wait for the camera to take the shot
-        self.setattr_argument("t_Luca_exposure", NumberValue(0.5*ms, unit='ms'))
+        self.setattr_argument("t_exposure", NumberValue(0.5*ms, unit='ms'))
         self.setattr_argument("averages", NumberValue(70, type='int', ndecimals=0, scale=1, step=1))
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
 
@@ -127,8 +134,17 @@ class MOTTemperature(EnvExperiment):
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=2*self.ampl_cooling_DP_MOT)
-                self.ttl6.pulse(5*ms)
-                delay(self.t_Luca_exposure)
+
+                if self.camera_model == 'ThorCam':
+                    # trigger the ThorCam with the Zotino
+                    self.zotino0.write_dac(6, 4.0)
+                    self.zotino0.load()
+                    delay(self.t_exposure)
+                    self.zotino0.write_dac(6, 0.0)
+                    self.zotino0.load()
+                else:# assume self.camera_model == 'Luca'
+                    self.ttl6.pulse(5*ms)
+                delay(self.t_exposure)
                 delay(10*ms)
 
                 # # reset coils and DDS to MOT settings
