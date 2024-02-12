@@ -206,9 +206,10 @@ class SamplerMOTCoilTune(EnvExperiment):
                 self.zotino0.load()
 
         if not self.leave_coils_on_at_finish:
-            self.zotino0.write_dac(ch, 0.0)
-            self.zotino0.load()
-            delay(1 * ms)
+            for ch in self.coil_channels:
+                self.zotino0.write_dac(ch, 0.0)
+                self.zotino0.load()
+                delay(1 * ms)
 
         if self.set_best_coil_volts_at_finish:
             for i in range(4):
