@@ -93,9 +93,18 @@ class SamplerMOTBeamBalanceTune(EnvExperiment):
 
         delay(1 * ms)
 
-        self.laser_stabilizer.run(monitor_only=self.monitor_only)
-        if self.FORT_AOM_on:
-            self.dds_FORT.sw.on()
+        # warm up to get make sure we get to the setpoints
+        for i in range(10):
+            self.laser_stabilizer.run(monitor_only=self.monitor_only)
+            if self.FORT_AOM_on:
+                self.dds_FORT.sw.on()
+
+        ampl1_factor = 1.0
+        ampl2_factor = 1.0
+        ampl3_factor = 1.0
+        ampl4_factor = 1.0
+        ampl5_factor = 1.0
+        ampl6_factor = 1.0
 
         print("ready!")
 
@@ -111,6 +120,21 @@ class SamplerMOTBeamBalanceTune(EnvExperiment):
             else:
                 delay(10*ms)
 
+
+            # todo: probably want to some error handling here so we don't set the amplitude too high
+            self.dds_AOM_A1.set(amplitude=self.stabilizer_AOM_A1.amplitude * ampl1_factor,
+                                frequency=self.AOM_A1_freq)
+            self.dds_AOM_A2.set(amplitude=self.stabilizer_AOM_A2.amplitude * ampl2_factor,
+                                frequency=self.AOM_A2_freq)
+            self.dds_AOM_A3.set(amplitude=self.stabilizer_AOM_A3.amplitude * ampl3_factor,
+                                frequency=self.AOM_A3_freq)
+            self.dds_AOM_A4.set(amplitude=self.stabilizer_AOM_A4.amplitude * ampl4_factor,
+                                frequency=self.AOM_A4_freq)
+            self.dds_AOM_A5.set(amplitude=self.stabilizer_AOM_A5.amplitude * ampl5_factor,
+                                frequency=self.AOM_A5_freq)
+            self.dds_AOM_A6.set(amplitude=self.stabilizer_AOM_A6.amplitude * ampl6_factor,
+                                frequency=self.AOM_A6_freq)
+
             t_end = self.ttl0.gate_rising(self.dt_exposure)
             counts = self.ttl0.count(t_end)
             count_rate_per_s = counts / self.dt_exposure
@@ -118,22 +142,14 @@ class SamplerMOTBeamBalanceTune(EnvExperiment):
             delay(1 * ms)
             self.append_to_dataset(self.count_rate_dataset, count_rate_per_s)
 
+            # a higher bandwidth way to tune the MOT beam amplitudes
             self.sampler1.sample(self.sampler_buffer)
-            sp1_factor = 1 + self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
-            sp2_factor = 1 - self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
-            sp3_factor = 1 + self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
-            sp4_factor = 1 - self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
-            sp5_factor = 1 + self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
-            sp6_factor = 1 - self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
-            self.print_async(sp1_factor,sp2_factor,sp3_factor,sp4_factor,sp5_factor,sp6_factor)
-
-            # update the fiber AOM setpoints
-            self.stabilizer_AOM_A1.set_point = self.default_setpoints[0]*sp1_factor
-            self.stabilizer_AOM_A2.set_point = self.default_setpoints[1]*sp2_factor
-            self.stabilizer_AOM_A3.set_point = self.default_setpoints[2]*sp3_factor
-            self.stabilizer_AOM_A4.set_point = self.default_setpoints[3]*sp4_factor
-            self.stabilizer_AOM_A5.set_point = self.default_setpoints[4]*sp5_factor
-            self.stabilizer_AOM_A6.set_point = self.default_setpoints[5]*sp6_factor
+            ampl1_factor = 1.0 + self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
+            ampl2_factor = 1.0 - self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
+            ampl3_factor = 1.0 + self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+            ampl4_factor = 1.0 - self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+            ampl5_factor = 1.0 + self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
+            ampl6_factor = 1.0 - self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
 
             delay(1*ms)
 
@@ -144,14 +160,26 @@ class SamplerMOTBeamBalanceTune(EnvExperiment):
                 delay(1 * ms)
 
         if self.set_current_power_setpoints_at_finish:
+
+            # run with monitor only will update the values it read from the detectors
+            # without doing feedback
+            self.laser_stabilizer.run(monitor_only=self.monitor_only)
+
             current_power_setpoints = [
-                self.stabilizer_AOM_A1.set_point,
-                self.stabilizer_AOM_A2.set_point,
-                self.stabilizer_AOM_A3.set_point,
-                self.stabilizer_AOM_A4.set_point,
-                self.stabilizer_AOM_A5.set_point,
-                self.stabilizer_AOM_A6.set_point
+                self.stabilizer_AOM_A1.value,
+                self.stabilizer_AOM_A2.value,
+                self.stabilizer_AOM_A3.value,
+                self.stabilizer_AOM_A4.value,
+                self.stabilizer_AOM_A5.value,
+                self.stabilizer_AOM_A6.value
             ]
+
+            # self.stabilizer_AOM_A1.set_point = self.stabilizer_AOM_A1.value
+            # self.stabilizer_AOM_A2.set_point = self.stabilizer_AOM_A2.value
+            # self.stabilizer_AOM_A3.set_point = self.stabilizer_AOM_A3.value
+            # self.stabilizer_AOM_A4.set_point = self.stabilizer_AOM_A4.value
+            # self.stabilizer_AOM_A5.set_point = self.stabilizer_AOM_A5.value
+            # self.stabilizer_AOM_A6.set_point = self.stabilizer_AOM_A6.value
 
             for i in range(6):
                 self.set_dataset(self.setpoint_datasets[i], current_power_setpoints[i], broadcast=True, persist=True)
