@@ -251,6 +251,12 @@ class BaseExperiment:
         self.experiment.ttl_repump_switch.output()
         self.experiment.ttl6.output()  # for outputting a trigger
         self.experiment.ttl1.input()
+
+        # channel 3 is configured to read from 14, separated by a switch
+        self.experiment.ttl3.input()
+        self.experiment.ttl14.output()
+        self.experiment.ttl14.on()
+
         self.experiment.sampler0.init() # for reading laser feedback
         self.experiment.sampler1.init() # for reading laser feedback
         self.experiment.sampler2.init() # for reading laser feedback

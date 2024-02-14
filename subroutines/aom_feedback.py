@@ -475,16 +475,22 @@ class AOMPowerStabilizer:
         self.run(monitor_only=True)
 
     @kernel
-    def run(self, record_all_measurements=False, monitor_only=False):
+    def run(self, record_all_measurements=False, monitor_only=False, defaults_at_start=True):
         """
         Run the feedback loop. On exiting, this function will turn off all dds channels
          given by dds_names. If any beams which need to be adjusted in series are in
          dds_names, all such channels will be turned off, i.e. even ones we are not
          feeding back to.
 
-        :param record_all_measurements: optional, False by default. if True, every measurement point will
+        record_all_measurements: optional, False by default. if True, every measurement point will
         be posted to the corresponding dataset, else, only post the final measurement, i.e. after the feedback
         loop has been run.
+        monitor_only=False: if True, measurements of the detectors are made and the monitor datasets are updated,
+            but feedback is not applied
+        defaults_at_start=True: if True, the dds for each FeedbackChannel is set to
+            the frequency and amplitude associated with the FeedbackChannel object. This should nearly always be true,
+            unless for example, in cases where one wants specifically wants to read the detector values after the dds
+            amplitudes have been changed in an experiment. This happens at the end of SamplerMOTCoilAndBeamBalance.
         """
 
         self.exp.ttl7.pulse(1*ms) # scope trigger
@@ -501,8 +507,9 @@ class AOMPowerStabilizer:
         self.exp.ttl_repump_switch.on() # block RF to the RP AOM
         # todo include pumping repump
 
-        for ch in self.all_channels:
-            ch.set_dds_to_defaults()
+        if defaults_at_start:
+            for ch in self.all_channels:
+                ch.set_dds_to_defaults()
 
         with sequential:
 
@@ -511,12 +518,11 @@ class AOMPowerStabilizer:
 
             for ch in self.series_channels:
                 ch.dds_obj.sw.off()
-            delay(1 * ms)
 
             delay(1*ms)
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
-            delay(10*ms)
+            delay(1*ms)
 
             # do feedback on the "parallel" channels
             for i in range(self.iterations):
