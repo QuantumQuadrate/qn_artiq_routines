@@ -18,29 +18,26 @@ class RotatorFeedbackChannel():
         self.task = daq.Task()
         self.task.ai_channels.add_ai_voltage_chan("Dev1/ai0")
 
-
-        print(self.task.read())
-        print()
         if self.dry_run:
             self.measure = self.measure_dryrun  # use this for testing since you don't have access to artiq hardware yet
         else:
             self.measure = self._measure
 
-        self.detector_volts = 0.0  # what we want to maximize
+        #self.detector_volts = 0.0  # what we want to maximize
 
         self.ser0 = rotator_sn[0]
         self.ser1 = rotator_sn[1]
 
         self.scl = True  # whether to use physical units - this apparently has no effect
-        self.stage = [Thorlabs.KinesisMotor(conn = self.ser0, scale='K10CR1', is_rack_system=True),
-                      Thorlabs.KinesisMotor(conn = self.ser1, scale='K10CR1', is_rack_system=True)]
+        self.stage = [Thorlabs.KinesisMotor(conn = self.ser0, scale='K10CR1', ),
+                      Thorlabs.KinesisMotor(conn = self.ser1, scale='K10CR1', )]
 
 
+        self.stage[0].set_position_reference(self._pos(0))
+        self.stage[1].set_position_reference(self._pos(1))
 
-        """if self.stage[0].is_homed() is False:
-            self.stage[0].home()
-        if self.stage[1].is_homed() is False:
-            self.stage[1].home()"""
+        print(f"{self._pos(0)} : {self._pos(1)}; intensity:{np.sum(self.task.read(number_of_samples_per_channel=10))}")
+        sleep(5)
 
     def print_pos(self, rotor_num = 0):
         print("position = ", self._pos(rotor_num))
@@ -56,10 +53,8 @@ class RotatorFeedbackChannel():
     #@kernel
     def _measure(self):
         data = self.task.read()
-        print(data)
-        return data
-
-    # measure and update self.detector_volts
+        #print(data)
+        return np.sum(data)
 
     def measure_dryrun(self, Ip = 1, phase_psi = 45, phase_chi = 45, pos = None ):
         intensity = Ip * np.sin((np.pi * np.float64(self._pos(0) - phase_psi)) / (180))*\
@@ -93,42 +88,8 @@ class RotatorFeedbackChannel():
         r.move_to(degrees)
         r.wait_move()
         return 1
-    def jog(self, direction = "+", rotor_num = 0, velocity = 10):
-        return 0
+
     def optimize(self, initial_velocity = 10, initial_acceleration = 10, starting_point = None):
-        """
-        Set up initial velocity and acceleration parameters to be at their maximums
-        in deg/s and deg/s^2
-        """
-
-
-        self.stage[0].setup_velocity(max_velocity=initial_velocity, acceleration=initial_acceleration,
-                                  scale = self.scl)
-        self.stage[1].setup_velocity(max_velocity=initial_velocity, acceleration=initial_acceleration,
-                                     scale=self.scl)
-        r0 = self.stage[0]
-        r1 = self.stage[1]
-        self.print_pos(0)
-        self.print_pos(1)
-
-        if starting_point is not None:
-            r0.move_to(0)
-            r1.move_to(0)
-            for i in range(0,2):
-                print(f"Moving to {starting_point} degrees, and then waiting")
-                self.move_to(starting_point, rotor_num = i)
-
-
-        r0.wait_for_stop()
-        r1.move_to(0)
-        self.print_pos(0)
-        self.print_pos(1)
-        r0.move_to(0)
-        r1.move_to(0)
-
-        self.optimise_for_rotor(0, init_pos = 137, restrict_to_near=True,)
-        self.optimise_for_rotor(1, init_pos = 42)
-        self.close()
         # self.dds_channel.sw.on() # switch on the laser. don't worry about this
         """
         # the main loop
@@ -164,138 +125,6 @@ class RotatorFeedbackChannel():
         self.task.close()
         print("Closed successfully")
 
-    def optimise_for_rotor(self, rotor_num = 0, init_pos = 0, restrict_to_near = True, range = 180, favor_start = 1):
-        stage = self.stage[rotor_num]
-        stage.stop()
-        stage.move_to(position=init_pos)
-        stage.wait_for_stop()
-
-        starting_time = time()
-        i_max = self.measure() * favor_start
-        restriction_factor = 2 * favor_start
-        degree = stage.get_position()
-        max_degree = degree
-
-        stage.setup_jog(max_velocity=5, acceleration=10)
-        stage.jog(direction="+")
-
-        i = 0
-
-
-        print(f"Starting position is {self._abs_pos(rotor_num=rotor_num)} degrees")
-        # User can pass a float variable through favor_start so it takes a larger percentage change in intensity
-        # to change it from it's original position
-
-
-
-
-        if restrict_to_near:
-            min_possible = init_pos - range
-            max_possible = init_pos + range
-        else:
-            min_possible = 361
-            max_possible = -361
-
-        reversals = 0
-        moving_forward = True
-
-        time_wait = 0.1
-        speed = 5
-        last_degree = None
-        while stage.is_moving():
-
-            degree = stage.get_position()
-            intensity = self.measure()
-
-            if intensity >= i_max:
-                last_degree = max_degree
-                i_max = intensity
-                max_degree = degree
-                reversals = 0
-
-            elif intensity <= i_max / restriction_factor or (degree >= max_possible or degree <= min_possible):
-                #restriction_factor /= 1.3
-
-                if restriction_factor <= 1:
-                    restriction_factor = 1.001
-
-                stage.stop()
-
-                if moving_forward is True:
-                    stage.stop()
-                    stage.wait_for_stop()
-                    stage.setup_jog(max_velocity=speed/(reversals+2), acceleration=10)
-                    stage.jog(direction="-")
-                    moving_forward = False
-                    # max_possible = degree
-                    sleep(4)
-                    """while d > degree - (45.0 / 2.0 ** reversals):
-                        d = stage.get_position()
-                        sleep(0.1)"""
-                else:
-                    stage.stop()
-                    stage.wait_for_stop()
-                    stage.setup_jog(max_velocity=speed / (reversals + 2), acceleration=10)
-                    stage.jog(direction="+")
-                    moving_forward = True
-                    # min_possible = degree
-                    sleep(4)
-                    """while d < (degree + 45.0 / 2.0 ** reversals):
-                        d = stage.get_position()
-                        sleep(0.1)"""
-
-                reversals += 1
-                time_wait = (0.05 / (reversals))
-
-                if reversals == 2:
-                    stage.move_to(position=max_degree)
-                    stage.wait_for_stop()
-
-            sleep(time_wait)
-            i += 1
-            if i == 10000:
-                stage.stop()
-        # If the user passed a factor to favor the starting position it is factored out
-        if favor_start != 1:
-            i_max/=favor_start
-
-        print(f"Rotor number{rotor_num}\n--------------------------")
-        print(f"Max degree:{max_degree}\nIntensity at degree:{i_max}")
-        print(f"time to optimize rotor number {rotor_num}: ({time()-starting_time} seconds)")
-        stage.wait_for_stop()
-    def slow_optimize_rotor(self, rotor_num = 0, ):
-        stage = self.stage[rotor_num]
-        stage.stop()
-        #stage.move_to(position=init_pos)
-        stage.wait_for_stop()
-
-        starting_time = time()
-        i_max = self.measure()
-
-        degree = stage.get_position()
-        max_degree = degree
-        i = 0
-        stage.setup_jog(max_velocity=10, acceleration=10)
-        stage.jog(direction="+")
-
-        while stage.is_moving():
-            degree = stage.get_position()
-            intensity = self.measure()
-
-            if intensity >= i_max:
-                i_max = intensity
-                max_degree = degree
-                was_above = True
-                reversals = 0
-            sleep(0.1)
-            i+=1
-            if i >= 180:
-                stage.stop()
-
-        stage.move_to(max_degree%360)
-        stage.wait_for_stop()
-        return i_max, max_degree
-
     def quick_move_read_test(self, rotor_num, init_pos = None, speed = 10, range = 45, full_optimize = False):
         if full_optimize:
             range = 90
@@ -314,46 +143,51 @@ class RotatorFeedbackChannel():
         degree_stage = [-361]
         intensity_stage = [-1*float(100000000)]
         moving = True
-        while moving:
-            time_before_measure = time()
-            degree = stage.get_position()
-            intensity = self.measure()
-            time_after_measure = time()
-            time_to_measure = time_before_measure-time_after_measure
+        try:
+            while moving:
+                time_before_measure = time()
+                degree = stage.get_position()
+                intensity = self.measure()
+                time_after_measure = time()
+                time_to_measure = time_before_measure-time_after_measure
 
-            degree_dif = time_to_measure*speed
-            degree +=degree_dif
+                degree_dif = time_to_measure*speed
+                degree +=degree_dif
 
-            i+=1
-            print(f"Iteration {i}\n Degree: {degree}"
-                  f"\nIntensity: {intensity}"
-                  f"\n Time to measure: "
-                  f"{time_after_measure-time_before_measure}"
-                  f"\n^^^^^^^^^^^^^^^^^^^^^^^^^")
+                i+=1
+                print(f"Iteration {i}\n Degree: {degree}"
+                      f"\nIntensity: {intensity}"
+                      f"\n Time to measure: "
+                      f"{time_after_measure-time_before_measure}"
+                      f"\n^^^^^^^^^^^^^^^^^^^^^^^^^")
 
 
-            if i >= max_iterations*2 and moving_forward is not True:
-                stage.stop()
-                stage.wait_for_stop()
-                moving = False
-            if i >= max_iterations and moving_forward is True:
-                stage.stop()
-                stage.wait_for_stop()
-                stage.jog(direction="-")
-                sleep(1)
-                moving_forward = False
-                i=0
-            degree_stage.append(degree)
-            intensity_stage.append(intensity)
-            sleep(interval)
+                if i >= max_iterations*2 and moving_forward is not True:
+                    stage.stop()
+                    stage.wait_for_stop()
+                    moving = False
+                if i >= max_iterations and moving_forward is True:
+                    stage.stop()
+                    stage.wait_for_stop()
+                    stage.jog(direction="-")
+                    sleep(1)
+                    moving_forward = False
+                    i=0
+                degree_stage.append(degree)
+                intensity_stage.append(intensity)
+                sleep(interval)
+        except Exception:
+            stage.stop()
+            stage.wait_for_stop()
         return degree_stage, intensity_stage
 
     def slow_read(self, stage, degree_stage = [], scan_range = 2, init_pos = None,
-                  intensity_stage = [], speed = 0.2, is_optimized = False):
+                  intensity_stage = [], speed = 0.2, is_optimized = False,):
         acceleration = speed
 
         max_degree = -361
         max_intensity = -1e9
+        intensity = self.measure
         if is_optimized is False:
             max_val, second_max = sorted(intensity_stage)[-2:]
             degree_max = degree_stage[intensity_stage.index(max_val)]
@@ -366,7 +200,7 @@ class RotatorFeedbackChannel():
 
         degree_range = abs(degree_max-degree_second_max)
         #generally will only be activated when full optimization is required
-        if scan_range >= 90:
+        if degree_range >= scan_range:
             degree_max = degree_max+scan_range
             degree_second_max = degree_max-scan_range
 
@@ -383,41 +217,48 @@ class RotatorFeedbackChannel():
         degree = stage.get_position
         moving = True
         i = 0
-        while moving:
-            time_before_measure = time()
-            degree = stage.get_position()
-            intensity = self.measure()
-            time_after_measure = time()
-            time_to_measure = time_before_measure - time_after_measure
-
-            #degree_dif = time_to_measure * speed
-            #degree += degree_dif
-            if degree <= degree_max:
-                i+=1
-                print(f"Iteration {i}\n Degree: {degree}"
-                      f"\nIntensity: {intensity}"
-                      f"\n Time to measure: "
-                      f"{time_after_measure - time_before_measure}"
-                      f"\n^^^^^^^^^^^^^^^^^^^^^^^^^")
-                if i >= max_iteration:
+        try:
+            while moving:
+                time_before_measure = time()
+                i_measured = intensity()
+                degree_measured = degree() - ((time_before_measure - time()) * speed)
+                max_diff = degree_measured >= degree_second_max and degree_measured <= degree_max
+                if i == 0 and not max_diff:
+                    stage.jog(direction="-")
+                elif max_diff:
+                    intensity_stage.append(i_measured)
+                    degree_stage.append(degree_measured)
+                    i+=1
+                    sleep(0.1)
+                    print(f"max_diff:{max_diff}\n"
+                          f"degree_maxes: {degree_max}, {degree_second_max}\n"
+                          f"Iteration {i}\n Degree: {degree_measured}"
+                          f"\nIntensity: {i_measured}"
+                          f"\n Time to complete iteration: "
+                          f"{time() - time_before_measure}"
+                          f"\n^^^^^^^^^^^^^^^^^^^^^^^^^")
+                else:
                     stage.stop()
-                    stage.wait_for_stop()
                     moving = False
-                degree_stage.append(degree)
-                intensity_stage.append(intensity)
-                sleep(0.1)
-            else:
-                stage.stop()
-                moving = False
-                stage.wait_for_stop()
+                    stage.wait_for_stop()
+        except Exception:
+            stage.stop()
+            stage.wait_for_stop()
+
         max_degree_found, max_intensity = degree_stage[intensity_stage.index(max(intensity_stage))], max(intensity_stage)
+
         stage.setup_velocity(max_velocity=10, acceleration=10)
         stage.move_to(max_degree_found)
         stage.wait_for_stop()
-        if (abs(max_degree_found-init_pos) >= scan_range/3) and (abs(max_degree_found-init_pos)/90 >= 0.0005):
+        start_max_diff = float(abs(max_degree_found-init_pos))
+
+        if ((start_max_diff) >= scan_range/3) and ((start_max_diff)/90 >= 0.0005):
+
             return self.slow_read(stage = stage, degree_stage = degree_stage, intensity_stage = intensity_stage,
-                           init_pos = max_degree_found, scan_range = scan_range*3, speed=speed*3, is_optimized = False)
-        elif (abs(max_degree_found-init_pos) <= scan_range/3) and (abs(max_degree_found-init_pos)/90 >= 0.0005):
+                    init_pos = max_degree_found, scan_range = scan_range*3, speed=speed*3, is_optimized = False)
+
+        elif(start_max_diff <= scan_range/3) and ((start_max_diff)/90 >= 0.0005):
+
             return self.slow_read(stage=stage, degree_stage=degree_stage, intensity_stage=intensity_stage,
                                   init_pos=max_degree_found, scan_range=scan_range / 3, speed=speed / 3,
                                   is_optimized=True)
@@ -560,8 +401,8 @@ class RotorExperiment(EnvExperiment):
         rotor1.stage[0].wait_for_stop()
         rotor1.stage[1].wait_for_stop()
 
-        print(rotor1.new_optimize_test(0, is_optimized=True, slow_speed=0.25,full_optimize=True))
-        print(rotor1.new_optimize_test(1, is_optimized=True, slow_speed=0.25, full_optimize=True))
+        #print(rotor1.new_optimize_test(0, is_optimized=True, slow_speed=0.25,full_optimize=True))
+        #print(rotor1.new_optimize_test(1, is_optimized=True, slow_speed=0.25, full_optimize=True))
         #i_max1, degree1 = rotor1.slow_optimize_rotor(1)
         #rotor1.stage[1].wait_for_stop()
         #i_max0, degree0 = rotor1.slow_optimize_rotor(0)
