@@ -38,11 +38,18 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                                                                 "nothing (for debugging)"]))
 
         self.setattr_argument("run_time_minutes", NumberValue(10))
+
+        # if False, the beams are balanced pairwise, e.g. MOT1 goes up the same amount MOT3 goes down
+        # if True, all four potentiometer knobs are used to adjust MOT1-4 (hence disable_z_beam is
+        # ignored)
+        self.setattr_argument("individual_beam_mode",
+                              BooleanValue(False), "beam balance tune settings")
         self.setattr_argument("max_setpoint_percent_deviation", # nominal
                               NumberValue(0.1),"beam balance tune settings")
 
         # we can balance the z beams with confidence by measuring the powers outside the chamber,
-        # so unless we are fine tuning loading, we may want trust our initial manual balancing
+        # so unless we are fine tuning loading, we may want trust our initial manual balancing.
+        # this has no effect if individual_beam_mode is True, which disallows z beam tuning anyway
         self.setattr_argument("disable_z_beam_tuning",
                               BooleanValue(True), "beam balance tune settings")
         self.setattr_argument("coil_volts_multiplier",
@@ -80,13 +87,12 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         self.n_steps = int(60*self.run_time_minutes/self.dt_exposure+0.5)
         self.sampler_buffer = np.zeros(8)
-        self.sampler_channels = [0,1,2] # the sampler channels to read
 
         self.setpoint_datasets = ["set_point_PD1_AOM_A1","set_point_PD2_AOM_A2","set_point_PD3_AOM_A3",
                                   "set_point_PD4_AOM_A4","set_point_PD5_AOM_A5","set_point_PD6_AOM_A6"]
         self.default_setpoints = [getattr(self,dataset) for dataset in self.setpoint_datasets]
 
-        self.control_volts_channels = [0, 1, 2, 3]  # the sampler channels to read
+        self.sampler_channels = [0, 1, 2, 3]  # the sampler channels to read
 
         self.default_volts = [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT,
                               self.AX_volts_MOT, self.AY_volts_MOT]
@@ -191,21 +197,28 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
                 if (tune_beam_balance and self.what_to_tune == 'both') or self.what_to_tune == 'beams only':
                     # print("updating amplitudes") # todo remove
-                    ampl1_factor = 1.0 + self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
-                    ampl3_factor = 1.0 - self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
-                    ampl2_factor = 1.0 + self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
-                    ampl4_factor = 1.0 - self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+                    if self.individual_beam_mode:
+                        ampl1_factor = 1.0 + self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
+                        ampl2_factor = 1.0 + self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+                        ampl3_factor = 1.0 + self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
+                        ampl4_factor = 1.0 + self.sampler_buffer[self.sampler_channels[3]] * self.max_setpoint_percent_deviation/3.5
 
-                    if not self.disable_z_beam_tuning:
-                        ampl5_factor = 1.0 + self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
-                        ampl6_factor = 1.0 - self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
+                    else:
+                        ampl1_factor = 1.0 + self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
+                        ampl3_factor = 1.0 - self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
+                        ampl2_factor = 1.0 + self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+                        ampl4_factor = 1.0 - self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+
+                        if not self.disable_z_beam_tuning:
+                            ampl5_factor = 1.0 + self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
+                            ampl6_factor = 1.0 - self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
                 else:
                     if self.differential_mode:
                         control_volts = [self.sampler_buffer[ch] * self.differential_multiplier + self.default_volts[ch]
-                                         for ch in self.control_volts_channels]
+                                         for ch in self.sampler_channels]
                     else:
                         control_volts = [self.sampler_buffer[ch] * self.coil_volts_multiplier
-                                         for ch in self.control_volts_channels]
+                                         for ch in self.sampler_channels]
 
                     delay(1 * ms)
 
