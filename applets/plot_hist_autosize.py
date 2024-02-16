@@ -23,6 +23,7 @@ class HistogramPlot(pyqtgraph.PlotWidget):
         try:
             y = data[self.args.y][1][1:]
             x = (data[self.args.x][1])[0]
+            pts = data.get(self.args.pts, (False, None))[1]
             if self.args.x is None:
                 bins = 100
             else:
@@ -38,6 +39,8 @@ class HistogramPlot(pyqtgraph.PlotWidget):
             if self.args.ignore_first_n_points is not None:
                 n = data[self.args.ignore_first_n_points][1]
                 y = y[n:]
+            if pts is not None:
+                y = y[-pts:]
             if self.args.iteration is not None:
                 title = f"iteration {str(data[self.args.iteration][1])}"
         except KeyError:
@@ -60,6 +63,7 @@ def main():
     applet.add_dataset("iteration", "the most recent completed experiment iteration", required=False)
     applet.add_dataset("color", "Color", required=False)
     applet.add_dataset("ignore_first_n_points", "the number of leading data points to ignore", required=False)
+    applet.add_dataset("pts", "max number of pts to plot", required=False)
 
     applet.run()
 

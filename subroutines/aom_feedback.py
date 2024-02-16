@@ -94,7 +94,7 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT1_monitor',
                     'power_dataset':'p_AOM_A1',
-                    't_measure_delay':1*ms,
+                    't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A2': # signal monitored by Thorlabs fW detector
@@ -106,7 +106,7 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT2_monitor',
                     'power_dataset':'p_AOM_A2',
-                    't_measure_delay':1*ms,
+                    't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A3': # signal monitored by Thorlabs fW detector
@@ -118,7 +118,7 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT3_monitor',
                     'power_dataset':'p_AOM_A3',
-                    't_measure_delay':1*ms,
+                    't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A4': # signal monitored by Thorlabs fW detector
@@ -130,7 +130,7 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT4_monitor',
                     'power_dataset':'p_AOM_A4',
-                    't_measure_delay':1*ms,
+                    't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A5': # signal monitored by PD5
@@ -142,7 +142,7 @@ stabilizer_dict = {
                     'series': True,
                     'dataset':'MOT5_monitor',
                     'power_dataset':'p_AOM_A5',
-                    't_measure_delay':1*ms,
+                    't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
             'dds_AOM_A6': # signal monitored by PD6
@@ -154,7 +154,7 @@ stabilizer_dict = {
                     'series': True,
                     'dataset': 'MOT6_monitor',
                     'power_dataset':'p_AOM_A6',
-                    't_measure_delay':1*ms,
+                    't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
 
@@ -169,7 +169,7 @@ stabilizer_dict = {
                     'series': True, # setting to True because there's a bug with parallel
                     'dataset':'FORT_monitor',
                     'power_dataset':'p_FORT_loading',
-                    't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
+                    't_measure_delay':10*us, # time to wait between AOM turned on and measurement
                     'max_dB': 5
                 },
         },
@@ -261,21 +261,6 @@ class FeedbackChannel:
         self.update_error_history(err)
 
         ampl = self.amplitude + self.feedback_sign*self.p * err + self.i * self.cumulative_error
-
-        # this is to account for the fact that the laser power does not increase monotonically with RF amplitude
-        # but decreases after hitting a maximum. if we overshoot this, we want to go back rather than get stuck
-        # driving the AOM with too much power which is usually worse than not being quite able to reach the setpoint
-        # if self.name == 'dds_AOM_A5':
-        #     try:
-        #         slope = ((measured - measured_last) / (ampl - ampl_last))
-        #         print_async(slope)
-        #         if slope > 0:
-        #             self.feedback_sign = 1.0 #slope/((slope)**2)**(1/2)
-        #         else:
-        #             self.feedback_sign = 1.0 # slope/((slope)**2)**(1/2)
-        #     except ZeroDivisionError:
-        #         pass
-        #         # print_async(measured, measured_last, ampl, ampl_last)
 
         self.set_value(measured)
         max_ampl = (2 * 50 * 10 ** (self.max_dB / 10 - 3)) ** (1 / 2)
@@ -433,9 +418,9 @@ class AOMPowerStabilizer:
         for sampler in self.sampler_list:
             for j in range(self.averages):
                 sampler.sample(measurement_array)
-                delay(1*ms)
+                delay(0.1*ms)
                 dummy[i * 8:(i + 1) * 8] += measurement_array
-                delay(1 * ms)
+                delay(0.1 * ms)
             i += 1
         dummy /= self.averages
         self.measurement_array = dummy
@@ -490,16 +475,22 @@ class AOMPowerStabilizer:
         self.run(monitor_only=True)
 
     @kernel
-    def run(self, record_all_measurements=False, monitor_only=False):
+    def run(self, record_all_measurements=False, monitor_only=False, defaults_at_start=True):
         """
         Run the feedback loop. On exiting, this function will turn off all dds channels
          given by dds_names. If any beams which need to be adjusted in series are in
          dds_names, all such channels will be turned off, i.e. even ones we are not
          feeding back to.
 
-        :param record_all_measurements: optional, False by default. if True, every measurement point will
+        record_all_measurements: optional, False by default. if True, every measurement point will
         be posted to the corresponding dataset, else, only post the final measurement, i.e. after the feedback
         loop has been run.
+        monitor_only=False: if True, measurements of the detectors are made and the monitor datasets are updated,
+            but feedback is not applied
+        defaults_at_start=True: if True, the dds for each FeedbackChannel is set to
+            the frequency and amplitude associated with the FeedbackChannel object. This should nearly always be true,
+            unless for example, in cases where one wants specifically wants to read the detector values after the dds
+            amplitudes have been changed in an experiment. This happens at the end of SamplerMOTCoilAndBeamBalance.
         """
 
         self.exp.ttl7.pulse(1*ms) # scope trigger
@@ -516,14 +507,9 @@ class AOMPowerStabilizer:
         self.exp.ttl_repump_switch.on() # block RF to the RP AOM
         # todo include pumping repump
 
-        for ch in self.all_channels:
-            ch.set_dds_to_defaults()
-
-        # for ch in self.all_channels:
-        #     ch.get_dds_settings()
-        #     delay(1*ms)
-        #     ch.dds_obj.sw.off()
-        #     delay(1*ms)
+        if defaults_at_start:
+            for ch in self.all_channels:
+                ch.set_dds_to_defaults()
 
         with sequential:
 
@@ -532,12 +518,11 @@ class AOMPowerStabilizer:
 
             for ch in self.series_channels:
                 ch.dds_obj.sw.off()
-            delay(1 * ms)
 
             delay(1*ms)
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
-            delay(10*ms)
+            delay(1*ms)
 
             # do feedback on the "parallel" channels
             for i in range(self.iterations):
@@ -576,7 +561,7 @@ class AOMPowerStabilizer:
                     delay(ch.t_measure_delay) # allows for detector rise time
                     for i in range(self.iterations):
                         self.measure()
-                        delay(1 * ms)
+                        delay(0.1 * ms)
 
                         if not (self.dry_run or monitor_only):
                             ch.feedback(self.measurement_array - self.background_array)
@@ -590,7 +575,7 @@ class AOMPowerStabilizer:
                     if self.exp.Luca_trigger_for_feedback_verification:
                         self.exp.ttl6.pulse(5 * ms)
                         delay(60*ms)
-                    delay(1*ms)
+                    delay(0.1*ms)
                     ch.dds_obj.sw.off()
 
             # update the datasets with the last values if we have not already done so

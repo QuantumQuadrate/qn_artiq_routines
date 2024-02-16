@@ -251,6 +251,12 @@ class BaseExperiment:
         self.experiment.ttl_repump_switch.output()
         self.experiment.ttl6.output()  # for outputting a trigger
         self.experiment.ttl1.input()
+
+        # channel 3 is configured to read from 14, separated by a switch
+        self.experiment.ttl3.input()
+        self.experiment.ttl14.output()
+        self.experiment.ttl14.on()
+
         self.experiment.sampler0.init() # for reading laser feedback
         self.experiment.sampler1.init() # for reading laser feedback
         self.experiment.sampler2.init() # for reading laser feedback
@@ -271,10 +277,10 @@ class BaseExperiment:
 
         # check that the SPCM is plugged in #todo add other SPCM channels as they are added to the experiment
         self.experiment.dds_FORT.sw.on() # we'll get enough Raman scattering to see something
-        delay(1*ms)
-        t_gate_end = self.experiment.ttl_SPCM0.gate_rising(10*ms)
+        delay(100*ms)
+        t_gate_end = self.experiment.ttl_SPCM0.gate_rising(100*ms)
         counts = self.experiment.ttl_SPCM0.count(t_gate_end)
-        delay(1 * ms)
+        delay(10 * ms)
         self.experiment.dds_FORT.sw.off()
 
         assert counts > 0, "SPCM0 is likely unplugged"
