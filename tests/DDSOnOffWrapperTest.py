@@ -7,7 +7,9 @@ adding attributes to the urukul object in prepare doesn't succeed, and I doubt i
 from artiq.experiment import *
 
 import sys
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\')
+
 
 from utilities.BaseExperiment import BaseExperiment
 

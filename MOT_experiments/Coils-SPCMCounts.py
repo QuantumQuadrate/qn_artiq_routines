@@ -5,7 +5,8 @@ see SPCM counts to put the MOT at the right location.
 from artiq.experiment import *
 
 import sys
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\')
 from ExperimentVariables import setattr_variables
 
 

@@ -4,7 +4,9 @@ a simple experiment to print out the Sampler card values
 from artiq.experiment import *
 
 import sys, os
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\')
+
 
 from utilities.BaseExperiment import BaseExperiment
 import numpy as np

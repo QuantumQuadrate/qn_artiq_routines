@@ -2,7 +2,9 @@ from artiq.experiment import *
 import math
 
 import sys, os
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\')
+
 
 from utilities.BaseExperiment import BaseExperiment
 from subroutines.aom_feedback import AOMPowerStabilizer

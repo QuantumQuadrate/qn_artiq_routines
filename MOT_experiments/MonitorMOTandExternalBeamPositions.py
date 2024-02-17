@@ -16,7 +16,9 @@ import matplotlib.pyplot as plt
 from datetime import datetime as dt
 
 import sys
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\qn_artiq_routines\\')
+sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\')
+
 from utilities.BaseExperiment import BaseExperiment
 
 NUM_FRAMES = 1  # adjust to the desired number of frames
