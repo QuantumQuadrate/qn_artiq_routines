@@ -51,6 +51,7 @@ class DeviceAliases:
     def __init__(self, experiment, device_aliases):
 
         self.experiment = experiment
+        self.core = experiment.get_device("core")
         self.dds_list = [] # internal list of references to the dds objects
         self.dds_powers = []
         self.dds_frequencies = []

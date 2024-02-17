@@ -51,8 +51,12 @@ import logging
 import numpy as np
 import time
 
-import sys
-sys.path.append('C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\')
+import sys, os
+# get the current working directory
+current_working_directory = os.getcwd()
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.conversions import dB_to_V
 from utilities.DeviceAliases import DDS_DEFAULTS
@@ -324,6 +328,7 @@ class AOMPowerStabilizer:
 
         # initialized by user
         self.exp = experiment
+
         self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.averages = averages
