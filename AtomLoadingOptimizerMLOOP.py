@@ -194,61 +194,6 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             self.laser_stabilizer.run()
         self.dds_FORT.sw.on()
 
-    @kernel
-    def set_experiment_variables_to_best_params(self,best_params: TArray(TFloat)):
-        self.core.reset()
-        delay(1 * ms)
-
-        best_volts = best_params[:4]
-        best_RF_amplitude_factors = best_params[4:]
-
-        volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
-        if self.set_best_parameters_at_finish:
-            print("updating coil values")
-            for i in range(4):
-                self.set_dataset(volt_datasets[i], float(best_volts[i]), broadcast=True, persist=True)
-
-            self.laser_stabilizer.run()
-
-            self.dds_AOM_A1.set(amplitude=self.stabilizer_AOM_A1.amplitude * best_RF_amplitude_factors[0],
-                                frequency=self.AOM_A1_freq)
-            self.dds_AOM_A2.set(amplitude=self.stabilizer_AOM_A2.amplitude * best_RF_amplitude_factors[1],
-                                frequency=self.AOM_A2_freq)
-            self.dds_AOM_A3.set(amplitude=self.stabilizer_AOM_A3.amplitude * best_RF_amplitude_factors[2],
-                                frequency=self.AOM_A3_freq)
-            self.dds_AOM_A4.set(amplitude=self.stabilizer_AOM_A4.amplitude * best_RF_amplitude_factors[3],
-                                frequency=self.AOM_A4_freq)
-            if not self.disable_z_beam_tuning:
-                self.dds_AOM_A5.set(amplitude=self.stabilizer_AOM_A5.amplitude * best_RF_amplitude_factors[4],
-                                    frequency=self.AOM_A5_freq)
-                self.dds_AOM_A6.set(amplitude=self.stabilizer_AOM_A6.amplitude * best_RF_amplitude_factors[5],
-                                    frequency=self.AOM_A6_freq)
-
-            # run with monitor only will update the values it read from the detectors
-            # without doing feedback
-            self.laser_stabilizer.run(monitor_only=True, defaults_at_start=False)
-
-            best_power_setpoints = [
-                self.stabilizer_AOM_A1.value,
-                self.stabilizer_AOM_A2.value,
-                self.stabilizer_AOM_A3.value,
-                self.stabilizer_AOM_A4.value,
-                self.stabilizer_AOM_A5.value,
-                self.stabilizer_AOM_A6.value
-            ]
-
-            print("updating laser setpoints")
-
-            if self.disable_z_beam_tuning:
-                n_beams = 4
-            else:
-                n_beams = 6
-
-            for i in range(n_beams):
-                print("MOT ", i + 1, "setpoint % change:", best_power_setpoints[i] / self.default_setpoints[i])
-                self.set_dataset(self.setpoint_datasets[i], best_power_setpoints[i], broadcast=True,
-                                 persist=True)
-
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
         q = 0 # whether the counts exceeded the atom threshold
@@ -280,46 +225,23 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         delay(1*ms)
 
         coil_values = params[:4]
-        AOM_ampl_values = params[4:]
+        setpoint_multipliers = params[4:]
 
         self.zotino0.set_dac(coil_values, channels=self.coil_channels)
         delay(1*ms)
 
-        self.laser_stabilizer.run()
-        delay(1*ms)
-        self.dds_FORT.sw.on()
-
-        ampl_A1 = self.stabilizer_AOM_A1.amplitude * AOM_ampl_values[0]
-        if ampl_A1 > self.stabilizer_AOM_A1.max_ampl:
-            ampl_A1 = self.stabilizer_AOM_A1.max_ampl
-        self.dds_AOM_A1.set(amplitude=ampl_A1,
-                            frequency=self.AOM_A1_freq)
-        ampl_A2 = self.stabilizer_AOM_A2.amplitude * AOM_ampl_values[1]
-        if ampl_A2 > self.stabilizer_AOM_A2.max_ampl:
-            ampl_A2 = self.stabilizer_AOM_A2.max_ampl
-        self.dds_AOM_A2.set(amplitude=ampl_A2,
-                            frequency=self.AOM_A2_freq)
-        ampl_A3 = self.stabilizer_AOM_A3.amplitude * AOM_ampl_values[2]
-        if ampl_A3 > self.stabilizer_AOM_A3.max_ampl:
-            ampl_A3 = self.stabilizer_AOM_A3.max_ampl
-        self.dds_AOM_A3.set(amplitude=ampl_A3,
-                            frequency=self.AOM_A3_freq)
-        ampl_A4 = self.stabilizer_AOM_A4.amplitude * AOM_ampl_values[3]
-        if ampl_A4 > self.stabilizer_AOM_A4.max_ampl:
-            ampl_A4 = self.stabilizer_AOM_A4.max_ampl
-        self.dds_AOM_A4.set(amplitude=ampl_A4,
-                            frequency=self.AOM_A4_freq)
+        self.stabilizer_AOM_A1.set_point = self.default_setpoints[0] * setpoint_multipliers[0]
+        self.stabilizer_AOM_A2.set_point = self.default_setpoints[1] * setpoint_multipliers[1]
+        self.stabilizer_AOM_A3.set_point = self.default_setpoints[2] * setpoint_multipliers[2]
+        self.stabilizer_AOM_A4.set_point = self.default_setpoints[3] * setpoint_multipliers[3]
         if not self.disable_z_beam_tuning:
-            ampl_A5 = self.stabilizer_AOM_A5.amplitude * AOM_ampl_values[4]
-            if ampl_A5 > self.stabilizer_AOM_A5.max_ampl:
-                ampl_A5 = self.stabilizer_AOM_A5.max_ampl
-            self.dds_AOM_A5.set(amplitude=ampl_A5,
-                                frequency=self.AOM_A5_freq)
-            ampl_A6 = self.stabilizer_AOM_A6.amplitude * AOM_ampl_values[5]
-            if ampl_A6 > self.stabilizer_AOM_A6.max_ampl:
-                ampl_A6 = self.stabilizer_AOM_A6.max_ampl
-            self.dds_AOM_A6.set(amplitude=ampl_A6,
-                                frequency=self.AOM_A6_freq)
+            self.stabilizer_AOM_A5.set_point = self.default_setpoints[4] * setpoint_multipliers[4]
+            self.stabilizer_AOM_A6.set_point = self.default_setpoints[5] * setpoint_multipliers[5]
+
+        for i in range(3):
+            self.laser_stabilizer.run()
+
+        self.dds_FORT.sw.on()
 
         delay(self.t_MOT_loading)
 
@@ -349,6 +271,30 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         cost_dict = {'cost': cost, 'uncer': uncertainty}
         return cost_dict
 
+    @kernel
+    def set_experiment_variables_to_best_params(self, best_params: TArray(TFloat)):
+        self.core.reset()
+        delay(1 * ms)
+
+        best_volts = best_params[:4]
+        best_setpoint_multipliers = best_params[4:]
+
+        volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
+        if self.set_best_parameters_at_finish:
+            self.print_async("updating coil values")
+            for i in range(4):
+                self.set_dataset(volt_datasets[i], float(best_volts[i]), broadcast=True, persist=True)
+
+            self.print_async("updating laser setpoints")
+            if self.disable_z_beam_tuning:
+                n_beams = 4
+            else:
+                n_beams = 6
+
+            for i in range(n_beams):
+                self.set_dataset(self.setpoint_datasets[i], self.default_setpoints[i] * best_setpoint_multipliers[i],
+                                 broadcast=True,
+                                 persist=True)
 
     def analyze(self):
         mlv.show_all_default_visualizations(self.mloop_controller)
