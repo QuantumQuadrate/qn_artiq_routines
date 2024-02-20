@@ -220,6 +220,8 @@ class FeedbackChannel:
         self.error_history_length = error_history_length
         self.cumulative_error = 0.0 # will store a sum of the
         self.max_dB = max_dB
+        self.max_ampl = (2 * 50 * 10 ** (self.max_dB / 10 - 3)) ** (1 / 2)
+
         self.ampl_default = 0.0
 
     @rpc(flags={"async"})
@@ -263,11 +265,10 @@ class FeedbackChannel:
         ampl = self.amplitude + self.feedback_sign*self.p * err + self.i * self.cumulative_error
 
         self.set_value(measured)
-        max_ampl = (2 * 50 * 10 ** (self.max_dB / 10 - 3)) ** (1 / 2)
 
         if ampl < 0:
             self.amplitude = 0.0
-        elif ampl > max_ampl:
+        elif ampl > self.max_ampl:
             # self.amplitude = max_ampl
 
             # we either overcorrected  or there is not enough laser power right now to reach the setpoint
