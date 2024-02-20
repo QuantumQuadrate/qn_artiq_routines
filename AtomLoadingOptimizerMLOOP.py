@@ -31,23 +31,6 @@ class MLOOPInterface(mli.Interface):
     # this method is called whenever M-LOOP wants to run an experiment
     def get_next_cost_dict(self, params_dict):
         pass
-        # # Get parameters from the provided dictionary
-        # params = params_dict['params']
-        #
-        # # Here you can include the code to run your experiment given a particular set of parameters
-        # # In this example we will just evaluate a sum of sinc functions
-        # cost = -np.sum(np.sinc(params - self.minimum_params))
-        # # There is no uncertainty in our result
-        # uncer = 0
-        # # The evaluation will always be a success
-        # bad = False
-        # # Add a small time delay to mimic a real experiment
-        # time.sleep(1)
-        #
-        # # The cost, uncertainty and bad boolean must all be returned as a dictionary
-        # # You can include other variables you want to record as well if you want
-        # cost_dict = {'cost': cost, 'uncer': uncer, 'bad': bad}
-        # return cost_dict
 
 
 class AtomLoadingOptimizerMLOOP(EnvExperiment):
@@ -64,7 +47,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         self.setattr_argument("atom_counts_per_s_threshold", NumberValue(30000))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
         self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1))
-        self.setattr_argument("set_best_coil_volts_at_finish", BooleanValue(True))
+        self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
 
         group = "differential coil volts boundaries"
         self.setattr_argument("use_differential_boundaries",BooleanValue(True),group)
@@ -82,6 +65,15 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         self.setattr_argument("V_AY_min", NumberValue(-0.5, unit="V"), group)
         self.setattr_argument("V_AY_max", NumberValue(0.5, unit="V"), group)
 
+        group = "beam tuning settings"
+        self.setattr_argument("max_RF_ampl_percent_deviation",
+                              NumberValue(0.2), group)
+
+        # we can balance the z beams with confidence by measuring the powers outside the chamber,
+        # so unless we are fine tuning loading, we may want trust our initial manual balancing
+        self.setattr_argument("disable_z_beam_tuning",
+                              BooleanValue(True), "beam balance tune settings")
+
         group1 = "optimizer settings"
         self.setattr_argument("max_runs",NumberValue(70, type='int', scale=1, ndecimals=0, step=1),group1)
 
@@ -93,8 +85,6 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         self.base.prepare()
 
         self.sampler_buffer = np.zeros(8)
-        # self.minimize_args = eval(self.scipy_minimize_args)
-        # self.minimize_options = eval(self.scipy_minimize_options)
 
         self.atom_counts_threshold = self.atom_counts_per_s_threshold*self.t_SPCM_exposure
 
@@ -111,6 +101,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             self.V_AX_max = self.AX_volts_MOT + self.dV_AX
             self.V_AY_max = self.AY_volts_MOT + self.dV_AY
 
+        self.setpoint_datasets = ["set_point_PD1_AOM_A1", "set_point_PD2_AOM_A2", "set_point_PD3_AOM_A3",
+                                  "set_point_PD4_AOM_A4", "set_point_PD5_AOM_A5", "set_point_PD6_AOM_A6"]
+        self.default_setpoints = [getattr(self, dataset) for dataset in self.setpoint_datasets]
+
         self.counts_list = np.zeros(self.n_measurements)
         self.set_dataset(self.count_rate_dataset,
                          [0.0],
@@ -125,19 +119,38 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         interface = MLOOPInterface()
         interface.get_next_cost_dict = self.get_next_cost_dict_for_mloop
 
-        # Next create the controller. Provide it with your interface and any options you want to set
+        min_bounds = [self.V_AZ_bottom_min,
+                      self.V_AZ_top_min,
+                      self.V_AX_min,
+                      self.V_AY_min,
+                      1 - self.max_RF_ampl_percent_deviation,
+                      1 - self.max_RF_ampl_percent_deviation,
+                      1 - self.max_RF_ampl_percent_deviation,
+                      1 - self.max_RF_ampl_percent_deviation]
+
+        max_bounds = [self.V_AZ_bottom_max,
+                      self.V_AZ_top_max,
+                      self.V_AX_max,
+                      self.V_AY_max,
+                      1 + self.max_RF_ampl_percent_deviation,
+                      1 + self.max_RF_ampl_percent_deviation,
+                      1 + self.max_RF_ampl_percent_deviation,
+                      1 + self.max_RF_ampl_percent_deviation]
+
+        if not self.disable_z_beam_tuning:
+            # append additional bounds for MOT5,6
+            min_bounds.append(1 - self.max_RF_ampl_percent_deviation)
+            min_bounds.append(1 - self.max_RF_ampl_percent_deviation)
+            max_bounds.append(1 + self.max_RF_ampl_percent_deviation)
+            max_bounds.append(1 + self.max_RF_ampl_percent_deviation)
+        n_params = len(max_bounds)
+
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=self.max_runs,
-                                           target_cost=-0.5*self.n_measurements, # number of atoms to load
-                                           num_params=4,
-                                           min_boundary=[self.V_AZ_bottom_min,
-                                                         self.V_AZ_top_min,
-                                                         self.V_AX_min,
-                                                         self.V_AY_min],
-                                           max_boundary=[self.V_AZ_bottom_max,
-                                                         self.V_AZ_top_max,
-                                                         self.V_AX_max,
-                                                         self.V_AY_max])
+                                           target_cost=-0.5*self.n_measurements, # -1 * number of atoms to load
+                                           num_params=n_params,
+                                           min_boundary=min_bounds,
+                                           max_boundary=max_bounds)
 
     def run(self):
         self.initialize_hardware()
@@ -147,13 +160,8 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         print('Best parameters found:')
         print(self.mloop_controller.best_params)
-        best_volts = self.mloop_controller.best_params
-
-        volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
-        if self.set_best_coil_volts_at_finish:
-            print("updating coil values")
-            for i in range(4):
-                self.set_dataset(volt_datasets[i], float(best_volts[i]), broadcast=True, persist=True)
+        best_params = self.mloop_controller.best_params
+        self.set_experiment_variables_to_best_params(best_params)
 
     @kernel
     def initialize_hardware(self):
@@ -181,10 +189,66 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         delay(2 * s)
 
         self.core.break_realtime()
-        self.laser_stabilizer.run()
-        delay(1 * ms)
+        # warm up to get make sure we get to the setpoints
+        for i in range(10):
+            self.laser_stabilizer.run()
         self.dds_FORT.sw.on()
-        delay(1*s)
+
+    @kernel
+    def set_experiment_variables_to_best_params(self,best_params: TArray(TFloat)):
+        self.core.reset()
+        delay(1 * ms)
+
+        best_volts = best_params[:4]
+        best_RF_amplitude_factors = best_params[4:]
+
+        volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
+        if self.set_best_parameters_at_finish:
+            print("updating coil values")
+            for i in range(4):
+                self.set_dataset(volt_datasets[i], float(best_volts[i]), broadcast=True, persist=True)
+
+            self.laser_stabilizer.run()
+
+            self.dds_AOM_A1.set(amplitude=self.stabilizer_AOM_A1.amplitude * best_RF_amplitude_factors[0],
+                                frequency=self.AOM_A1_freq)
+            self.dds_AOM_A2.set(amplitude=self.stabilizer_AOM_A2.amplitude * best_RF_amplitude_factors[1],
+                                frequency=self.AOM_A2_freq)
+            self.dds_AOM_A3.set(amplitude=self.stabilizer_AOM_A3.amplitude * best_RF_amplitude_factors[2],
+                                frequency=self.AOM_A3_freq)
+            self.dds_AOM_A4.set(amplitude=self.stabilizer_AOM_A4.amplitude * best_RF_amplitude_factors[3],
+                                frequency=self.AOM_A4_freq)
+            if not self.disable_z_beam_tuning:
+                self.dds_AOM_A5.set(amplitude=self.stabilizer_AOM_A5.amplitude * best_RF_amplitude_factors[4],
+                                    frequency=self.AOM_A5_freq)
+                self.dds_AOM_A6.set(amplitude=self.stabilizer_AOM_A6.amplitude * best_RF_amplitude_factors[5],
+                                    frequency=self.AOM_A6_freq)
+
+            # run with monitor only will update the values it read from the detectors
+            # without doing feedback
+            self.laser_stabilizer.run(monitor_only=True, defaults_at_start=False)
+
+            best_power_setpoints = [
+                self.stabilizer_AOM_A1.value,
+                self.stabilizer_AOM_A2.value,
+                self.stabilizer_AOM_A3.value,
+                self.stabilizer_AOM_A4.value,
+                self.stabilizer_AOM_A5.value,
+                self.stabilizer_AOM_A6.value
+            ]
+
+            print("updating laser setpoints")
+
+            if self.disable_z_beam_tuning:
+                n_beams = 4
+            else:
+                n_beams = 6
+
+            for i in range(n_beams):
+                print("MOT ", i + 1, "setpoint % change:", best_power_setpoints[i] / self.default_setpoints[i])
+                self.set_dataset(self.setpoint_datasets[i], best_power_setpoints[i], broadcast=True,
+                                 persist=True)
+
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
         q = 0 # whether the counts exceeded the atom threshold
@@ -197,23 +261,26 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                 # todo: replace with logging statement?
                 # self.print_async("optimizer found the single atom signal!")
             q_last = q
-        # return -1 if 0 < atoms_loaded < 10 else -1*atoms_loaded # threshold should depend on number of measurements
         return -1 * atoms_loaded
 
     @kernel
-    def optimization_routine(self, coil_values: TArray(TFloat)) -> TInt32:
+    def optimization_routine(self, params: TArray(TFloat)) -> TInt32:
         """
         the function that will be called by the optimizer.
 
         for use with M-LOOP, this should be called in the interface's "get_next_cost_dict"
         method.
 
-        coil_values: array of coil control volt values
+        params: array of float values which we are trying to optimize
         return:
             cost: the cost for the optimizer
         """
+
         self.core.reset()
         delay(1*ms)
+
+        coil_values = params[:4]
+        AOM_ampl_values = params[4:]
 
         self.zotino0.set_dac(coil_values, channels=self.coil_channels)
         delay(1*ms)
@@ -222,6 +289,38 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         delay(1*ms)
         self.dds_FORT.sw.on()
 
+        ampl_A1 = self.stabilizer_AOM_A1.amplitude * AOM_ampl_values[0]
+        if ampl_A1 > self.stabilizer_AOM_A1.max_ampl:
+            ampl_A1 = self.stabilizer_AOM_A1.max_ampl
+        self.dds_AOM_A1.set(amplitude=ampl_A1,
+                            frequency=self.AOM_A1_freq)
+        ampl_A2 = self.stabilizer_AOM_A2.amplitude * AOM_ampl_values[1]
+        if ampl_A2 > self.stabilizer_AOM_A2.max_ampl:
+            ampl_A2 = self.stabilizer_AOM_A2.max_ampl
+        self.dds_AOM_A2.set(amplitude=ampl_A2,
+                            frequency=self.AOM_A2_freq)
+        ampl_A3 = self.stabilizer_AOM_A3.amplitude * AOM_ampl_values[2]
+        if ampl_A3 > self.stabilizer_AOM_A3.max_ampl:
+            ampl_A3 = self.stabilizer_AOM_A3.max_ampl
+        self.dds_AOM_A3.set(amplitude=ampl_A3,
+                            frequency=self.AOM_A3_freq)
+        ampl_A4 = self.stabilizer_AOM_A4.amplitude * AOM_ampl_values[3]
+        if ampl_A4 > self.stabilizer_AOM_A4.max_ampl:
+            ampl_A4 = self.stabilizer_AOM_A4.max_ampl
+        self.dds_AOM_A4.set(amplitude=ampl_A4,
+                            frequency=self.AOM_A4_freq)
+        if not self.disable_z_beam_tuning:
+            ampl_A5 = self.stabilizer_AOM_A5.amplitude * AOM_ampl_values[4]
+            if ampl_A5 > self.stabilizer_AOM_A5.max_ampl:
+                ampl_A5 = self.stabilizer_AOM_A5.max_ampl
+            self.dds_AOM_A5.set(amplitude=ampl_A5,
+                                frequency=self.AOM_A5_freq)
+            ampl_A6 = self.stabilizer_AOM_A6.amplitude * AOM_ampl_values[5]
+            if ampl_A6 > self.stabilizer_AOM_A6.max_ampl:
+                ampl_A6 = self.stabilizer_AOM_A6.max_ampl
+            self.dds_AOM_A6.set(amplitude=ampl_A6,
+                                frequency=self.AOM_A6_freq)
+
         delay(self.t_MOT_loading)
 
         # reset the counts dataset each run so we don't overwhelm the dashboard when plotting
@@ -229,10 +328,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         for i in range(self.n_measurements):
             t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-            counts_per_s = self.ttl0.count(t_end)/self.t_SPCM_exposure
+            counts_per_s = self.ttl0.count(t_end) / self.t_SPCM_exposure
             delay(1 * ms)
             self.append_to_dataset(self.count_rate_dataset, counts_per_s)
-            self.counts_list[i] = counts_per_s*self.t_SPCM_exposure
+            self.counts_list[i] = counts_per_s * self.t_SPCM_exposure
 
         cost = self.get_cost(self.counts_list)
         self.append_to_dataset(self.cost_dataset, cost)
@@ -249,5 +348,9 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         cost_dict = {'cost': cost, 'uncer': uncertainty}
         return cost_dict
+
+
+    def analyze(self):
+        mlv.show_all_default_visualizations(self.mloop_controller)
 
 

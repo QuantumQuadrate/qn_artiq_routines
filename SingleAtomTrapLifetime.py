@@ -116,9 +116,9 @@ class SingleAtomTrapLifetime(EnvExperiment):
             for measurement in range(self.n_measurements):
 
                 if self.enable_laser_feedback:
-                    if measurement % 10 == 0:
-                        self.laser_stabilizer.run()
-                        delay(1 * ms)
+                    # if measurement % 10 == 0:
+                    self.laser_stabilizer.run()
+                    delay(1 * ms)
                     self.dds_FORT.sw.on()
                     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
