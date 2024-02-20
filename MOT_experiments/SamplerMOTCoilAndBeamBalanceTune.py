@@ -114,6 +114,8 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
 
+        delay(1*ms)
+
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
 
