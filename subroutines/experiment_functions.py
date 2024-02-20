@@ -29,16 +29,25 @@ def load_MOT_and_FORT(self):
     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
     # set the cooling DP AOM to the MOT settings
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
     self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-    # Turn on the MOT coils and cooling light
+    self.dds_cooling_DP.sw.on()
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    delay(1*ms) # if this delay is not here, the following line setting the dac doesn't execute
+
+    # Turn on the MOT coils and cooling light - this is being ignored
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         channels=self.coil_channels)
-    # delay(2 * ms)
-    self.dds_cooling_DP.sw.on()
 
     # wait for the MOT to load
     delay(self.t_MOT_loading - self.t_MOT_phase2)
@@ -53,14 +62,14 @@ def load_MOT_and_FORT(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
                                 amplitude=self.ampl_cooling_DP_MOT) # todo: make a variable for phase 2
         delay(self.t_MOT_phase2)
-
+    #
     # todo: try loading from a PGC phase
-
+    #
     # turn on the dipole trap and wait to load atoms
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
     delay_mu(self.t_FORT_loading_mu)
-
-    # turn off the coils
+    #
+    # turn off the coils # todo: this turns off the coils but they never come back on. wtf
     self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
                          channels=self.coil_channels)
 
@@ -206,11 +215,13 @@ def atom_loading_experiment(self):
     counts = 0
     counts2 = 0
 
+
     for measurement in range(self.n_measurements):
 
+        # mot going away is not a feedback issue
         if self.enable_laser_feedback:
-            if measurement % 10 == 0:
-                self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+            # if measurement % 10 == 0:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
 

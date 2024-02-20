@@ -34,8 +34,12 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.setattr_argument("set_current_parameters_at_finish", BooleanValue(False))
         self.setattr_argument("leave_coils_on_at_finish", BooleanValue(True))
 
-        self.setattr_argument("what_to_tune", EnumerationValue(["both","coils only","beams only",
-                                                                "nothing (for debugging)"]))
+        self.both_mode = "both"
+        self.beam_mode = "beams only"
+        self.coil_mode = "coils only"
+        self.nothing_mode = "nothing (for debugging)"
+        self.setattr_argument("what_to_tune", EnumerationValue([self.both_mode, self.coil_mode,
+                                                                self.beam_mode, self.nothing_mode]))
 
         self.setattr_argument("run_time_minutes", NumberValue(10))
 
@@ -83,7 +87,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         self.base.prepare()
 
-        self.beam_tuning_disabled = not (self.what_to_tune == "beams_only" or self.what_to_tune == "both")
+        self.beam_tuning_disabled = not (self.what_to_tune == self.beam_mode or self.what_to_tune == self.both_mode)
 
         self.n_steps = int(60*self.run_time_minutes/self.dt_exposure+0.5)
         self.sampler_buffer = np.zeros(8)
@@ -115,6 +119,11 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.dds_AOM_A4.sw.on()
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
+
+        delay(1*ms)
+
+        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                             channels=self.coil_channels)
 
         if self.FORT_AOM_on:
             self.dds_FORT.sw.on()
@@ -182,7 +191,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
             delay(0.1 * ms)
             tune_beam_balance = bool(self.ttl3.sample_get())
 
-            if self.what_to_tune == 'both':
+            if self.what_to_tune == self.beam_mode:
                 if last_state != tune_beam_balance:
                     if tune_beam_balance:
                         self.print_async("beam balance mode")
@@ -192,10 +201,10 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
             self.sampler1.sample(self.sampler_buffer)
 
-            if self.what_to_tune != "nothing (for debugging)":
+            if self.what_to_tune != self.nothing_mode:
                 # only defer to tune_beam_balance if the mode is 'both'
 
-                if (tune_beam_balance and self.what_to_tune == 'both') or self.what_to_tune == 'beams only':
+                if (tune_beam_balance and self.what_to_tune == self.both_mode) or self.what_to_tune == self.beam_mode:
                     # print("updating amplitudes") # todo remove
                     if self.individual_beam_mode:
                         ampl1_factor = 1.0 + self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
@@ -244,10 +253,10 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                 self.zotino0.load()
                 delay(1 * ms)
 
-        if self.what_to_tune != "nothing (for debugging)":
+        if self.what_to_tune != self.nothing_mode:
             if self.set_current_parameters_at_finish:
 
-                if self.what_to_tune == 'both' or self.what_to_tune == 'beams only':
+                if self.what_to_tune == self.both_mode or self.what_to_tune == self.beam_mode:
                     # run with monitor only will update the values it read from the detectors
                     # without doing feedback
                     self.laser_stabilizer.run(monitor_only=True, defaults_at_start=False)
@@ -277,7 +286,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                         print("MOT ", i+1, "setpoint % change:", current_power_setpoints[i]/self.default_setpoints[i])
                         self.set_dataset(self.setpoint_datasets[i], current_power_setpoints[i], broadcast=True, persist=True)
 
-                if self.what_to_tune == 'both' or self.what_to_tune == 'coils only':
+                if self.what_to_tune == self.both_mode or self.what_to_tune == self.coil_mode:
                     print("setting current coil values")
                     print(control_volts)
                     for i in range(4):
