@@ -36,6 +36,8 @@ class OptimizerVariable:
     """
     def __init__(self, var_and_bounds_tuple, experiment):
         self.var_name = var_and_bounds_tuple[0]
+        assert hasattr(experiment, self.var_name), (f"There is no ExperimentVariable "+self.scan_variable1+
+                                                  ". Did you mistype it?")
         self.is_absolute = 0 if var_and_bounds_tuple[3] == 'diff' else 1
         self.default_value = getattr(self,self.var_name)
         self.min_bound = var_and_bounds_tuple[1] + self.is_absolute*self.default_value
@@ -102,9 +104,6 @@ class GeneralVariableOptimizer(EnvExperiment):
     def prepare(self):
         self.base.prepare()
 
-        # todo: see GeneralVariableScan
-        #  define the experiment and cost function.
-
         self.variables_and_bounds = eval(self.variables_and_bounds)
         var_and_bounds_objects = []
         min_bounds = []
@@ -115,13 +114,23 @@ class GeneralVariableOptimizer(EnvExperiment):
             min_bounds.append(var_and_bounds.min_bound)
             max_bounds.append(var_and_bounds.max_bound)
 
-        # todo
-        # 1. build the min and max boundaries list from the variables and bounds list
-        #    this has to be built depending on whether the bounds are diff
+        try:
+            self.experiment_name = self.experiment_function
+            self.experiment_function = lambda :eval(self.experiment_name)(self)
+        except NameError as e:
+            print(f"The function {experiment_name} is not defined. Did you forget to import it?")
+            raise
 
+        try:
+            self.cost_name = self.cost_function
+            self.cost_function = lambda :eval(self.cost_name)(self)
+        except NameError as e:
+            print(f"The function {cost_name} is not defined. Did you forget to import it?")
+            raise
 
-        self.default_variable_values = [getattr(self, dataset) for dataset in self.setpoint_datasets]
-
+        self.measurement = 0
+        self.counts = 0
+        self.counts2 = 0
         self.counts_list = np.zeros(self.n_measurements)
         self.set_dataset(self.count_rate_dataset,
                          [0.0],
@@ -136,14 +145,33 @@ class GeneralVariableOptimizer(EnvExperiment):
         interface = MLOOPInterface()
         interface.get_next_cost_dict = self.get_next_cost_dict_for_mloop
 
-        n_params = len(var_and_bounds_objects)
+        self.n_params = len(var_and_bounds_objects)
 
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=self.max_runs,
                                            target_cost=-0.5*self.n_measurements, # -1 * number of atoms to load
-                                           num_params=n_params,
+                                           num_params=self.n_params,
                                            min_boundary=min_bounds,
                                            max_boundary=max_bounds)
+
+    def initialize_datasets(self):
+        self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
+        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocounts2", [0], broadcast=True)
+        self.set_dataset("photocount_bins", [50], broadcast=True)
+
+    def reset_datasets(self):
+        """
+        set datasets that are redefined each iteration.
+
+        typically these datasets are used for plotting which would be meaningless if we continued to append to the data,
+        e.g. for the second readout histogram which we expect in general will change as experiment parameters induce
+        different amount of atom loss.
+        :return:
+        """
+        self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
+        self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
+
 
     def run(self):
         self.initialize_hardware()
@@ -155,6 +183,11 @@ class GeneralVariableOptimizer(EnvExperiment):
         print(self.mloop_controller.best_params)
         best_params = self.mloop_controller.best_params
         self.set_experiment_variables_to_best_params(best_params)
+
+        # todo: set best params to dataset
+
+        self.write_results({'name':self.experiment_name[:-11]})  # write the h5 file here in case worker refuses to die
+
 
     @kernel
     def initialize_hardware(self):
@@ -175,8 +208,18 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         # todo: set the experiment variables from params. see GeneralVariableScan
 
-        # call the experiment function here
+        for i in range(self.n_params):
+            setattr(self, self.var_and_bounds_objects[i].name, params[i])
+            # todo broadcast the values so we can see what's going on
 
+        self.hardware_init()
+        self.reset_datasets()
+
+        # the measurement loop.
+        self.experiment_function()
+
+        iteration += 1
+        self.set_dataset("iteration", iteration, broadcast=True)
 
         cost = self.get_cost(self.counts_list)
         self.append_to_dataset(self.cost_dataset, cost)
