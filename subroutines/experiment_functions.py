@@ -12,7 +12,9 @@ Table of contents:
 
 ###############################################################################
 # 1. SUBROUTINE FUNCTIONS
-# These are functions that get used within various experiments
+# These are functions that get used within various experiments. they are not
+# intended to be run in a standalone fashion, e.g. from GeneralVariableScan.
+# Consequently, note that the name should not end in "experiment"
 ###############################################################################
 
 @kernel
@@ -132,20 +134,6 @@ def MOT_two_stage_loading_experiment(self):
         # set the cooling DP AOM to the MOT settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-
-        # self.dds_AOM_A1.set(frequency=self.stabilizer_AOM_A1.frequency,
-        #                     amplitude=self.stabilizer_AOM_A1.amplitude * ampl_factor)
-        # self.dds_AOM_A2.set(frequency=self.stabilizer_AOM_A2.frequency,
-        #                     amplitude=self.stabilizer_AOM_A2.amplitude * ampl_factor)
-        # self.dds_AOM_A3.set(frequency=self.stabilizer_AOM_A3.frequency,
-        #                     amplitude=self.stabilizer_AOM_A3.amplitude * ampl_factor)
-        # self.dds_AOM_A4.set(frequency=self.stabilizer_AOM_A4.frequency,
-        #                     amplitude=self.stabilizer_AOM_A4.amplitude * ampl_factor)
-        # self.dds_AOM_A5.set(frequency=self.stabilizer_AOM_A5.frequency,
-        #                     amplitude=self.stabilizer_AOM_A5.amplitude * ampl_factor)
-        # self.dds_AOM_A6.set(frequency=self.stabilizer_AOM_A6.frequency,
-        #                     amplitude=self.stabilizer_AOM_A6.amplitude * ampl_factor)
-
         self.ttl_scope_trigger.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
         # Turn on the MOT coils and cooling light
@@ -159,14 +147,15 @@ def MOT_two_stage_loading_experiment(self):
         t_MOT_phase2 = 100*ms
         delay(self.t_MOT_loading - t_MOT_phase2) # - self.t_MOT_phase2)
         # phase 2
-        # if self.t_MOT_phase2 > 0: # we will always have a pha
-        #     self.zotino0.set_dac(
-        #         [self.AZ_bottom_volts_MOT_phase2, self.AZ_top_volts_MOT_phase2, self.AX_volts_MOT_phase2,
-        #          self.AY_volts_MOT_phase2],
-        #         channels=self.coil_channels)
-        # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
-        #                         amplitude=self.ampl_cooling_DP_MOT)  # todo: make a variable for phase 2
-        # delay(self.t_MOT_phase2)
+
+        if self.t_MOT_phase2 > 0: # we will always have a pha
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_MOT_phase2, self.AZ_top_volts_MOT_phase2, self.AX_volts_MOT_phase2,
+                 self.AY_volts_MOT_phase2],
+                channels=self.coil_channels)
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
+                                amplitude=self.ampl_cooling_DP_MOT)  # todo: make a variable for phase 2
+        delay(self.t_MOT_phase2)
 
         self.dds_AOM_A1.set(frequency=self.stabilizer_AOM_A1.frequency,
                             amplitude=self.stabilizer_AOM_A1.amplitude)
