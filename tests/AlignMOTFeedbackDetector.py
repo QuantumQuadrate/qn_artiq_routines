@@ -6,9 +6,11 @@ This allows us to position a detector to try to equalize the signal from each.
 from artiq.experiment import *
 
 import sys, os
-sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\qn_artiq_routines\\')
-sys.path.append('C:\\Users\\jakeuribe\\artiq-master\\repository\\')
-
+# get the current working directory
+current_working_directory = os.getcwd()
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.BaseExperiment import BaseExperiment
 

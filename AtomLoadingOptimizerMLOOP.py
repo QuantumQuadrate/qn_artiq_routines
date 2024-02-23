@@ -61,7 +61,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         # overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
-        self.setattr_argument("atom_counts_threshold", NumberValue(220))
+        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(30000))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
         self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_coil_volts_at_finish", BooleanValue(True))
@@ -95,6 +95,8 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         self.sampler_buffer = np.zeros(8)
         # self.minimize_args = eval(self.scipy_minimize_args)
         # self.minimize_options = eval(self.scipy_minimize_options)
+
+        self.atom_counts_threshold = self.atom_counts_per_s_threshold*self.t_SPCM_exposure
 
         # whether to use boundaries which are defined as +/- dV around the current settings
         if self.use_differential_boundaries:

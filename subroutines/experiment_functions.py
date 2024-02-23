@@ -97,61 +97,101 @@ def MOT_loading_experiment(self):
         load_MOT_and_FORT(self)
 
 @kernel
-def atom_loading_beta_experiment(self):
+def MOT_two_stage_loading_experiment(self):
     """
-    :param self: an experiment instance.
-    :return:
+    for testing if I can get more atoms starting with light closer to resonance and higher power
+    and then switching to parameters better for lower temperature
     """
 
     self.core.reset()
 
-    counts = 0
-    counts2 = 0
+    # override the stabilizer setpoints
+
+    ampl_factor = 1
+    self.stabilizer_AOM_A1.set_point *= ampl_factor
+    self.stabilizer_AOM_A2.set_point *= ampl_factor
+    self.stabilizer_AOM_A3.set_point *= ampl_factor
+    self.stabilizer_AOM_A4.set_point *= ampl_factor
+    # self.stabilizer_AOM_A5.set_point *= ampl_factor
+    # self.stabilizer_AOM_A6.set_point *= ampl_factor
+
 
     for measurement in range(self.n_measurements):
 
-        if self.enable_laser_feedback:
-            if measurement % 10 == 0:
-                self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
-        delay(10*ms)
-        print(self.stabilizer_FORT.amplitude)
-        delay(10*ms)
+        self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+        # set the cooling DP AOM to the MOT settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
 
-        load_MOT_and_FORT(self)
+        # self.dds_AOM_A1.set(frequency=self.stabilizer_AOM_A1.frequency,
+        #                     amplitude=self.stabilizer_AOM_A1.amplitude * ampl_factor)
+        # self.dds_AOM_A2.set(frequency=self.stabilizer_AOM_A2.frequency,
+        #                     amplitude=self.stabilizer_AOM_A2.amplitude * ampl_factor)
+        # self.dds_AOM_A3.set(frequency=self.stabilizer_AOM_A3.frequency,
+        #                     amplitude=self.stabilizer_AOM_A3.amplitude * ampl_factor)
+        # self.dds_AOM_A4.set(frequency=self.stabilizer_AOM_A4.frequency,
+        #                     amplitude=self.stabilizer_AOM_A4.amplitude * ampl_factor)
+        # self.dds_AOM_A5.set(frequency=self.stabilizer_AOM_A5.frequency,
+        #                     amplitude=self.stabilizer_AOM_A5.amplitude * ampl_factor)
+        # self.dds_AOM_A6.set(frequency=self.stabilizer_AOM_A6.frequency,
+        #                     amplitude=self.stabilizer_AOM_A6.amplitude * ampl_factor)
 
-        # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+        self.ttl_scope_trigger.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-        if not self.no_first_shot:
-            # take the first shot
-            self.dds_cooling_DP.sw.on()
-            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
-            counts = self.ttl0.count(t_gate_end)
-            delay(1 * ms)
-            self.dds_cooling_DP.sw.off()
-
-        delay(self.t_delay_between_shots)
-
-        # take the second shot
+        # Turn on the MOT coils and cooling light
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+            channels=self.coil_channels)
+        # delay(2 * ms)
         self.dds_cooling_DP.sw.on()
-        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
-        counts2 = self.ttl0.count(t_gate_end)
 
-        delay(1 * ms)
+        # wait for the MOT to load
+        t_MOT_phase2 = 100*ms
+        delay(self.t_MOT_loading - t_MOT_phase2) # - self.t_MOT_phase2)
+        # phase 2
+        # if self.t_MOT_phase2 > 0: # we will always have a pha
+        #     self.zotino0.set_dac(
+        #         [self.AZ_bottom_volts_MOT_phase2, self.AZ_top_volts_MOT_phase2, self.AX_volts_MOT_phase2,
+        #          self.AY_volts_MOT_phase2],
+        #         channels=self.coil_channels)
+        # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
+        #                         amplitude=self.ampl_cooling_DP_MOT)  # todo: make a variable for phase 2
+        # delay(self.t_MOT_phase2)
 
-        # update the datasets
-        if not self.no_first_shot:
-            self.append_to_dataset('photocounts', counts)
-            self.append_to_dataset('photocounts_current_iteration', counts)
+        self.dds_AOM_A1.set(frequency=self.stabilizer_AOM_A1.frequency,
+                            amplitude=self.stabilizer_AOM_A1.amplitude)
+        self.dds_AOM_A2.set(frequency=self.stabilizer_AOM_A2.frequency,
+                            amplitude=self.stabilizer_AOM_A2.amplitude)
+        self.dds_AOM_A3.set(frequency=self.stabilizer_AOM_A3.frequency,
+                            amplitude=self.stabilizer_AOM_A3.amplitude)
+        self.dds_AOM_A4.set(frequency=self.stabilizer_AOM_A4.frequency,
+                            amplitude=self.stabilizer_AOM_A4.amplitude)
+        self.dds_AOM_A5.set(frequency=self.stabilizer_AOM_A5.frequency,
+                            amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.stabilizer_AOM_A6.frequency,
+                            amplitude=self.stabilizer_AOM_A6.amplitude)
 
-        # update the datasets
-        self.append_to_dataset('photocounts2', counts2)
-        self.append_to_dataset('photocounts2_current_iteration', counts2)
+        delay(t_MOT_phase2)
 
-    # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+        # todo: try loading from a PGC phase
+
+        # turn on the dipole trap and wait to load atoms
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+        delay_mu(self.t_FORT_loading_mu)
+
+        # turn off the coils
+        self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
+                             channels=self.coil_channels)
+
+        if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,
+                                    amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC)
+            delay(self.t_PGC_in_MOT)
+
+        self.dds_cooling_DP.sw.off()
+
+        delay(self.t_MOT_dissipation)  #
 
 
 @kernel
