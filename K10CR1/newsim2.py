@@ -71,13 +71,17 @@ def gen_state(default = False, phi_x = None, phi_y = None):
         input_state /= np.linalg.norm(input_state)
         return input_state
 
-def gen_secrets():
+def gen_secrets(default = True):
     phi_x, phi_y = gen_phi()
-
-    return phi_x, phi_y, np.random.rand(1)*180
-def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0):
-    q_ang = np.random.uniform(low = -range/2,high = range/2,size =steps) + a
-    h_ang = np.random.uniform(low = -range/2, high = range/2, size = steps) + b
+    axis = -1
+    if default:
+        axis = 45
+    else:
+        axis = np.random.rand(1)*180
+    return phi_x, phi_y, axis
+def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0, theta_h = 0, theta_q = 0):
+    q_ang = np.random.uniform(low = -range/2,high = range/2,size =steps) + a - theta_q
+    h_ang = np.random.uniform(low = -range/2, high = range/2, size = steps) + b - theta_h
     q_ang.sort()
     h_ang.sort()
     measurements = []
@@ -87,9 +91,9 @@ def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0):
 
     return q_ang, h_ang, measurements
 
-def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None):
-    qwp00, qwp01, qwp10, qwp11 = qwp(fast_axis_angle=q_ang, piecewise=True)
-    hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang, piecewise=True)
+def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None, theta_h = 0, theta_q = 0):
+    qwp00, qwp01, qwp10, qwp11 = qwp(fast_axis_angle=q_ang-theta_q, piecewise=True)
+    hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang-theta_h, piecewise=True)
     lp00,  lp01, lp10, lp11 = lp(ax_trans=ax_trans,piecewise=True)
     input_state = gen_state(phi_x=phi_x, phi_y = phi_y)
 
@@ -108,20 +112,24 @@ def objective_func(x, args):
     ax_trans = x[0]
     phi_x = x[1]
     phi_y = x[2]
-    q_ang = args[0]
-    h_ang = args[1]
+    phase_q = x[3]
+    phase_h = x[4]
+    q_ang = args[0] - phase_q
+    h_ang = args[1] - phase_h
     measurements = args[2]
     error = 0
     #print(args)
     for q, h, measurement in zip(q_ang, h_ang, measurements):
-        error += (np.sum(measure(q_ang=q, h_ang =h, ax_trans=ax_trans,phi_x = phi_x, phi_y = phi_y)-measurement))**2
+        error += (np.sum(measure(q_ang=q, h_ang =h, ax_trans=ax_trans,phi_x = phi_x, phi_y = phi_y, theta_q=phase_q, theta_h=phase_h)
+                         -measurement))**2
     return error
 range_val = 90
 phi_x, phi_y, rand_axis = gen_secrets()
 print(phi_x, phi_y, rand_axis)
-q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val, steps = 10)
+q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val,
+                                              steps = 10, theta_h=10, theta_q = 10)
 
-initial_guess = np.random.uniform(-90,90,3)
+initial_guess = np.random.uniform(-90,90,5)
 
 args = [[],[],[]]
 
@@ -129,11 +137,11 @@ args[0].append(q_ang)
 args[1].append(h_ang)
 args[2].append(measurements)
 #print(args)
-bounds = [(-90, 90), (-90, 90), (-90, 90),]
+bounds = [(-90, 90), (-90, 90), (-90, 90), (-45, 45),(-45, 45)]
 result = minimize(objective_func, x0 = initial_guess, args=args, bounds=bounds, method='trust-constr', tol = 1e-6,)
 
 x = result.x
-phi_x1, phi_y1, ax_trans  = x
+phi_x1, phi_y1, ax_trans, theta_q, theta_h  = x
 #print(result)
 result2 = minimize(objective_func, x0 = x, args=args, bounds=bounds, method='trust-constr', tol = 1e-6,)
 #print(result2)
@@ -146,8 +154,8 @@ q = np.linspace(-range_val,range_val, 30)
 h = np.linspace(-range_val,range_val, 30)
 X, Y = np.meshgrid(q,h)
 
-Z = measure(q_ang=X, h_ang=Y, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis)
-Z1 = measure(q_ang=X, h_ang=Y, phi_x=phi_x1, phi_y=phi_y1, ax_trans=ax_trans)
+Z = measure(q_ang=X, h_ang=Y, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis, theta_q = theta_q, theta_h = theta_h)
+Z1 = measure(q_ang=X, h_ang=Y, phi_x=phi_x1, phi_y=phi_y1, ax_trans=ax_trans, theta_q = theta_q, theta_h = theta_h)
 
 Z_scatter = measure(q_ang=q, h_ang=h, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis)
 Z_1scatter = measure(q_ang=q, h_ang=h, phi_x=phi_x, phi_y=phi_y, ax_trans=ax_trans)
