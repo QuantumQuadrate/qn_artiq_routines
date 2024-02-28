@@ -117,7 +117,7 @@ def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None, 
     return value + a
 
 def constraint(t):
-
+    x=1
 
 def objective_func(x, args):
     print(x)
