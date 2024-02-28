@@ -75,17 +75,19 @@ def gen_state(default = False, phi_x = None, phi_y = None, E = 1):
         input_state /= np.linalg.norm(input_state)
         return input_state * E
 
-def gen_secrets():
+def gen_secrets(default = True):
     phi_x, phi_y = gen_phi()
 
     return phi_x, phi_y, np.random.rand(1)*180
-def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0, r_feedback = None, dry_run = True, ):
-    q_ang = np.random.uniform(low = -range/2,high = range/2,size =steps) + a
-    h_ang = np.random.uniform(low = -range/2, high = range/2, size = steps) + b
-    #q_ang.sort()
-    #h_ang.sort()
+
+def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0, theta_h = 0, theta_q = 0, dry_run = True,
+                     r_feedback = None):
+    q_ang = np.random.uniform(low = -range/2,high = range/2,size =steps) + a - theta_q
+    h_ang = np.random.uniform(low = -range/2, high = range/2, size = steps) + b - theta_h
+    q_ang.sort()
+    h_ang.sort()
     measurements = []
-    if dry_run:
+    if dry_run or r_feedback is None:
         for q,h in zip(q_ang, h_ang):
             measurements.append(np.sum(measure(q_ang=q, h_ang=h, ax_trans= rand_axis, phi_x=phi_x, phi_y = phi_y)
                             ))
@@ -102,9 +104,11 @@ def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0, r_feed
 
     return q_ang, h_ang, measurements
 
-def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None, E = 1):
-    qwp00, qwp01, qwp10, qwp11 = qwp(fast_axis_angle=q_ang, piecewise=True)
-    hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang, piecewise=True)
+
+def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None, E = 1,  theta_h = 0, theta_q = 0):
+    qwp00, qwp01, qwp10, qwp11 = qwp(fast_axis_angle=q_ang-theta_q, piecewise=True)
+    hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang-theta_h, piecewise=True)
+
     lp00,  lp01, lp10, lp11 = lp(ax_trans=ax_trans,piecewise=True)
     input_state = gen_state(phi_x=phi_x, phi_y = phi_y, E = E)
 
@@ -123,18 +127,22 @@ def objective_func(x, args):
     ax_trans = x[0]
     phi_x = x[1]
     phi_y = x[2]
-    E = x[3]
-    q_ang = args[0]
-    h_ang = args[1]
+    phase_q = x[3]
+    phase_h = x[4]
+    q_ang = args[0] - phase_q
+    h_ang = args[1] - phase_h
     measurements = args[2]
     error = 0
     #print(args)
     for q, h, measurement in zip(q_ang, h_ang, measurements):
-        error += (np.sum(measure(q_ang=q, h_ang =h, ax_trans=ax_trans,phi_x = phi_x, phi_y = phi_y, E=E)-measurement))**2
+
+        error += (np.sum(measure(q_ang=q, h_ang =h, ax_trans=ax_trans,phi_x = phi_x, phi_y = phi_y, theta_q=phase_q, theta_h=phase_h)
+                         -measurement))**2
     return error
 range_val = 90
 phi_x, phi_y, rand_axis = gen_secrets()
 print(phi_x, phi_y, rand_axis)
+
 
 rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False)
 rotor_channel.stage[0].stop()
@@ -147,17 +155,20 @@ q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_a
 
 initial_guess = [np.random.rand()*180-90,np.random.rand()*180-90,np.random.rand()*180-90, max(measurements)]
 
+
 args = [[],[],[]]
 
 args[0].append(q_ang)
 args[1].append(h_ang)
 args[2].append(measurements)
 #print(args)
+
 bounds = [(-90, 90), (-90, 90), (-90, 90),(max(measurements),1e4)]
 result = minimize(objective_func, x0 = initial_guess, args=args, bounds=bounds, method='trust-constr', tol = 1e-6,)
 
 x = result.x
-phi_x1, phi_y1, ax_trans, E_predict  = x
+phi_x1, phi_y1, ax_trans, E_predict, theta_q, theta_h  = x
+
 #print(result)
 result2 = minimize(objective_func, x0 = x, args=args, bounds=bounds, method='trust-constr', tol = 1e-6,)
 #print(result2)
@@ -170,8 +181,9 @@ q = np.linspace(-range_val,range_val, 30)
 h = np.linspace(-range_val,range_val, 30)
 X, Y = np.meshgrid(q,h)
 
-#Z = measure(q_ang=X, h_ang=Y, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis)
-Z1 = measure(q_ang=X, h_ang=Y, phi_x=phi_x1, phi_y=phi_y1, ax_trans=ax_trans, E = E_predict)
+Z = measure(q_ang=X, h_ang=Y, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis, theta_q = theta_q, theta_h = theta_h, E = E_predict)
+Z1 = measure(q_ang=X, h_ang=Y, phi_x=phi_x1, phi_y=phi_y1, ax_trans=ax_trans, theta_q = theta_q, theta_h = theta_h, E = E_predict)
+
 
 #Z_scatter = measure(q_ang=q, h_ang=h, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis)
 #Z_1scatter = measure(q_ang=q, h_ang=h, phi_x=phi_x, phi_y=phi_y, ax_trans=ax_trans)
