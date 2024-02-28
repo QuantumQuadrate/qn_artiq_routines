@@ -1,9 +1,9 @@
 import numpy as np
 from scipy.optimize import minimize
-
+import matplotlib.pyplot as plt
 
 # Function to generate random measurement data
-def generate_data(num_measurements, num_angles, lp_angle = 4*np.pi/3):
+def generate_data(num_measurements, num_angles, lp_angle = 0):
     # Generate random angles for the quarter wave plate and half wave plate
     quarter_wave_angles = np.random.uniform(0, np.pi, num_angles)
     half_wave_angles = np.random.uniform(0, np.pi, num_angles)
@@ -34,7 +34,7 @@ def generate_data(num_measurements, num_angles, lp_angle = 4*np.pi/3):
 
 
 # Objective function to minimize
-def objective_function(angles, input_states, measurements, linear_polarizer_angle = 4*np.pi/3):
+def objective_function(angles, input_states, measurements, linear_polarizer_angle = 0):
     quarter_wave_angles, half_wave_angles = np.split(angles, 2)
     error = 0
 
@@ -59,7 +59,7 @@ def objective_function(angles, input_states, measurements, linear_polarizer_angl
 
 # Generate random measurement data
 num_measurements = 1
-num_angles = 5
+num_angles = 10
 quarter_wave_angles, half_wave_angles, input_states, measurements = generate_data(num_measurements, num_angles)
 
 # Initial guess for the quarter wave plate and half wave plate angles
@@ -83,37 +83,71 @@ print("Optimal half wave plate angles:")
 for i, angle in enumerate(optimal_half_wave_angles):
     print(f"Angle {i + 1}: {radians_to_degrees(angle)}")
 
-def calculate_predicted_output_intensity(quarter_wave_angle_degrees, half_wave_angle_degrees, linear_polarizer_angle_degrees, input_state):
+def calculate_predicted_output_intensity(quarter_wave_angle, half_wave_angle, input_states, linear_polarizer_angle=np.pi*4/3, ):
     # Convert angles from degrees to radians
-    quarter_wave_angle = np.radians(quarter_wave_angle_degrees)
-    half_wave_angle = np.radians(half_wave_angle_degrees)
-    linear_polarizer_angle = np.radians(linear_polarizer_angle_degrees)
+    predicted_intensity =[]
+    for i, q, h in zip(input_states, quarter_wave_angle, half_wave_angle):
+        # print(q,h)
+        quarter_wave_matrix = np.exp(complex(-1j * np.pi / 4)) * np.array([[np.cos(2 * q), np.sin(2 * q)],
+                                                                           [np.sin(2 * q), -np.cos(2 * q)]])
+        half_wave_matrix = np.exp(complex(-1j * np.pi / 2)) * np.array([[np.cos(2 * h), np.sin(2 * h)],
+                                                                        [np.sin(2 * h), -np.cos(2 * h)]])
+        predicted_intensity.append(np.abs(np.dot(half_wave_matrix, np.dot(quarter_wave_matrix, i)))[0] ** 2)
+        output_states.append(np.dot(half_wave_matrix, np.dot(quarter_wave_matrix, i)))
 
-    # Define Jones matrices for quarter wave plate, half wave plate, and linear polarizer
-    quarter_wave_matrix = np.array([[np.cos(2 * quarter_wave_angle), np.sin(2 * quarter_wave_angle)],
-                                    [np.sin(2 * quarter_wave_angle), -np.cos(2 * quarter_wave_angle)]])
-    half_wave_matrix = np.array([[np.cos(2 * half_wave_angle), np.sin(2 * half_wave_angle)],
-                                 [np.sin(2 * half_wave_angle), -np.cos(2 * half_wave_angle)]])
-    linear_polarizer_matrix = np.array([[np.cos(2 * linear_polarizer_angle), np.sin(2 * linear_polarizer_angle)],
-                                        [np.sin(2 * linear_polarizer_angle), -np.cos(2 * linear_polarizer_angle)]])
-
-    # Calculate the predicted output intensity
-    predicted_output_intensity = np.abs(np.dot(linear_polarizer_matrix, np.dot(half_wave_matrix, np.dot(quarter_wave_matrix, input_state))))[0] ** 2
-
-    return predicted_output_intensity
+    print("Out\n")
+    print(predicted_intensity)
+    print("done")
+    return predicted_intensity
 
 qw_degrees = radians_to_degrees(optimal_quarter_wave_angles)
 hw_degrees = radians_to_degrees(optimal_half_wave_angles)
 
 # Define the Jones matrices for the quarter wave plate and half wave plate
 predicted_intensity = []
-for i, q, h in zip(input_states, optimal_quarter_wave_angles, optimal_half_wave_angles):
-    print(q,h)
-    quarter_wave_matrix = np.exp(complex(-1j*np.pi/4))*np.array([[np.cos(2 * q), np.sin(2 * q)],
-                                        [np.sin(2 * q), -np.cos(2 * q)]])
-    half_wave_matrix = np.exp(complex(-1j*np.pi/2))*np.array([[np.cos(2 * h), np.sin(2 * h)],
-                            [np.sin(2 * h), -np.cos(2 * h)]])
-    predicted_intensity.append(np.abs(np.dot(half_wave_matrix, np.dot(quarter_wave_matrix, i)))[0]**2)
+output_states = []
 
 print(predicted_intensity)
-print(input_states)
+for out_vec in output_states:
+    print(out_vec)
+
+INPUT_STATE = input_states[0]
+def measure(q_angle, h_angle,):
+
+    qwp = np.exp(complex(-1j*np.pi/4))*np.array([[np.cos(2 * q_angle), np.sin(2 * q_angle)],
+                                    [np.sin(2 * q_angle), -np.cos(2 * q_angle)]])
+    hwp = np.exp(complex(-1j*np.pi/4))*np.array([[np.cos(2 * h_angle), np.sin(2 * h_angle)],
+                                 [np.sin(2 * h_angle), -np.cos(2 * h_angle)]])
+                # Generate random input states
+    # Normalize to ensure it's a valid quantum state
+    A_p = qwp[0][0]*INPUT_STATE[0] + qwp[0][1]*INPUT_STATE[1]
+    B_p = qwp[1][0]*INPUT_STATE[0] - qwp[1][1]*INPUT_STATE[1]
+
+    A_pp = hwp[0][0] * A_p + hwp[0][1] * B_p
+    B_pp = hwp[1][0] * A_p - hwp[1][1] * B_p
+    ##TODO calc after half
+    measurement = np.abs(A_pp**2)
+    # Calculate the predicted output intensities
+
+    # Add noise to the measurements
+    return measurement
+
+
+
+X, Y, Z = np.meshgrid(quarter_wave_angles, half_wave_angles, input_states)
+print(f"{X}\n{Y}")
+fig = plt.figure()
+ax = fig.add_subplot(projection = '3d')
+
+x= np.linspace(0, np.pi,30)
+y= np.linspace(0, np.pi,30)
+X,Y = np.meshgrid(x,y)
+z = measure(X,Y,)
+ax.scatter(X,Y, z)
+ax.scatter( optimal_quarter_wave_angles, optimal_half_wave_angles,
+            measure(optimal_quarter_wave_angles,optimal_half_wave_angles), marker = "*", c="red", s= 20)
+plt.show()
+
+#plt.contour(X,Y,Z)
+
+

@@ -117,7 +117,9 @@ def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None, 
     return value + a
 
 def constraint(t):
+
     x=1
+
 
 def objective_func(x, args):
     print(x)
@@ -149,8 +151,10 @@ args[0].append(q_ang)
 args[1].append(h_ang)
 args[2].append(measurements)
 #print(args)
+
 bounds = [(-90, 90), (-90, 90), (-90, 90), (-90, 90),(-90, 90)]
 result = minimize(objective_func, x0 = initial_guess, args=args, bounds=bounds, method='trust-constr', tol = 1e-15,)
+
 
 x = result.x
 phi_x1, phi_y1, ax_trans, theta_q, theta_h  = x
