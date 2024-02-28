@@ -114,7 +114,7 @@ def objective_func(x, args):
 
 phi_x, phi_y, rand_axis = gen_secrets()
 print(phi_x, phi_y, rand_axis)
-q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = 45, steps = 1000)
+q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = 20, steps = 10000)
 
 initial_guess = np.random.rand(3)*np.pi -np.pi/2
 #print(initial_guess)
@@ -123,8 +123,9 @@ args[0].append(q_ang)
 args[1].append(h_ang)
 args[2].append(measurements)
 #print(args)
-bounds = [(0,np.pi), (0,np.pi), (0,180)]
-result = minimize(objective_func, x0 = initial_guess, args=args, bounds=bounds, method='L-BFGS-B', tol = 1e6,
+initial_guess[2] = 70
+bounds = [(-1*np.pi/2,np.pi/2), (0,np.pi), (-1*np.pi/2,np.pi/2)]
+result = minimize(objective_func, x0 = initial_guess, args=args, bounds=bounds, method='Nelder-Mead', tol = 1e6,
                   options={"maxit":1e20})
 print(result)
 x = result.x

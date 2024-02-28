@@ -1,8 +1,12 @@
 import numpy as np
-from scipy.optimize import minimize, curve_fit
+from scipy.optimize import minimize
+from scipy.signal import argrelmax, argrelmin, argrelextrema
 import matplotlib.pyplot as plt
 from time import sleep
+from rotator_feedback import RotatorFeedbackChannel
 
+rotor1 = 1
+rotor2 = 2
 def qwp(fast_axis_angle = 90, piecewise = False):
     rad_angle = np.radians(fast_axis_angle)
     complex_factor = np.exp(complex(-1j * np.pi / 4))
@@ -47,7 +51,7 @@ def gen_phi(default = False):
         phi_x, phi_y = np.random.uniform(-90,90,2)
 
     return phi_x, phi_y
-def gen_state(default = False, phi_x = None, phi_y = None):
+def gen_state(default = False, phi_x = None, phi_y = None, E = 1):
     REAL_STATE = np.array([1,0])
 
     phi_x = np.radians(phi_x)
@@ -69,29 +73,40 @@ def gen_state(default = False, phi_x = None, phi_y = None):
         return REAL_STATE
     else:
         input_state /= np.linalg.norm(input_state)
-        return input_state
+        return input_state * E
 
 def gen_secrets():
     phi_x, phi_y = gen_phi()
 
     return phi_x, phi_y, np.random.rand(1)*180
-def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0):
+def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0, r_feedback = None, dry_run = True, ):
     q_ang = np.random.uniform(low = -range/2,high = range/2,size =steps) + a
     h_ang = np.random.uniform(low = -range/2, high = range/2, size = steps) + b
-    q_ang.sort()
-    h_ang.sort()
+    #q_ang.sort()
+    #h_ang.sort()
     measurements = []
-    for q,h in zip(q_ang, h_ang):
-        measurements.append(np.sum(measure(q_ang=q, h_ang=h, ax_trans= rand_axis, phi_x=phi_x, phi_y = phi_y)
+    if dry_run:
+        for q,h in zip(q_ang, h_ang):
+            measurements.append(np.sum(measure(q_ang=q, h_ang=h, ax_trans= rand_axis, phi_x=phi_x, phi_y = phi_y)
                             ))
+    else:
+        for q, h in zip(q_ang, h_ang):
+            r_feedback.stage[1].move_to(q)
+            r_feedback.stage[0].move_to(h)
+            r_feedback.stage[0].wait_for_stop()
+            r_feedback.stage[1].wait_for_stop()
+            measurement = r_feedback.measure()
+            measurements.append(measurement)
+            sleep(1)
+            print(measurement)
 
     return q_ang, h_ang, measurements
 
-def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None):
+def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None, E = 1):
     qwp00, qwp01, qwp10, qwp11 = qwp(fast_axis_angle=q_ang, piecewise=True)
     hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang, piecewise=True)
     lp00,  lp01, lp10, lp11 = lp(ax_trans=ax_trans,piecewise=True)
-    input_state = gen_state(phi_x=phi_x, phi_y = phi_y)
+    input_state = gen_state(phi_x=phi_x, phi_y = phi_y, E = E)
 
     A_p = qwp00*input_state[0] + qwp01*input_state[1]
     B_p = qwp10*input_state[0] + qwp11*input_state[1]
@@ -108,20 +123,29 @@ def objective_func(x, args):
     ax_trans = x[0]
     phi_x = x[1]
     phi_y = x[2]
+    E = x[3]
     q_ang = args[0]
     h_ang = args[1]
     measurements = args[2]
     error = 0
     #print(args)
     for q, h, measurement in zip(q_ang, h_ang, measurements):
-        error += (np.sum(measure(q_ang=q, h_ang =h, ax_trans=ax_trans,phi_x = phi_x, phi_y = phi_y)-measurement))**2
+        error += (np.sum(measure(q_ang=q, h_ang =h, ax_trans=ax_trans,phi_x = phi_x, phi_y = phi_y, E=E)-measurement))**2
     return error
 range_val = 90
 phi_x, phi_y, rand_axis = gen_secrets()
 print(phi_x, phi_y, rand_axis)
-q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val, steps = 10)
 
-initial_guess = np.random.uniform(-90,90,3)
+rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False)
+rotor_channel.stage[0].stop()
+rotor_channel.stage[1].stop()
+rotor_channel.stage[0].wait_for_stop()
+rotor_channel.stage[1].wait_for_stop()
+
+q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val,
+                                              steps = 5, r_feedback = rotor_channel, dry_run=False)
+
+initial_guess = [np.random.rand()*180-90,np.random.rand()*180-90,np.random.rand()*180-90, max(measurements)]
 
 args = [[],[],[]]
 
@@ -129,36 +153,46 @@ args[0].append(q_ang)
 args[1].append(h_ang)
 args[2].append(measurements)
 #print(args)
-bounds = [(-90, 90), (-90, 90), (-90, 90),]
+bounds = [(-90, 90), (-90, 90), (-90, 90),(max(measurements),1e4)]
 result = minimize(objective_func, x0 = initial_guess, args=args, bounds=bounds, method='trust-constr', tol = 1e-6,)
 
 x = result.x
-phi_x1, phi_y1, ax_trans  = x
+phi_x1, phi_y1, ax_trans, E_predict  = x
 #print(result)
 result2 = minimize(objective_func, x0 = x, args=args, bounds=bounds, method='trust-constr', tol = 1e-6,)
 #print(result2)
 
 actual_state = gen_state(default=False, phi_x=phi_x, phi_y=phi_y)
-predicted_state = gen_state(phi_x = phi_x1, phi_y=phi_y1)
+predicted_state = gen_state(phi_x = phi_x1, phi_y=phi_y1, E=E_predict)
 print(predicted_state)
 print(actual_state)
 q = np.linspace(-range_val,range_val, 30)
 h = np.linspace(-range_val,range_val, 30)
 X, Y = np.meshgrid(q,h)
 
-Z = measure(q_ang=X, h_ang=Y, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis)
-Z1 = measure(q_ang=X, h_ang=Y, phi_x=phi_x1, phi_y=phi_y1, ax_trans=ax_trans)
+#Z = measure(q_ang=X, h_ang=Y, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis)
+Z1 = measure(q_ang=X, h_ang=Y, phi_x=phi_x1, phi_y=phi_y1, ax_trans=ax_trans, E = E_predict)
 
-Z_scatter = measure(q_ang=q, h_ang=h, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis)
-Z_1scatter = measure(q_ang=q, h_ang=h, phi_x=phi_x, phi_y=phi_y, ax_trans=ax_trans)
+#Z_scatter = measure(q_ang=q, h_ang=h, phi_x=phi_x, phi_y=phi_y, ax_trans=rand_axis)
+#Z_1scatter = measure(q_ang=q, h_ang=h, phi_x=phi_x, phi_y=phi_y, ax_trans=ax_trans)
 
 fig = plt.figure()
 #ax = plt.axes(projection='3d')
 ax = fig.add_subplot(projection ="3d")
-ax.scatter(X, Y, Z, s = 30, marker="+")
-ax.scatter(X, Y, Z1, s=30,marker="*")
+ax.scatter(q_ang, h_ang, measurements, s = 100, marker="*")
+#ax.scatter(X, Y, Z, marker=".", s=50)
+ax.scatter(X, Y, Z1, marker = ".", s=5)
+c = argrelmax(Z1, order = 100)
+maxX, maxY, maxZ = X[c], Y[c], Z1[c]
+measurementMaxIndex = np.where(Z1 == (max(Z1[c])))
+rotor_channel.stage[1].move_to(maxX[measurementMaxIndex[0]])
+rotor_channel.stage[0].move_to(maxY[measurementMaxIndex[0]])
+
+#q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val, steps = 10)
+
+ax.scatter(maxX,maxY,maxZ, marker = "*", s = 200)
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')
-ax.set_title('3D contour')
+ax.set_title(' ')
 plt.show()
