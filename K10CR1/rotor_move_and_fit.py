@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 from scipy.signal import argrelmax, argrelmin, argrelextrema
 import matplotlib.pyplot as plt
 from time import sleep
-from rotator_feedback import RotatorFeedbackChannel
+#from rotator_feedback import RotatorFeedbackChannel
 
 
 rotor1 = 1
@@ -17,7 +17,7 @@ def rotated(zero, one, two, three, theta):
     p_10 = r00*two + r10*three
     p_11 = r01*two + r11*three
 
-def qwp(fast_axis_angle = 90, piecewise = False, theta = 0):
+def qwp(fast_axis_angle = 90, piecewise = False):
 
     rad_angle = np.radians(fast_axis_angle)
     complex_factor = np.exp(complex(-1j * np.pi / 4))
@@ -50,8 +50,8 @@ def lp(ax_trans = 180, piecewise = False):
     rad_angle = np.radians(ax_trans)
     c = np.cos(rad_angle)
     s = np.sin(rad_angle)
-    matrix = np.array([[c ** 2, 2*c * s],
-                       [2*c*s, s ** 2]])
+    matrix = np.array([[c ** 2, c * s],
+                       [c*s, s ** 2]])
     if not piecewise:
         return matrix
     else:
@@ -83,6 +83,7 @@ def gen_state(default = True, phi_x = None, phi_y = None, E = 1):
 
     input_state = [cx - 1j*sx, cy - 1j*sy]
     if default:
+        input_state /= np.linalg.norm(input_state)
         return [input_state[0]*E, 0]
     else:
         input_state /= np.linalg.norm(input_state)
@@ -128,8 +129,8 @@ def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0, theta_
     return q_ang, h_ang, measurements
 
 def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None, E = 1,  theta_h = 0, theta_q = 0):
-    qwp00, qwp01, qwp10, qwp11 = qwp(fast_axis_angle=q_ang, theta=theta_q, piecewise=True)
-    hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang, theta=theta_h, piecewise=True)
+    qwp00, qwp01, qwp10, qwp11 = qwp(fast_axis_angle=q_ang-theta_q, piecewise=True)
+    hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang-theta_h, piecewise=True)
 
     lp00,  lp01, lp10, lp11 = lp(ax_trans=ax_trans,piecewise=True)
     input_state = gen_state(phi_x=phi_x, phi_y = phi_y, E = E)
@@ -164,21 +165,22 @@ def objective_func(x, args):
                          -measurement))**2
     return error*1000
 range_val = 90
-steps = 10
+steps = 20
 phi_x, phi_y, rand_axis, theta_q, theta_h, E = gen_secrets(default=False, E = 2)
 print(phi_x, phi_y, rand_axis)
 
 
-rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False)
-rotor_channel.stage[0].stop()
-rotor_channel.stage[1].stop()
-rotor_channel.stage[0].move_to(0)
-rotor_channel.stage[1].move_to(0)
-
+#rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False)
+#rotor_channel.stage[0].stop()
+#rotor_channel.stage[1].stop()
+#rotor_channel.stage[0].move_to(0)
+#rotor_channel.stage[1].move_to(0)
+#rotor_channel.stage[0].wait_for_stop()
+#rotor_channel.stage[1].wait_for_stop()
 q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val,
-                                              steps = steps, r_feedback = rotor_channel, dry_run=False, E = None,
-                                              a=rotor_channel.stage[1].get_position(),
-                                              b= rotor_channel.stage[0].get_position())
+                                              steps = steps, r_feedback = None, dry_run=True, E = E,
+                                              a=0,
+                                              b= 0)
 
 initial_guess = [np.random.rand()*180-90,np.random.rand()*180-90,np.random.rand()*180-90, max(measurements), 0, 0]
 
@@ -220,17 +222,17 @@ fig = plt.figure()
 #ax = plt.axes(projection='3d')
 ax = fig.add_subplot(projection ="3d")
 ax.scatter(q_ang, h_ang, measurements, s = 30, marker="*")
-#max.scatter(X, Y, Z, marker=".", s=50)
+ax.scatter(X, Y, Z, marker=".", s=50)
 ax.scatter(X, Y, Z1, marker = ".", s=5)
 c = argrelmax(Z1, order = 100)
 maxX, maxY, maxZ = X[c], Y[c], Z1[c]
-#measurementMaxIndex = np.where(Z1 == (max(Z1[c])))
-#rotor_channel.stage[1].move_to(maxX[measurementMaxIndex[0]])
-#rotor_channel.stage[0].move_to(maxY[measurementMaxIndex[0]])
+measurementMaxIndex = np.where(Z1 == (max(Z1[c])))
+print(maxX[measurementMaxIndex[0]])
+print((maxY[measurementMaxIndex[0]]))
 
 #q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val, steps = 10)
 
-ax.scatter(maxX,maxY,maxZ, marker = "*", s = 200)
+ax.scatter(maxX,maxY,maxZ, marker = "*", s = 20)
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')

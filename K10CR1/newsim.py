@@ -117,7 +117,8 @@ def measure(q_ang = 45, h_ang = 100, ax_trans = 75, phi_x = None, phi_y = None, 
     return value + a
 
 def constraint(t):
-    t[1]
+    x=1
+
 
 def objective_func(x, args):
     print(x)
@@ -136,10 +137,10 @@ def objective_func(x, args):
                                  theta_q=phase_q)-measurement))**2
     return error
 
-phi_x, phi_y, rand_axis, true_q, true_h = gen_secrets(default=True)
+phi_x, phi_y, rand_axis, true_q, true_h = gen_secrets(default=False)
 print(phi_x, phi_y, rand_axis)
 
-q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = 180, steps = 20)
+q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = 180, steps = 5)
 
 initial_guess = [np.random.rand()*180-90, np.random.rand()*180-90,np.random.rand()*180-90, 0,0]
 
