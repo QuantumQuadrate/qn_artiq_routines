@@ -48,7 +48,12 @@ class RotatorFeedbackChannel():
 
     def print_pos(self, rotor_num = 0):
         print("position = ", self._pos(rotor_num))
-
+    def wait_stop(self, rotor_num = 2):
+        if rotor_num == 2:
+            self.stage[0].wait_for_stop()
+            self.stage[1].wait_for_stop()
+        else:
+            self.stage[rotor_num].wait_for_stop()
     def print_abs_pos(self, rotor_num = 0):
         print("position = ", self._abs_pos(rotor_num))
 
