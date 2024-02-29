@@ -1,9 +1,11 @@
+
 import numpy as np
 from scipy.optimize import minimize
 from scipy.signal import argrelmax, argrelmin, argrelextrema
 import matplotlib.pyplot as plt
 from time import sleep
 from rotator_feedback import RotatorFeedbackChannel
+
 
 rotor1 = 1
 rotor2 = 2
@@ -117,8 +119,7 @@ def move_and_measure(phi_x, phi_y, rand_axis, range, steps, a = 0, b = 0, theta_
         for q, h in zip(q_ang, h_ang):
             r_feedback.stage[1].move_to(q)
             r_feedback.stage[0].move_to(h)
-            r_feedback.stage[0].wait_for_stop()
-            r_feedback.stage[1].wait_for_stop()
+            r_feedback.wait_stop()
             measurement = r_feedback.measure()
             measurements.append(measurement)
             sleep(1)
@@ -173,8 +174,6 @@ rotor_channel.stage[0].stop()
 rotor_channel.stage[1].stop()
 rotor_channel.stage[0].move_to(0)
 rotor_channel.stage[1].move_to(0)
-rotor_channel.stage[0].wait_for_stop()
-rotor_channel.stage[1].wait_for_stop()
 
 q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val,
                                               steps = steps, r_feedback = rotor_channel, dry_run=False, E = None,
