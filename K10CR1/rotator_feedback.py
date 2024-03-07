@@ -54,6 +54,9 @@ class RotatorFeedbackChannel():
             self.stage[1].wait_for_stop()
         else:
             self.stage[rotor_num].wait_for_stop()
+    def is_moving(self, rotor_num = None):
+        if rotor_num is None:
+            return (self.stage[0].is_moving() and self.stage[1].is_moving())
     def print_abs_pos(self, rotor_num = 0):
         print("position = ", self._abs_pos(rotor_num))
 
