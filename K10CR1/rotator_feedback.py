@@ -10,102 +10,158 @@ import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from ArbitraryRetarder import *
+from scipy.optimize import minimize
 # a dictionary specifying channels we want to optimize
 
 class RotatorFeedbackChannel():
 
-    def __init__(self,ch_name = "Dev1/ai0", dds_channel=1, rotator_sn=['55105674', '55000741'], dry_run = True ,
-                 max_runs=10, leave_laser_on=False):
+    def __init__(self,ch_name = "Dev1/ai", dds_channel=0, rotator_sn=['55105674', '55000741'], dry_run = True ,
+                 max_runs=10, leave_laser_on=False, spc = None, rate = None, plate_config = None):
 
-        acq_type = getattr(daq_constants.AcquisitionType, 'FINITE')
-        terminal_cfg = getattr(daq_constants.TerminalConfiguration, 'NRSE')
-
+        ch_name += str(dds_channel)
+        self.spc = spc
         self.dry_run = dry_run
         self.daq_task = daq.Task()
+        self.rate = rate
+
+        if self.spc is None:
+            self.spc = 1
+
+        if self.rate is None or self.rate > 1e5:
+            self.rate = 1e5
+
+        self.measure_sim = plate_config_measure(plate_config)
 
         self.daq_task.ai_channels.add_ai_voltage_chan(physical_channel=ch_name)
-        self.daq_task.timing.cfg_samp_clk_timing(rate=10000, sample_mode=acq_type, samps_per_chan=10000)
 
         if self.dry_run:
             self.measure = self.measure_dryrun2  # use this for testing since you don't have access to artiq hardware yet
         else:
             self.measure = self._measure
 
-        #self.detector_volts = 0.0  # what we want to maximize
-
         self.ser0 = rotator_sn[0]
         self.ser1 = rotator_sn[1]
 
         self.scl = True  # whether to use physical units - this apparently has no effect
-        self.stage = [Thorlabs.KinesisMotor(conn = self.ser0, scale='K10CR1', ),
-                      Thorlabs.KinesisMotor(conn = self.ser1, scale='K10CR1', )]
+        self.stage = [Thorlabs.KinesisMotor(conn=self.ser0, scale='K10CR1', ),
+                      Thorlabs.KinesisMotor(conn=self.ser1, scale='K10CR1', )]
 
-
-        self.stage[0].set_position_reference()
-        self.stage[1].set_position_reference()
+        self.r0 = self.stage[0]
+        self.r1 = self.stage[1]
+        self.r0.set_position_reference()
+        self.r1.set_position_reference()
 
         print(f"{self._pos(0)} : {self._pos(1)}; intensity:{np.sum(self.daq_task.read(number_of_samples_per_channel=1))}")
 
-    def print_pos(self, rotor_num = 0):
+    def print_pos(self, rotor_num=0):
         print("position = ", self._pos(rotor_num))
+
     def wait_stop(self, rotor_num = 2):
         if rotor_num == 2:
             self.stage[0].wait_for_stop()
             self.stage[1].wait_for_stop()
         else:
             self.stage[rotor_num].wait_for_stop()
+
     def is_moving(self, rotor_num = None):
         if rotor_num is None:
-            return (self.stage[0].is_moving() and self.stage[1].is_moving())
-    def print_abs_pos(self, rotor_num = 0):
+            return self.r0.is_moving() or self.r1.is_moving()
+        else:
+            return self.stage[rotor_num].is_moving()
+
+    def print_abs_pos(self, rotor_num=0):
         print("position = ", self._abs_pos(rotor_num))
 
-    def _pos(self, rotor_num = 0):
+    def _pos(self, rotor_num=0):
         return self.stage[rotor_num].get_position(scale=self.scl)
 
-    def _abs_pos(self, rotor_num = 0):
-        return self._pos(rotor_num) % 360
+    def _abs_pos(self, rotor_num=0):
+        return self._pos(rotor_num) % 180
 
-    #@kernel
-    def _measure(self):
-        data = self.daq_task.read(number_of_samples_per_channel=10000)
-        #print(data)
+    """Using the USB-NiDaq reads out voltage measured from a Si Amplified Detector"""
+    def _measure(self, measurements=None):
+        if measurements is None:
+            measurements = self.spc
+
+        data = self.daq_task.read(number_of_samples_per_channel=measurements)
+
         return np.mean(data)
 
-    def measure_dryrun(self, Ip = 1, phase_psi = 45, phase_chi = 45, pos = None ):
-        intensity = Ip * np.sin((np.pi * np.float64(self._pos(0) - phase_psi)) / (180))*\
-                    np.cos((np.pi * np.float64(self._pos(1) - phase_chi)) / (180))
-        return (intensity + 0.05*(np.random.rand()-0.5))
-    # measure and update self.detector_volts
-    def measure_dryrun2(self, E_0 = 2, phi_x = 45, phi_y = 30):
-        pos0 = self._abs_pos(0)
-        pos1 = self._abs_pos(1)
-        jones_vec = np.array([[E_0*np.exp(1j*phi_x)],[E_0*np.exp(1j*phi_y)]])
-        lin_polarizer = np.empty((2,2))
-        lin_polarizer[0][0] = 1
 
-        qwp00 = complex(np.cos(pos1)**2 +1j*np.sin(pos1))
-        qwp01 = complex((1-1j)*np.sin(pos1)*np.cos(pos1))
-        qwp10 = complex((1 - 1j) * np.sin(pos1) * np.cos(pos1))
-        qwp11 = complex(np.cos(pos1)**2 +1j*np.sin(pos1))
-        qwp = np.exp(complex(-1j*np.pi/4))*np.array([[qwp00, qwp01], [qwp10, qwp11]], complex)
+    """
+    Self explanatory, generated points for two wave plates, named q and h here, represented by y0 and x0
+    """
 
-        hwp00 = complex(np.cos(pos0)**2 - np.sin(pos0) ** 2)
-        hwp01 = complex(2*np.sin(pos0) * np.cos(pos0))
-        hwp10 = complex(2*np.sin(pos0) * np.cos(pos0))
-        hwp11 = complex(np.sin(pos0)**2- np.cos(pos0) ** 2)
+    def q_h_gen(self, range, steps, center_x, center_y, random=False):
 
-        hwp = np.exp(complex(-1j*np.pi/2))*np.array([[hwp00, hwp01],[hwp10, hwp11]], complex)
-        print(qwp)
-        #print(np.identity(2))
-        mm = np.matmul
-        post_qwp = mm(qwp,jones_vec)
-        post_hwp = mm(hwp,post_qwp)
-        polarized = mm(lin_polarizer,post_hwp)
-        print(post_qwp)
-        print(post_hwp)
-        print(polarized)
-        return np.abs(polarized[0][0])
+        if not random:
+            range /= 2
+            rads = np.arange(0, 2 * np.pi, (2 * np.pi) / steps)
+            x = range * (np.cos(rads)) - center_x
+            y = range * (np.sin(rads)) - center_y
+            x1 = range / 2 * (np.cos(rads)) - center_x
+            y1 = range / 2 * (np.sin(rads)) - center_y
+            x2 = range / 4 * (np.cos(rads)) - center_x
+            y2 = range / 4 * (np.sin(rads)) - center_y
+            x0 = np.append(x, x1)
+            x0 = np.append(x0, x2)
+            y0 = np.append(y, y1)
+            y0 = np.append(y0, y2)
+        if random is True:
+            x0, x1, x2 = np.random.rand(steps) * range, np.random.rand(steps) * range / 2, np.random.rand(steps) * range / 4
+            x0 = np.append(x0, x1)
+            x0 = np.append(x0, x2)
+            y0, y1, y2 = np.random.rand(steps) * range, np.random.rand(steps) * range / 2, np.random.rand(steps) * range / 4
+            y0 = np.append(y0, y1)
+            y0 = np.append(y0, y2)
+
+        return x0, y0
+
+    """
+    Using pre selected point/randomly generated ones, the rotors are moved between points and then stopped.
+    While the rotors are in the process of moving, we are keeping track of the angle it is at, and then the measurement.
+    Due to time to measure, acceleration and speed of rotor, there is slight discrepancy between measured angle and 
+    actual angle for some given intensity measurement, but the non acceleration component of the discrepancy is solved 
+    for in the optimize portion of the code, and the acceleration error component seems to be negligible, when the goal
+    is achieving maximum intensity.
+    """
+    def move_and_measure(self, theta=None, eta=None, phi=None, range=None, steps=None, a=0, b=0, theta_h=0, theta_q=0,
+                         dry_run=True, E=None):
+        h_ang, q_ang = self.q_h_gen(steps=steps, range=range, center_x=-a, center_y=-b, random=True)
+        q_ang -= theta_q
+        h_ang -= theta_h
+        mq_ang = []
+        mh_ang = []
+        # q_ang.sort()
+        # h_ang.sort()
+        measure = self.measure
+        measurements = []
+        if dry_run or self is None:
+            for h, q in zip(q_ang, h_ang):
+                measurements.append(np.sum(measure(q_ang=q, h_ang=h, theta=theta, phi=phi,
+                                                   eta=eta, E=E)))
+        else:
+            for q, h in zip(q_ang, h_ang):
+                self.r1.move_to(q)
+                self.r0.move_to(h)
+                i = 0
+                sleep(0.3)
+                while self.is_moving():
+                    mq_ang = np.append(mq_ang, self._pos(rotor_num=1))
+                    mh_ang = np.append(mh_ang, self._pos(rotor_num=0))
+                    measurement = measure(measurements=1)
+                    measurements = np.append(measurements, measurement)
+                    # print("intermediate measurement")
+                    # print(q_ang)
+                    i += 1
+                    if not i % 10:
+                        print("still reading...")
+                    sleep(0.3)
+                self.stage[1].wait_for_stop()
+                self.stage[0].wait_for_stop()
+
+        return mh_ang, mq_ang, measurements
     def move_by(self, degrees, rotor_num = -1, velocity = None, r1 = None):
         r = r1
         if rotor_num == -1 and r is None:
@@ -122,6 +178,15 @@ class RotatorFeedbackChannel():
             r.move_by(degrees)
             r.wait_move()
         return 0
+
+    def max_with_tolerance(h, q, m, peak, tol):
+        m_indices = [i < (peak * (1 + tol)) and i > (peak * (1 - tol)) for i in m]
+        m_indices = [j == max(m) and t for j, t in zip(m, m_indices)]
+        for i, j, m in zip(h, q, m):
+            if i != -361 and j != -361:
+                return i, j, m
+        return None, None, None
+
     def move_to(self, degrees, rotor_num = 0, velocity = None, r1 = None):
         r = r1
         if rotor_num == -1 and r is None:
@@ -133,36 +198,79 @@ class RotatorFeedbackChannel():
         r.wait_move()
         return 1
 
-    def optimize(self, initial_velocity = 10, initial_acceleration = 10, starting_point = None):
-        # self.dds_channel.sw.on() # switch on the laser. don't worry about this
-        """
-        # the main loop
-        for i in range(self.max_runs):
-            self.measure()
-            # based on self.detector_volts,
-            self.move_rotator(1)
-            changing = True
-            tolerance_met = False
-            result = False
-            if tolerance_met or result is not changing:
-                break"""
 
-        # self.dds_channel.sw.off() # switch on the laser. don't worry about this
-        return 0
+    def optimize(self, m_func, r0, r1, data=None, x0=None, bounds=None, rotor_channel=None, cons=None, range_val=180,
+                 terminate=False, alpha=0, beta=0, tol=0.2):
+        cons = ({'type': 'ineq',
+                 'fun': constraint,
+                 'args': (max(data[2]),)
+                 },)
 
+        method = 'trust-constr'
+        trust_constr_opts = {'disp': True, 'barrier_tol': 1e-8, 'xtol': 1e-12,
+                             'initial_constr_penalty': 1, 'maxiter': 5e3, }
+        if data is not None:
+            pot_max = max(data[2])
+            pot_min = min(data[2])
+            bounds = [(0, pi), (0, pi), (0, pi), (pot_max - pot_min, np.inf), (0, pi), (0, pi),
+                      (-0.5, pot_max)]
+        else:
+            pot_max = rand() * 3
+        if x0 is None:
+            x0 = [rand() * pi, rand() * pi, rand() * pi, pot_max - pot_min, 0, 0, 0]
+            sleep(1)
+        result = minimize(objective_func, x0=x0, args=data, bounds=bounds, method=method,
+                          constraints=cons, options=trust_constr_opts)
 
+        x = result.x
+        theta, eta, phi, E, p_q, p_h, a = x
 
-    """
-        # this would happen in BaseEperiment:
-        class RotatorExperiment(EnvExperiment):
-     
-        def run(self):   
-            for key, val in self.rotator_lib: #wrong
-                # set a RotatorFeedbackChannel as attribute of our current experiment
-                setattr(self.experiment, key + "rotator_ch", RotatorFeedbackChannel(**val, max_runs=10))
-        def __init__(self):
-            self.rotator_lib = {}
-    """
+        h = np.linspace(-range_val / 2 + alpha, range_val / 2 + alpha, 30)
+        q = np.linspace(-range_val / 2 + beta, range_val / 2 + beta, 30)
+
+        X, Y = np.meshgrid(h, q)
+
+        Z1 = measure(q_ang=Y, h_ang=X, theta=theta, eta=eta, phi=phi, theta_q=p_q, theta_h=p_h, E=E, a=a)
+        peak = (E + a)
+
+        c = np.argmax(Z1)
+
+        maxX, maxY, maxZ = X[c // 30][c % 30], Y[c // 30][c % 30], Z1[c // 30][c % 30]
+
+        r0.move_to(maxX)
+        r1.move_to(maxY)
+        r0.wait_for_stop()
+        r1.wait_for_stop()
+        test_measurement = m_func(measurements=1000)
+        sleep(1)
+        print((abs(test_measurement - peak) / peak))
+        within_range = test_measurement >= peak * (1 - tol) and test_measurement <= peak * (1 + tol)
+        terminate = within_range or terminate
+        if not terminate:
+            newh, newq, newm = self.move_and_measure(range=90, steps=5, r_feedback=rotor_channel, dry_run=False, a=maxX,
+                                                b=maxY)
+            h, q, m = data
+            h = np.append(h, newh)
+            q = np.append(q, newq)
+            m = np.append(m, newm)
+            data = h, q, m
+
+            checkMaxH, checkMaxQ, checkMaxM = self.max_with_tolerance(*data, peak, tol)
+            if checkMaxH is not None and checkMaxQ is not None:
+                r0.move_to(maxX)
+                r1.move_to(maxY)
+                r0.wait_for_stop()
+                r1.wait_for_stop()
+                test_measurement = m_func(measurements=1000)
+                sleep(1)
+                print((abs(test_measurement - peak) / peak))
+                within_range = test_measurement >= peak * (1 - tol) and test_measurement <= peak * (1 + tol)
+                if (within_range):
+                    return X, Y, Z1, checkMaxH, checkMaxQ, checkMaxM
+            return self.optimize(m_func=m_func, r0=r0, r1=r1, x0=None, data=data, rotor_channel=rotor_channel,
+                            terminate=True, tol=tol)
+        else:
+            return X, Y, Z1, maxX, maxY, maxZ
     def close(self):
         self.stage[0].close()
         self.stage[1].close()

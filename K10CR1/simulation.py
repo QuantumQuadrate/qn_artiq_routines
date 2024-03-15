@@ -4,124 +4,83 @@ from scipy.signal import argrelmax
 import matplotlib.pyplot as plt
 from time import sleep
 from rotator_feedback import RotatorFeedbackChannel
+import math
+from ArbitraryRetarder import *
 
 
-sin = np.sin
-cos = np.cos
-exp = np.exp
-pi = np.pi
-rand = np.random.rand
+def q_h_gen(range, steps, center_x, center_y, random = False):
 
+    if not random:
+        range /= 2
+        rads = np.arange(0, 2*np.pi, (2*np.pi)/steps)
+        x = range * ( np.cos(rads) ) - center_x
+        y = range * ( np.sin(rads) ) - center_y
+        x1 = range/2 * ( np.cos(rads) ) - center_x
+        y1 = range/2 * ( np.sin(rads) ) - center_y
+        x2 = range / 4 * (np.cos(rads)) - center_x
+        y2 = range / 4 * (np.sin(rads)) - center_y
+        x0 = np.append(x, x1)
+        x0 = np.append(x0, x2)
+        y0 = np.append(y, y1)
+        y0 = np.append(y0, y2)
+    if random is True:
+        x0, x1, x2 = rand(steps)*range, rand(steps)*range/2, rand(steps)*range/4
+        x0 = np.append(x0,x1)
+        x0 = np.append(x0, x2)
+        y0, y1, y2 = rand(steps)*range, rand(steps)*range/2, rand(steps)*range/4
+        y0 = np.append(y0, y1)
+        y0 = np.append(y0, y2)
 
-def exi(exponentiation: float):
-    return exp(1j * exponentiation)
-def rotation(theta):
-    R00 = cos(theta)
-    R01 = sin(theta)
-    R10 = -1 * sin(theta)
-    R11 = cos(theta)
-    return R00, R01, R10, R11
-
-def arb_retarder(phi: float, theta: float, eta: float):
-
-    c = cos(theta)
-    s = sin(theta)
-    gp = exi(-eta/2)
-
-    off_diag_factor = (1 - exi(eta)) * c * s
-    J00 = c**2 + exi(eta)*(s**2)
-    J01 = off_diag_factor*exi(-1*phi)
-    J10 = off_diag_factor*exi(phi)
-    J11 = exi(eta) *c ** 2 +  (s ** 2)
-
-    J00 *= gp
-    J01 *= gp
-    J10 *= gp
-    J11 *= gp
-
-    return J00, J01, J10, J11
-
-
-def qwp(fast_axis_angle = 90, piecewise = False):
-
-    rad_angle = np.radians(fast_axis_angle)
-    complex_factor = np.exp(complex(-1j * np.pi / 4))
-    c = np.cos(rad_angle)
-    s = np.sin(rad_angle)
-    mat = np.array([[c**2 + 1j*s**2, (1-1j)*s*c],
-                        [(1-1j)*s*c, s**2+1j*c**2]])
-    matrix = mat.astype(complex)
-    matrix *= complex_factor
-    if not piecewise:
-        return matrix
-    else:
-        return matrix[0][0], matrix[0][1], matrix[1][0], matrix[1][1]
-
-def hwp(fast_axis_angle = 90, piecewise = False):
-    rad_angle = np.radians(fast_axis_angle)
-    complex_factor = np.exp(complex(-1j * np.pi / 2))
-    c = np.cos(rad_angle)
-    s = np.sin(rad_angle)
-    mat = np.array([[c**2 - s**2, 2*s*c],
-                        [2*s*c, s**2 - c**2]])
-    matrix = mat.astype(complex)
-    matrix *= complex_factor
-    if not piecewise:
-        return matrix
-    else:
-        return matrix[0][0], matrix[0][1], matrix[1][0], matrix[1][1]
-
-def measure(q_ang = 45, h_ang = 100, theta = 3*pi/4, phi = pi/3, eta = pi/4, E = 1,  theta_h = 0, theta_q = 0, a = 0):
-    qwp00, qwp01, qwp10, qwp11 = qwp(fast_axis_angle=q_ang-theta_q, piecewise=True)
-    hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang-theta_h, piecewise=True)
-
-    ar00,  ar01, ar10, ar11 = arb_retarder(theta=theta, phi=phi, eta=eta)
-
-    input_state = [E, 0]
-
-    A_p = qwp00*input_state[0] + qwp01*input_state[1]
-    B_p = qwp10*input_state[0] + qwp11*input_state[1]
-    A_pp = hwp00*A_p + hwp01*B_p
-    B_pp = hwp10*A_p + hwp11*B_p
-    state_lp1 = ar00 * A_pp + ar01 * B_pp
-    state_lp2 = ar10 * A_pp + ar11 * B_pp
-    value = np.sqrt(abs(state_lp1)**2)
-
-    return value + a
-
-
-def move_and_measure(theta, eta, phi, range, steps, a = 0, b = 0, theta_h = 0, theta_q = 0, dry_run = True,
+    return x0,y0
+def move_and_measure(theta = None, eta = None, phi = None, range = None, steps = None, a = 0, b = 0, theta_h = 0, theta_q = 0, dry_run = True,
                      r_feedback = None, E = None):
-    q_ang = np.random.uniform(low = -range/2,high = range/2,size =steps) + a - theta_q
-    h_ang = np.random.uniform(low = -range/2, high = range/2, size = steps) + b - theta_h
-    #q_ang.sort()
-    #h_ang.sort()
+    h_ang, q_ang = q_h_gen(steps=steps, range=range, center_x = -a, center_y= -b, random=True)
+    q_ang -=  theta_q
+    h_ang -=  theta_h
+    mq_ang = []
+    mh_ang = []
+
+    measure = r_feedback.measure
     measurements = []
     if dry_run or r_feedback is None:
-        for q,h in zip(q_ang, h_ang):
+        for h,q in zip(q_ang, h_ang):
             measurements.append(np.sum(measure(q_ang=q, h_ang=h, theta = theta, phi=phi,
                                                eta = eta, E = E)))
     else:
         for q, h in zip(q_ang, h_ang):
             r_feedback.stage[1].move_to(q)
             r_feedback.stage[0].move_to(h)
+            i = 0
+            sleep(0.3)
             while r_feedback.is_moving():
-
-
+                mq_ang = np.append(mq_ang, r_feedback._pos(rotor_num=1))
+                mh_ang = np.append(mh_ang, r_feedback._pos(rotor_num=0))
+                measurement = measure(measurements=1)
+                measurements = np.append(measurements, measurement)
+                #print("intermediate measurement")
+                #print(q_ang)
+                i+=1
+                if not i%10:
+                    print("still reading...")
+                sleep(0.3)
             r_feedback.stage[1].wait_for_stop()
             r_feedback.stage[0].wait_for_stop()
 
-            measurement = r_feedback.measure()
-            measurements.append(measurement)
-            sleep(1)
-            print(measurement)
 
-    return q_ang, h_ang, measurements
+    return mh_ang, mq_ang, measurements
 
-def constraint(x, args):
-    return (x[3] - x[6] - args)
 
-def objective_func(x, args):
+def measurement_constraint(x, h_args, q_args, m_args):
+    error = 0
+    for h, q, m in zip(h_args, q_args, m_args):
+        error += m - measure(h, q ,*x)
+    return error
+def measurement_constraint2(x,h,q,m):
+    return (measure(h,q,*x)-m)
+#function to be minimized by scipy.minimize, emulates the behavior of some arbitrary light retarder
+def max_constraint(x):
+    return 0
+def objective_func(x, hdata, qdata, mdata):
     theta = x[0]
     eta = x[1]
     phi = x[2]
@@ -129,17 +88,17 @@ def objective_func(x, args):
     phase_q = x[4]
     phase_h = x[5]
     a = x[6]
-    q_ang = args[0]
-    h_ang = args[1]
-    measurements = args[2]
+    h_ang = hdata
+    q_ang = qdata
+    measurements = mdata
     error = 0
 
-    for q, h, measurement in zip(q_ang, h_ang, measurements):
+    for h, q, measurement in zip(h_ang, q_ang, measurements):
 
         error += (np.sum(measure(q_ang=q, h_ang =h, theta=theta, phi = phi, eta = eta, theta_q=phase_q,
                                  theta_h=phase_h, E=E, a = a)
-                         -measurement)*1000)**2
-    return error*1000
+                         -measurement))**2
+    return error
 
 def gen_secrets(default = False):
     if default:
@@ -156,74 +115,117 @@ def gen_secrets(default = False):
 
         return theta, eta, phi, E
 
+def max_with_tolerance(h,q,m,peak,tol):
+    m_indices = [i < (peak*(1+tol)) and i > (peak*(1-tol)) for i in m]
+    m_indices = [j == max(m) and t for j, t in zip(m,m_indices)]
+    for i, j, m in zip(h, q, m):
+        if i != -361 and j != -361:
+            return i, j, m
+    return None, None, None
+def optimize(m_func, r0, r1, data = None, x0 = None, bounds = None, rotor_channel = None, cons= None, range_val = 180, terminate = False, alpha = 0, beta = 0, tol = 0.2):
+    cons = ({'type': 'ineq',
+             'fun': constraint,
+             'args': (max(data[2]),)
+             },
+            {'type': 'eq',
+             'fun': max_constraint,
+             },)
 
 
+    method = 'trust-constr'
+    trust_constr_opts = {'disp': True, 'barrier_tol':1e-8, 'xtol': 1e-12,
+                         'initial_constr_penalty':1, 'maxiter':5e3,}
+    if data is not None:
+        pot_max = max(data[2])
+        pot_min = min(data[2])
+        bounds = [(0, pi), (0, pi), (0, pi), (pot_max - pot_min, np.inf), (0, pi), (0, pi),
+                  (-0.5, pot_max)]
+    else:
+        pot_max = rand()*3
+    if x0 is None:
+        x0 = [rand() * pi, rand() * pi, rand() * pi, pot_max-pot_min, 0, 0, 0]
+        sleep(1)
+    result = minimize(objective_func, x0=x0, args = data, bounds=bounds, method=method,
+                      constraints=cons, options=trust_constr_opts)
 
-rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False)
-rotor_channel.stage[0].stop()
-rotor_channel.stage[1].stop()
-#rotor_channel.stage[0].move_to(0)
-#rotor_channel.stage[1].move_to(0)
-rotor_channel.stage[0].wait_for_stop()
-rotor_channel.stage[1].wait_for_stop()
+    x = result.x
+    theta, eta, phi, E, p_q, p_h, a = x
 
+    h = np.linspace(-range_val / 2 + alpha, range_val / 2 + alpha, 30)
+    q = np.linspace(-range_val / 2 + beta, range_val / 2 + beta, 30)
+
+    X, Y = np.meshgrid(h, q)
+
+    Z1 = measure(q_ang=Y, h_ang=X, theta=theta, eta=eta, phi=phi, theta_q=p_q, theta_h=p_h, E=E, a=a)
+    peak = (E + a)
+
+    c = np.argmax(Z1)
+
+    maxX, maxY, maxZ = X[c // 30][c % 30], Y[c // 30][c % 30], Z1[c // 30][c % 30]
+
+
+    r0.move_to(maxX)
+    r1.move_to(maxY)
+    r0.wait_for_stop()
+    r1.wait_for_stop()
+    test_measurement = m_func(measurements=1000)
+    sleep(1)
+    print( (abs(test_measurement - peak) / peak ) )
+    within_range = test_measurement >= peak*(1-tol) and test_measurement <= peak*(1+tol)
+    terminate = within_range or terminate
+    if not terminate:
+        newh, newq, newm = move_and_measure(range=90, steps=5, r_feedback=rotor_channel, dry_run=False, a=maxX, b=maxY)
+        h, q, m = data
+        h = np.append(h, newh)
+        q = np.append(q, newq)
+        m = np.append(m, newm)
+        data = h, q, m
+
+        checkMaxH, checkMaxQ, checkMaxM = max_with_tolerance(*data, peak, tol)
+        if checkMaxH is not None and checkMaxQ is not None:
+            r0.move_to(maxX)
+            r1.move_to(maxY)
+            r0.wait_for_stop()
+            r1.wait_for_stop()
+            test_measurement = m_func(measurements=1000)
+            sleep(1)
+            print((abs(test_measurement - peak) / peak))
+            within_range = test_measurement >= peak * (1 - tol) and test_measurement <= peak*(1 + tol)
+            if(within_range):
+                return X, Y, Z1, checkMaxH, checkMaxQ, checkMaxM
+        return optimize(m_func=m_func, r0 = r0, r1=r1, x0 = None, data=data, rotor_channel=rotor_channel, terminate=True, tol = tol)
+    else:
+        return X, Y, Z1, maxX, maxY, maxZ
+
+
+rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False, )
 
 range_val = 180
-steps = 10
+steps = 4
 theta_0, eta_0, phi_0, E_0 = gen_secrets(default=False)
+q_init_pos = rotor_channel._pos(rotor_num=1)
+h_init_pos = rotor_channel._pos(rotor_num=0)
 
-q_ang, h_ang, measurements = move_and_measure(phi=phi_0, theta = theta_0, eta = eta_0, range = range_val,
-                                              steps = steps, r_feedback = rotor_channel, dry_run=False, E = E_0, a=0, b= 0)
+data = move_and_measure(phi=phi_0, theta = theta_0, eta = eta_0, range = range_val,
+                                              steps = steps, r_feedback = rotor_channel, dry_run=False, E = E_0, a=h_init_pos, b=q_init_pos)
 
-x0 = [rand()*pi, rand()*pi, rand()*pi, max(measurements)*1.2, 0, 0, 0]
-
-args = [[],[],[]]
-
-args[0].append(q_ang)
-args[1].append(h_ang)
-args[2].append(measurements)
-#print(args)
-cons = ({'type': 'ineq',
-       'fun': constraint,
-       'args': (max(args[2]),)
-       })
-
-bounds = [(0, pi), (0, pi), (0, pi), (max(measurements)-min(measurements), np.inf), (0, pi), (0, pi), (-0.5, min(measurements))]
-result = minimize(objective_func, x0 = x0, args=args, bounds=bounds, method='trust-constr', tol = 1e-15, constraints = cons)
-x = result.x
-theta, eta, phi, E, p_q, p_h, a = x
-
-q = np.linspace(-range_val/2,range_val/2, 30)
-h = np.linspace(-range_val/2,range_val/2, 30)
-X, Y = np.meshgrid(q,h)
-print(E-E_0)
-print(theta-theta_0)
-print(eta-eta_0)
-print(phi-phi_0)
-
-
-Z = measure(q_ang=X, h_ang=Y, theta = theta_0, eta=eta_0, phi=phi_0, theta_q = 0, theta_h = 0, E = E_0)
-Z1 = measure(q_ang=X, h_ang=Y, theta = theta, eta=eta, phi=phi, theta_q = p_q, theta_h = p_h, E = E, a = a)
-
+X, Y, Z1, maxX, maxY, maxZ = optimize(m_func = rotor_channel.measure, r1 = rotor_channel.stage[1], r0 = rotor_channel.stage[0],
+                                      data = data, rotor_channel=rotor_channel, alpha = h_init_pos, beta = q_init_pos,
+                                      tol = 0.05)
 fig = plt.figure()
-#ax = plt.axes(projection='3d')
+
 ax = fig.add_subplot(projection ="3d")
-#ax.scatter(q_ang, h_ang, measurements, s = 30, marker="*")
-#ax.scatter(X, Y, Z, marker=".", s=3)
+
+
+
+
+ax.scatter(maxX, maxY, maxZ, marker = "*", s = 20)
 ax.scatter(X, Y, Z1, marker = ".", s=5)
-ax.scatter(q_ang, h_ang, measurements)
-c = argrelmax(Z1, order = 100)
-maxX, maxY, maxZ = X[c], Y[c], Z1[c]
-measurementMaxIndex = np.where(Z1 == (max(Z1[c])))
-maxVals = np.sum(maxX[measurementMaxIndex[0]]), np.sum(maxY[measurementMaxIndex[0]])
-rotor_channel.move_to(degrees=maxVals[0], rotor_num=0)
-rotor_channel.move_to(degrees=maxVals[1], rotor_num=1)
-rotor_channel.wait_stop()
+
+ax.scatter(data[0], data[1], data[2])
 
 
-#q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val, steps = 10)
 
-#.scatter(maxX,maxY,maxZ, marker = "*", s = 20)
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')
