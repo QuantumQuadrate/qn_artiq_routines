@@ -3,7 +3,7 @@ from scipy.optimize import minimize, curve_fit
 from scipy.signal import argrelmax
 import matplotlib.pyplot as plt
 from time import sleep
-from rotator_feedback import RotatorFeedbackChannel
+
 
 sin = np.sin
 cos = np.cos
@@ -129,45 +129,21 @@ def measure(q_ang = 45, h_ang = 100, theta = 3*pi/4, phi = pi/3, eta = pi/4, E =
 #input == 2x1 vector describing an EM wave in form [E0 exp(phi_x), E0 exp(phi_y)]
 """
 def plate_config_measure(configs):
-    def generated_func(angles, input=[1, 0]):
-        output = input
-        temp_output = output
+    def generated_func(angles, input=np.array([1, 0]), E = 1, background = 0):
+        output0, output1 = input.astype(complex)
+        temp_output0 = output0
+        temp_output1 = output1
         for c, a in zip(configs, angles):
-            config = c(a)
-            temp_output[0] = config[0][0] * output[0] + config[0][1] * output[1]
-            temp_output[1] = config[1][0] * output[0] + config[1][1] * output[1]
-            output = temp_output
-        return output
+            config00, config01, config10, config11 = c(a, piecewise = True)
+            temp_output0 = config00 * output0 + config01 * output1
+            temp_output1 = config10 * output0 + config11 * output1
+            output0 = temp_output0
+            output1 = temp_output1
+        return np.sqrt(abs(output0)**2)*E + background
 
     return generated_func
-def objective_func(x, hdata, qdata, mdata):
-    theta = x[0]
-    eta = x[1]
-    phi = x[2]
-    E = x[3]
-    phase_q = x[4]
-    phase_h = x[5]
-    a = x[6]
-    h_ang = hdata
-    q_ang = qdata
-    measurements = mdata
-    error = 0
 
-    for h, q, measurement in zip(h_ang, q_ang, measurements):
-
-        error += (np.sum(measure(q_ang=q, h_ang =h, theta=theta, phi = phi, eta = eta, theta_q=phase_q,
-                                 theta_h=phase_h, E=E, a = a)
-                         -measurement))**2
 
 #Constrains that the max found by the minimize function must be greater or equal to the max measured value
 def constraint(x, args):
     return (x[3] + x[6] - args)
-
-configs = [hwp, qwp, arb_retarder]
-arb  = [1.3,4.5, 3.2]
-angles = [0, 45, arb]
-input = [1,0]
-
-gen_func = plate_config_measure(configs)
-
-print(gen_func([0,45]))

@@ -37,8 +37,8 @@ def move_and_measure(theta = None, eta = None, phi = None, range = None, steps =
     h_ang, q_ang = q_h_gen(steps=steps, range=range, center_x = -a, center_y= -b, random=True)
     q_ang -=  theta_q
     h_ang -=  theta_h
-    mq_ang = []
-    mh_ang = []
+    ang1 = []
+    ang2 = []
 
     measure = r_feedback.measure
     measurements = []
@@ -47,9 +47,9 @@ def move_and_measure(theta = None, eta = None, phi = None, range = None, steps =
             measurements.append(np.sum(measure(q_ang=q, h_ang=h, theta = theta, phi=phi,
                                                eta = eta, E = E)))
     else:
-        for q, h in zip(q_ang, h_ang):
-            r_feedback.stage[1].move_to(q)
-            r_feedback.stage[0].move_to(h)
+        for a1, a2 in zip(q_ang, h_ang):
+            r_feedback.stage[0].move_to(a1)
+            r_feedback.stage[1].move_to(a2)
             i = 0
             sleep(0.3)
             while r_feedback.is_moving():
@@ -67,7 +67,7 @@ def move_and_measure(theta = None, eta = None, phi = None, range = None, steps =
             r_feedback.stage[0].wait_for_stop()
 
 
-    return mh_ang, mq_ang, measurements
+    return ang1, ang2, measurements
 
 
 def measurement_constraint(x, h_args, q_args, m_args):
@@ -198,37 +198,8 @@ def optimize(m_func, r0, r1, data = None, x0 = None, bounds = None, rotor_channe
         return X, Y, Z1, maxX, maxY, maxZ
 
 
-rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False, )
+rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55000741", "55105674" ], dry_run=False, )
 
 range_val = 180
 steps = 4
 theta_0, eta_0, phi_0, E_0 = gen_secrets(default=False)
-q_init_pos = rotor_channel._pos(rotor_num=1)
-h_init_pos = rotor_channel._pos(rotor_num=0)
-
-data = move_and_measure(phi=phi_0, theta = theta_0, eta = eta_0, range = range_val,
-                                              steps = steps, r_feedback = rotor_channel, dry_run=False, E = E_0, a=h_init_pos, b=q_init_pos)
-
-X, Y, Z1, maxX, maxY, maxZ = optimize(m_func = rotor_channel.measure, r1 = rotor_channel.stage[1], r0 = rotor_channel.stage[0],
-                                      data = data, rotor_channel=rotor_channel, alpha = h_init_pos, beta = q_init_pos,
-                                      tol = 0.05)
-fig = plt.figure()
-
-ax = fig.add_subplot(projection ="3d")
-
-
-
-
-ax.scatter(maxX, maxY, maxZ, marker = "*", s = 20)
-ax.scatter(X, Y, Z1, marker = ".", s=5)
-
-ax.scatter(data[0], data[1], data[2])
-
-
-
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-ax.set_zlabel('z')
-ax.set_title(' ')
-plt.show()
-rotor_channel.close()
