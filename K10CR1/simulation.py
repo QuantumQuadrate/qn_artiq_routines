@@ -3,7 +3,7 @@ from scipy.optimize import minimize, curve_fit
 from scipy.signal import argrelmax
 import matplotlib.pyplot as plt
 from time import sleep
-from rotator_feedback import RotatorFeedbackChannel
+#from rotator_feedback import RotatorFeedbackChannel
 
 
 sin = np.sin
@@ -13,7 +13,7 @@ pi = np.pi
 rand = np.random.rand
 
 
-def exi(exponentiation: float):
+def exi(exponentiation: complex):
     return exp(1j * exponentiation)
 def rotation(theta):
     R00 = cos(theta)
@@ -22,24 +22,23 @@ def rotation(theta):
     R11 = cos(theta)
     return R00, R01, R10, R11
 
-def arb_retarder(phi: float, theta: float, eta: float):
-
+def arb_retarder(phi: complex, theta: complex, eta: complex):
     c = cos(theta)
     s = sin(theta)
     gp = exi(-eta/2)
-
     off_diag_factor = (1 - exi(eta)) * c * s
-    J00 = c**2 + exi(eta)*(s**2)
-    J01 = off_diag_factor*exi(-1*phi)
-    J10 = off_diag_factor*exi(phi)
-    J11 = exi(eta) *c ** 2 +  (s ** 2)
+    mat = np.array([[0,0],[0,0]]).astype(complex)
+    mat[0][0] = c**2 + exi(eta)*(s**2)
+    mat[0][1] = off_diag_factor*exi(-1*phi)
+    mat[1][0] = off_diag_factor*exi(phi)
+    mat[1][1] = exi(eta) *c ** 2 +  (s ** 2)
 
-    J00 *= gp
-    J01 *= gp
-    J10 *= gp
-    J11 *= gp
+    mat[0][0] *= gp
+    mat[0][1] *= gp
+    mat[1][0] *= gp
+    mat[1][1] *= gp
 
-    return J00, J01, J10, J11
+    return mat[0][0], mat[0][1], mat[1][0], mat[1][1]
 
 
 def qwp(fast_axis_angle = 90, piecewise = False):
@@ -105,7 +104,6 @@ def move_and_measure(theta, eta, phi, range, steps, a = 0, b = 0, theta_h = 0, t
         for q, h in zip(q_ang, h_ang):
             r_feedback.stage[1].move_to(q)
             r_feedback.stage[0].move_to(h)
-            while r_feedback.is_moving():
 
 
             r_feedback.stage[1].wait_for_stop()
@@ -116,28 +114,22 @@ def move_and_measure(theta, eta, phi, range, steps, a = 0, b = 0, theta_h = 0, t
             sleep(1)
             print(measurement)
 
-    return q_ang, h_ang, measurements
+    return h_ang, q_ang, measurements
 
-def constraint(x, args):
+def cons1(x, args):
     return (x[3] - x[6] - args)
+def cons2(x, h_arg,q_arg, m_arg):
+    for h, q, m in zip(h_arg, q_arg, m_arg):
+        error = 0
+        return 0
 
-def objective_func(x, args):
-    theta = x[0]
-    eta = x[1]
-    phi = x[2]
-    E = x[3]
-    phase_q = x[4]
-    phase_h = x[5]
-    a = x[6]
-    q_ang = args[0]
-    h_ang = args[1]
-    measurements = args[2]
+
+def objective_func(x, hdata, qdata, mdata):
     error = 0
 
-    for q, h, measurement in zip(q_ang, h_ang, measurements):
-
-        error += (np.sum(measure(q_ang=q, h_ang =h, theta=theta, phi = phi, eta = eta, theta_q=phase_q,
-                                 theta_h=phase_h, E=E, a = a)
+    for h, q, measurement in zip(hdata, qdata, mdata):
+        print(q)
+        error += (np.sum(measure(q_ang=q, h_ang = h, theta = x[0], eta = x[1], phi = [2], E = [3], theta_q=x[4], theta_h = x[5], a = x[6])
                          -measurement)*1000)**2
     return error*1000
 
@@ -159,37 +151,35 @@ def gen_secrets(default = False):
 
 
 
-rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False)
-rotor_channel.stage[0].stop()
-rotor_channel.stage[1].stop()
+rotor_channel = None #RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55105674", "55000741"], dry_run=False)
+#rotor_channel.stage[0].stop()
+#rotor_channel.stage[1].stop()
 #rotor_channel.stage[0].move_to(0)
 #rotor_channel.stage[1].move_to(0)
-rotor_channel.stage[0].wait_for_stop()
-rotor_channel.stage[1].wait_for_stop()
+#rotor_channel.stage[0].wait_for_stop()
+#rotor_channel.stage[1].wait_for_stop()
 
 
 range_val = 180
 steps = 10
 theta_0, eta_0, phi_0, E_0 = gen_secrets(default=False)
 
-q_ang, h_ang, measurements = move_and_measure(phi=phi_0, theta = theta_0, eta = eta_0, range = range_val,
-                                              steps = steps, r_feedback = rotor_channel, dry_run=False, E = E_0, a=0, b= 0)
+data = move_and_measure(phi=phi_0, theta = theta_0, eta = eta_0, range = range_val,
+                                              steps = steps, r_feedback = rotor_channel, dry_run=True, E = E_0, a=0, b= 0)
 
-x0 = [rand()*pi, rand()*pi, rand()*pi, max(measurements)*1.2, 0, 0, 0]
+pot_max = max(data[2])
+pot_min = min(data[2])
+x0 = [rand()*pi, rand()*pi, rand()*pi, pot_max*1.2, 0, 0, 0]
 
-args = [[],[],[]]
 
-args[0].append(q_ang)
-args[1].append(h_ang)
-args[2].append(measurements)
 #print(args)
 cons = ({'type': 'ineq',
-       'fun': constraint,
-       'args': (max(args[2]),)
+       'fun': cons1,
+       'args': (pot_max,)
        })
 
-bounds = [(0, pi), (0, pi), (0, pi), (max(measurements)-min(measurements), np.inf), (0, pi), (0, pi), (-0.5, min(measurements))]
-result = minimize(objective_func, x0 = x0, args=args, bounds=bounds, method='trust-constr', tol = 1e-15, constraints = cons)
+bounds = [(0, pi), (0, pi), (0, pi), (pot_max-pot_min, np.inf), (0, pi), (0, pi), (-0.5, pot_min)]
+result = minimize(objective_func, x0 = x0, args=data, bounds=bounds, method='trust-constr', tol = 1e-15, constraints = cons)
 x = result.x
 theta, eta, phi, E, p_q, p_h, a = x
 
@@ -211,15 +201,15 @@ ax = fig.add_subplot(projection ="3d")
 #ax.scatter(q_ang, h_ang, measurements, s = 30, marker="*")
 #ax.scatter(X, Y, Z, marker=".", s=3)
 ax.scatter(X, Y, Z1, marker = ".", s=5)
-ax.scatter(q_ang, h_ang, measurements)
+ax.scatter(data[0], data[1], data[2])
 c = argrelmax(Z1, order = 100)
 maxX, maxY, maxZ = X[c], Y[c], Z1[c]
 measurementMaxIndex = np.where(Z1 == (max(Z1[c])))
 maxVals = np.sum(maxX[measurementMaxIndex[0]]), np.sum(maxY[measurementMaxIndex[0]])
-rotor_channel.move_to(degrees=maxVals[0], rotor_num=0)
-rotor_channel.move_to(degrees=maxVals[1], rotor_num=1)
-rotor_channel.wait_stop()
-
+#rotor_channel.move_to(degrees=maxVals[0], rotor_num=0)
+#rotor_channel.move_to(degrees=maxVals[1], rotor_num=1)
+#rotor_channel.wait_stop()
+print(maxVals)
 
 #q_ang, h_ang, measurements = move_and_measure(phi_x=phi_x, phi_y = phi_y, rand_axis=rand_axis, range = range_val, steps = 10)
 

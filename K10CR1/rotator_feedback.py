@@ -15,16 +15,18 @@ import matplotlib.animation as animation
 class RotatorFeedbackChannel():
 
     def __init__(self,ch_name = "Dev1/ai0", dds_channel=1, rotator_sn=['55105674', '55000741'], dry_run = True ,
-                 max_runs=10, leave_laser_on=False):
-
+                 max_runs=10, leave_laser_on=False, samples_per_second = 1):
+        self.samples_per_second = samples_per_second
+        if self.samples_per_second > 1e5:
+            self.samples_per_second = 1e5
         acq_type = getattr(daq_constants.AcquisitionType, 'FINITE')
         terminal_cfg = getattr(daq_constants.TerminalConfiguration, 'NRSE')
 
         self.dry_run = dry_run
         self.daq_task = daq.Task()
 
-        self.daq_task.ai_channels.add_ai_voltage_chan(physical_channel=ch_name)
-        self.daq_task.timing.cfg_samp_clk_timing(rate=10000, sample_mode=acq_type, samps_per_chan=10000)
+        self.daq_task.ai_channels.add_ai_voltage_chan(physical_channel=ch_name, terminal_cfg = terminal_cfg)
+        self.daq_task.timing.cfg_samp_clk_timing(rate=samples_per_second, sample_mode=acq_type, samps_per_chan=samples_per_second)
 
         if self.dry_run:
             self.measure = self.measure_dryrun2  # use this for testing since you don't have access to artiq hardware yet
@@ -67,8 +69,10 @@ class RotatorFeedbackChannel():
         return self._pos(rotor_num) % 360
 
     #@kernel
-    def _measure(self):
-        data = self.daq_task.read(number_of_samples_per_channel=10000)
+    def _measure(self, spc = None):
+        if spc is None:
+            spc = self.samples_per_second
+        data = self.daq_task.read(number_of_samples_per_channel=spc)
         #print(data)
         return np.mean(data)
 
