@@ -108,7 +108,7 @@ def measure(q_ang = 45, h_ang = 100, theta = 3*pi/4, phi = pi/3, eta = pi/4, E =
     hwp00, hwp01, hwp10, hwp11 = hwp(fast_axis_angle=h_ang-theta_h, piecewise=True)
 
     args  = theta, phi, eta
-    ar00,  ar01, ar10, ar11 = arb_retarder(args)
+    ar00,  ar01, ar10, ar11 = arb_retarder(args, piecewise=True)
 
     input_state = [1, 0]
 
@@ -127,6 +127,8 @@ def measure(q_ang = 45, h_ang = 100, theta = 3*pi/4, phi = pi/3, eta = pi/4, E =
 #configs == 2x2 array of functions corresponding to a certain plate/retarder
 #angles == arrays of inputs for the waveplates dictating their position
 #input == 2x1 vector describing an EM wave in form [E0 exp(phi_x), E0 exp(phi_y)]
+
+todo: resturcture to allow scipy.minimize to use
 """
 def plate_config_measure(configs):
     def generated_func(angles, input=np.array([1, 0]), E = 1, background = 0):
@@ -139,11 +141,26 @@ def plate_config_measure(configs):
             temp_output1 = config10 * output0 + config11 * output1
             output0 = temp_output0
             output1 = temp_output1
-        return np.sqrt(abs(output0)**2)*E + background
+        return np.sqrt(abs(output0**2))*E + background
 
     return generated_func
 
 
 #Constrains that the max found by the minimize function must be greater or equal to the max measured value
-def constraint(x, args):
-    return (x[3] + x[6] - args)
+
+def gen_secrets(default = False):
+    if default:
+        theta = pi/3
+        eta = pi
+        phi = 2*pi/2
+        E = 1
+        return theta, eta, phi, E
+    else:
+        theta = rand()*pi
+        eta = rand()*pi
+        phi = rand()*pi
+        E = rand()*2
+
+        return theta, eta, phi, E
+
+
