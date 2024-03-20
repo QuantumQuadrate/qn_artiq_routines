@@ -201,9 +201,10 @@ class RotatorFeedbackChannel():
         measurements = mdata
         error = 0
         arb_r_angs = [theta,eta,phi]
+        #TODO: weight errors also based on distance between previous point
         for ang1, ang2, m in zip(ang1_data, ang2_data, measurements):
             angs = [ang1-p1, ang2-p2, arb_r_angs]
-            error += (np.sum(np.array(self.measure_sim(angs, E = E, background = a))-m)) ** 2
+            error += ((np.sum(np.array(self.measure_sim(angs, E = E, background = a))-m)) ** 2)*(m**2)
         return error
 
     def optimize(self, data=None, x0=None, bounds=None, cons=None, range_val=180,
