@@ -117,11 +117,16 @@ def gen_secrets(default = False):
 
 def max_with_tolerance(h,q,m,peak,tol):
     m_indices = [i < (peak*(1+tol)) and i > (peak*(1-tol)) for i in m]
-    m_indices = [j == max(m) and t for j, t in zip(m,m_indices)]
-    for i, j, m in zip(h, q, m):
-        if i != -361 and j != -361:
-            return i, j, m
+    for i, j, m_1 in zip(h, q, m):
+        if m_1 == max(m) and (m_1 < (peak*(1+tol)) and m_1 > (peak*1-tol)):
+            return i, j, m_1
     return None, None, None
+
+
+def constraint(x, args):
+    return (x[3] + x[6] - args)
+
+
 def optimize(m_func, r0, r1, data = None, x0 = None, bounds = None, rotor_channel = None, cons= None, range_val = 180, terminate = False, alpha = 0, beta = 0, tol = 0.2):
     cons = ({'type': 'ineq',
              'fun': constraint,
@@ -198,8 +203,17 @@ def optimize(m_func, r0, r1, data = None, x0 = None, bounds = None, rotor_channe
         return X, Y, Z1, maxX, maxY, maxZ
 
 
-rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55000741", "55105674" ], dry_run=False, )
 
-range_val = 180
-steps = 4
-theta_0, eta_0, phi_0, E_0 = gen_secrets(default=False)
+rotor_channel = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55000741", "55105674" ], dry_run=True, plate_config = (qwp, hwp, arb_retarder))
+
+ang1 = np.random.rand(5)*180
+ang2 = np.random.rand(5)*180
+m =  np.random.rand(5)*100
+
+max_question_mark = max_with_tolerance(ang1,ang2,m=m, peak = 80, tol = 0.1)
+
+print(max_question_mark)
+angs = np.random.rand(3,3)
+
+ang = [ang1, ang2, angs]
+

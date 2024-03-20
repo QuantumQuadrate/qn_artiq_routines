@@ -16,7 +16,7 @@ from scipy.optimize import minimize
 
 class RotatorFeedbackChannel():
 
-    def __init__(self,ch_name = "Dev1/ai0", dds_channel=0, rotator_sn=['55105674', '55000741'], dry_run = True ,
+    def __init__(self,ch_name = "Dev1/ai0", dds_channel=0, rotator_sn=['55000741','55105674',], dry_run = True ,
                  max_runs=10, leave_laser_on=False, spc = None, rate = None, plate_config = None):
 
         self.spc = spc
@@ -35,7 +35,7 @@ class RotatorFeedbackChannel():
         self.daq_task.ai_channels.add_ai_voltage_chan(physical_channel=ch_name)
 
         if self.dry_run:
-            self.measure = self.measure_dryrun2  # use this for testing since you don't have access to artiq hardware yet
+            self.measure = self.measure_sim  # use this for testing since you don't have access to artiq hardware yet
         else:
             self.measure = self._measure
 
@@ -97,23 +97,19 @@ class RotatorFeedbackChannel():
         if not random:
             range /= 2
             rads = np.arange(0, 2 * np.pi, (2 * np.pi) / steps)
-            x = range * (np.cos(rads)) - center_x
-            y = range * (np.sin(rads)) - center_y
-            x1 = range / 2 * (np.cos(rads)) - center_x
-            y1 = range / 2 * (np.sin(rads)) - center_y
-            x2 = range / 4 * (np.cos(rads)) - center_x
-            y2 = range / 4 * (np.sin(rads)) - center_y
+            x = range * (np.cos(rads)) + center_x
+            y = range * (np.sin(rads)) + center_y
+            x1 = range / 2 * (np.cos(rads)) + center_x
+            y1 = range / 2 * (np.sin(rads)) + center_y
+            x2 = range / 4 * (np.cos(rads)) + center_x
+            y2 = range / 4 * (np.sin(rads)) + center_y
             x0 = np.append(x, x1)
             x0 = np.append(x0, x2)
             y0 = np.append(y, y1)
             y0 = np.append(y0, y2)
         if random is True:
-            x0, x1, x2 = np.random.rand(steps) * range, np.random.rand(steps) * range / 2, np.random.rand(steps) * range / 4
-            x0 = np.append(x0, x1)
-            x0 = np.append(x0, x2)
-            y0, y1, y2 = np.random.rand(steps) * range, np.random.rand(steps) * range / 2, np.random.rand(steps) * range / 4
-            y0 = np.append(y0, y1)
-            y0 = np.append(y0, y2)
+            x0 = np.random.rand(steps) * range + center_x
+            y0 = np.random.rand(steps) * range + center_y
 
         return x0, y0
 
@@ -125,42 +121,40 @@ class RotatorFeedbackChannel():
     for in the optimize portion of the code, and the acceleration error component seems to be negligible, when the goal
     is achieving maximum intensity.
     """
-    def move_and_measure(self, theta=None, eta=None, phi=None, range=None, steps=None, a=0, b=0, theta_h=0, theta_q=0,
-                         dry_run=True, E=None):
-        h_ang, q_ang = self.q_h_gen(steps=steps, range=range, center_x=-a, center_y=-b, random=True)
-        q_ang -= theta_q
-        h_ang -= theta_h
-        mq_ang = []
-        mh_ang = []
+    def move_and_measure(self, theta=None, eta=None, phi=None, range=None, steps=None, a=0, b=0, theta_1=0, theta_2=0,
+                         dry_run=True, E=None, start_time = None):
+        ang1, ang2 = self.q_h_gen(steps=steps, range=range, center_x=a, center_y=b, random=True)
+        ang1 -= theta_1
+        ang2 -= theta_2
+        m_ang1 = []
+        m_ang2 = []
         # q_ang.sort()
         # h_ang.sort()
         measure = self.measure
         measurements = []
         if dry_run or self is None:
-            for h, q in zip(q_ang, h_ang):
+            for h, q in zip(ang1, ang2):
                 measurements.append(np.sum(measure(q_ang=q, h_ang=h, theta=theta, phi=phi,
                                                    eta=eta, E=E)))
         else:
-            for q, h in zip(q_ang, h_ang):
-                self.r1.move_to(q)
-                self.r0.move_to(h)
+            for a1, a2 in zip(ang1, ang2):
+                self.r0.move_to(a1)
+                self.r1.move_to(a2)
                 i = 0
                 sleep(0.3)
                 while self.is_moving():
-                    mq_ang = np.append(mq_ang, self._pos(rotor_num=1))
-                    mh_ang = np.append(mh_ang, self._pos(rotor_num=0))
+                    m_ang1 = np.append(m_ang1, self._pos(rotor_num=0))
+                    m_ang2 = np.append(m_ang2, self._pos(rotor_num=1))
                     measurement = measure(measurements=1)
                     measurements = np.append(measurements, measurement)
                     # print("intermediate measurement")
                     # print(q_ang)
                     i += 1
-                    if not i % 10:
-                        print("still reading...")
                     sleep(0.3)
                 self.stage[1].wait_for_stop()
                 self.stage[0].wait_for_stop()
 
-        return mh_ang, mq_ang, measurements
+        return m_ang1%180, m_ang2%180, measurements
     def move_by(self, degrees, rotor_num = -1, velocity = None, r1 = None):
         r = r1
         if rotor_num == -1 and r is None:
@@ -180,10 +174,9 @@ class RotatorFeedbackChannel():
 
     def max_with_tolerance(self, h, q, m, peak, tol):
         m_indices = [i < (peak * (1 + tol)) and i > (peak * (1 - tol)) for i in m]
-        m_indices = [j == max(m) and t for j, t in zip(m, m_indices)]
-        for i, j, m in zip(h, q, m):
-            if i != -361 and j != -361:
-                return i, j, m
+        for i, j, m_1 in zip(h, q, m):
+            if m_1 == max(m) and (m_1 < (peak * (1 + tol)) and m_1 > (peak * 1 - tol)):
+                return i, j, m_1
         return None, None, None
 
     def move_to(self, degrees, rotor_num = 0, velocity = None, r1 = None):
@@ -202,21 +195,43 @@ class RotatorFeedbackChannel():
         eta = x[1]
         phi = x[2]
         E = x[3]
-        phase_1 = x[4]
-        phase_2 = x[5]
-        a = x[6]
-        ang1 = ang1_data
-        ang2 = ang2_data
+        a = x[4]
+        p1 = x[5]
+        p2 = x[6]
         measurements = mdata
         error = 0
-        arb_r_angs = (theta,eta,phi)
+        arb_r_angs = [theta,eta,phi]
         for ang1, ang2, m in zip(ang1_data, ang2_data, measurements):
-            angs = (ang1-phase_1, ang2-phase_2, arb_r_angs)
+            angs = [ang1-p1, ang2-p2, arb_r_angs]
             error += (np.sum(np.array(self.measure_sim(angs, E = E, background = a))-m)) ** 2
+        return error
 
-    def optimize(self,
-                 data=None, x0=None, bounds=None, cons=None, range_val=180,
-                 terminate=False, alpha=0, beta=0, tol=0.2):
+    def optimize(self, data=None, x0=None, bounds=None, cons=None, range_val=180,
+                 terminate=False, tol=0.2):
+        """
+        :param data:
+        :param x0:
+        :param bounds:
+        :param cons:
+        :param range_val:
+        :param terminate:
+        :param alpha:
+        :param beta:
+        :param tol:
+        :return:
+        """
+        def constraint(x, args):
+            """
+
+            :param x[3]: guessed parameter value for amplitude
+            :param x[6]: guessed paramter value for background amplitude
+            :param args: maximum measured value from data
+            return value multiplied by 1e10 so that the scip.py minimize weights the peak vbeing correct over the indivi
+            -dual point matching.
+            :return: E+a = peak;  (peak-max_val)*1e10 > 0
+            """
+            return (x[3] + x[4] - args)*1e10
+
         cons = ({'type': 'ineq',
                  'fun': constraint,
                  'args': (max(data[2]),)
@@ -224,13 +239,13 @@ class RotatorFeedbackChannel():
         r0 =  self.r0
         r1 =  self.r1
         method = 'trust-constr'
-        trust_constr_opts = {'disp': True, 'barrier_tol': 1e-8, 'xtol': 1e-12,
+        trust_constr_opts = {'disp': True, 'barrier_tol': 1e-8, 'xtol': 1e-15,
                              'initial_constr_penalty': 1, 'maxiter': 5e3, }
         if data is not None:
             pot_max = max(data[2])
             pot_min = min(data[2])
-            bounds = [(0, pi), (0, pi), (0, pi), (pot_max - pot_min, np.inf), (0, pi), (0, pi),
-                      (-0.5, pot_max)]
+            bounds = [(0, pi), (0, pi), (0, pi), (pot_max - pot_min, np.inf),
+                      (0, pot_max), (0, 180), (0,180)]
         else:
             pot_max = rand() * 3
         if x0 is None:
@@ -238,16 +253,19 @@ class RotatorFeedbackChannel():
             sleep(1)
         result = minimize(self.objective_func, x0=x0, args=data, bounds=bounds, method=method,
                           constraints=cons, options=trust_constr_opts)
-
+        print(result.x)
         x = result.x
-        theta, eta, phi, E, p_q, p_h, a = x
+        theta, eta, phi, E, a, p1, p2 = x
 
-        h = np.linspace(-range_val / 2 + alpha, range_val / 2 + alpha, 30)
-        q = np.linspace(-range_val / 2 + beta, range_val / 2 + beta, 30)
+        ang1 = np.linspace(0, range_val, 30)
+        ang2 = np.linspace(0, range_val, 30)
 
-        X, Y = np.meshgrid(h, q)
+        X, Y = np.meshgrid(ang1, ang2)
 
-        Z1 = measure(q_ang=Y, h_ang=X, theta=theta, eta=eta, phi=phi, theta_q=p_q, theta_h=p_h, E=E, a=a)
+        arb_angs = [theta, eta, phi]
+        angs = [X, Y, arb_angs]
+
+        Z1 = self.measure_sim(angles=angs, E=E, background=a)
         peak = (E + a)
 
         c = np.argmax(Z1)
@@ -264,50 +282,48 @@ class RotatorFeedbackChannel():
         within_range = test_measurement >= peak * (1 - tol) and test_measurement <= peak * (1 + tol)
         terminate = within_range or terminate
         if not terminate:
-            newh, newq, newm = self.move_and_measure(range=90, steps=5, dry_run=False, a=maxX,
-                                                b=maxY)
+            newh, newq, newm = self.move_and_measure(range=180, steps=5, dry_run=False, a=0,
+                                                b=0)
             h, q, m = data
             h = np.append(h, newh)
             q = np.append(q, newq)
             m = np.append(m, newm)
             data = h, q, m
-
-            checkMaxH, checkMaxQ, checkMaxM = self.max_with_tolerance(*data, peak, tol)
-            if checkMaxH is not None and checkMaxQ is not None:
-                r0.move_to(maxX)
-                r1.move_to(maxY)
+            # Before trying to reoptimize using new data it checks if any of the new points fall within the tolerance of
+            # previous peak found by scipy.minimize
+            checkMax1, checkMax2, checkMaxM = self.max_with_tolerance(*data, peak, tol)
+            if checkMax1 is not None and checkMax1 is not None:
+                r0.move_to(checkMax1)
+                r1.move_to(checkMax2)
                 r0.wait_for_stop()
                 r1.wait_for_stop()
                 test_measurement = self.measure(measurements=1000)
-                sleep(1)
-                print((abs(test_measurement - peak) / peak))
+                # Double checks to ensure the point measured to have a max within the tolerance has that max again
                 within_range = test_measurement >= peak * (1 - tol) and test_measurement <= peak * (1 + tol)
-                if (within_range):
-                    return X, Y, Z1, checkMaxH, checkMaxQ, checkMaxM
-            return self.optimize(x0=None, data=data, terminate=True, tol=tol)
+                print(within_range)
+                print(abs(test_measurement-peak)/(peak * (1 - tol)))
+                if within_range:
+                    print("returning")
+                    return X, Y, Z1, checkMax1, checkMax2, checkMaxM, data
+            # if no peak is found within the total new range, it is re optimized to find a new peak to search for
+            return self.optimize(x0=None, data=data, terminate=False, tol=tol)
         else:
-            return X, Y, Z1, maxX, maxY, maxZ
+            return X, Y, Z1, maxX, maxY, maxZ, data
+
     def close(self):
         self.stage[0].close()
         self.stage[1].close()
         self.daq_task.close()
         print("Closed successfully")
 
-
-
 class RotorExperiment(EnvExperiment):
 
     def run(self):
         rotor1 = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55000741", "55105674"], dry_run=False, plate_config = (qwp, hwp, arb_retarder))
-        arb_angs = (30,45,23)
-        q_angs = np.random.rand(5)*180
-        h_angs = np.random.rand(5)*180
-        output = rotor1.measure_sim(angles=(q_angs, h_angs, arb_angs), E = 2, background = 0)
-        print(output[1])
         init_pos_1 = rotor1._pos(rotor_num=0)
         init_pos_2 = rotor1._pos(rotor_num=1)
         range_val = 180
-        steps = 5
+        steps = 10
         phi_0 = None
         theta_0 = None
         eta_0 = None
@@ -315,8 +331,7 @@ class RotorExperiment(EnvExperiment):
         data = rotor1.move_and_measure(phi=phi_0, theta=theta_0, eta=eta_0, range=range_val,
                                 steps=steps, dry_run=False, E=E_0, a=init_pos_1, b=init_pos_2)
 
-        X, Y, Z1, maxX, maxY, maxZ = rotor1.optimize(data=data, alpha=init_pos_1, beta=init_pos_2,
-                                              tol=0.05)
+        X, Y, Z1, maxX, maxY, maxZ, data = rotor1.optimize(data=data, tol=0.01)
         fig = plt.figure()
 
         ax = fig.add_subplot(projection="3d")
