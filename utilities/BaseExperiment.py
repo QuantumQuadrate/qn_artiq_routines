@@ -69,7 +69,7 @@ class BaseExperiment:
         :return:
         """
 
-        with open('C:\\Networking Experiment\\artiq codes\\artiq-master\\dataset_db.pyon') as f:
+        with open('C:\\Users\\jakeuribe\\artiq-master') as f:
             datasets_str = f.read()
 
         # when the pyon file is saved python True and False are converted to lowercase...

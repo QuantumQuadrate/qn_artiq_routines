@@ -133,8 +133,6 @@ todo: resturcture to allow scipy.minimize to use
 def plate_config_measure(configs):
     def generated_func(angles, input=np.array([1, 0]), E = 1, background = 0):
         output0, output1 = input.astype(complex)
-        temp_output0 = output0
-        temp_output1 = output1
         for c, a in zip(configs, angles):
             config00, config01, config10, config11 = c(a, piecewise = True)
             temp_output0 = config00 * output0 + config01 * output1
