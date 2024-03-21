@@ -35,7 +35,7 @@ class RotatorFeedbackChannel():
         self.daq_task.ai_channels.add_ai_voltage_chan(physical_channel=ch_name)
 
         if self.dry_run:
-            self.measure = self.measure_dryrun2  # use this for testing since you don't have access to artiq hardware yet
+            self.measure = self.measure_sim  # use this for testing since you don't have access to artiq hardware yet
         else:
             self.measure = self._measure
 
@@ -116,7 +116,6 @@ class RotatorFeedbackChannel():
             y0 = np.append(y0, y2)
 
         return x0, y0
-
     """
     Using pre selected point/randomly generated ones, the rotors are moved between points and then stopped.
     While the rotors are in the process of moving, we are keeping track of the angle it is at, and then the measurement.
@@ -126,7 +125,7 @@ class RotatorFeedbackChannel():
     is achieving maximum intensity.
     """
     def move_and_measure(self, theta=None, eta=None, phi=None, range=None, steps=None, a=0, b=0, theta_h=0, theta_q=0,
-                         dry_run=True, E=None):
+                         dry_run=True, E=None, background = 0):
         h_ang, q_ang = self.q_h_gen(steps=steps, range=range, center_x=-a, center_y=-b, random=True)
         q_ang -= theta_q
         h_ang -= theta_h
@@ -137,9 +136,10 @@ class RotatorFeedbackChannel():
         measure = self.measure
         measurements = []
         if dry_run or self is None:
-            for h, q in zip(q_ang, h_ang):
-                measurements.append(np.sum(measure(q_ang=q, h_ang=h, theta=theta, phi=phi,
-                                                   eta=eta, E=E)))
+            arb_angles = [theta, eta, phi]
+            for q, h in zip(q_ang, h_ang):
+                angles = [q, h, arb_angles]
+                measurements.append(np.sum(self.measure(angles, E = E, background = background)))
         else:
             for q, h in zip(q_ang, h_ang):
                 self.r1.move_to(q)
@@ -205,8 +205,6 @@ class RotatorFeedbackChannel():
         phase_1 = x[4]
         phase_2 = x[5]
         a = x[6]
-        ang1 = ang1_data
-        ang2 = ang2_data
         measurements = mdata
         error = 0
         arb_r_angs = (theta,eta,phi)
