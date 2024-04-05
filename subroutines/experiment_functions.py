@@ -74,6 +74,7 @@ def load_MOT_and_FORT(self):
     # turn off the coils # todo: this turns off the coils but they never come back on. wtf
     self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
                          channels=self.coil_channels)
+    delay(1*ms)
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,

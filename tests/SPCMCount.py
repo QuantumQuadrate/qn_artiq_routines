@@ -39,7 +39,7 @@ class SPCMCount(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
-        self.setattr_device("ttl0")
+        self.setattr_device("ttl1")
         self.setattr_device("zotino0")
         self.setattr_device("sampler0")
 
@@ -72,7 +72,7 @@ class SPCMCount(EnvExperiment):
         self.file_setup(rowheaders=['counts','cooling_volts'])
 
         self.core.reset()
-        self.ttl0.input()
+        self.ttl1.input()
         self.zotino0.init()
 
         delay(10 * ms)
@@ -93,12 +93,12 @@ class SPCMCount(EnvExperiment):
         # self.core.break_realtime()
 
         for x in range(self.n_steps):
-            tend1 = self.ttl0.gate_rising(self.dt_exposure)
-            count1 = self.ttl0.count(tend1)
+            tend1 = self.ttl1.gate_rising(self.dt_exposure)
+            count1 = self.ttl1.count(tend1)
             if self.print_count_rate:
                 print(round(count1/self.dt_exposure),"Hz")
             delay(10 * ms)
-            volt1 = count1 * 5/Satdt # the voltage from zotino0, port 7. Saturation limit corresponds to 5V.
+            volt1 = count1 * 5/Satdt # the voltage from zotino0. Saturation limit corresponds to 5V.
             self.zotino0.write_dac(ch, volt1)
             self.zotino0.load()
             delay(1 * ms)

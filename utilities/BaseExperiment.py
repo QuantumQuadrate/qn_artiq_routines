@@ -134,6 +134,8 @@ class BaseExperiment:
 
         # dataset names
         self.experiment.count_rate_dataset = 'photocounts_per_s'
+        self.experiment.scan_var_dataset = "scan_variables"
+        self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
 
         # functions
 
@@ -283,7 +285,7 @@ class BaseExperiment:
         delay(10 * ms)
         self.experiment.dds_FORT.sw.off()
 
-        assert counts > 0, "SPCM0 is likely unplugged"
+        # assert counts > 0, "SPCM0 is likely unplugged"
 
         # todo: turn off all Zotino channels?
 

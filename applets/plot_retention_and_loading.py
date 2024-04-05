@@ -49,6 +49,8 @@ class XYPlot(pyqtgraph.PlotWidget):
         loading_rate_array = np.zeros(iteration)
         n_atoms_loaded_array = np.zeros(iteration)
 
+        title = str(data[self.args.scan_vars][1])
+
         if iteration > 0:
             for i in range(iteration):
                 shot1 = counts_shot1[i * measurements:(i + 1) * measurements]
@@ -61,7 +63,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                 loading_rate_array[i] = loading_fraction
                 retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
                 retention_array[i] = retention_fraction
-            #
+
             error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
 
             x = np.arange(iteration)
@@ -78,7 +80,9 @@ class XYPlot(pyqtgraph.PlotWidget):
                       name='loading')
 
             self.setYRange(-0.05, 1.05, padding=0)
-            self.setTitle(title)
+
+            if title != '':
+                self.setTitle(title)
             # self.addLegend()
 
             # the text that shows up is huge. # todo
@@ -106,6 +110,7 @@ def main():
     applet.add_dataset("iteration", "the current experiment iteration")
     applet.add_dataset("threshold_cts_per_s", "the atom signal counts/s threshold")
     applet.add_dataset("t_exposure", "the atom readout exposure time")
+    applet.add_dataset("scan_vars", "the names of the scan variable(s)")
     applet.run()
 
 if __name__ == "__main__":

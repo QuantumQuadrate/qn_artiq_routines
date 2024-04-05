@@ -40,13 +40,13 @@ class GeneralVariableScan(EnvExperiment):
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
-        self.setattr_argument('scan_variable1', StringValue('t_blowaway'))
+        self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
         # todo: need some error handling, or make this a drop box
         self.setattr_argument("scan_sequence1", StringValue(
             'np.array([0.000,0.005,0.02,0.05])*ms'))
 
         # this variable is optional
-        self.setattr_argument('scan_variable2', StringValue(''))
+        self.setattr_argument('scan_variable2_name', StringValue(''))
         # todo: need some error handling, or make this a drop box
         self.setattr_argument("scan_sequence2", StringValue(
             'np.linspace(-2,2,5)*V'))
@@ -74,8 +74,8 @@ class GeneralVariableScan(EnvExperiment):
         """
         self.base.prepare()
 
-        self.scan_variable1 = str(self.scan_variable1)
-        self.scan_variable2 = str(self.scan_variable2)
+        self.scan_variable1 = str(self.scan_variable1_name)
+        self.scan_variable2 = str(self.scan_variable2_name)
 
         assert hasattr(self,self.scan_variable1), (f"There is no ExperimentVariable "+self.scan_variable1+
                                                   ". Did you mistype it?")
@@ -115,6 +115,12 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
 
+        scan_vars = [self.scan_variable1_name, self.scan_variable2_name]
+        scan_vars = [x for x in scan_vars if x != '']
+        scan_var_labels = ','.join(scan_vars)
+        print(scan_var_labels)
+        self.set_dataset(self.scan_var_dataset,scan_var_labels,broadcast=True)
+
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.
@@ -144,7 +150,11 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("iteration", iteration, broadcast=True)
 
         for variable1_value in self.scan_sequence1:
-            # update the variable
+            # update the variable. setattr can't be called on the kernel, and this is what
+            # allows us to update an experiment variable without hardcoding it, i.e.
+            # explicitly naming the variable. that is why this run method does not
+            # have a kernel decorator, and we have to re-initialize the hardware each
+            # iteration.
             setattr(self, self.scan_variable1, variable1_value)
 
             for variable2_value in self.scan_sequence2:
