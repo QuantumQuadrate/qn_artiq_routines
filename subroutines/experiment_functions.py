@@ -18,9 +18,99 @@ Table of contents:
 ###############################################################################
 
 @kernel
-def load_MOT_and_FORT(self):
+def load_MOT_and_FORT_until_atom_loaded(self):
+    """
+    Load the FORT by waiting until we trap one atom
+
+    :param self: the experiment instance
+    :return:
+    """
+
+    # FORT on right away
+    self.dds_FORT.sw.on()
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+
+    # set the cooling DP AOM to the MOT settings - why is this commented?
+    # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+
+    self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+
+    self.dds_cooling_DP.sw.on()
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    delay(1*ms) # if this delay is not here, the following line setting the dac doesn't execute
+
+    # Turn on the MOT coils and cooling light - this is being ignored
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        channels=self.coil_channels)
+
+    counts_per_s = 0.0
+
+    delay(10 * ms)
+
+    # don't wait more than timeout s to load an atom
+    timeout = 7*s
+    for i in range(int(timeout/self.t_SPCM_exposure)):
+        delay(1*ms)
+
+        t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+        counts = self.ttl0.count(t_end)
+        counts_per_s = counts / self.t_SPCM_exposure
+
+        if counts_per_s > self.single_atom_counts_per_s:
+            self.print_async("loaded atom")
+            break
+
+    delay(1*ms)
+
+    # wait for the MOT to load
+    # delay(self.t_MOT_loading - self.t_MOT_phase2)
+
+    # if self.t_MOT_phase2 > 0:
+    #
+    #     self.zotino0.set_dac(
+    #         [self.AZ_bottom_volts_MOT_phase2, self.AZ_top_volts_MOT_phase2, self.AX_volts_MOT_phase2,
+    #          self.AY_volts_MOT_phase2],
+    #         channels=self.coil_channels)
+    #
+    #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
+    #                             amplitude=self.ampl_cooling_DP_MOT) # todo: make a variable for phase 2
+    #     delay(self.t_MOT_phase2)
+    #
+    # todo: try loading from a PGC phase
+    #
+    # turn on the dipole trap and wait to load atoms
+    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    # delay_mu(self.t_FORT_loading_mu)
+    #
+    # turn off the coils # todo: this turns off the coils but they never come back on. wtf
+    self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
+                         channels=self.coil_channels)
+    delay(1*ms)
+
+    # if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
+    #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,
+    #                             amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_PGC)
+    #     delay(self.t_PGC_in_MOT)
+    #
+    self.dds_cooling_DP.sw.off()
+
+    delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+
+@kernel
+def load_MOT_and_FORT_fixed_duration(self):
     """
     The FORT loading sequence, from loading a MOT to hopefully trapping one atom
+
+    Loads the MOT then the turns on the FORT and waits a fixed amount of time
+    to load an atom
 
     :param self: the experiment instance
     :return:
@@ -30,7 +120,7 @@ def load_MOT_and_FORT(self):
     self.dds_FORT.sw.on()
     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
-    # set the cooling DP AOM to the MOT settings
+    # set the cooling DP AOM to the MOT settings - why is this commented?
     # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
     self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
@@ -84,6 +174,20 @@ def load_MOT_and_FORT(self):
     self.dds_cooling_DP.sw.off()
 
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+
+@kernel
+def load_MOT_and_FORT(self):
+    """
+    A wrapper function for the variation of load_MOT_and_FORT that we want to use
+
+    This allows us to avoid changing the experiment functions below, while still
+    being able to test out different loading functions
+    :param self:
+    :return:
+    """
+
+    load_MOT_and_FORT_until_atom_loaded(self)
+    # load_MOT_and_FORT_fixed_duration(self)
 
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS
