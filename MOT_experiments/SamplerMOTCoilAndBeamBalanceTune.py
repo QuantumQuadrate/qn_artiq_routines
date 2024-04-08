@@ -66,6 +66,10 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                               NumberValue(0.5),
                               "coil tune settings")  # scales the value read by the Sampler
 
+        self.setattr_argument("change_z_offset_and_grad_B_mode",
+                              BooleanValue(True),
+                              "coil tune settings")  # scan the coils with respect to the current settings
+
         group = "SPCM settings"
          # exposure time of the SPCM
         self.setattr_argument("dt_exposure", NumberValue(15 * ms, unit='ms'), group)
@@ -222,12 +226,45 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                             ampl5_factor = 1.0 + self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
                             ampl6_factor = 1.0 - self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
                 else:
+
                     if self.differential_mode:
-                        control_volts = [self.sampler_buffer[ch] * self.differential_multiplier + self.default_volts[ch]
+                        if self.change_z_offset_and_grad_B_mode:
+                            # the anti-Helmholtz contribution
+                            control_volts[0] = self.sampler_buffer[0] * self.differential_multiplier + self.default_volts[0]
+                            control_volts[1] = self.sampler_buffer[0] * self.differential_multiplier + self.default_volts[1]
+
+                            # an offset to the Z coils. the -1 sign is because of how the Z coils are
+                            # wired. this is the Helmholtz contribution to shim the field
+                            control_volts[0] += self.sampler_buffer[1] * self.differential_multiplier
+                            control_volts[1] += -1 * self.sampler_buffer[1] * self.differential_multiplier
+
+                            control_volts[2:] = [self.sampler_buffer[ch] * self.differential_multiplier + self.default_volts[ch]
+                                                 for ch in self.sampler_channels[2:]]
+
+                        else:
+                            control_volts = [self.sampler_buffer[ch] * self.differential_multiplier + self.default_volts[ch]
                                          for ch in self.sampler_channels]
+
                     else:
-                        control_volts = [self.sampler_buffer[ch] * self.coil_volts_multiplier
-                                         for ch in self.sampler_channels]
+                        if self.change_z_offset_and_grad_B_mode:
+
+                            # the anti-Helmholtz contribution
+                            control_volts[0] = self.sampler_buffer[0] * self.coil_volts_multiplier
+                            control_volts[1] = self.sampler_buffer[0] * self.coil_volts_multiplier
+
+                            # an offset to the Z coils. the -1 sign is because of how the Z coils are
+                            # wired. this is the Helmholtz contribution to shim the field
+                            control_volts[0] += self.sampler_buffer[1] * self.coil_volts_multiplier
+                            control_volts[1] += -1 * self.sampler_buffer[1] * self.coil_volts_multiplier
+
+
+                            control_volts[2:] = [self.sampler_buffer[ch] * self.coil_volts_multiplier
+                                             for ch in self.sampler_channels[2:]]
+
+                        else:
+                            control_volts = [self.sampler_buffer[ch] * self.coil_volts_multiplier
+                                             for ch in self.sampler_channels]
+
 
                     delay(1 * ms)
 

@@ -135,7 +135,7 @@ class BaseExperiment:
         # dataset names
         self.experiment.count_rate_dataset = 'photocounts_per_s'
         self.experiment.scan_var_dataset = "scan_variables"
-        self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
+        # self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
 
         # functions
 
