@@ -262,3 +262,15 @@ class ExperimentVariables(EnvExperiment):
 
         for var in self.vars_list:
             self.set_dataset(var.name, getattr(self, var.name), broadcast=True, persist=True)
+
+        # dependent quantities
+
+        # note that these detunings are with respect to the bare atomic states, i.e. no FORT AC Stark shift
+        detuning_MOT_units_Gamma = (-2*self.get_dataset("f_cooling_DP_MOT")+130e6+78.5e6)/6.065e6
+        self.set_dataset("detuning_MOT_units_Gamma", detuning_MOT_units_Gamma, broadcast=True, persist=True)
+
+        detuning_RO_units_Gamma = (-2 * self.get_dataset("f_cooling_DP_RO") + 130e6 + 78.5e6) / 6.065e6
+        self.set_dataset("detuning_RO_units_Gamma", detuning_RO_units_Gamma, broadcast=True, persist=True)
+
+        detuning_PGC_units_Gamma = (-2 * self.get_dataset("f_cooling_DP_PGC") + 130e6 + 78.5e6) / 6.065e6
+        self.set_dataset("detuning_PGC_units_Gamma", detuning_PGC_units_Gamma, broadcast=True, persist=True)
