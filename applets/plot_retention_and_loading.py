@@ -41,64 +41,69 @@ class XYPlot(pyqtgraph.PlotWidget):
 
         iteration = len(counts_shot1)//measurements
 
-        retention_array = np.zeros(iteration)
-        loading_rate_array = np.zeros(iteration)
-        n_atoms_loaded_array = np.zeros(iteration)
+        if len(counts_shot1) == len(counts_shot2) and iteration > 0:
 
-        x = np.arange(iteration)
+            retention_array = np.zeros(iteration)
+            loading_rate_array = np.zeros(iteration)
+            n_atoms_loaded_array = np.zeros(iteration)
 
-        try:
-            nsteps = len(data.get(self.args.scan_sequence1, (False, None))[1])
-            scan_sequence1 = data[self.args.scan_sequence1][1]
-            if nsteps > 1 or scan_sequence1 != [0.0]:
-                x = scan_sequence1[:iteration]
-        except: # len will fail if sequence is None
-            pass
+            x = np.arange(iteration)
 
-        if iteration > 0:
-            for i in range(iteration):
-                shot1 = counts_shot1[i * measurements:(i + 1) * measurements]
-                shot2 = counts_shot2[i * measurements:(i + 1) * measurements]
-                atoms_loaded = [x > cutoff for x in shot1]
-                n_atoms_loaded = sum(atoms_loaded)
-                n_atoms_loaded_array[i] = n_atoms_loaded
-                atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
-                loading_fraction = n_atoms_loaded / measurements
-                loading_rate_array[i] = loading_fraction
-                retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
-                retention_array[i] = retention_fraction
+            try:
+                nsteps = len(data.get(self.args.scan_sequence1, (False, None))[1])
+                scan_sequence1 = data[self.args.scan_sequence1][1]
+                if nsteps > 1 or scan_sequence1 != [0.0]:
+                    x = np.array(scan_sequence1[:iteration])
+            except: # len will fail if sequence is None
+                pass
 
-            error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
+            if iteration > 0:
+                for i in range(iteration):
+                    shot1 = counts_shot1[i * measurements:(i + 1) * measurements]
+                    shot2 = counts_shot2[i * measurements:(i + 1) * measurements]
+                    atoms_loaded = [x > cutoff for x in shot1]
+                    n_atoms_loaded = sum(atoms_loaded)
+                    n_atoms_loaded_array[i] = n_atoms_loaded
+                    atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
+                    loading_fraction = n_atoms_loaded / measurements
+                    loading_rate_array[i] = loading_fraction
+                    retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
+                    retention_array[i] = retention_fraction
 
-            self.clear()
-            self.plot(x, retention_array,
-                      pen=(255, 0, 0),
-                      symbol='o',
-                      symbolBrush=(255, 0, 0),
-                      symbolPen='w',
-                      name='retention')
-            self.plot(x, loading_rate_array,
-                      pen=(0, 100, 100),
-                      symbol='o',
-                      symbolBrush=(0, 100, 100),
-                      symbolPen='w',
-                      name='loading')
+                error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
 
-            self.setYRange(-0.05, 1.05, padding=0)
+                self.clear()
+                self.plot(x, retention_array,
+                          pen=(255, 0, 0),
+                          symbol='o',
+                          symbolBrush=(255, 0, 0),
+                          symbolPen='w',
+                          name='retention')
+                self.plot(x, loading_rate_array,
+                          pen=(0, 100, 100),
+                          symbol='o',
+                          symbolBrush=(0, 100, 100),
+                          symbolPen='w',
+                          name='loading')
 
-            title = str(data[self.args.scan_vars][1])
-            if title != '':
-                self.setTitle(title)
+                self.setYRange(-0.05, 1.05, padding=0)
 
-            #
-            if error is not None:
-                # See https://github.com/pyqtgraph/pyqtgraph/issues/211
-                if hasattr(error, "__len__") and not isinstance(error, np.ndarray):
-                    error = np.array(error)
-            errbars = pyqtgraph.ErrorBarItem(
-                x=x, y=retention_array, height=error, pen=(255, 0, 0))
-            self.addItem(errbars)
-            self.addLegend()
+                title = str(data[self.args.scan_vars][1])
+                if title != '':
+                    self.setTitle(title)
+
+                #
+                if error is not None:
+                    # See https://github.com/pyqtgraph/pyqtgraph/issues/211
+                    if hasattr(error, "__len__") and not isinstance(error, np.ndarray):
+                        error = np.array(error)
+                errbars = pyqtgraph.ErrorBarItem(
+                    x=x, y=retention_array, height=error, pen=(255, 0, 0))
+                self.addItem(errbars)
+                self.addLegend()
+            else:
+                self.clear()
+
 
 def main():
     applet = TitleApplet(XYPlot)
