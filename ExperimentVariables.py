@@ -212,8 +212,7 @@ class ExperimentVariables(EnvExperiment):
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
-            Variable("single_atom_counts_threshold", 270, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
-                                                                        'step': 1}, "Thresholds and cut-offs"),
+
             # Set points
             Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
