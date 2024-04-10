@@ -306,6 +306,10 @@ def MOT_two_stage_loading_experiment(self):
 @kernel
 def atom_loading_experiment(self):
     """
+    The most basic two-readout single atom experiment.
+
+    Load a MOT, load a single atom, readout, wait self.t_delay_between_shots, readout again.
+
     :param self: an experiment instance.
     :return:
     """
