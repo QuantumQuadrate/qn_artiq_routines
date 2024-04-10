@@ -30,8 +30,12 @@ def load_MOT_and_FORT_until_atom_loaded(self):
     self.dds_FORT.sw.on()
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
-    # set the cooling DP AOM to the MOT settings - why is this commented?
-    # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    # delay(1*ms)
+    #
+    # # set the cooling DP AOM to the MOT settings - if this is commented the MOT is incredibly dim on the first shot,
+    # # but this is remedied on the second iteration. if uncommented, the issue is never resolved
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    delay(1*ms)
 
     self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
@@ -56,9 +60,8 @@ def load_MOT_and_FORT_until_atom_loaded(self):
     delay(10 * ms)
 
     # don't wait more than timeout s to load an atom
-    timeout = 7*s
+    timeout = 20*s
     for i in range(int(timeout/self.t_SPCM_exposure)):
-        delay(1*ms)
 
         t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
         counts = self.ttl0.count(t_end)
@@ -67,6 +70,9 @@ def load_MOT_and_FORT_until_atom_loaded(self):
         if counts_per_s > self.single_atom_counts_per_s:
             self.print_async("loaded atom")
             break
+
+        delay(1 * ms)
+        self.append_to_dataset(self.count_rate_dataset, counts_per_s)
 
     delay(1*ms)
 
@@ -120,8 +126,8 @@ def load_MOT_and_FORT_fixed_duration(self):
     self.dds_FORT.sw.on()
     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
-    # set the cooling DP AOM to the MOT settings - why is this commented?
-    # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    # set the cooling DP AOM to the MOT settings - why was this commented?
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
     self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
@@ -186,8 +192,8 @@ def load_MOT_and_FORT(self):
     :return:
     """
 
-    load_MOT_and_FORT_until_atom_loaded(self)
-    # load_MOT_and_FORT_fixed_duration(self)
+    # load_MOT_and_FORT_until_atom_loaded(self)
+    load_MOT_and_FORT_fixed_duration(self)
 
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS
@@ -308,6 +314,10 @@ def atom_loading_experiment(self):
 
     counts = 0
     counts2 = 0
+
+    self.set_dataset(self.count_rate_dataset,
+                     [0.0],
+                     broadcast=True)
 
 
     for measurement in range(self.n_measurements):
