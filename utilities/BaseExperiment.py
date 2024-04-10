@@ -135,7 +135,8 @@ class BaseExperiment:
         # dataset names
         self.experiment.count_rate_dataset = 'photocounts_per_s'
         self.experiment.scan_var_dataset = "scan_variables"
-        # self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
+        self.experiment.scan_sequence1_dataset = "scan_sequence1"
+        self.experiment.scan_sequence2_dataset = "scan_sequence2"
 
         # functions
 
@@ -247,6 +248,12 @@ class BaseExperiment:
         hardware initialization and setting of ttl switches, and set datasets
         :return:
         """
+
+        self.experiment.core.reset()
+        self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
+        self.experiment.set_dataset(self.experiment.scan_sequence1_dataset,[0.0],broadcast=True)
+        self.experiment.set_dataset(self.experiment.scan_sequence2_dataset,[0.0],broadcast=True)
+
         self.experiment.named_devices.initialize()
 
         self.experiment.ttl_microwave_switch.output()

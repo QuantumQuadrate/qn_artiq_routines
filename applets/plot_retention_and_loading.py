@@ -45,8 +45,15 @@ class XYPlot(pyqtgraph.PlotWidget):
         loading_rate_array = np.zeros(iteration)
         n_atoms_loaded_array = np.zeros(iteration)
 
-        # title = str(data[self.args.scan_vars][1])
-        title = ''
+        x = np.arange(iteration)
+
+        try:
+            nsteps = len(data.get(self.args.scan_sequence1, (False, None))[1])
+            scan_sequence1 = data[self.args.scan_sequence1][1]
+            if nsteps > 1 or scan_sequence1 != [0.0]:
+                x = scan_sequence1[:iteration]
+        except: # len will fail if sequence is None
+            pass
 
         if iteration > 0:
             for i in range(iteration):
@@ -63,14 +70,15 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
 
-            x = np.arange(iteration)
             self.clear()
-            self.plot(x, retention_array, pen=(255, 0, 0),
+            self.plot(x, retention_array,
+                      pen=(255, 0, 0),
                       symbol='o',
                       symbolBrush=(255, 0, 0),
                       symbolPen='w',
                       name='retention')
-            self.plot(x, loading_rate_array, pen=(0, 100, 100),
+            self.plot(x, loading_rate_array,
+                      pen=(0, 100, 100),
                       symbol='o',
                       symbolBrush=(0, 100, 100),
                       symbolPen='w',
@@ -78,14 +86,9 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             self.setYRange(-0.05, 1.05, padding=0)
 
+            title = str(data[self.args.scan_vars][1])
             if title != '':
                 self.setTitle(title)
-            # self.addLegend()
-
-            # the text that shows up is huge. # todo
-            # xaxis = pyqtgraph.AxisItem('bottom')#,text='my x axis')
-            # xaxis.setLabel(text='test')
-            # self.addItem(xaxis)
 
             #
             if error is not None:
@@ -95,9 +98,7 @@ class XYPlot(pyqtgraph.PlotWidget):
             errbars = pyqtgraph.ErrorBarItem(
                 x=x, y=retention_array, height=error, pen=(255, 0, 0))
             self.addItem(errbars)
-            # if fit is not None:
-            #     xi = np.argsort(x)
-            #     self.plot(x[xi], fit[xi])
+            self.addLegend()
 
 def main():
     applet = TitleApplet(XYPlot)
@@ -107,6 +108,8 @@ def main():
     applet.add_dataset("threshold_cts_per_s", "the atom signal counts/s threshold")
     applet.add_dataset("t_exposure", "the atom readout exposure time")
     applet.add_dataset("scan_vars", "the names of the scan variable(s)", required=False)
+    applet.add_dataset("scan_sequence1", "the scan steps", required=False)
+
     applet.run()
 
 if __name__ == "__main__":

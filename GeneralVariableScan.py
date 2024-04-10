@@ -94,6 +94,10 @@ class GeneralVariableScan(EnvExperiment):
             self.scan_sequence2 = np.zeros(1) # we need a non-empty array to have a definite type for ARTIQ
             self.n_iterations2 = 0
 
+        scan_vars = [self.scan_variable1_name, self.scan_variable2_name]
+        scan_vars = [x for x in scan_vars if x != '']
+        self.scan_var_labels = ','.join(scan_vars)
+
         try:
             self.experiment_name = self.experiment_function
             self.experiment_function = lambda :eval(self.experiment_name)(self)
@@ -115,11 +119,10 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
 
-        scan_vars = [self.scan_variable1_name, self.scan_variable2_name]
-        scan_vars = [x for x in scan_vars if x != '']
-        scan_var_labels = ','.join(scan_vars)
-        print(scan_var_labels)
-        self.set_dataset(self.scan_var_dataset,scan_var_labels,broadcast=True)
+        self.set_dataset(self.scan_var_dataset,self.scan_var_labels,broadcast=True)
+        self.set_dataset(self.scan_sequence1_dataset,self.scan_sequence1, broadcast=True)
+        self.set_dataset(self.scan_sequence2_dataset,self.scan_sequence2, broadcast=True)
+
 
     def reset_datasets(self):
         """
@@ -133,6 +136,11 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("test_dataset", [0], broadcast=True)
         self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
         self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
+
+        # these are set here because running BaseExperiment.initialize_hardware resets these to be empty
+        self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
+        self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1, broadcast=True)
+        self.set_dataset(self.scan_sequence2_dataset, self.scan_sequence2, broadcast=True)
 
     def run(self):
         """
