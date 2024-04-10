@@ -35,13 +35,9 @@ class XYPlot(pyqtgraph.PlotWidget):
         counts_shot2 = data[self.args.counts_shot2][1][1:]
         measurements = data[self.args.measurements][1]
 
-        if (self.args.threshold_cts_per_s is not None and
-                self.args.t_exposure is not None):
-            threshold_cts_per_s = data[self.args.threshold_cts_per_s][1]
-            t_exposure = data[self.args.t_exposure][1]
-            cutoff = int(t_exposure*threshold_cts_per_s)
-        else:
-            cutoff = 220 # for testing purposes # todo: compute this
+        threshold_cts_per_s = data[self.args.threshold_cts_per_s][1]
+        t_exposure = data[self.args.t_exposure][1]
+        cutoff = int(t_exposure*threshold_cts_per_s)
 
         iteration = len(counts_shot1)//measurements
 
@@ -49,7 +45,8 @@ class XYPlot(pyqtgraph.PlotWidget):
         loading_rate_array = np.zeros(iteration)
         n_atoms_loaded_array = np.zeros(iteration)
 
-        title = str(data[self.args.scan_vars][1])
+        # title = str(data[self.args.scan_vars][1])
+        title = ''
 
         if iteration > 0:
             for i in range(iteration):
@@ -107,16 +104,10 @@ def main():
     applet.add_dataset("counts_shot1", "first readout photocounts")
     applet.add_dataset("counts_shot2", "second readout photocounts")
     applet.add_dataset("measurements", "how many measurements per data point")
-    applet.add_dataset("iteration", "the current experiment iteration")
     applet.add_dataset("threshold_cts_per_s", "the atom signal counts/s threshold")
     applet.add_dataset("t_exposure", "the atom readout exposure time")
-    applet.add_dataset("scan_vars", "the names of the scan variable(s)")
+    applet.add_dataset("scan_vars", "the names of the scan variable(s)", required=False)
     applet.run()
 
 if __name__ == "__main__":
     main()
-
-    # self.plot(x, y, pen=(255, 138, 0),
-    #                 symbol='x',
-    #                 symbolBrush=(255, 138, 0),
-    #                 symbolPen='w')
