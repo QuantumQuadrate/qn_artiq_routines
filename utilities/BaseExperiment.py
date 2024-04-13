@@ -100,6 +100,8 @@ class BaseExperiment:
         self.experiment.ttl_SPCM0 = self.experiment.ttl0
         self.experiment.ttl_scope_trigger = self.experiment.ttl7
         self.experiment.ttl_Luca_trigger = self.experiment.ttl6
+        self.experiment.ttl_UV = self.experiment.ttl15
+
 
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(
@@ -216,6 +218,10 @@ class BaseExperiment:
         self.experiment.t_FORT_loading_mu = seconds_to_mu(self.experiment.t_FORT_loading)
         self.experiment.t_SPCM_exposure_mu = seconds_to_mu(self.experiment.t_SPCM_exposure)
 
+        # mainly for cost functions
+        self.experiment.counts_list = [0] * self.experiment.n_measurements
+        self.experiment.counts2_list = [0] * self.experiment.n_measurements
+
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
         fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
@@ -265,6 +271,9 @@ class BaseExperiment:
         self.experiment.ttl3.input()
         self.experiment.ttl14.output()
         self.experiment.ttl14.on()
+
+        self.experiment.ttl_UV.output()
+        self.experiment.ttl_UV.off()
 
         self.experiment.sampler0.init() # for reading laser feedback
         self.experiment.sampler1.init() # for reading laser feedback

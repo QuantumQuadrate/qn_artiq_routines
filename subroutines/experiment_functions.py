@@ -147,6 +147,8 @@ def load_MOT_and_FORT_fixed_duration(self):
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         channels=self.coil_channels)
 
+    self.ttl_UV.pulse(10*ms)
+
     # wait for the MOT to load
     delay(self.t_MOT_loading - self.t_MOT_phase2)
 
@@ -166,10 +168,13 @@ def load_MOT_and_FORT_fixed_duration(self):
     # turn on the dipole trap and wait to load atoms
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
     delay_mu(self.t_FORT_loading_mu)
-    #
-    # turn off the coils # todo: this turns off the coils but they never come back on. wtf
-    self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
+
+    # # turn off the coils # todo: this turns off the coils but they never come back on. wtf
+    # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
+    #                      channels=self.coil_channels)
+    self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                          channels=self.coil_channels)
+
     delay(1*ms)
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
@@ -323,15 +328,17 @@ def atom_loading_experiment(self):
                      [0.0],
                      broadcast=True)
 
-
     for measurement in range(self.n_measurements):
 
-        # mot going away is not a feedback issue
         if self.enable_laser_feedback:
-            # if measurement % 10 == 0:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
+
+        delay(0.1*ms)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -358,10 +365,12 @@ def atom_loading_experiment(self):
         if not self.no_first_shot:
             self.append_to_dataset('photocounts', counts)
             self.append_to_dataset('photocounts_current_iteration', counts)
+            self.counts_list[measurement] = counts
 
         # update the datasets
         self.append_to_dataset('photocounts2', counts2)
         self.append_to_dataset('photocounts2_current_iteration', counts2)
+        self.counts2_list[measurement] = counts2
 
     # effectively turn the FORT AOM off
     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)

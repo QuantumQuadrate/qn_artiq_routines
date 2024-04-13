@@ -26,6 +26,7 @@ from utilities.BaseExperiment import BaseExperiment
 
 # this is where your experiment function should live
 from subroutines.experiment_functions import *
+from subroutines.cost_functions import *
 import subroutines.experiment_functions as exp_functions
 import subroutines.cost_functions as cost_functions
 
@@ -35,11 +36,11 @@ class OptimizerVariable:
     for streamlining setup
     """
     def __init__(self, var_and_bounds_tuple, experiment):
-        self.var_name = var_and_bounds_tuple[0]
-        assert hasattr(experiment, self.var_name), (f"There is no ExperimentVariable "+self.scan_variable1+
+        self.name = var_and_bounds_tuple[0]
+        assert hasattr(experiment, self.name), (f"There is no ExperimentVariable " + self.name +
                                                   ". Did you mistype it?")
         self.is_absolute = 0 if var_and_bounds_tuple[3] == 'diff' else 1
-        self.default_value = getattr(self,self.var_name)
+        self.default_value = getattr(experiment, self.name)
         self.min_bound = var_and_bounds_tuple[1] + self.is_absolute*self.default_value
         self.max_bound = var_and_bounds_tuple[2] + self.is_absolute*self.default_value
 
@@ -51,14 +52,9 @@ class MLOOPInterface(mli.Interface):
         # You must include the super command to call the parent class, Interface, constructor
         super(MLOOPInterface, self).__init__()
 
-        # Attributes of the interface can be added here
-        # If you want to precalculate any variables etc. this is the place to do it
-        # In this example we will just define the location of the minimum
-        self.minimum_params = np.array([0, 0.1, -0.1])
-
     # You must include the get_next_cost_dict method in your class
     # this method is called whenever M-LOOP wants to run an experiment
-    def get_next_cost_dict(self, params_dict):
+    def get_next_cost_dict(self, params_dict): # we'll redefine this function later
         pass
 
 
@@ -76,27 +72,30 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         # [('experiment_var_name',minval,maxval,differential or absolute)]
         self.setattr_argument("variables_and_bounds", StringValue(
-            "[('dummy_variable',0*ms,100*ms,'abs'),(dummy_variable,-0.5*V,0.5*V,'diff')]"))
-
-        # todo: think carefully about how to handle feeding back to things
-        #  that are not parents of experiment directly, e.g. the setpoints
-        #  for the MOT beams. I had to explicitly code this in in AtomLoadingOptimizer
+            "[('dummy_variable',0*ms,100*ms,'abs'),('dummy_variable',-0.5*V,0.5*V,'diff')]"))
 
         experiment_function_names_list = [x for x in dir(exp_functions)
-                                          if ('__' not in x and str(
-                type(getattr(exp_functions, x))) == "<class 'function'>"
-                                              and 'experiment' in x)]
+            if ('__' not in x and str(type(getattr(exp_functions, x))) == "<class 'function'>"
+                and 'experiment' in x)]
 
         cost_function_names_list = [x for x in dir(cost_functions)
-                                          if ('__' not in x and str(
-                type(getattr(cost_functions, x))) == "<class 'function'>"
-                                              and 'cost' in x)]
+            if ('__' not in x and str(type(getattr(cost_functions, x))) == "<class 'function'>"
+                and 'cost' in x)]
+
+        # a function that take no arguments that gets imported and run
+        self.setattr_argument('experiment_function',
+                              EnumerationValue(experiment_function_names_list, default='atom_loading_experiment'))
+
+        # a function that takes a 1D sequence of photocounts data that gets imported and run
+        self.setattr_argument('cost_function',
+                              EnumerationValue(cost_function_names_list, default='atom_retention_cost'))
 
         group1 = "optimizer settings"
-        self.setattr_argument("max_runs",NumberValue(70, type='int', scale=1, ndecimals=0, step=1),group1)
+        self.setattr_argument("max_runs", NumberValue(70, type='int', scale=1, ndecimals=0, step=1), group1)
+        self.setattr_argument("target_cost", NumberValue(-100, type='int', scale=1, ndecimals=0, step=1), group1)
 
         # todo: add keyword arguments for setting up M-LOOP
-        #  there is a lot more available then what we've been using
+        #  there is a lot more available than what we've been using
 
         self.base.set_datasets_from_gui_args()
         logging.debug("build - done")
@@ -104,67 +103,69 @@ class GeneralVariableOptimizer(EnvExperiment):
     def prepare(self):
         self.base.prepare()
 
+        self.atom_counts_threshold = self.single_atom_counts_per_s*self.t_SPCM_first_shot
+        self.atom_counts2_threshold = self.single_atom_counts_per_s*self.t_SPCM_second_shot
+
         self.variables_and_bounds = eval(self.variables_and_bounds)
-        var_and_bounds_objects = []
+
+        self.var_and_bounds_objects = []
         min_bounds = []
         max_bounds = []
         for var_and_bounds in self.variables_and_bounds:
-            opt_var = OptimizerVariable(var_and_bounds,self)
-            var_and_bounds_objects.append(opt_var)
-            min_bounds.append(var_and_bounds.min_bound)
-            max_bounds.append(var_and_bounds.max_bound)
+            opt_var = OptimizerVariable(var_and_bounds, self)
+            self.var_and_bounds_objects.append(opt_var)
+            min_bounds.append(opt_var.min_bound)
+            max_bounds.append(opt_var.max_bound)
 
-        try:
-            self.experiment_name = self.experiment_function
-            self.experiment_function = lambda :eval(self.experiment_name)(self)
-        except NameError as e:
-            print(f"The function {experiment_name} is not defined. Did you forget to import it?")
-            raise
+        self.experiment_name = self.experiment_function
+        self.experiment_function = lambda: eval(self.experiment_name)(self)
 
-        try:
-            self.cost_name = self.cost_function
-            self.cost_function = lambda :eval(self.cost_name)(self)
-        except NameError as e:
-            print(f"The function {cost_name} is not defined. Did you forget to import it?")
-            raise
+        self.cost_name = self.cost_function
+        self.cost_function = lambda: eval(self.cost_name)(self)
 
         self.measurement = 0
-        self.counts = 0
-        self.counts2 = 0
-        self.counts_list = np.zeros(self.n_measurements)
-        self.set_dataset(self.count_rate_dataset,
-                         [0.0],
-                         broadcast=True)
+        self.iteration = 0
 
         self.cost_dataset = "cost"
         self.set_dataset(self.cost_dataset,
                          [0.0],
                          broadcast=True)
 
-        # instantiate the MLOOP interface
+        # instantiate the M-LOOP interface
         interface = MLOOPInterface()
         interface.get_next_cost_dict = self.get_next_cost_dict_for_mloop
 
-        self.n_params = len(var_and_bounds_objects)
+        self.n_params = len(self.var_and_bounds_objects)
 
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=self.max_runs,
-                                           target_cost=-0.5*self.n_measurements, # -1 * number of atoms to load
+                                           target_cost=self.target_cost,
                                            num_params=self.n_params,
                                            min_boundary=min_bounds,
                                            max_boundary=max_bounds)
 
     def initialize_datasets(self):
         self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
+        self.set_dataset("iteration", 0, broadcast=True)
+
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
+
+        self.set_dataset("optimizer_vars_dataset", [var.name for var in self.var_and_bounds_objects], broadcast=True)
+        self.set_dataset("optimizer_bounds_dataset", [(var.min_bound, var.max_bound) for
+                                                      var in self.var_and_bounds_objects], broadcast=True)
+        self.optimizer_var_datasets = []
+
+        for i in range(self.n_params):
+            self.optimizer_var_datasets.append("optimizer_var"+str(i))
+            self.set_dataset(self.optimizer_var_datasets[i], [0.0], broadcast=True)
 
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.
 
-        typically these datasets are used for plotting which would be meaningless if we continued to append to the data,
+        typically these datasets are used for plotting which would be meaningless if we continued to append to the photocounts,
         e.g. for the second readout histogram which we expect in general will change as experiment parameters induce
         different amount of atom loss.
         :return:
@@ -172,8 +173,8 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
         self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
 
-
     def run(self):
+        self.initialize_datasets()
         self.initialize_hardware()
         self.warm_up()
 
@@ -188,10 +189,40 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         self.write_results({'name':self.experiment_name[:-11]})  # write the h5 file here in case worker refuses to die
 
-
     @kernel
     def initialize_hardware(self):
         self.base.initialize_hardware()
+
+    @kernel
+    def warm_up(self):
+        """hardware init and turn things on"""
+
+        self.core.reset()
+
+        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                             channels=self.coil_channels)
+
+        self.dds_cooling_DP.sw.on()
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+        self.dds_FORT.sw.on()
+
+        # delay for AOMs to thermalize
+        delay(2 * s)
+
+        self.core.break_realtime()
+        # warm up to get make sure we get to the setpoints
+        for i in range(10):
+            self.laser_stabilizer.run()
+        self.dds_FORT.sw.on()
+
+    def get_cost(self) -> TInt32:
+        """cost function wrapper"""
+        return self.cost_function()
 
     # todo should check if the cost has to be int
     def optimization_routine(self, params: TArray(TFloat)) -> TInt32:
@@ -209,19 +240,21 @@ class GeneralVariableOptimizer(EnvExperiment):
         # todo: set the experiment variables from params. see GeneralVariableScan
 
         for i in range(self.n_params):
-            setattr(self, self.var_and_bounds_objects[i].name, params[i])
+            param_val = params[i]
+            setattr(self, self.var_and_bounds_objects[i].name, param_val)
             # todo broadcast the values so we can see what's going on
+            self.append_to_dataset(self.optimizer_var_datasets[i], param_val)
 
-        self.hardware_init()
+        self.initialize_hardware()
         self.reset_datasets()
 
         # the measurement loop.
         self.experiment_function()
 
-        iteration += 1
-        self.set_dataset("iteration", iteration, broadcast=True)
+        self.iteration += 1
+        self.set_dataset("iteration", self.iteration, broadcast=True)
 
-        cost = self.get_cost(self.counts_list)
+        cost = self.get_cost()
         self.append_to_dataset(self.cost_dataset, cost)
 
         return cost
@@ -234,6 +267,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         params = params_dict['params']
 
         cost = self.optimization_routine(params)
+        # a proxy for the uncertainty, since the cost is typically -1*(number of atoms detected)
         uncertainty = 1/np.sqrt(-1*cost) if cost < 0 else 0
 
         cost_dict = {'cost': cost, 'uncer': uncertainty}
@@ -241,13 +275,12 @@ class GeneralVariableOptimizer(EnvExperiment):
 
     @kernel # shouldn't need to run this on the kernel
     def set_experiment_variables_to_best_params(self, best_params: TArray(TFloat)):
-        # self.core.reset()
-        # delay(1 * ms)
+        self.core.reset()
+        delay(1 * ms)
 
-        # todo: generalize this.
-
-        for i in range(n_beams):
-            self.set_dataset(self.setpoint_datasets[i], self.default_setpoints[i] * best_setpoint_multipliers[i],
+        for i in range(self.n_params):
+            param_val = best_params[i]
+            self.set_dataset(self.var_and_bounds_objects[i].name, param_val,
                              broadcast=True,
                              persist=True)
 
