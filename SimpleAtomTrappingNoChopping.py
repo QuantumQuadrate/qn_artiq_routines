@@ -156,7 +156,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
                 self.dds_AOM_A6.sw.off()
                 self.dds_AOM_A4.sw.off()
                 self.dds_AOM_A5.sw.off()
-                delay(50 * ms)
+                delay(30 * ms)
 
                 ### turning on the MOT beams for imaging
                 # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
