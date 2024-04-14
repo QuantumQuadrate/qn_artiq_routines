@@ -352,6 +352,11 @@ def atom_loading_experiment(self):
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
         delay(self.t_delay_between_shots)
 
         # take the second shot
