@@ -187,8 +187,9 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         # todo: set best params to dataset
 
-        self.write_results({'name':self.experiment_name[:-11]})  # write the h5 file here in case worker refuses to die
-
+        # write the h5 file here in case worker refuses to die
+        self.write_results({'name':self.experiment_name[:-11]+"_optimized_for_"+self.cost_name[:-5]})
+        
     @kernel
     def initialize_hardware(self):
         self.base.initialize_hardware()
