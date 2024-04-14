@@ -56,7 +56,6 @@ class GeneralVariableScan(EnvExperiment):
                 and 'experiment' in x)]
 
         # a function that take no arguments that gets imported and run
-        # self.setattr_argument('experiment_function', StringValue('test'))
         self.setattr_argument('experiment_function',
                               EnumerationValue(experiment_function_names_list))
 
@@ -102,7 +101,7 @@ class GeneralVariableScan(EnvExperiment):
             self.experiment_name = self.experiment_function
             self.experiment_function = lambda :eval(self.experiment_name)(self)
         except NameError as e:
-            print(f"The function {experiment_name} is not defined. Did you forget to import it?")
+            print(f"The function {self.experiment_name} is not defined. Did you forget to import it?")
             raise
 
         self.measurement = 0
@@ -110,7 +109,7 @@ class GeneralVariableScan(EnvExperiment):
         self.counts2 = 0
 
     @kernel
-    def hardware_init(self):
+    def initialize_hardware(self):
         self.base.initialize_hardware()
 
     def initialize_datasets(self):
@@ -170,7 +169,7 @@ class GeneralVariableScan(EnvExperiment):
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
 
-                self.hardware_init()
+                self.initialize_hardware()
                 self.reset_datasets()
 
                 # the measurement loop.

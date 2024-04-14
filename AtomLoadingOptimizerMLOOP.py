@@ -22,11 +22,6 @@ class MLOOPInterface(mli.Interface):
         # You must include the super command to call the parent class, Interface, constructor
         super(MLOOPInterface, self).__init__()
 
-        # Attributes of the interface can be added here
-        # If you want to precalculate any variables etc. this is the place to do it
-        # In this example we will just define the location of the minimum
-        self.minimum_params = np.array([0, 0.1, -0.1])
-
     # You must include the get_next_cost_dict method in your class
     # this method is called whenever M-LOOP wants to run an experiment
     def get_next_cost_dict(self, params_dict):
@@ -129,7 +124,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                          [0.0],
                          broadcast=True)
 
-        # instantiate the MLOOP interface
+        # instantiate the M-LOOP interface
         interface = MLOOPInterface()
         interface.get_next_cost_dict = self.get_next_cost_dict_for_mloop
 
@@ -229,7 +224,6 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
-        q = 0 # whether the counts exceeded the atom threshold
         atoms_loaded = 0
         q_last = (data[0] > self.atom_counts_threshold)
         for x in data[1:]:
