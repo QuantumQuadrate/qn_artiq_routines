@@ -27,6 +27,7 @@ from utilities.BaseExperiment import BaseExperiment
 # this is where your experiment function should live
 from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
+from subroutines.aom_feedback import AOMPowerStabilizer
 
 class GeneralVariableScan(EnvExperiment):
 
@@ -122,7 +123,6 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset(self.scan_sequence1_dataset,self.scan_sequence1, broadcast=True)
         self.set_dataset(self.scan_sequence2_dataset,self.scan_sequence2, broadcast=True)
 
-
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.
@@ -140,6 +140,15 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
         self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1, broadcast=True)
         self.set_dataset(self.scan_sequence2_dataset, self.scan_sequence2, broadcast=True)
+
+    def initialize_dependent_variables(self):
+        """
+        anything that happens in base.prepare, but can add other things as well
+
+        this is what allows us to adjust the setpoints for the AOMStabilizer, which needs to be
+        reinstantiated before we call the experiment function.
+        """
+        self.base.prepare()
 
     def run(self):
         """
@@ -169,6 +178,7 @@ class GeneralVariableScan(EnvExperiment):
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
 
+                self.initialize_dependent_variables()
                 self.initialize_hardware()
                 self.reset_datasets()
 
