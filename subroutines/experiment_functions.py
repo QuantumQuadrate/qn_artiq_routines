@@ -151,7 +151,7 @@ def load_MOT_and_FORT_fixed_duration(self):
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         channels=self.coil_channels)
 
-    self.ttl_UV.pulse(10*ms)
+    self.ttl_UV.pulse(self.t_UV_pulse)
 
     # wait for the MOT to load
     delay(self.t_MOT_loading - self.t_MOT_phase2)

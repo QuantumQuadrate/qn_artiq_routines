@@ -204,6 +204,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_photon_collection_delay", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_UV_pulse", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
