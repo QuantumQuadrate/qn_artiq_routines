@@ -210,6 +210,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("do_PGC_in_MOT", False, BooleanValue, {}, "Booleans"),
             Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
+            Variable("FORT_on_at_MOT_start", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),

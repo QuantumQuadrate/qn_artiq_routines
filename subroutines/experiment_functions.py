@@ -122,11 +122,15 @@ def load_MOT_and_FORT_fixed_duration(self):
     :return:
     """
 
-    # FORT is on to thermalize but frequency shifted to not couple to the fiber
     self.dds_FORT.sw.on()
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
-    # set the cooling DP AOM to the MOT settings - why was this commented?
+    if not self.FORT_on_at_MOT_start:
+        # FORT is on to thermalize but frequency shifted to not couple to the fiber
+        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+    else:
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+
+    # set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
     self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
@@ -162,16 +166,13 @@ def load_MOT_and_FORT_fixed_duration(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
                                 amplitude=self.ampl_cooling_DP_MOT) # todo: make a variable for phase 2
         delay(self.t_MOT_phase2)
-    #
-    # todo: try loading from a PGC phase
-    #
+
     # turn on the dipole trap and wait to load atoms
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-    delay_mu(self.t_FORT_loading_mu)
 
-    # # turn off the coils # todo: this turns off the coils but they never come back on. wtf
-    # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
-    #                      channels=self.coil_channels)
+    if not self.FORT_on_at_MOT_start:
+        delay_mu(self.t_FORT_loading_mu)
+
     self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                          channels=self.coil_channels)
 
