@@ -98,7 +98,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                     if hasattr(error, "__len__") and not isinstance(error, np.ndarray):
                         error = np.array(error)
                 errbars = pyqtgraph.ErrorBarItem(
-                    x=x, y=retention_array, height=error, pen=(255, 0, 0))
+                    x=x, y=retention_array, height=2*error, pen=(255, 0, 0)) # error should be +/- the std, hence 2*
                 self.addItem(errbars)
                 self.addLegend()
             else:
