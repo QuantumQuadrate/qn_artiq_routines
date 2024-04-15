@@ -4,6 +4,13 @@ For optimizing an experiment function over any number of defined variables
 Any experiment function defined in experiment_functions.py can be optimized
 over any set of ExperimentVariables
 
+Example strings for the variables_and_bounds argument:
+[('AZ_bottom_volts_RO',-0.4*V,0.0*V,'diff'),('AZ_top_volts_RO',-0.1*V,0.3*V,'diff'),
+('AX_volts_RO',-0.1*V,0.3*V,'diff'),('AY_volts_RO',-0.1*V,0.3*V,'diff')]
+
+[('f_cooling_DP_RO',-2*MHz,2*MHz,'diff'),('p_cooling_DP_RO',0.75,1.0,'abs')]
+
+
 See also GeneralVariableScan and AtomLoadingOptimizerMLOOP
 """
 import logging
@@ -29,6 +36,8 @@ from subroutines.experiment_functions import *
 from subroutines.cost_functions import *
 import subroutines.experiment_functions as exp_functions
 import subroutines.cost_functions as cost_functions
+from subroutines.aom_feedback import AOMPowerStabilizer
+
 
 class OptimizerVariable:
     """
