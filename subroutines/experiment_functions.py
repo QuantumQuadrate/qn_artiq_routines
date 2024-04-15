@@ -173,12 +173,12 @@ def load_MOT_and_FORT_fixed_duration(self):
     if not self.FORT_on_at_MOT_start:
         delay_mu(self.t_FORT_loading_mu)
 
-    self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                         channels=self.coil_channels)
-
     delay(1*ms)
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
+        self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                             channels=self.coil_channels)
+
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,
                                 amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_PGC)
         delay(self.t_PGC_in_MOT)
@@ -340,6 +340,10 @@ def atom_loading_experiment(self):
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
             channels=self.coil_channels)
+
+        # set the FORT AOM to the readout settings
+        self.dds_FORT.set(frequency=self.f_FORT,
+                                amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
