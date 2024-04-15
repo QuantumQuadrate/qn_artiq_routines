@@ -1,5 +1,7 @@
 """
 Two-shot experiment with a varying time between the shots over which the atom is held in the trap
+
+Here I am testing if readout is heating the atoms.
 """
 
 from artiq.experiment import *
@@ -11,7 +13,7 @@ from utilities.BaseExperiment import BaseExperiment
 from subroutines.experiment_functions import load_MOT_and_FORT
 
 
-class SingleAtomTrapLifetime(EnvExperiment):
+class SingleAtomTrapLifetime_testin_RO(EnvExperiment):
 
     def build(self):
         """
@@ -36,8 +38,6 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 'np.array([0.0, 1.0, 10.0, 100.0,1000.])*ms'))
 
         self.setattr_argument("n_measurements", NumberValue(50, ndecimals=0, step=1))
-        self.setattr_argument("no_first_shot", BooleanValue(default=False))
-        self.setattr_argument("MOT_AOMs_always_on", BooleanValue(default=False)) # good for diagnosing readout heating
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
@@ -81,8 +81,10 @@ class SingleAtomTrapLifetime(EnvExperiment):
                              channels=self.coil_channels)
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0], broadcast=True)
-        self.set_dataset("photocounts2", [0], broadcast=True)
+        self.set_dataset("photocountsA1", [0], broadcast=True)
+        self.set_dataset("photocountsA2", [0], broadcast=True)
+        self.set_dataset("photocountsB1", [0], broadcast=True)
+        self.set_dataset("photocountsB2", [0], broadcast=True)
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
         self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
@@ -97,21 +99,28 @@ class SingleAtomTrapLifetime(EnvExperiment):
         self.dds_AOM_A5.sw.on()
         delay(1 * ms)
 
-        delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
+        delay(2000*ms) # wait for AOMs to thermalize in case they have been off.
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()
         delay(1*ms)
 
-        counts = 0
-        counts2 = 0
+        countsA1 = 0
+        countsA2 = 0
+
+        countsB1 = 0
+        countsB2 = 0
 
         iteration = 0
         for t_delay_between_shots in self.t_delay_between_shots_list:
+            print(t_delay_between_shots)
+            delay(10*ms)
 
-            # these are the datasets for plotting only, an we restart them each iteration
-            self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
-            self.set_dataset("photocounts2_current_iteration", [0], broadcast=True)
+            # these are the datasets for plotting only, and we restart them each iteration
+            self.set_dataset("photocountsA1_current_iteration", [0], broadcast=True)
+            self.set_dataset("photocountsA2_current_iteration", [0], broadcast=True)
+            self.set_dataset("photocountsB1_current_iteration", [0], broadcast=True)
+            self.set_dataset("photocountsB2_current_iteration", [0], broadcast=True)
 
             # loop the experiment sequence
             for measurement in range(self.n_measurements):
@@ -123,45 +132,83 @@ class SingleAtomTrapLifetime(EnvExperiment):
                     self.dds_FORT.sw.on()
                     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
+### Finding retention without extra readout
+                ### Loads MOT and FORT, dissipates the MOT, leaves the coils in PGC setting, and
+                ### turns off the DP:
                 load_MOT_and_FORT(self)
 
-                # set the cooling DP AOM to the readout settings
+                ### set the cooling DP AOM to the readout settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
 
-                if not self.no_first_shot:
-                    # take the first shot
-                    self.dds_cooling_DP.sw.on()
-                    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
-                    counts = self.ttl0.count(t_gate_end)
-                    delay(1*ms)
-                    self.dds_cooling_DP.sw.off()
+                ### take the first shot
+                self.dds_cooling_DP.sw.on()
+                t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+                countsA1 = self.ttl0.count(t_gate_end)
+                delay(1 * ms)
+                self.dds_cooling_DP.sw.off()
 
                 delay(t_delay_between_shots)
 
-                # take the second shot
+                ### take the second shot
                 self.dds_cooling_DP.sw.on()
                 t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
-                counts2 = self.ttl0.count(t_gate_end)
-                delay(1*ms)
+                countsA2 = self.ttl0.count(t_gate_end)
+                delay(1 * ms)
 
-                if not self.MOT_AOMs_always_on:
-                    self.dds_cooling_DP.sw.off()
-
+                ### set the cooling DP AOM to the MOT loading settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
                 delay(2*ms)
 
+### Finding retention with one extra readout before last readout
+                ### Loads MOT and FORT, dissipates the MOT, leaves the coils in PGC setting, and
+                ### turns off the DP:
+                load_MOT_and_FORT(self)
 
+                ### set the cooling DP AOM to the readout settings
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+
+                ### take the first shot
+                self.dds_cooling_DP.sw.on()
+                t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+                countsB1 = self.ttl0.count(t_gate_end)
+                delay(1 * ms)
+                self.dds_cooling_DP.sw.off()
+
+                delay(t_delay_between_shots/2)
+
+                ### take the middle shot
+                self.dds_cooling_DP.sw.on()
+                t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+                dummy_counts = self.ttl0.count(t_gate_end)
+                delay(1 * ms)
+                self.dds_cooling_DP.sw.off()
+
+                delay(t_delay_between_shots / 2)
+
+                ### take the second shot
+                self.dds_cooling_DP.sw.on()
+                t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+                countsB2 = self.ttl0.count(t_gate_end)
+                delay(1 * ms)
+
+                ### set the cooling DP AOM to the MOT loading settings
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
                 # update the datasets
-                if not self.no_first_shot:
-                    self.append_to_dataset('photocounts', counts)
-                    self.append_to_dataset('photocounts_current_iteration', counts)
+                self.append_to_dataset('photocountsA1', countsA1)
+                self.append_to_dataset('photocountsA1_current_iteration', countsA1)
+                self.append_to_dataset('photocountsA2', countsA2)
+                self.append_to_dataset('photocountsA2_current_iteration', countsA2)
 
-                # update the datasets
-                self.append_to_dataset('photocounts2', counts2)
-                self.append_to_dataset('photocounts2_current_iteration', counts2)
+                self.append_to_dataset('photocountsB1', countsB1)
+                self.append_to_dataset('photocountsB1_current_iteration', countsB1)
+                self.append_to_dataset('photocountsB2', countsB2)
+                self.append_to_dataset('photocountsB2_current_iteration', countsB2)
+
                 self.set_dataset("iteration", iteration, broadcast=True)
+
+                delay(5 * ms)
 
             iteration += 1
 

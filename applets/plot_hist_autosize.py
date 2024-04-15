@@ -4,6 +4,9 @@
 better than the stock ARTIQ histogram which expects you to send it pre-binned data.
 the dataset should not be pre-binned here. just send it in and add an optional
 binning argument
+
+python "C:\..\qn_artiq_routines\applets\plot_hist_autosize.py" photocounts_current_iteration
+--x photocount_bins --iteration iteration --t_exposure t_SPCM_first_shot
 """
 
 import PyQt5    # make sure pyqtgraph imports Qt5
@@ -21,17 +24,15 @@ class HistogramPlot(pyqtgraph.PlotWidget):
 
     def data_changed(self, data, mods, title):
         try:
-            y = data[self.args.y][1][1:]
+            y = np.array(data[self.args.y][1][1:])
             x = (data[self.args.x][1])[0]
             pts = data.get(self.args.pts, (False, None))[1]
+            t_exposure = data.get(self.args.t_exposure, (False, None))[1]
             if self.args.x is None:
                 bins = 100
             else:
                 bins = x
-            if self.args.t_exposure is None:
-                t_exp = None
-            else:
-                t_exp = data[self.args.t_exposure][1]
+
             if self.args.color is None:
                 color = 'b'
             else:
@@ -41,6 +42,10 @@ class HistogramPlot(pyqtgraph.PlotWidget):
                 y = y[n:]
             if pts is not None:
                 y = y[-pts:]
+            #
+            if t_exposure is not None:
+                y = y/t_exposure
+
             if self.args.iteration is not None:
                 title = f"iteration {str(data[self.args.iteration][1])}"
         except KeyError:

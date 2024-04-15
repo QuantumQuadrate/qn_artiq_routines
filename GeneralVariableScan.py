@@ -40,13 +40,13 @@ class GeneralVariableScan(EnvExperiment):
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
-        self.setattr_argument('scan_variable1', StringValue('t_blowaway'))
+        self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
         # todo: need some error handling, or make this a drop box
         self.setattr_argument("scan_sequence1", StringValue(
             'np.array([0.000,0.005,0.02,0.05])*ms'))
 
         # this variable is optional
-        self.setattr_argument('scan_variable2', StringValue(''))
+        self.setattr_argument('scan_variable2_name', StringValue(''))
         # todo: need some error handling, or make this a drop box
         self.setattr_argument("scan_sequence2", StringValue(
             'np.linspace(-2,2,5)*V'))
@@ -56,7 +56,6 @@ class GeneralVariableScan(EnvExperiment):
                 and 'experiment' in x)]
 
         # a function that take no arguments that gets imported and run
-        # self.setattr_argument('experiment_function', StringValue('test'))
         self.setattr_argument('experiment_function',
                               EnumerationValue(experiment_function_names_list))
 
@@ -74,8 +73,8 @@ class GeneralVariableScan(EnvExperiment):
         """
         self.base.prepare()
 
-        self.scan_variable1 = str(self.scan_variable1)
-        self.scan_variable2 = str(self.scan_variable2)
+        self.scan_variable1 = str(self.scan_variable1_name)
+        self.scan_variable2 = str(self.scan_variable2_name)
 
         assert hasattr(self,self.scan_variable1), (f"There is no ExperimentVariable "+self.scan_variable1+
                                                   ". Did you mistype it?")
@@ -94,11 +93,15 @@ class GeneralVariableScan(EnvExperiment):
             self.scan_sequence2 = np.zeros(1) # we need a non-empty array to have a definite type for ARTIQ
             self.n_iterations2 = 0
 
+        scan_vars = [self.scan_variable1_name, self.scan_variable2_name]
+        scan_vars = [x for x in scan_vars if x != '']
+        self.scan_var_labels = ','.join(scan_vars)
+
         try:
             self.experiment_name = self.experiment_function
             self.experiment_function = lambda :eval(self.experiment_name)(self)
         except NameError as e:
-            print(f"The function {experiment_name} is not defined. Did you forget to import it?")
+            print(f"The function {self.experiment_name} is not defined. Did you forget to import it?")
             raise
 
         self.measurement = 0
@@ -106,7 +109,7 @@ class GeneralVariableScan(EnvExperiment):
         self.counts2 = 0
 
     @kernel
-    def hardware_init(self):
+    def initialize_hardware(self):
         self.base.initialize_hardware()
 
     def initialize_datasets(self):
@@ -114,6 +117,11 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
+
+        self.set_dataset(self.scan_var_dataset,self.scan_var_labels,broadcast=True)
+        self.set_dataset(self.scan_sequence1_dataset,self.scan_sequence1, broadcast=True)
+        self.set_dataset(self.scan_sequence2_dataset,self.scan_sequence2, broadcast=True)
+
 
     def reset_datasets(self):
         """
@@ -127,6 +135,11 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("test_dataset", [0], broadcast=True)
         self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
         self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
+
+        # these are set here because running BaseExperiment.initialize_hardware resets these to be empty
+        self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
+        self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1, broadcast=True)
+        self.set_dataset(self.scan_sequence2_dataset, self.scan_sequence2, broadcast=True)
 
     def run(self):
         """
@@ -144,7 +157,11 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("iteration", iteration, broadcast=True)
 
         for variable1_value in self.scan_sequence1:
-            # update the variable
+            # update the variable. setattr can't be called on the kernel, and this is what
+            # allows us to update an experiment variable without hardcoding it, i.e.
+            # explicitly naming the variable. that is why this run method does not
+            # have a kernel decorator, and we have to re-initialize the hardware each
+            # iteration.
             setattr(self, self.scan_variable1, variable1_value)
 
             for variable2_value in self.scan_sequence2:
@@ -152,7 +169,7 @@ class GeneralVariableScan(EnvExperiment):
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
 
-                self.hardware_init()
+                self.initialize_hardware()
                 self.reset_datasets()
 
                 # the measurement loop.

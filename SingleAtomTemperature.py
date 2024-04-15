@@ -77,8 +77,8 @@ class SingleAtomTemperature(EnvExperiment):
                              channels=self.coil_channels)
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0])
-        self.set_dataset("photocounts2", [0])
+        self.set_dataset("photocounts", [0], broadcast=True)
+        self.set_dataset("photocounts2", [0], broadcast=True)
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
 
@@ -113,9 +113,9 @@ class SingleAtomTemperature(EnvExperiment):
             for measurement in range(self.n_measurements):
 
                 if self.enable_laser_feedback:
-                    if measurement % 10 == 0:
-                        self.laser_stabilizer.run()
-                        delay(1 * ms)
+                    # if measurement % 10 == 0:
+                    self.laser_stabilizer.run()
+                    delay(1 * ms)
                     self.dds_FORT.sw.on()
                     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
@@ -172,3 +172,6 @@ class SingleAtomTemperature(EnvExperiment):
         # effectively turn the FORT AOM off
         self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
         # set the cooling DP AOM to the MOT settings
+
+        # finally, in case the worker refuses to die
+        self.write_results()

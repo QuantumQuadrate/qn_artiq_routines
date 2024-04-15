@@ -100,6 +100,8 @@ class BaseExperiment:
         self.experiment.ttl_SPCM0 = self.experiment.ttl0
         self.experiment.ttl_scope_trigger = self.experiment.ttl7
         self.experiment.ttl_Luca_trigger = self.experiment.ttl6
+        self.experiment.ttl_UV = self.experiment.ttl15
+
 
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(
@@ -134,6 +136,9 @@ class BaseExperiment:
 
         # dataset names
         self.experiment.count_rate_dataset = 'photocounts_per_s'
+        self.experiment.scan_var_dataset = "scan_variables"
+        self.experiment.scan_sequence1_dataset = "scan_sequence1"
+        self.experiment.scan_sequence2_dataset = "scan_sequence2"
 
         # functions
 
@@ -213,6 +218,10 @@ class BaseExperiment:
         self.experiment.t_FORT_loading_mu = seconds_to_mu(self.experiment.t_FORT_loading)
         self.experiment.t_SPCM_exposure_mu = seconds_to_mu(self.experiment.t_SPCM_exposure)
 
+        # mainly for cost functions
+        self.experiment.counts_list = [0] * self.experiment.n_measurements
+        self.experiment.counts2_list = [0] * self.experiment.n_measurements
+
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
         fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
@@ -245,6 +254,12 @@ class BaseExperiment:
         hardware initialization and setting of ttl switches, and set datasets
         :return:
         """
+
+        self.experiment.core.reset()
+        self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
+        self.experiment.set_dataset(self.experiment.scan_sequence1_dataset,[0.0],broadcast=True)
+        self.experiment.set_dataset(self.experiment.scan_sequence2_dataset,[0.0],broadcast=True)
+
         self.experiment.named_devices.initialize()
 
         self.experiment.ttl_microwave_switch.output()
@@ -256,6 +271,9 @@ class BaseExperiment:
         self.experiment.ttl3.input()
         self.experiment.ttl14.output()
         self.experiment.ttl14.on()
+
+        self.experiment.ttl_UV.output()
+        self.experiment.ttl_UV.off()
 
         self.experiment.sampler0.init() # for reading laser feedback
         self.experiment.sampler1.init() # for reading laser feedback
@@ -283,7 +301,7 @@ class BaseExperiment:
         delay(10 * ms)
         self.experiment.dds_FORT.sw.off()
 
-        assert counts > 0, "SPCM0 is likely unplugged"
+        # assert counts > 0, "SPCM0 is likely unplugged"
 
         # todo: turn off all Zotino channels?
 
