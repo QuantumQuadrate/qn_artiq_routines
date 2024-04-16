@@ -48,10 +48,10 @@ class OptimizerVariable:
         self.name = var_and_bounds_tuple[0]
         assert hasattr(experiment, self.name), (f"There is no ExperimentVariable " + self.name +
                                                   ". Did you mistype it?")
-        self.is_absolute = 0 if var_and_bounds_tuple[3] == 'diff' else 1
+        self.is_differential = 1 if var_and_bounds_tuple[3] == 'diff' else 0
         self.default_value = getattr(experiment, self.name)
-        self.min_bound = var_and_bounds_tuple[1] + self.is_absolute*self.default_value
-        self.max_bound = var_and_bounds_tuple[2] + self.is_absolute*self.default_value
+        self.min_bound = var_and_bounds_tuple[1] + self.is_differential*self.default_value
+        self.max_bound = var_and_bounds_tuple[2] + self.is_differential*self.default_value
 
 # Declare your custom class that inherits from the Interface class
 class MLOOPInterface(mli.Interface):
