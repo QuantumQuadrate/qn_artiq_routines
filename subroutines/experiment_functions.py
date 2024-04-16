@@ -357,12 +357,20 @@ def atom_loading_experiment(self):
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
+        # set the FORT to the holding setting, i.e. for doing nothing
+        self.dds_FORT.set(frequency=self.f_FORT,
+                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
+
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
 
         delay(self.t_delay_between_shots)
+
+        # set the FORT AOM to the readout settings
+        self.dds_FORT.set(frequency=self.f_FORT,
+                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
         # take the second shot
         self.dds_cooling_DP.sw.on()
