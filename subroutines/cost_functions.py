@@ -64,12 +64,35 @@ def atom_loading_rate_pulsed_MOT_cost(self) -> TFloat:
     return -100 * loading_fraction
 
 
+def atom_retention_and_loading_cost(self) -> TFloat:
+    """
+    the cost function for optimizing the fraction of atoms loaded and the fraction
+    retained in a two-shot experiment.
+
+    this cost ensures that retention is not optimized at the expense of loading,
+    which is useful for tuning parameters that are relevant before or during the first readout
+
+    :param self: experiment instance
+    :return: -100*retention_fraction*loading_fraction/0.6
+    """
+
+    shot1 = self.counts_list
+    shot2 = self.counts2_list
+    atoms_loaded = [x > self.atom_counts_threshold for x in shot1]
+    n_atoms_loaded = sum(atoms_loaded)
+    atoms_retained = [x > self.atom_counts2_threshold and y for x, y in zip(shot2, atoms_loaded)]
+    retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
+    loading_fraction = n_atoms_loaded/len(shot1)
+
+    return -100 * retention_fraction * loading_fraction / 0.6
+
+
 def atom_retention_cost(self) -> TFloat:
     """
     the cost function for optimizing the fraction of atoms retained in a two-shot experiment.
 
     :param self: experiment instance
-    :return: -1*retention_fraction, the negated number of atoms detected in the readout
+    :return: -100*retention_fraction, the negated percentage of atoms detected in the readout
     """
 
     shot1 = self.counts_list
