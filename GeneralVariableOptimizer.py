@@ -5,11 +5,17 @@ Any experiment function defined in experiment_functions.py can be optimized
 over any set of ExperimentVariables
 
 Example strings for the variables_and_bounds argument:
-[('AZ_bottom_volts_RO',-0.4*V,0.0*V,'diff'),('AZ_top_volts_RO',-0.1*V,0.3*V,'diff'),
+    [('AZ_bottom_volts_RO',-0.4*V,0.0*V,'diff'),('AZ_top_volts_RO',-0.1*V,0.3*V,'diff'),
 ('AX_volts_RO',-0.1*V,0.3*V,'diff'),('AY_volts_RO',-0.1*V,0.3*V,'diff')]
+    [('f_cooling_DP_RO',-2*MHz,2*MHz,'diff'),('p_cooling_DP_RO',0.75,1.0,'abs')]
+    [('p_cooling_DP_PGC',0.1,1.0,'abs'),('f_cooling_DP_PGC',115*MHz,125*MHz,'abs'),
+('t_PGC_in_MOT',1*ms,40*ms,'abs')]
 
-[('f_cooling_DP_RO',-2*MHz,2*MHz,'diff'),('p_cooling_DP_RO',0.75,1.0,'abs')]
-
+    [('set_point_PD1_AOM_A1',0.5,1.1,'perc'),('set_point_PD2_AOM_A2',0.5,1.1,'perc'),
+('set_point_PD3_AOM_A3',0.5,1.1,'perc'),('set_point_PD4_AOM_A4',0.5,1.1,'perc'),
+('set_point_PD5_AOM_A5',0.5,1.1,'perc'),('set_point_PD6_AOM_A6',0.5,1.1,'perc'),
+('AZ_bottom_MOT',-0.2*V,0.2*V,'diff'),('AZ_top_MOT',-0.2*V,0.2*V,'diff'),
+('AX_volts_MOT',-0.2*V,0.2*V,'diff'),('AY_volts_MOT',-0.2*V,0.2*V,'diff')]
 
 See also GeneralVariableScan and AtomLoadingOptimizerMLOOP
 """
@@ -49,9 +55,14 @@ class OptimizerVariable:
         assert hasattr(experiment, self.name), (f"There is no ExperimentVariable " + self.name +
                                                   ". Did you mistype it?")
         self.is_differential = 1 if var_and_bounds_tuple[3] == 'diff' else 0
+        self.is_percentage = 1 if var_and_bounds_tuple[3] == 'perc' else 0
         self.default_value = getattr(experiment, self.name)
-        self.min_bound = var_and_bounds_tuple[1] + self.is_differential*self.default_value
-        self.max_bound = var_and_bounds_tuple[2] + self.is_differential*self.default_value
+        if self.is_percentage:
+            self.min_bound = var_and_bounds_tuple[1] * self.default_value
+            self.max_bound = var_and_bounds_tuple[2] * self.default_value
+        else:
+            self.min_bound = var_and_bounds_tuple[1] + self.is_differential*self.default_value
+            self.max_bound = var_and_bounds_tuple[2] + self.is_differential*self.default_value
 
 # Declare your custom class that inherits from the Interface class
 class MLOOPInterface(mli.Interface):
