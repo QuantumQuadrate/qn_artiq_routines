@@ -177,6 +177,10 @@ def load_MOT_and_FORT_fixed_duration(self):
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
+
+        self.dds_FORT.set(frequency=self.f_FORT,
+                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_PGC)
+
         self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                              channels=self.coil_channels)
 
