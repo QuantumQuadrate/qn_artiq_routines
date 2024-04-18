@@ -205,6 +205,15 @@ class ExperimentVariables(EnvExperiment):
             # about 1 G along the parabolic mirror axis.
             Variable("AY_volts_blowaway", 2.105, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
+            Variable("AZ_bottom_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AZ_top_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AX_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            # about 1 G along the parabolic mirror axis.
+            Variable("AY_volts_microwave", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
 
             # Timing
             Variable("t_MOT_loading", 500*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),

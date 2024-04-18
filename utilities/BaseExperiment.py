@@ -219,8 +219,12 @@ class BaseExperiment:
         self.experiment.t_SPCM_exposure_mu = seconds_to_mu(self.experiment.t_SPCM_exposure)
 
         # mainly for cost functions
-        self.experiment.counts_list = [0] * self.experiment.n_measurements
-        self.experiment.counts2_list = [0] * self.experiment.n_measurements
+        try:
+            self.experiment.counts_list = [0] * self.experiment.n_measurements
+            self.experiment.counts2_list = [0] * self.experiment.n_measurements
+        except:
+            # if this fails, your experiment probably didn't need it
+            logging.warn("experiment does not have variable n_measurements")
 
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
