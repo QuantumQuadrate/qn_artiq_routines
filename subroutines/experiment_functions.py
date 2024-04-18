@@ -623,13 +623,75 @@ def microwave_Rabi_experiment(self):
             self.dds_FORT.sw.on()
 
         ############################
+        # optical pumping phase - pumps atoms into F=1,m_F=0
+        ############################
+
+        if self.t_pumping > 0.0:
+            self.ttl_repump_switch.on()  # turns off the RP AOM
+            self.dds_cooling_DP.sw.off()  # no MOT light
+
+            # set coils for pumping
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                channels=self.coil_channels)
+            delay(0.1 * ms) # coil relaxation time
+
+            with sequential:
+
+                # lower FORT power
+                self.dds_FORT.set(
+                    frequency=self.f_FORT,
+                    amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_OP)
+
+                # this could be condensed but is left as is for clarity
+                if self.pumping_light_off:
+                    self.dds_D1_pumping_SP.sw.off()
+                    self.dds_pumping_repump.sw.off()
+                # elif self.control_experiment and measurement % 2 == 0:
+                #     self.dds_D1_pumping_SP.sw.off()
+                #     self.dds_pumping_repump.sw.off()
+                else:
+                    self.dds_D1_pumping_SP.sw.on()
+                    self.dds_pumping_repump.sw.on()
+
+                delay(self.t_pumping)
+
+                self.dds_D1_pumping_SP.sw.off()
+                self.dds_pumping_repump.sw.off()
+
+                # reset MOT power
+                self.dds_cooling_DP.sw.off()
+                self.dds_cooling_DP.set(
+                    frequency=self.f_cooling_DP_RO,
+                    amplitude=self.ampl_cooling_DP_MOT)
+
+        # raise FORT power back to holding level
+        self.dds_FORT.set(
+            frequency=self.f_FORT,
+            amplitude=self.stabilizer_FORT.amplitude*self.p_FORT_holding)
+
+        ############################
         # microwave phase
         ############################
 
         if self.t_microwave_pulse > 0.0:
+            self.ttl_repump_switch.on()  # turns off the RP AOM
+
+            # set coils for microwaves. good for diagnostics-- we can use this phase to zero the B-field
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_microwave, self.AZ_top_volts_microwave,
+                 self.AX_volts_microwave, self.AY_volts_microwave],
+                channels=self.coil_channels)
+            delay(0.1*ms)
+
             self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=self.ampl_microwaves)
             self.dds_microwaves.sw.on()
             self.ttl_microwave_switch.off()
+
+            delay(self.t_microwave_pulse)
+
+            self.dds_microwaves.sw.off()
+            self.ttl_microwave_switch.on()
 
         ############################
         # blow-away phase - push out atoms in F=2 only
