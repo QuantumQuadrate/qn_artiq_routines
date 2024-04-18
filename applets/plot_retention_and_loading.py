@@ -86,7 +86,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                           symbolPen='w',
                           name='loading')
 
-                self.setYRange(-0.05, 1.05, padding=0)
+                self.setYRange(-0.0, 1.0, padding=0)
 
                 title = str(data[self.args.scan_vars][1])
                 if title != '':
