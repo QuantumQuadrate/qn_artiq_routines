@@ -164,8 +164,6 @@ class RotatorFeedbackChannel():
             r.wait_move()
         return 0
 
-
-
     def move_to(self, degrees, rotor_num = 0, velocity = None, r1 = None):
         r = r1
         if rotor_num == -1 and r is None:
@@ -177,7 +175,7 @@ class RotatorFeedbackChannel():
         r.wait_move()
         return 1
 
-    def optimize(self, range_val=180, default_steps = 5, tol=0.1):
+    def optimize(self, range_val=180, default_steps = 3, tol=0.1):
         init_pos_1 = self._pos(rotor_num=0)
         init_pos_2 = self._pos(rotor_num=1)
         range_val = range_val
@@ -212,6 +210,7 @@ class RotatorFeedbackChannel():
         i = 1
         found_max = possible_z_max
         while(percent_diff > tol or found_max <= max(Z)) and i <= 20:
+            print(i)
             newestX, newestY, newestZ = self.move_and_measure(range=(range_val/(num_rel_maxes*(i**2))), steps=steps*2, dry_run=False, a=possible_x_max, b=possible_y_max)
             X = np.append(X, newestX)
             Y = np.append(Y, newestY)
@@ -224,18 +223,24 @@ class RotatorFeedbackChannel():
             self.move_to(possible_x_max, 0)
             self.move_to(possible_y_max, 1)
             self.wait_stop()
-            found_max = self.measure(measurements=1)
-            if found_max < max(Z):
-                max_full_index = np.argmax(Z)
-                possible_x_max = X[max_full_index]
-                possible_y_max = Y[max_full_index]
+            found_max = self.measure(measurements=1000)
+
+            max_full_index = np.argmax(Z)
+            full_x_max = X[max_full_index]
+            full_y_max = Y[max_full_index]
+            self.move_to(full_x_max, 0)
+            self.move_to(full_y_max, 1)
+            self.wait_stop()
+            found_max_full = self.measure(measurements=1000)
+
+            if not (found_max > found_max_full):
                 i = 0
 
-            i += 1
-            percent_diff = (abs((max(newestZ)-min(newestZ))/max(newestZ)))*100
+            percent_diff = (max(Z)-found_max)/max(Z)
             print(f"Percent_Diff{percent_diff}")
         if i > 20:
-            print("Fluctuations likely caused optimization to not work. Discarding previous data and re-running optimization")
+            print("Fluctuations likely caused optimization to not work quickly. Check if measurement is local maximum, and re-running optimization")
+
             return self.optimize(range_val=range_val,tol = tol)
         return possible_x_max, possible_y_max, possible_z_max, X, Y, Z
 
@@ -253,7 +258,7 @@ class RotorExperiment(EnvExperiment):
         rotor1.move_to(90, 0)
         rotor1.move_to(90, 1)
         rotor1.wait_stop()
-        maxX, maxY, maxZ, X, Y, Z = rotor1.optimize(range_val=90, tol = 0.1)
+        maxX, maxY, maxZ, X, Y, Z = rotor1.optimize(range_val=180, tol = 10)
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
         ax.scatter(X, Y, Z, s= 20)
