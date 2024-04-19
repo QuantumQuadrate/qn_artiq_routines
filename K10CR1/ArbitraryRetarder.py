@@ -14,7 +14,7 @@ rand = np.random.rand
 
 
 def exi(exponentiation: float):
-    return exp(1j * exponentiation)
+    return exp(1j * np.array(exponentiation))
 
 
 def rotation(theta):
@@ -51,7 +51,32 @@ def arb_retarder(args, piecewise = False):
         return J00, J01, J10, J11
     else:
         return mat
+def elliptical_fiber(args, piecewise = False):
+    phi, theta, eta = args
+    theta = exi(theta)
+    off_diag_factor = sin(2*eta)
+    J00 = cos(phi) +  theta*cos(2*eta)*(sin(phi))
+    J01 = off_diag_factor
+    J10 = off_diag_factor * -1
+    J11 = cos(phi/2) - theta*cos(2*eta)*(sin(phi/2))
 
+    mat = [[J00, J01], [J10, J11]]
+    if piecewise:
+        return J00, J01, J10, J11
+    else:
+        return mat
+
+def fiber(args, piecewise = False):
+    del_phi = args
+    W00 = 1
+    W01 = 0
+    W10 = 0
+    W11 = exp(1j*del_phi)
+    mat = [[W00, W01], [W10, W11]]
+    if piecewise:
+        return W00, W01, W10, W11
+    else:
+        return mat
 
 """
 Function that returns the values for the Jones Matrix of the QWP at fast axis angle being fast_axis_angle
