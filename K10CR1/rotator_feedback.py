@@ -7,17 +7,14 @@ import nidaqmx.constants as daq_constants
 from nidaqmx.errors import DaqError, DaqWarning
 from nidaqmx.error_codes import DAQmxErrors, DAQmxWarnings
 import numpy as np
-import numpy.linalg as la
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from ArbitraryRetarder import *
-from scipy.optimize import minimize
+from scipy.signal import argrelmax
 # a dictionary specifying channels we want to optimize
 
 class RotatorFeedbackChannel():
 
     def __init__(self,ch_name = "Dev1/ai0", dds_channel=0, rotator_sn=['55000741','55105674',], dry_run = True ,
-                 max_runs=10, leave_laser_on=False, spc = None, rate = None, plate_config = None):
+                 max_runs=10, spc = None, rate = None):
 
         self.spc = spc
         self.dry_run = dry_run
@@ -30,12 +27,13 @@ class RotatorFeedbackChannel():
         if self.rate is None or self.rate > 1e5:
             self.rate = 1e5
 
-        self.measure_sim = plate_config_measure(plate_config)
 
         self.daq_task.ai_channels.add_ai_voltage_chan(physical_channel=ch_name)
 
         if self.dry_run:
-            self.measure = self.measure_sim  # use this for testing since you don't have access to artiq hardware yet
+            self.measure = None
+            print("No dry run implemented, edit code")
+            # use this for testing since you don't have access to artiq hardware yet
         else:
             self.measure = self._measure
 
@@ -107,9 +105,10 @@ class RotatorFeedbackChannel():
             x0 = np.append(x0, x2)
             y0 = np.append(y, y1)
             y0 = np.append(y0, y2)
+
         if random is True:
-            x0 = np.random.rand(steps) * range + center_x
-            y0 = np.random.rand(steps) * range + center_y
+            x0 = range*(np.random.rand(steps) - 1/2) + center_x
+            y0 = range*(np.random.rand(steps) - 1/2) + center_y
 
         return x0, y0
 
@@ -121,21 +120,17 @@ class RotatorFeedbackChannel():
     for in the optimize portion of the code, and the acceleration error component seems to be negligible, when the goal
     is achieving maximum intensity.
     """
-    def move_and_measure(self, theta=None, eta=None, phi=None, range=None, steps=None, a=0, b=0, theta_1=0, theta_2=0,
-                         dry_run=True, E=None, start_time = None):
+    def move_and_measure(self, range=None, steps=None, a=0, b=0,
+                         dry_run=True):
         ang1, ang2 = self.q_h_gen(steps=steps, range=range, center_x=a, center_y=b, random=True)
-        ang1 -= theta_1
-        ang2 -= theta_2
         m_ang1 = []
         m_ang2 = []
-        # q_ang.sort()
-        # h_ang.sort()
         measure = self.measure
         measurements = []
         if dry_run or self is None:
-            for h, q in zip(ang1, ang2):
-                measurements.append(np.sum(measure(q_ang=q, h_ang=h, theta=theta, phi=phi,
-                                                   eta=eta, E=E)))
+            ##TODO
+            print("Dry run is unimplemented")
+            return -1
         else:
             for a1, a2 in zip(ang1, ang2):
                 self.r0.move_to(a1)
@@ -147,8 +142,7 @@ class RotatorFeedbackChannel():
                     m_ang2 = np.append(m_ang2, self._pos(rotor_num=1))
                     measurement = measure(measurements=1)
                     measurements = np.append(measurements, measurement)
-                    # print("intermediate measurement")
-                    # print(q_ang)
+
                     i += 1
                     sleep(0.3)
                 self.stage[1].wait_for_stop()
@@ -165,19 +159,12 @@ class RotatorFeedbackChannel():
             r.move_by(degrees)
             r.wait_move()
         else:
-            print(r.get_velocity_parameters())
             r.setup_velocity(max_velocity=velocity, scale=self.scl)
-            print(r.get_velocity_parameters())
             r.move_by(degrees)
             r.wait_move()
         return 0
 
-    def max_with_tolerance(self, h, q, m, peak, tol):
-        m_indices = [i < (peak * (1 + tol)) and i > (peak * (1 - tol)) for i in m]
-        for i, j, m_1 in zip(h, q, m):
-            if m_1 == max(m) and (m_1 < (peak * (1 + tol)) and m_1 > (peak * 1 - tol)):
-                return i, j, m_1
-        return None, None, None
+
 
     def move_to(self, degrees, rotor_num = 0, velocity = None, r1 = None):
         r = r1
@@ -190,126 +177,67 @@ class RotatorFeedbackChannel():
         r.wait_move()
         return 1
 
-    def objective_func(self, x, ang1_data, ang2_data, mdata):
-        theta = x[0]
-        eta = x[1]
-        phi = x[2]
-        E = x[3]
-        a = x[4]
-        p1 = x[5]
-        p2 = x[6]
-        measurements = mdata
-        error = 0
-        arb_r_angs = [theta,eta,phi]
-        #TODO: weight errors also based on distance between previous point
-        for ang1, ang2, m in zip(ang1_data, ang2_data, measurements):
-            angs = [ang1-p1, ang2-p2, arb_r_angs]
-            error += ((np.sum(np.array(self.measure_sim(angs, E = E, background = a))-m)) ** 2)*(m**2)
-        return error
+    def optimize(self, range_val=180, default_steps = 5, tol=0.1):
+        init_pos_1 = self._pos(rotor_num=0)
+        init_pos_2 = self._pos(rotor_num=1)
+        range_val = range_val
+        steps = default_steps
+        X, Y, Z = self.move_and_measure(range=range_val, steps=steps, dry_run=False, a=init_pos_1, b=init_pos_2)
+        order = int(np.sqrt(len(X)))
+        C = argrelmax(Z, order=order)
+        max_x = X[C]
+        max_y = Y[C]
+        max_z = Z[C]
 
-    def optimize(self, data=None, x0=None, bounds=None, cons=None, range_val=180,
-                 terminate=False, tol=0.2):
-        """
-        :param data:
-        :param x0:
-        :param bounds:
-        :param cons:
-        :param range_val:
-        :param terminate:
-        :param alpha:
-        :param beta:
-        :param tol:
-        :return:
-        """
-        def constraint(x, args):
-            """
+        max_x_primes = []
+        max_y_primes = []
+        max_z_primes = []
+        num_rel_maxes = len(C)
+        for x, y, z in zip(max_x, max_y, max_z):
+            print(f"Formatted pair: {x, y}")
+            newX, newY, newZ = self.move_and_measure(range=range_val/num_rel_maxes, steps=steps*2, dry_run=False, a=x, b=y)
+            X = np.append(X, newX)
+            Y = np.append(Y, newY)
+            Z = np.append(Z, newZ)
+            rel_max = np.argmax(newZ)
+            max_x_primes.append(newX[rel_max])
+            max_y_primes.append(newY[rel_max])
+            max_z_primes.append(newZ[rel_max])
 
-            :param x[3]: guessed parameter value for amplitude
-            :param x[6]: guessed paramter value for background amplitude
-            :param args: maximum measured value from data
-            return value multiplied by 1e10 so that the scip.py minimize weights the peak vbeing correct over the indivi
-            -dual point matching.
-            :return: E+a = peak;  (peak-max_val)*1e10 > 0
-            """
-            return (x[3] + x[4] - args)*1e10
+        possible_max = np.argmax(max_z_primes)
+        possible_x_max = max_x_primes[possible_max]
+        possible_y_max = max_y_primes[possible_max]
+        possible_z_max = max_z_primes[possible_max]
+        percent_diff = 100
+        i = 1
+        found_max = possible_z_max
+        while(percent_diff > tol or found_max <= max(Z)) and i <= 20:
+            newestX, newestY, newestZ = self.move_and_measure(range=(range_val/(num_rel_maxes*(i**2))), steps=steps*2, dry_run=False, a=possible_x_max, b=possible_y_max)
+            X = np.append(X, newestX)
+            Y = np.append(Y, newestY)
+            Z = np.append(Z, newestZ)
+            max_f = np.argmax(newestZ)
+            possible_x_max = newestX[max_f]
+            possible_y_max = newestY[max_f]
+            found_max = newestZ[max_f]
 
-        cons = ({'type': 'ineq',
-                 'fun': constraint,
-                 'args': (max(data[2]),)
-                 },)
-        r0 =  self.r0
-        r1 =  self.r1
-        method = 'trust-constr'
-        trust_constr_opts = {'disp': True, 'barrier_tol': 1e-8, 'xtol': 1e-15,
-                             'initial_constr_penalty': 1, 'maxiter': 5e3, }
-        if data is not None:
-            pot_max = max(data[2])
-            pot_min = min(data[2])
-            bounds = [(0, pi), (0, pi), (0, pi), (pot_max - pot_min, np.inf),
-                      (0, pot_max), (0, 180), (0,180)]
-        else:
-            pot_max = rand() * 3
-        if x0 is None:
-            x0 = [rand() * pi, rand() * pi, rand() * pi, pot_max - pot_min, 0, 0, 0]
-            sleep(1)
-        result = minimize(self.objective_func, x0=x0, args=data, bounds=bounds, method=method,
-                          constraints=cons, options=trust_constr_opts)
-        print(result.x)
-        x = result.x
-        theta, eta, phi, E, a, p1, p2 = x
+            self.move_to(possible_x_max, 0)
+            self.move_to(possible_y_max, 1)
+            self.wait_stop()
+            found_max = self.measure(measurements=1)
+            if found_max < max(Z):
+                max_full_index = np.argmax(Z)
+                possible_x_max = X[max_full_index]
+                possible_y_max = Y[max_full_index]
+                i = 0
 
-        ang1 = np.linspace(0, range_val, 30)
-        ang2 = np.linspace(0, range_val, 30)
-
-        X, Y = np.meshgrid(ang1, ang2)
-
-        arb_angs = [theta, eta, phi]
-        angs = [X, Y, arb_angs]
-
-        Z1 = self.measure_sim(angles=angs, E=E, background=a)
-        peak = (E + a)
-
-        c = np.argmax(Z1)
-
-        maxX, maxY, maxZ = X[c // 30][c % 30], Y[c // 30][c % 30], Z1[c // 30][c % 30]
-
-        self.r0.move_to(maxX)
-        self.r1.move_to(maxY)
-        self.r0.wait_for_stop()
-        self.r1.wait_for_stop()
-        test_measurement = self.measure(measurements=1000)
-        sleep(1)
-        print((abs(test_measurement - peak) / peak))
-        within_range = test_measurement >= peak * (1 - tol) and test_measurement <= peak * (1 + tol)
-        terminate = within_range or terminate
-        if not terminate:
-            newh, newq, newm = self.move_and_measure(range=180, steps=5, dry_run=False, a=0,
-                                                b=0)
-            h, q, m = data
-            h = np.append(h, newh)
-            q = np.append(q, newq)
-            m = np.append(m, newm)
-            data = h, q, m
-            # Before trying to reoptimize using new data it checks if any of the new points fall within the tolerance of
-            # previous peak found by scipy.minimize
-            checkMax1, checkMax2, checkMaxM = self.max_with_tolerance(*data, peak, tol)
-            if checkMax1 is not None and checkMax1 is not None:
-                r0.move_to(checkMax1)
-                r1.move_to(checkMax2)
-                r0.wait_for_stop()
-                r1.wait_for_stop()
-                test_measurement = self.measure(measurements=1000)
-                # Double checks to ensure the point measured to have a max within the tolerance has that max again
-                within_range = test_measurement >= peak * (1 - tol) and test_measurement <= peak * (1 + tol)
-                print(within_range)
-                print(abs(test_measurement-peak)/(peak * (1 - tol)))
-                if within_range:
-                    print("returning")
-                    return X, Y, Z1, checkMax1, checkMax2, checkMaxM, data
-            # if no peak is found within the total new range, it is re optimized to find a new peak to search for
-            return self.optimize(x0=None, data=data, terminate=False, tol=tol)
-        else:
-            return X, Y, Z1, maxX, maxY, maxZ, data
+            i += 1
+            percent_diff = (abs((max(newestZ)-min(newestZ))/max(newestZ)))*100
+            print(f"Percent_Diff{percent_diff}")
+        if i > 20:
+            print("Fluctuations likely caused optimization to not work. Discarding previous data and re-running optimization")
+            return self.optimize(range_val=range_val,tol = tol)
+        return possible_x_max, possible_y_max, possible_z_max, X, Y, Z
 
     def close(self):
         self.stage[0].close()
@@ -320,28 +248,16 @@ class RotatorFeedbackChannel():
 class RotorExperiment(EnvExperiment):
 
     def run(self):
-        rotor1 = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55000741", "55105674"], dry_run=False, plate_config = (qwp, hwp, arb_retarder))
-        init_pos_1 = rotor1._pos(rotor_num=0)
-        init_pos_2 = rotor1._pos(rotor_num=1)
-        range_val = 180
-        steps = 10
-        phi_0 = None
-        theta_0 = None
-        eta_0 = None
-        E_0 = None
-        data = rotor1.move_and_measure(phi=phi_0, theta=theta_0, eta=eta_0, range=range_val,
-                                steps=steps, dry_run=False, E=E_0, a=init_pos_1, b=init_pos_2)
+        rotor1 = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55000741", "55105674"], dry_run=False)
 
-        X, Y, Z1, maxX, maxY, maxZ, data = rotor1.optimize(data=data, tol=0.01)
+        rotor1.move_to(90, 0)
+        rotor1.move_to(90, 1)
+        rotor1.wait_stop()
+        maxX, maxY, maxZ, X, Y, Z = rotor1.optimize(range_val=90, tol = 0.1)
         fig = plt.figure()
-
         ax = fig.add_subplot(projection="3d")
-
-        ax.scatter(maxX, maxY, maxZ, marker="*", s=20)
-        ax.scatter(X, Y, Z1, marker=".", s=5)
-
-        ax.scatter(data[0], data[1], data[2])
-
+        ax.scatter(X, Y, Z, s= 20)
+        ax.scatter(maxX, maxY, maxZ, marker = "*", s = 50)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_zlabel('z')
