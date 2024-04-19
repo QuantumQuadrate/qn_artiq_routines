@@ -134,6 +134,8 @@ class AOMsCoils(EnvExperiment):
                 delay(1 * ms)
                 if self.FORT_AOM_ON == True:
                     self.dds_FORT.sw.on()
+                else:
+                    self.dds_FORT.sw.off()
                 delay(1 * ms)
             else:
                 # posts one data point for each beam
@@ -141,3 +143,5 @@ class AOMsCoils(EnvExperiment):
                 delay(1*ms)
                 if self.FORT_AOM_ON == True:
                     self.dds_FORT.sw.on()
+                else:
+                    self.dds_FORT.sw.off()
