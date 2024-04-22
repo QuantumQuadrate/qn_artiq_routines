@@ -204,7 +204,7 @@ class RotatorFeedbackChannel():
         percent_diff = 1
         i = 0
         gradient_close_to_zero = False
-        while ((i < min_iterations) or (percent_diff_grad > tolerance and i < max_iteration and not gradient_close_to_zero)):
+        while ((i < min_iterations) or ((not gradient_close_to_zero and percent_diff > tolerance) and i < max_iteration and not gradient_close_to_zero)):
             # Compute the partial derivatives of the function at the current point using numerical differentiation
 
             gradient_x = new_gradient_x
@@ -219,9 +219,12 @@ class RotatorFeedbackChannel():
             newy = y + learning_rate * gradient_y
             new_gradient_x = numerical_partial_derivative_x(self.function_to_maximize, newx, newy, epsilon)
             new_gradient_y = numerical_partial_derivative_y(self.function_to_maximize, newx, newy, epsilon)
-            percent_diff_grad = np.sqrt(abs(gradient_x - new_gradient_x /gradient_x)**2 + abs(gradient_y - new_gradient_y / gradient_y)**2)
-            gradient_close_to_zero = (gradient_x + gradient_y) < 0.0001
 
+
+
+            gradient_close_to_zero = (abs(gradient_x - new_gradient_x /gradient_x) < tolerance
+                                      and abs(gradient_y - new_gradient_y /gradient_y) < tolerance)
+            percent_diff = np.sqrt(abs(gradient_x - new_gradient_x /gradient_x)*epsilon**2 + abs(gradient_y - new_gradient_y /gradient_y)*epsilon**2)
             x = newx
             y = newy
 
@@ -234,47 +237,53 @@ class RotatorFeedbackChannel():
             y = ys[max_i]
         return x, y, xs, ys, zs
 
-    def optimize_2(self, range_val=180, default_steps = 3, tol=0.1, min_iterations = 10, max_iterations = 20):
-        learning_rate = 18
+    def optimize(self, range_val=180, default_steps = 3, tol=0.1, min_iterations = 10, max_iterations = 20, pre_optimized = False):
+        learning_rate = 180
         epsilon = 1 # The larger the epsilon, the lower the noise, but greater chance of finding off peak non maxima
         tolerance = 0.1
         init_pos_1 = self._pos(rotor_num=0)
         init_pos_2 = self._pos(rotor_num=1)
         range_val = range_val
         steps = default_steps
-        X, Y, Z = self.move_and_measure(range=range_val, steps=steps, dry_run=False, a=init_pos_1, b=init_pos_2)
-        order = int(np.sqrt(len(X)))
-        C = argrelmax(Z, order=order)
-        max_x = X[C]
-        max_y = Y[C]
-        max_z = Z[C]
+        if not pre_optimized:
+            X, Y, Z = self.move_and_measure(range=range_val, steps=steps, dry_run=False, a=init_pos_1, b=init_pos_2)
+            order = int(np.sqrt(len(X)))
+            C = argrelmax(Z, order=order)
+            max_x = X[C]
+            max_y = Y[C]
+            max_z = Z[C]
 
-        max_x_primes = []
-        max_y_primes = []
-        max_z_primes = []
-        num_rel_maxes = len(C)
-        for x, y, z in zip(max_x, max_y, max_z):
-            print(f"Formatted pair: {x, y}")
-            newX, newY, newZ = self.move_and_measure(range=range_val/num_rel_maxes, steps=steps, dry_run=False, a=x, b=y)
-            X = np.append(X, newX)
-            Y = np.append(Y, newY)
-            Z = np.append(Z, newZ)
-            rel_max = np.argmax(newZ)
-            max_x_primes.append(newX[rel_max])
-            max_y_primes.append(newY[rel_max])
-            max_z_primes.append(newZ[rel_max])
+            max_x_primes = []
+            max_y_primes = []
+            max_z_primes = []
+            num_rel_maxes = len(C)
+            for x, y, z in zip(max_x, max_y, max_z):
+                print(f"Formatted pair: {x, y}")
+                newX, newY, newZ = self.move_and_measure(range=range_val/num_rel_maxes, steps=steps, dry_run=False, a=x, b=y)
+                X = np.append(X, newX)
+                Y = np.append(Y, newY)
+                Z = np.append(Z, newZ)
+                rel_max = np.argmax(newZ)
+                max_x_primes.append(newX[rel_max])
+                max_y_primes.append(newY[rel_max])
+                max_z_primes.append(newZ[rel_max])
 
-        possible_max = np.argmax(max_z_primes)
-        possible_x_max = max_x_primes[possible_max]
-        possible_y_max = max_y_primes[possible_max]
-
+            possible_max = np.argmax(max_z_primes)
+            possible_x_max = max_x_primes[possible_max]
+            possible_y_max = max_y_primes[possible_max]
+        else:
+            possible_x_max = init_pos_1
+            possible_y_max = init_pos_2
         true_max_x, true_max_y, newXs, newYs, newZs = self.gradient_ascent_2d(learning_rate=learning_rate,
                                                                               epsilon=epsilon, tolerance=tolerance,
                                                                             max_iteration=max_iterations, min_iterations=min_iterations,
                                                                               init_x=possible_x_max, init_y=possible_y_max)
-        X = np.append(X, newXs)
-        Y = np.append(Y, newYs)
-        Z = np.append(Z, newZs)
+        if not pre_optimized:
+            X = np.append(X, newXs)
+            Y = np.append(Y, newYs)
+            Z = np.append(Z, newZs)
+        else:
+            X, Y, Z = newXs, newYs, newZs
         self.move_to(true_max_x, 0)
         self.move_to(true_max_y, 1)
         self.wait_stop()
@@ -282,7 +291,7 @@ class RotatorFeedbackChannel():
         sleep(1)
         return true_max_x, true_max_y, possible_z_max, X, Y, Z
 
-    def optimize(self, range_val=180, default_steps = 3, tol=0.01):
+    def optimize_2(self, range_val=180, default_steps = 3, tol=0.01):
         init_pos_1 = self._pos(rotor_num=0)
         init_pos_2 = self._pos(rotor_num=1)
         range_val = range_val
@@ -338,13 +347,13 @@ class RotatorFeedbackChannel():
             self.wait_stop()
             found_max_full = self.measure(measurements=1000)
 
-            if not (found_max > found_max_full):
-                i = 0
+            if abs((found_max_full-found_max)/found_max_full) > tol:
+                i -= 1
                 X = np.append(X, newestX)
                 Y = np.append(Y, newestY)
                 Z = np.append(Z, newestZ)
             i+=1
-            percent_diff = (max(Z)-found_max)/max(Z)
+            percent_diff = abs((found_max_full-found_max)/found_max_full)
             print(f"Percent_Diff{percent_diff}")
         if i > 20:
             print("Fluctuations likely caused optimization to not work quickly. Check if measurement is local maximum, and re-running optimization")
@@ -363,10 +372,10 @@ class RotorExperiment(EnvExperiment):
     def run(self):
         rotor1 = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=["55000741", "55105674"], dry_run=False)
 
-        rotor1.move_to(90, 0)
-        rotor1.move_to(90, 1)
+        #rotor1.move_to(90, 0)
+        #rotor1.move_to(90, 1)
         rotor1.wait_stop()
-        maxX, maxY, maxZ, X, Y, Z = rotor1.optimize(range_val=180, tol = 0.01)
+        maxX, maxY, maxZ, X, Y, Z = rotor1.optimize(range_val=180, tol = 0.01, pre_optimized=False)
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
         ax.scatter(X, Y, Z, s= 20)
