@@ -84,6 +84,7 @@ class BaseExperiment:
 
         # devices without nicknames. core should come first
         devices_no_alias = ["core",
+                            "core_dma",
                             "scheduler",
                             "urukul0_cpld", "urukul1_cpld", "urukul2_cpld",
                             "zotino0",  # for controlling coils
