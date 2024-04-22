@@ -11,6 +11,14 @@ import matplotlib.pyplot as plt
 from scipy.signal import argrelmax
 # a dictionary specifying channels we want to optimize
 
+def numerical_partial_derivative_x(function, x, y, epsilon=0.5):
+
+    return (function(x + epsilon, y) - function(x - epsilon, y)) / (2 * epsilon)
+
+
+def numerical_partial_derivative_y(function, x, y, epsilon=0.5):
+
+    return (function(x, y + epsilon) - function(x, y - epsilon)) / (2 * epsilon)
 class RotatorFeedbackChannel():
 
     def __init__(self,ch_name = "Dev1/ai0", dds_channel=0, rotator_sn=['55000741','55105674',], dry_run = True ,
@@ -174,8 +182,107 @@ class RotatorFeedbackChannel():
         r.move_to(degrees)
         r.wait_move()
         return 1
+    def function_to_maximize(self,x,y,):
+        self.move_to(x, 0)
+        self.move_to(y, 1)
+        self.wait_stop(rotor_num=0)
+        self.wait_stop(rotor_num=1)
+        measurement = self.measure(measurements=1000)
+        sleep(0.1)
+        return measurement
+    def gradient_ascent_2d(self, learning_rate, tolerance, min_iterations=10, max_iteration=100, init_x = 0, init_y = 0,
+                           epsilon = 0.5):
+        # Start with initial guesses for the maximum (x, y)
+        x = init_x
+        y = init_y
+        xs = []
+        ys = []
+        zs = []
+        new_gradient_x = numerical_partial_derivative_x(self.function_to_maximize, x, y, epsilon = epsilon)
+        new_gradient_y = numerical_partial_derivative_y(self.function_to_maximize, x, y, epsilon = epsilon)
+        # Perform gradient ascent
+        percent_diff = 1
+        i = 0
+        gradient_close_to_zero = False
+        while ((i < min_iterations) or (percent_diff_grad > tolerance and i < max_iteration and not gradient_close_to_zero)):
+            # Compute the partial derivatives of the function at the current point using numerical differentiation
 
-    def optimize(self, range_val=180, default_steps = 3, tol=0.1):
+            gradient_x = new_gradient_x
+            gradient_y = new_gradient_y
+
+            # Update the current point using the gradients and "learning rate"
+            xs.append(x)
+            ys.append(y)
+            zs.append(self.function_to_maximize(x, y))
+
+            newx = x + learning_rate * gradient_x
+            newy = y + learning_rate * gradient_y
+            new_gradient_x = numerical_partial_derivative_x(self.function_to_maximize, newx, newy, epsilon)
+            new_gradient_y = numerical_partial_derivative_y(self.function_to_maximize, newx, newy, epsilon)
+            percent_diff_grad = np.sqrt(abs(gradient_x - new_gradient_x /gradient_x)**2 + abs(gradient_y - new_gradient_y / gradient_y)**2)
+            gradient_close_to_zero = (gradient_x + gradient_y) < 0.0001
+
+            x = newx
+            y = newy
+
+
+            print("Iteration {}: (x, y) = ({}, {}), f(x, y) = {}".format(i + 1, x, y, self.function_to_maximize(x, y)))
+            i += 1
+        if(i >= max_iteration):
+            max_i = np.argmax(zs)
+            x = xs[max_i]
+            y = ys[max_i]
+        return x, y, xs, ys, zs
+
+    def optimize_2(self, range_val=180, default_steps = 3, tol=0.1, min_iterations = 10, max_iterations = 20):
+        learning_rate = 18
+        epsilon = 1 # The larger the epsilon, the lower the noise, but greater chance of finding off peak non maxima
+        tolerance = 0.1
+        init_pos_1 = self._pos(rotor_num=0)
+        init_pos_2 = self._pos(rotor_num=1)
+        range_val = range_val
+        steps = default_steps
+        X, Y, Z = self.move_and_measure(range=range_val, steps=steps, dry_run=False, a=init_pos_1, b=init_pos_2)
+        order = int(np.sqrt(len(X)))
+        C = argrelmax(Z, order=order)
+        max_x = X[C]
+        max_y = Y[C]
+        max_z = Z[C]
+
+        max_x_primes = []
+        max_y_primes = []
+        max_z_primes = []
+        num_rel_maxes = len(C)
+        for x, y, z in zip(max_x, max_y, max_z):
+            print(f"Formatted pair: {x, y}")
+            newX, newY, newZ = self.move_and_measure(range=range_val/num_rel_maxes, steps=steps, dry_run=False, a=x, b=y)
+            X = np.append(X, newX)
+            Y = np.append(Y, newY)
+            Z = np.append(Z, newZ)
+            rel_max = np.argmax(newZ)
+            max_x_primes.append(newX[rel_max])
+            max_y_primes.append(newY[rel_max])
+            max_z_primes.append(newZ[rel_max])
+
+        possible_max = np.argmax(max_z_primes)
+        possible_x_max = max_x_primes[possible_max]
+        possible_y_max = max_y_primes[possible_max]
+
+        true_max_x, true_max_y, newXs, newYs, newZs = self.gradient_ascent_2d(learning_rate=learning_rate,
+                                                                              epsilon=epsilon, tolerance=tolerance,
+                                                                            max_iteration=max_iterations, min_iterations=min_iterations,
+                                                                              init_x=possible_x_max, init_y=possible_y_max)
+        X = np.append(X, newXs)
+        Y = np.append(Y, newYs)
+        Z = np.append(Z, newZs)
+        self.move_to(true_max_x, 0)
+        self.move_to(true_max_y, 1)
+        self.wait_stop()
+        possible_z_max = self.measure(measurements=1000)
+        sleep(1)
+        return true_max_x, true_max_y, possible_z_max, X, Y, Z
+
+    def optimize(self, range_val=180, default_steps = 3, tol=0.01):
         init_pos_1 = self._pos(rotor_num=0)
         init_pos_2 = self._pos(rotor_num=1)
         range_val = range_val
@@ -209,12 +316,10 @@ class RotatorFeedbackChannel():
         percent_diff = 100
         i = 1
         found_max = possible_z_max
-        while(percent_diff > tol or found_max <= max(Z)) and i <= 20:
+        while(percent_diff > tol) and i <= 20:
             print(i)
             newestX, newestY, newestZ = self.move_and_measure(range=(range_val/(num_rel_maxes*(i**2))), steps=steps*2, dry_run=False, a=possible_x_max, b=possible_y_max)
-            X = np.append(X, newestX)
-            Y = np.append(Y, newestY)
-            Z = np.append(Z, newestZ)
+
             max_f = np.argmax(newestZ)
             possible_x_max = newestX[max_f]
             possible_y_max = newestY[max_f]
@@ -235,7 +340,10 @@ class RotatorFeedbackChannel():
 
             if not (found_max > found_max_full):
                 i = 0
-
+                X = np.append(X, newestX)
+                Y = np.append(Y, newestY)
+                Z = np.append(Z, newestZ)
+            i+=1
             percent_diff = (max(Z)-found_max)/max(Z)
             print(f"Percent_Diff{percent_diff}")
         if i > 20:
@@ -258,7 +366,7 @@ class RotorExperiment(EnvExperiment):
         rotor1.move_to(90, 0)
         rotor1.move_to(90, 1)
         rotor1.wait_stop()
-        maxX, maxY, maxZ, X, Y, Z = rotor1.optimize(range_val=180, tol = 10)
+        maxX, maxY, maxZ, X, Y, Z = rotor1.optimize(range_val=180, tol = 0.01)
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
         ax.scatter(X, Y, Z, s= 20)
