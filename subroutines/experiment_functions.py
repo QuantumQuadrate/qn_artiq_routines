@@ -700,6 +700,11 @@ def optical_pumping_experiment(self):
                           amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
         # take the second shot
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+        delay(0.1 * ms)
+        self.ttl_repump_switch.off()  # turns the RP AOM on
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
         counts2 = self.ttl0.count(t_gate_end)
@@ -826,6 +831,11 @@ def microwave_Rabi_experiment(self):
                           amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
         # take the second shot
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+        delay(0.1 * ms)
+        self.ttl_repump_switch.off() # turns the RP AOM on
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
         counts2 = self.ttl0.count(t_gate_end)
