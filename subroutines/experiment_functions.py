@@ -274,6 +274,7 @@ def record_chopped_optical_pumping(self):
     """
 
     n_chop_cycles = int(self.t_pumping /self.t_OP_chop_period)
+    assert n_chop_cycles > 1, "t_pumping should be > t_OP_chop_period"
 
     OP_pulse = self.t_OP_chop_period * 0.35
     FORT_pulse = self.t_OP_chop_period - OP_pulse
@@ -291,16 +292,29 @@ def record_chopped_optical_pumping(self):
 
         self.dds_FORT.sw.off()
         delay_mu(OP_pulse_length_mu)
-        for i in range(n_chop_cycles):
-            at_mu(start+i*period_mu+FORT_on_mu)
+
+        if not self.pumping_light_off:
+            for i in range(n_chop_cycles):
+                at_mu(start+i*period_mu+FORT_on_mu)
+                self.dds_FORT.sw.on()
+                delay_mu(FORT_pulse_length_mu)
+                self.dds_FORT.sw.off()
+                at_mu(start+i*period_mu+OP_on_mu)
+                self.dds_D1_pumping_SP.sw.on()
+                delay_mu(OP_pulse_length_mu)
+                self.dds_D1_pumping_SP.sw.off()
             self.dds_FORT.sw.on()
-            delay_mu(FORT_pulse_length_mu)
-            self.dds_FORT.sw.off()
-            at_mu(start+i*period_mu+OP_on_mu)
-            self.dds_D1_pumping_SP.sw.on()
-            delay_mu(OP_pulse_length_mu)
-            self.dds_D1_pumping_SP.sw.off()
-        self.dds_FORT.sw.on()
+        else:
+            for i in range(n_chop_cycles):
+                at_mu(start + i * period_mu + FORT_on_mu)
+                self.dds_FORT.sw.on()
+                delay_mu(FORT_pulse_length_mu)
+                self.dds_FORT.sw.off()
+                at_mu(start + i * period_mu + OP_on_mu)
+                # self.dds_D1_pumping_SP.sw.on()
+                delay_mu(OP_pulse_length_mu)
+                # self.dds_D1_pumping_SP.sw.off()
+            self.dds_FORT.sw.on()
 
 
 @kernel
@@ -328,13 +342,6 @@ def chopped_optical_pumping(self):
         self.dds_FORT.set(
             frequency=self.f_FORT,
             amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_OP)
-
-        if self.pumping_light_off:
-            self.dds_D1_pumping_SP.sw.off()
-            self.dds_pumping_repump.sw.off()
-        else:
-            self.dds_D1_pumping_SP.sw.on()
-            self.dds_pumping_repump.sw.on()
 
         delay(1*us)
 
@@ -597,9 +604,9 @@ def optical_pumping_experiment(self):
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
                      broadcast=True)
-
-    record_chopped_optical_pumping(self)
-    delay(100*ms)
+    if self.t_pumping > 0.0:
+        record_chopped_optical_pumping(self)
+        delay(100*ms)
 
     for measurement in range(self.n_measurements):
 
