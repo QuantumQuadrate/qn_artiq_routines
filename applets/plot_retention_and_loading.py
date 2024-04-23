@@ -73,33 +73,34 @@ class XYPlot(pyqtgraph.PlotWidget):
                 error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
 
                 self.clear()
-                self.plot(x, retention_array,
-                          pen=(255, 0, 0),
-                          symbol='o',
-                          symbolBrush=(255, 0, 0),
-                          symbolPen='w',
-                          name='retention')
-                self.plot(x, loading_rate_array,
-                          pen=(0, 100, 100),
-                          symbol='o',
-                          symbolBrush=(0, 100, 100),
-                          symbolPen='w',
-                          name='loading')
+                if len(x) == len(retention_array) and len(x) == len(loading_rate_array):
+                    self.plot(x, retention_array,
+                              pen=(255, 0, 0),
+                              symbol='o',
+                              symbolBrush=(255, 0, 0),
+                              symbolPen='w',
+                              name='retention')
+                    self.plot(x, loading_rate_array,
+                              pen=(0, 100, 100),
+                              symbol='o',
+                              symbolBrush=(0, 100, 100),
+                              symbolPen='w',
+                              name='loading')
 
-                self.setYRange(-0.0, 1.0, padding=0)
+                    self.setYRange(-0.0, 1.0, padding=0)
 
-                title = str(data[self.args.scan_vars][1])
-                if title != '':
-                    self.setTitle(title)
+                    title = str(data[self.args.scan_vars][1])
+                    if title != '':
+                        self.setTitle(title)
 
-                #
-                if error is not None:
-                    # See https://github.com/pyqtgraph/pyqtgraph/issues/211
-                    if hasattr(error, "__len__") and not isinstance(error, np.ndarray):
-                        error = np.array(error)
-                errbars = pyqtgraph.ErrorBarItem(
-                    x=x, y=retention_array, height=2*error, pen=(255, 0, 0)) # error should be +/- the std, hence 2*
-                self.addItem(errbars)
+                    #
+                    if error is not None:
+                        # See https://github.com/pyqtgraph/pyqtgraph/issues/211
+                        if hasattr(error, "__len__") and not isinstance(error, np.ndarray):
+                            error = np.array(error)
+                    errbars = pyqtgraph.ErrorBarItem(
+                        x=x, y=retention_array, height=2*error, pen=(255, 0, 0)) # error should be +/- the std, hence 2*
+                    self.addItem(errbars)
                 self.addLegend()
             else:
                 self.clear()
