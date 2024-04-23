@@ -276,19 +276,30 @@ def record_chopped_optical_pumping(self):
     t_chop_period = 1 * us
     t_pumping = 10*us
     n_chop_cycles = int(t_pumping /t_chop_period)
-    with self.core_dma.record("chopped_optical_pumping"):
-        for i in range(n_chop_cycles):
 
-            # this chops the FORT and pumping out of phase, despite looking like they
-            # will be chopped in phase. but the OP starts while the FORT is still on
-            delay(10 * ns)
-            self.dds_D1_pumping_SP.sw.on()
+    self.core.reset()
+
+    with self.core_dma.record("chopped_optical_pumping"):
+
+        start = now_mu()
+        period_mu = self.core.seconds_to_mu(t_chop_period)
+        OP_pulse_length_mu = self.core.seconds_to_mu(350*ns)
+        OP_on_mu = self.core.seconds_to_mu(650*ns)
+        FORT_pulse_length_mu = self.core.seconds_to_mu(650*ns)
+        FORT_on_mu = self.core.seconds_to_mu(350*ns)
+
+        self.dds_FORT.sw.off()
+        delay_mu(OP_pulse_length_mu)
+        for i in range(n_chop_cycles):
+            at_mu(start+i*period_mu+FORT_on_mu)
             self.dds_FORT.sw.on()
-            delay(480 * ns)
+            delay_mu(FORT_pulse_length_mu)
             self.dds_FORT.sw.off()
+            at_mu(start+i*period_mu+OP_on_mu)
+            self.dds_D1_pumping_SP.sw.on()
+            delay_mu(OP_pulse_length_mu)
             self.dds_D1_pumping_SP.sw.off()
-            delay(10 * ns)
-            delay(490 * ns)
+        self.dds_FORT.sw.on()
 
 @kernel
 def chopped_optical_pumping(self):
