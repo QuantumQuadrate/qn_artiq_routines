@@ -273,20 +273,21 @@ def record_chopped_optical_pumping(self):
     :return:
     """
 
-    t_chop_period = 1 * us
-    t_pumping = 10*us
-    n_chop_cycles = int(t_pumping /t_chop_period)
+    n_chop_cycles = int(self.t_pumping /self.t_OP_chop_period)
+
+    OP_pulse = self.t_OP_chop_period * 0.35
+    FORT_pulse = self.t_OP_chop_period - OP_pulse
 
     self.core.reset()
 
     with self.core_dma.record("chopped_optical_pumping"):
 
         start = now_mu()
-        period_mu = self.core.seconds_to_mu(t_chop_period)
-        OP_pulse_length_mu = self.core.seconds_to_mu(350*ns)
-        OP_on_mu = self.core.seconds_to_mu(650*ns)
-        FORT_pulse_length_mu = self.core.seconds_to_mu(650*ns)
-        FORT_on_mu = self.core.seconds_to_mu(350*ns)
+        period_mu = self.core.seconds_to_mu(self.t_OP_chop_period)
+        OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
+        OP_on_mu = self.core.seconds_to_mu(FORT_pulse)
+        FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
+        FORT_on_mu = self.core.seconds_to_mu(OP_pulse)
 
         self.dds_FORT.sw.off()
         delay_mu(OP_pulse_length_mu)
@@ -300,6 +301,7 @@ def record_chopped_optical_pumping(self):
             delay_mu(OP_pulse_length_mu)
             self.dds_D1_pumping_SP.sw.off()
         self.dds_FORT.sw.on()
+
 
 @kernel
 def chopped_optical_pumping(self):
