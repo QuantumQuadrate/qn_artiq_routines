@@ -2,6 +2,14 @@ from artiq.experiment import *
 import numpy as np
 from abc import ABC
 
+import os, sys
+cwd = os.getcwd() + "\\"
+
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+
+from utilities.conversions import dB_to_V_kernel
+
 # todo: think about how to implement the experiment functions in a wrapper.
 #  need to pass the experiments by reference.
 """
@@ -336,6 +344,15 @@ def chopped_optical_pumping(self):
         channels=self.coil_channels)
     delay(0.1 * ms)  # coil relaxation time
 
+    # ramp up the fiber AOMs to maximize the amount of pumping repump we get
+    self.dds_pumping_repump.sw.on()
+    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=dB_to_V_kernel(-8.0))
+    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=dB_to_V_kernel(-8.0))
+    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=dB_to_V_kernel(-8.0))
+    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=dB_to_V_kernel(-8.0))
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V_kernel(-8.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V_kernel(-8.0))
+
     with sequential:
 
         # lower FORT power
@@ -344,6 +361,11 @@ def chopped_optical_pumping(self):
             amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_OP)
 
         delay(1*us)
+
+        # lower FORT power
+        self.dds_FORT.set(
+            frequency=self.f_FORT,
+            amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_OP)
 
         self.core_dma.playback_handle(op_dma_handle)
 
@@ -355,6 +377,14 @@ def chopped_optical_pumping(self):
         self.dds_cooling_DP.set(
             frequency=self.f_cooling_DP_RO,
             amplitude=self.ampl_cooling_DP_MOT)
+
+        # reset the fiber AOM amplitudes
+        self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
+        self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
+        self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
+        self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 def optical_pumping(self):
     """
@@ -604,6 +634,7 @@ def optical_pumping_experiment(self):
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
                      broadcast=True)
+
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
         delay(100*ms)
