@@ -666,6 +666,8 @@ def optical_pumping_experiment(self):
             counts = self.ttl0.count(t_gate_end)
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
+        delay(1 * ms)
+        self.ttl_repump_switch.off()  # turns the RP AOM off
 
         # set the FORT to the holding setting, i.e. for doing nothing
         self.dds_FORT.set(frequency=self.f_FORT,
@@ -766,12 +768,14 @@ def microwave_Rabi_experiment(self):
                                 amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
 
         if not self.no_first_shot:
-            # take the first shot
+            self.ttl_repump_switch.off()  # turns the RP AOM on
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
             counts = self.ttl0.count(t_gate_end)
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
+        delay(1*ms)
+        self.ttl_repump_switch.off() # turns the RP AOM off
 
         # set the FORT to the holding setting, i.e. for doing nothing
         self.dds_FORT.set(frequency=self.f_FORT,
