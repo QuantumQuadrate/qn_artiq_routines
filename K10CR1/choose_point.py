@@ -1,7 +1,6 @@
 """
-WIP: uses measurement after a PBS to estimate stokes parameters and the polarizing action of a optical fiber as a
+WORK IN PROGRESS: uses measurement after a fiber and PBS to estimate stokes parameters and the polarizing action of a optical fiber as a
 result
-Not functioning
 """
 from time import sleep, time
 from pylablib.devices import Thorlabs # for Kinesis instrument control
