@@ -1,9 +1,11 @@
 """
 Plot the values for the variables being optimized
 
+The values plotted are normalized to the very first value in the series
+
 applet command:
 python "C:\...\qn_artiq_routines\applets\plot_optimizer_variables.py"
-optimizer_vars_dataset optimizer_var1 --var2 --var3 --var4
+optimizer_vars_dataset optimizer_var0 --var1 optimizer_var1 --var2 optimizer_var2 --var3 optimizer_var3
 """
 
 import numpy as np
@@ -35,13 +37,12 @@ class XYPlot(pyqtgraph.PlotWidget):
 
         self.symbols = ['o']*MAX_VARIABLE_NUMBER
         self.colors = generate_colorblind_friendly_colors(MAX_VARIABLE_NUMBER)
+        self.addLegend()
 
     def data_changed(self, data, mods, title):
         try:
             var_names = data[self.args.var_names][1]
             n_variables = min(len(var_names), MAX_VARIABLE_NUMBER)
-
-            print(var_names)
 
             # should be a numpy array where each row is a different data channel
             optimizer_var_data = []
@@ -65,7 +66,7 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             self.clear()
             for i in range(n_variables):
-                self.plot(x, optimizer_var_data[i],
+                self.plot(x, optimizer_var_data[i]/optimizer_var_data[i][0],
                           pen=self.colors[i],
                           symbol=self.symbols[i],
                           symbolBrush=self.colors[i],

@@ -11,8 +11,7 @@ from utilities.physics.rbconsts import *
 from utilities.physics.rbensemble import RbEnsemble as ensemble
 
 
-
-def retention_at_t(t, T=None, base_retention=0.9, Tdepth = 1e-3, wx = 0.7e-6, wy =0.7e-6):
+def retention_at_t(t, T=None, base_retention=0.9, Tdepth = 1e-3, wx = 0.7e-6, wy =0.7e-6, lmda = 8.52e-7):
         """ Procedure for simulating a release ("drop") and recapture experiment
             to deduce the temperature of actual atoms in such an experiment.
 
@@ -22,12 +21,12 @@ def retention_at_t(t, T=None, base_retention=0.9, Tdepth = 1e-3, wx = 0.7e-6, wy
             'T': atom temp
             'tmax': max time in units us
             'steps': number of FORT drop outs
-            'events': number of release-recapture events per data pt
-            'wy': optional waist for eliptical FORT
+            'events': number of release-recapture events per photocounts pt
+            'wy': optional waist for elliptical FORT
+            'lmda': optional wavelength of the FORT
         """
         T = abs(T)
         events = 20000
-        lmda = 1.064e-6
 
         umax = kB * Tdepth
         zR = pi * wx ** 2 / lmda
@@ -196,7 +195,7 @@ def start_modeling(model = "temperature", args = None):
                 *args = (xdata, p0, bin_count,)
                 p0 should be provided with good guess to ensure consistency, will be scaled down but rescaled
                 on return of optimal parameters
-                bin_count = number of points the count data will be summed to 
+                bin_count = number of points the count photocounts will be summed to 
                 """
                 ret_args = atom_loading_fit(*args)
                 print(f"Completed: {model} after {time.time()-starting_time} seconds")

@@ -62,6 +62,9 @@ class ExperimentVariables(EnvExperiment):
                                   "FORT AOM"),
             Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
+            Variable("p_FORT_holding", 1, NumberValue,
+                     {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
+                     "FORT AOM"),
             Variable("p_FORT_PGC", 1, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
             Variable("p_FORT_blowaway", 0.5, NumberValue,
@@ -81,6 +84,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("f_cooling_DP_PGC", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
             Variable("f_cooling_DP_resonant_2_to_3", 104.25 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Cooling double pass AOM"),
+            Variable("f_cooling_DP_blowaway", 112.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
             Variable("p_cooling_DP_MOT", -4, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
@@ -130,10 +135,14 @@ class ExperimentVariables(EnvExperiment):
                      "Fiber AOMs"),
             Variable("p_AOM_A6", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
+            Variable("p_AOM_A6_blowaway", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
+                                                            'scale': 1, 'ndecimals': 1},
+                     "Fiber AOMs"),
+
 
             # Microwaves
             # assumes the microwave source is set at 6.5 GHz
-            Variable("f_microwaves", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
+            Variable("f_microwaves_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "Microwaves"),
             Variable("p_microwaves", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Microwaves"),
@@ -187,6 +196,24 @@ class ExperimentVariables(EnvExperiment):
             # about 1 G along the parabolic mirror axis.
             Variable("AY_volts_OP", 2.105, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
+            Variable("AZ_bottom_volts_blowaway", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AZ_top_volts_blowaway", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AX_volts_blowaway", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            # about 1 G along the parabolic mirror axis.
+            Variable("AY_volts_blowaway", 2.105, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AZ_bottom_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AZ_top_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            Variable("AX_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
+            # about 1 G along the parabolic mirror axis.
+            Variable("AY_volts_microwave", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Science coil settings"),
 
             # Timing
             Variable("t_MOT_loading", 500*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
@@ -201,15 +228,19 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_MOT_dissipation", 3 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_blowaway", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_microwave_pulse", 100 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_photon_collection_delay", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_UV_pulse", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_OP_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
             Variable("do_PGC_in_MOT", False, BooleanValue, {}, "Booleans"),
             Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
+            Variable("FORT_on_at_MOT_start", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
@@ -274,3 +305,6 @@ class ExperimentVariables(EnvExperiment):
 
         detuning_PGC_units_Gamma = (-2 * self.get_dataset("f_cooling_DP_PGC") + 130e6 + 78.5e6) / 6.065e6
         self.set_dataset("detuning_PGC_units_Gamma", detuning_PGC_units_Gamma, broadcast=True, persist=True)
+
+        microwave_frequency_GHz = self.get_dataset("f_microwaves_dds")*1e-9 + 6.5
+        self.set_dataset("microwave_frequency_GHz", microwave_frequency_GHz, broadcast=True, persist=True)

@@ -31,78 +31,82 @@ class XYPlot(pyqtgraph.PlotWidget):
 
     def data_changed(self, data, mods, title):
 
-        counts_shot1 = data[self.args.counts_shot1][1][1:]
-        counts_shot2 = data[self.args.counts_shot2][1][1:]
-        measurements = data[self.args.measurements][1]
+        try: # not all of these are persistent
+            counts_shot1 = data[self.args.counts_shot1][1][1:]
+            counts_shot2 = data[self.args.counts_shot2][1][1:]
+            measurements = data[self.args.measurements][1]
 
-        threshold_cts_per_s = data[self.args.threshold_cts_per_s][1]
-        t_exposure = data[self.args.t_exposure][1]
-        cutoff = int(t_exposure*threshold_cts_per_s)
+            threshold_cts_per_s = data[self.args.threshold_cts_per_s][1]
+            t_exposure = data[self.args.t_exposure][1]
+            cutoff = int(t_exposure*threshold_cts_per_s)
 
-        iteration = len(counts_shot1)//measurements
+            iteration = len(counts_shot1)//measurements
 
-        if len(counts_shot1) == len(counts_shot2) and iteration > 0:
+            if len(counts_shot1) == len(counts_shot2) and iteration > 0:
 
-            retention_array = np.zeros(iteration)
-            loading_rate_array = np.zeros(iteration)
-            n_atoms_loaded_array = np.zeros(iteration)
+                retention_array = np.zeros(iteration)
+                loading_rate_array = np.zeros(iteration)
+                n_atoms_loaded_array = np.zeros(iteration)
 
-            x = np.arange(iteration)
+                x = np.arange(iteration)
 
-            try:
-                nsteps = len(data.get(self.args.scan_sequence1, (False, None))[1])
-                scan_sequence1 = data[self.args.scan_sequence1][1]
-                if nsteps > 1 or scan_sequence1 != [0.0]:
-                    x = np.array(scan_sequence1[:iteration])
-            except: # len will fail if sequence is None
-                pass
+                try:
+                    nsteps = len(data.get(self.args.scan_sequence1, (False, None))[1])
+                    scan_sequence1 = data[self.args.scan_sequence1][1]
+                    if nsteps > 1 or scan_sequence1 != [0.0]:
+                        x = np.array(scan_sequence1[:iteration])
+                except: # len will fail if sequence is None
+                    pass
 
-            if iteration > 0:
-                for i in range(iteration):
-                    shot1 = counts_shot1[i * measurements:(i + 1) * measurements]
-                    shot2 = counts_shot2[i * measurements:(i + 1) * measurements]
-                    atoms_loaded = [x > cutoff for x in shot1]
-                    n_atoms_loaded = sum(atoms_loaded)
-                    n_atoms_loaded_array[i] = n_atoms_loaded
-                    atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
-                    loading_fraction = n_atoms_loaded / measurements
-                    loading_rate_array[i] = loading_fraction
-                    retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
-                    retention_array[i] = retention_fraction
+                if iteration > 0:
+                    for i in range(iteration):
+                        shot1 = counts_shot1[i * measurements:(i + 1) * measurements]
+                        shot2 = counts_shot2[i * measurements:(i + 1) * measurements]
+                        atoms_loaded = [x > cutoff for x in shot1]
+                        n_atoms_loaded = sum(atoms_loaded)
+                        n_atoms_loaded_array[i] = n_atoms_loaded
+                        atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
+                        loading_fraction = n_atoms_loaded / measurements
+                        loading_rate_array[i] = loading_fraction
+                        retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
+                        retention_array[i] = retention_fraction
 
-                error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
+                    error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
 
-                self.clear()
-                self.plot(x, retention_array,
-                          pen=(255, 0, 0),
-                          symbol='o',
-                          symbolBrush=(255, 0, 0),
-                          symbolPen='w',
-                          name='retention')
-                self.plot(x, loading_rate_array,
-                          pen=(0, 100, 100),
-                          symbol='o',
-                          symbolBrush=(0, 100, 100),
-                          symbolPen='w',
-                          name='loading')
+                    self.clear()
+                    if len(x) == len(retention_array) and len(x) == len(loading_rate_array):
+                        self.plot(x, retention_array,
+                                  pen=(255, 0, 0),
+                                  symbol='o',
+                                  symbolBrush=(255, 0, 0),
+                                  symbolPen='w',
+                                  name='retention')
+                        self.plot(x, loading_rate_array,
+                                  pen=(0, 100, 100),
+                                  symbol='o',
+                                  symbolBrush=(0, 100, 100),
+                                  symbolPen='w',
+                                  name='loading')
 
-                self.setYRange(-0.05, 1.05, padding=0)
+                        self.setYRange(-0.0, 1.0, padding=0)
 
-                title = str(data[self.args.scan_vars][1])
-                if title != '':
-                    self.setTitle(title)
+                        title = str(data[self.args.scan_vars][1])
+                        if title != '':
+                            self.setTitle(title)
 
-                #
-                if error is not None:
-                    # See https://github.com/pyqtgraph/pyqtgraph/issues/211
-                    if hasattr(error, "__len__") and not isinstance(error, np.ndarray):
-                        error = np.array(error)
-                errbars = pyqtgraph.ErrorBarItem(
-                    x=x, y=retention_array, height=error, pen=(255, 0, 0))
-                self.addItem(errbars)
-                self.addLegend()
-            else:
-                self.clear()
+                        #
+                        if error is not None:
+                            # See https://github.com/pyqtgraph/pyqtgraph/issues/211
+                            if hasattr(error, "__len__") and not isinstance(error, np.ndarray):
+                                error = np.array(error)
+                        errbars = pyqtgraph.ErrorBarItem(
+                            x=x, y=retention_array, height=2*error, pen=(255, 0, 0)) # error should be +/- the std, hence 2*
+                        self.addItem(errbars)
+                    self.addLegend()
+                else:
+                    self.clear()
+        except:
+            self.clear()
 
 
 def main():

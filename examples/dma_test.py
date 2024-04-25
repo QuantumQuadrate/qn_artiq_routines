@@ -22,6 +22,7 @@ https://m-labs.hk/artiq/manual/core_drivers_reference.html?highlight=dma#module-
 https://github.com/m-labs/artiq/blob/e0ebc1b21dcbb250435c3e36dc4026f0b7d607aa/artiq/examples/kc705_nist_clock/repository/dma_blink.py#L5
 """
 from artiq.experiment import *
+import logging
 
 
 class DMATest(EnvExperiment):
@@ -40,8 +41,8 @@ class DMATest(EnvExperiment):
         self.t_chop_period = 2*us
         self.n_chop_cycles = int(self.t_readout/self.t_chop_period)
         self.n_playbacks = int(self.n_chop_cycles/(2**12)) # round down
-        print(f"requested readout time {self.t_readout/ms:.2f} ms")
-        print(f"actual readout time {(self.t_readout*self.n_playbacks*2**12/self.n_chop_cycles)/ms:.2f} ms")
+        logging.debug(f"requested readout time {self.t_readout/ms:.2f} ms")
+        logging.debug(f"actual readout time {(self.t_readout*self.n_playbacks*2**12/self.n_chop_cycles)/ms:.2f} ms")
 
     @kernel
     def record(self):
