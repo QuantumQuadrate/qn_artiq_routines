@@ -34,6 +34,7 @@ class XYPlot(pyqtgraph.PlotWidget):
     def __init__(self, args):
         pyqtgraph.PlotWidget.__init__(self)
         self.args = args
+        print("hi")
 
         self.symbols = ['o']*MAX_VARIABLE_NUMBER
         self.colors = generate_colorblind_friendly_colors(MAX_VARIABLE_NUMBER)
@@ -45,9 +46,23 @@ class XYPlot(pyqtgraph.PlotWidget):
             n_variables = min(len(var_names), MAX_VARIABLE_NUMBER)
 
             # should be a numpy array where each row is a different data channel
+
+            if self.args.var_bounds is not None:
+                use_var_bounds = True
+                bounds = np.array(data[self.args.var_bounds][1])
+
             optimizer_var_data = []
             for i in range(n_variables):
                 optimizer_var_data.append(data[getattr(self.args, f"var{i}")][1][1:])
+                if use_var_bounds:
+                    minb,maxb = bounds[i]
+                else:
+                    sorted_data = sorted(optimizer_var_data[i])
+                    minb = sorted_data[0]
+                    minb = sorted_data[-1]
+
+                optimizer_var_data[i] -= minb
+                optimizer_var_data[i] /= (maxb - minb)
 
         except KeyError:
             return
@@ -66,12 +81,15 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             self.clear()
             for i in range(n_variables):
-                self.plot(x, optimizer_var_data[i]/optimizer_var_data[i][0],
+
+                self.plot(x, optimizer_var_data[i], #optimizer_var_data[i][0],
                           pen=self.colors[i],
                           symbol=self.symbols[i],
                           symbolBrush=self.colors[i],
                           symbolPen='w',
                           name=var_names[i])
+                if use_var_bounds:
+                    self.setYRange(-0.0, 1.0, padding=0)
             self.setTitle(title)
             self.addLegend()
 
@@ -84,7 +102,6 @@ def main():
         applet.add_dataset(f"var{i}", f"optimizer variable {i}", required=False)
     applet.add_dataset("var_bounds", "list of tuples specifying var bounds. "
                                      "if given, the data will be normalized to the bounds", required=False)
-
     applet.run()
 
 

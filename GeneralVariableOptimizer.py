@@ -145,11 +145,7 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         self.measurement = 0
         self.iteration = 0
-
         self.cost_dataset = "cost"
-        self.set_dataset(self.cost_dataset,
-                         [0.0],
-                         broadcast=True)
 
         # instantiate the M-LOOP interface
         interface = MLOOPInterface()
@@ -165,6 +161,9 @@ class GeneralVariableOptimizer(EnvExperiment):
                                            max_boundary=max_bounds)
 
     def initialize_datasets(self):
+        self.set_dataset(self.cost_dataset,
+                         [0.0],
+                         broadcast=True)
         self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
         self.set_dataset("iteration", 0, broadcast=True)
 
@@ -173,7 +172,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.set_dataset("photocount_bins", [50], broadcast=True)
 
         self.set_dataset("optimizer_vars_dataset", [var.name for var in self.var_and_bounds_objects], broadcast=True)
-        self.set_dataset("optimizer_bounds_dataset", [(var.min_bound, var.max_bound) for
+        self.set_dataset("optimizer_bounds", [(var.min_bound, var.max_bound) for
                                                       var in self.var_and_bounds_objects], broadcast=True)
         self.optimizer_var_datasets = []
 
@@ -277,6 +276,9 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         cost = self.get_cost()
         self.append_to_dataset(self.cost_dataset, cost)
+
+        # write the h5 file here in case we want to abort the experiment early
+        self.write_results({'name': self.experiment_name[:-11] + "_optimized_for_" + self.cost_name[:-5]})
 
         return cost
 
