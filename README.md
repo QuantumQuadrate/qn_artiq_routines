@@ -40,7 +40,9 @@ Variable("f_cooling_DP_MOT", 111.0 * MHz, NumberValue, {'type': 'float', 'unit':
 Save the file. Now, in the ARTIQ dashboard, open ExperimentVariables then click "Recompute arguments". The variable you added should now show up in the GUI. The GUI will save the value of the variable to a dataset. To change the value of the variable, change the value in the GUI and hit Submit. The value of 111.0 * MHz which you typed in the code is only used the very first time the code is run. After that, the value used will be whatever the last value was when ExperimentVariables was run (even if you close ARTIQ master and restart it).
 
 ### Using an experiment variable in your experiments
-The **easiest way to import experiment variables defined in ExperimentVariables into your experiments is by using the BaseExperiment class**, described in the BaseExperiment section. If you insist on only importing a few of the variables, do this in your build method:
+Use the BaseExperiment class to add all of the datasets created in ExperimentVariables as attributes of the same name to your experiment instance (i.e. if you define f_cooling_DP_MOT in ExperimentVariables, then you will be able to reference that as self.f_cooling_DP_MOT in your experiment). See the BaseExperiment section for details. 
+
+There is also a low-level option if you insist on only importing a few of the variables. Do this in your build method:
 
     self.experiment.variables = [ # this goes in your build method at the beginning
               "f_cooling_DP_MOT", "p_cooling_DP_MOT",
@@ -51,7 +53,7 @@ The **easiest way to import experiment variables defined in ExperimentVariables 
     setattr_variables(self.experiment) # import this from ExperimentVariables
 
 ### Viewing the variables used in an experiment
-Anytime an ARTIQ experiment is run using the variables that you defined in ExperimentVariables, the names and values of those variables will be stored in an hdf file generated when an experiment finishes. This file will be in results/todays_date/the_hour/ in your artiq directory. The file can be opened with HDFView. 
+Anytime an ARTIQ experiment is run using the variables that you defined in ExperimentVariables, the names and values of those variables will be stored in an h5 file generated when an experiment finishes. This file will be in results/todays_date/the_hour/ in your artiq directory. The file can be opened with HDFView. 
 ### Run an experiment with previous variable values
 You can do this by clicking Load HDF in your experiment's GUI and navigating to the hdf file corresponding to the experiment whose values you want.
 ## 2. DeviceAliases
@@ -71,7 +73,10 @@ A dictionary mapping aliases of the device channels is defined in DeviceAliases.
 Note: you can technically do this with any of the hardware, but for now I have only used it for urukul channels, since other devices like the Sampler and Zotino are initialized by card but have many different functions for the channels on a given card. TTL channels are like urukul channels in this respect, and I plan to use aliases for them in the future: ttl_camera_trigger, ttl_debug, ttl_laser_unlocked, etc.
 
 ### Using the device aliases in experiments
-The **easiest way to use this is to use the BaseExperiment class** as described below. But if you insist on importing the aliases "manually", use the block below to set the device attributes (i.e. this block is used instead of statements like self.setattr_device("urukul0_ch1")):
+Again, using the BaseExperiment class will add all of the hardware aliases as attributes to your experiment, as described below. 
+
+
+If you insist on importing the aliases "manually", use the block below to set the device attributes (i.e. this block is used instead of statements like self.setattr_device("urukul0_ch1")):
 
         self.experiment.named_devices = DeviceAliases( # this goes in your build function. you need to import DeviceAliases from DeviceAliases.
             experiment=self.experiment,
@@ -84,11 +89,13 @@ The **easiest way to use this is to use the BaseExperiment class** as described 
             ]
         ) # after this block carry on as usual. e.g. in run, do things like self.dds_FORT.init(), self.dds_FORT.set(210*MHz, amplitude=...)
 
-Note that even after you have run the above block, you can still directly reference the channel by the name defined in the database. This is because DeviceAliases is just creating attributes of your experiment that reference the device attribute with the database name. 
+Note that even after you have run the above block, you can still directly reference the channel by the name defined in the database device_db.py. This is because DeviceAliases is just creating attributes of your experiment that reference the device attribute with the database name. 
 
 ## III. BaseExperiment
 
 The easiest way to set up an experiment which has access to all* (see build section below) of the experiment variables and hardare is to use the BaseExperiment class. By creating an instance of BaseExperiment inside your ARTIQ experiment, the experiment variables and devices will be added as attributes to your experiment. 
+
+Note in particular the method calls for base.build, base.prepare, base.set_datasets_from_gui_args, base.initialize_hardware, and write_results.
 
   1. Example with BaseExperiment
   
@@ -101,6 +108,14 @@ The easiest way to set up an experiment which has access to all* (see build sect
           # gets variables and devices
           self.base = BaseExperiment(experiment=self)
           self.base.build()
+
+          # add some GUI arguments particular to this experiment
+          self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
+          self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
+          self.setattr_argument("control_experiment", BooleanValue(False), "Control experiment")
+
+          # finally, call this base method to add all of the GUI arguments as datasets so that they are saved to your h5 file at the end
+          self.base.set_datasets_from_gui_args()
 
       def prepare(self):
           self.base.prepare()
@@ -116,16 +131,20 @@ The easiest way to set up an experiment which has access to all* (see build sect
           delay(50*ms)
           self.dds_FORT.sw.off()
 
+          # finally, call write_results()
+          self.write_results()
+
   2. build:
   The variables and devices that your BaseExperiment includes are determined by what is defined in BaseExperiment.py. In the BaseExperiment class, in build, 
     a. the variables that get imported are added by name in the list self.experiment.variables. These names must exist as datasets created by ExperimentVariables.
     b. devices that you do not want to use with aliases are given by name in the list devices_no_alias.
     c. devices that you want to use by alias are given by name in the DeviceAliases call.
-  3. prepare: 
+  3. set_datasets_from_gui_args:
+  This does what it says. This sets your GUI arguments as datasets so they will be stored in the h5 save file, which would not otherwise be the case.
+  4. prepare: 
   The prepare method takes care of any calculations or math that you want to do for every experiment. This includes things such as converting SI units to machine units (mu) and calculating amplitudes in volts for the urukul set method given a power in dBm.
-  4. initialize_hardware: takes care of the remaining setup of hardware, i.e. things that happen on the kernel. Urukul default settings are defined in a dictionary in DeviceAliases, and are grabbed the base experiment when the initialize_hardware method is run. Any other devices that need initialization such as Samplers or Zotinos, or setting TTL channels as input or output, must happen here.
-
-  
+  5. initialize_hardware: takes care of the remaining setup of hardware, i.e. things that happen on the kernel. Urukul default settings are defined in a dictionary in DeviceAliases, and are grabbed the base experiment when the initialize_hardware method is run. Any other devices that need initialization such as Samplers or Zotinos, or setting TTL channels as input or output, must happen here.
+  6. write_results: this is a method of the experiment itself, but is added in BaseExperiment for reasons. This is a redundant filesave, because sometimes ARTIQ corrupts the h5 file in the process of saving, and you lose all of your data. This is not anything to do with the data itself, but a timeout when ARTIQ is doing cleanup. To avoid running into this, you just call this, which will save the file before ARTIQ does cleanup.
   
 ## IV. Subroutines
 The scripts in the main directory cannot be run as standalone experiments, but are
