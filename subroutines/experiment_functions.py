@@ -335,8 +335,13 @@ def chopped_optical_pumping(self):
 
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
 
-    self.ttl_repump_switch.on()  # turns off the RP AOM
+    self.ttl_repump_switch.on()  # turns off the MOT RP AOM
     self.dds_cooling_DP.sw.off()  # no cooling light
+
+    # ramp up the fiber AOMs to maximize the amount of pumping repump we get
+    self.dds_pumping_repump.sw.on()
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V_kernel(-7.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V_kernel(-7.0))
 
     # set coils for pumping
     self.zotino0.set_dac(
@@ -344,28 +349,14 @@ def chopped_optical_pumping(self):
         channels=self.coil_channels)
     delay(0.1 * ms)  # coil relaxation time
 
-    # ramp up the fiber AOMs to maximize the amount of pumping repump we get
-    self.dds_pumping_repump.sw.on()
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=dB_to_V_kernel(-8.0))
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=dB_to_V_kernel(-8.0))
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=dB_to_V_kernel(-8.0))
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=dB_to_V_kernel(-8.0))
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V_kernel(-8.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V_kernel(-8.0))
-
     with sequential:
 
-        # lower FORT power
+        # adjust FORT power
         self.dds_FORT.set(
             frequency=self.f_FORT,
             amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_OP)
 
         delay(1*us)
-
-        # lower FORT power
-        self.dds_FORT.set(
-            frequency=self.f_FORT,
-            amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_OP)
 
         self.core_dma.playback_handle(op_dma_handle)
 
@@ -379,10 +370,6 @@ def chopped_optical_pumping(self):
             amplitude=self.ampl_cooling_DP_MOT)
 
         # reset the fiber AOM amplitudes
-        self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
-        self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
-        self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
-        self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
