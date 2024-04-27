@@ -117,46 +117,41 @@ def record_chopped_blow_away(self):
 
     # todo: change OP -> BA
 
-    n_chop_cycles = int(self.t_blowaway /self.t_OP_chop_period)
-    assert n_chop_cycles > 1, "t_blowaway should be > t_OP_chop_period"
+    n_chop_cycles = int(self.t_blowaway /self.t_BA_chop_period)
+    assert n_chop_cycles > 1, "t_blowaway should be > t_BA_chop_period"
 
-    OP_pulse = self.t_OP_chop_period * 0.35
-    FORT_pulse = self.t_OP_chop_period - OP_pulse
+    BA_pulse = self.t_BA_chop_period * 0.35
+    FORT_pulse = self.t_BA_chop_period - BA_pulse
 
     self.core.reset()
 
     with self.core_dma.record("chopped_blow_away"):
 
         start = now_mu()
-        period_mu = self.core.seconds_to_mu(self.t_OP_chop_period)
-        OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
-        OP_on_mu = self.core.seconds_to_mu(FORT_pulse)
+        period_mu = self.core.seconds_to_mu(self.t_BA_chop_period)
+        BA_pulse_length_mu = self.core.seconds_to_mu(BA_pulse)
+        BA_on_mu = self.core.seconds_to_mu(FORT_pulse)
         FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
-        FORT_on_mu = self.core.seconds_to_mu(OP_pulse)
+        FORT_on_mu = self.core.seconds_to_mu(BA_pulse)
 
         self.dds_FORT.sw.off()
-        delay_mu(OP_pulse_length_mu)
+        delay_mu(BA_pulse_length_mu)
 
         if not self.blowaway_light_off:
-            for i in range(n_chop_cycles):
-                at_mu(start+i*period_mu+FORT_on_mu)
-                self.dds_FORT.sw.on()
-                delay_mu(FORT_pulse_length_mu)
-                self.dds_FORT.sw.off()
-                at_mu(start+i*period_mu+OP_on_mu)
-                self.dds_AOM_A6.sw.on()
-                delay_mu(OP_pulse_length_mu)
-                self.dds_AOM_A6.sw.off()
-            self.dds_FORT.sw.on()
+            self.dds_cooling_DP.sw.on()
         else:
-            for i in range(n_chop_cycles):
-                at_mu(start + i * period_mu + FORT_on_mu)
-                self.dds_FORT.sw.on()
-                delay_mu(FORT_pulse_length_mu)
-                self.dds_FORT.sw.off()
-                at_mu(start + i * period_mu + OP_on_mu)
-                delay_mu(OP_pulse_length_mu)
+            self.dds_cooling_DP.sw.off()
+
+        for i in range(n_chop_cycles):
+            at_mu(start+i*period_mu+FORT_on_mu)
             self.dds_FORT.sw.on()
+            delay_mu(FORT_pulse_length_mu)
+            self.dds_FORT.sw.off()
+            at_mu(start+i*period_mu+BA_on_mu)
+            # self.dds_cooling_DP.sw.on() # the cooling AOM seems incredibly slow so I'm just leaving it on the whole time
+            delay_mu(BA_pulse_length_mu)
+            # self.dds_cooling_DP.sw.off()
+        self.dds_FORT.sw.on()
 
 @kernel
 def chopped_blow_away(self):
@@ -175,7 +170,7 @@ def chopped_blow_away(self):
     with sequential:
 
         self.dds_cooling_DP.set(
-            frequency=self.f_cooling_DP_blowaway,  # resonant_2_to_3,
+            frequency=self.f_cooling_DP_blowaway,
             amplitude=self.ampl_cooling_DP_MOT)
 
         self.dds_AOM_A1.sw.off()
@@ -186,11 +181,13 @@ def chopped_blow_away(self):
 
         if self.blowaway_light_off:
             self.dds_cooling_DP.sw.off()
+            self.dds_AOM_A6.sw.off()
         else:
             # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
             # always give the same optical power
             self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
                                 amplitude=dB_to_V_kernel(-7.0))
+            self.dds_AOM_A6.sw.on()
             self.dds_cooling_DP.sw.on()
 
     self.core_dma.playback_handle(ba_dma_handle)
