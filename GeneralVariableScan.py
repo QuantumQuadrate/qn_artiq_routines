@@ -97,6 +97,7 @@ class GeneralVariableScan(EnvExperiment):
         scan_vars = [self.scan_variable1_name, self.scan_variable2_name]
         scan_vars = [x for x in scan_vars if x != '']
         self.scan_var_labels = ','.join(scan_vars)
+        self.scan_var_filesuffix = '_and_'.join(scan_vars)
 
         try:
             self.experiment_name = self.experiment_function
@@ -184,11 +185,13 @@ class GeneralVariableScan(EnvExperiment):
 
                 # the measurement loop.
                 self.experiment_function()
+                # write and overwrite the file here so we can quit the experiment early without losing data
+                self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                 iteration += 1
                 self.set_dataset("iteration", iteration, broadcast=True)
 
-        self.write_results({'name':self.experiment_name[:-11]})  # write the h5 file here in case worker refuses to die
+        self.write_results({'name':self.experiment_name[:-11]+"_scan_over_"+self.scan_var_filesuffix})  # write the h5 file here in case worker refuses to die
 
 
 
