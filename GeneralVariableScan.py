@@ -191,9 +191,6 @@ class GeneralVariableScan(EnvExperiment):
                 iteration += 1
                 self.set_dataset("iteration", iteration, broadcast=True)
 
-        self.write_results({'name':self.experiment_name[:-11]+"_scan_over_"+self.scan_var_filesuffix})  # write the h5 file here in case worker refuses to die
-
-
 
 
 
