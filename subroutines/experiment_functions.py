@@ -107,6 +107,112 @@ def load_MOT_and_FORT(self):
 
     self.dds_cooling_DP.sw.off()
 
+@kernel
+def record_chopped_blow_away(self):
+    """
+
+    :param self:
+    :return:
+    """
+
+    # todo: change OP -> BA
+
+    n_chop_cycles = int(self.t_blowaway /self.t_OP_chop_period)
+    assert n_chop_cycles > 1, "t_blowaway should be > t_OP_chop_period"
+
+    OP_pulse = self.t_OP_chop_period * 0.35
+    FORT_pulse = self.t_OP_chop_period - OP_pulse
+
+    self.core.reset()
+
+    with self.core_dma.record("chopped_blow_away"):
+
+        start = now_mu()
+        period_mu = self.core.seconds_to_mu(self.t_OP_chop_period)
+        OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
+        OP_on_mu = self.core.seconds_to_mu(FORT_pulse)
+        FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
+        FORT_on_mu = self.core.seconds_to_mu(OP_pulse)
+
+        self.dds_FORT.sw.off()
+        delay_mu(OP_pulse_length_mu)
+
+        if not self.blowaway_light_off:
+            for i in range(n_chop_cycles):
+                at_mu(start+i*period_mu+FORT_on_mu)
+                self.dds_FORT.sw.on()
+                delay_mu(FORT_pulse_length_mu)
+                self.dds_FORT.sw.off()
+                at_mu(start+i*period_mu+OP_on_mu)
+                self.dds_AOM_A6.sw.on()
+                delay_mu(OP_pulse_length_mu)
+                self.dds_AOM_A6.sw.off()
+            self.dds_FORT.sw.on()
+        else:
+            for i in range(n_chop_cycles):
+                at_mu(start + i * period_mu + FORT_on_mu)
+                self.dds_FORT.sw.on()
+                delay_mu(FORT_pulse_length_mu)
+                self.dds_FORT.sw.off()
+                at_mu(start + i * period_mu + OP_on_mu)
+                delay_mu(OP_pulse_length_mu)
+            self.dds_FORT.sw.on()
+
+@kernel
+def chopped_blow_away(self):
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+
+    self.ttl_repump_switch.on()  # turns off the RP AOM
+
+    # set coils for blowaway
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_blowaway, self.AZ_top_volts_blowaway,
+         self.AX_volts_blowaway, self.AY_volts_blowaway],
+        channels=self.coil_channels)
+    delay(0.1 * ms)
+
+    with sequential:
+
+        self.dds_cooling_DP.set(
+            frequency=self.f_cooling_DP_blowaway,  # resonant_2_to_3,
+            amplitude=self.ampl_cooling_DP_MOT)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+
+        if self.blowaway_light_off:
+            self.dds_cooling_DP.sw.off()
+        else:
+            # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
+            # always give the same optical power
+            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
+                                amplitude=dB_to_V_kernel(-7.0))
+            self.dds_cooling_DP.sw.on()
+
+    self.core_dma.playback_handle(ba_dma_handle)
+
+    # reset AOM RF powers
+    self.dds_cooling_DP.sw.off()
+    self.dds_cooling_DP.set(
+        frequency=self.f_cooling_DP_RO,
+        amplitude=self.ampl_cooling_DP_MOT)
+    self.dds_FORT.set(
+        frequency=self.f_FORT,
+        amplitude=self.stabilizer_FORT.amplitude*self.p_FORT_RO)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
+                        amplitude=self.stabilizer_AOM_A6.amplitude)
+    delay(0.1*ms)
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+    self.ttl_repump_switch.off()  # turns on the RP AOM
 
 @kernel
 def blow_away(self):
@@ -438,6 +544,9 @@ def optical_pumping_experiment(self):
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
         delay(100*ms)
+    if self.t_blowaway > 0.0:
+        record_chopped_blow_away(self)
+        delay(100*ms)
 
     for measurement in range(self.n_measurements):
 
@@ -494,7 +603,8 @@ def optical_pumping_experiment(self):
         ############################
 
         if self.t_blowaway > 0.0:
-            blow_away(self)
+            # blow_away(self)
+            chopped_blow_away(self)
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
