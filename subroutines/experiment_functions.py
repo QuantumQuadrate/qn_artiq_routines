@@ -26,107 +26,13 @@ Table of contents:
 ###############################################################################
 
 @kernel
-def load_MOT_and_FORT_until_atom_loaded(self):
-    """
-    Load the FORT by waiting until we trap one atom.
-
-    Note that we have never successfully used this so it might have a bug.
-
-    :param self: the experiment instance
-    :return:
-    """
-
-    # FORT on right away
-    self.dds_FORT.sw.on()
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-
-    # delay(1*ms)
-    #
-    # # set the cooling DP AOM to the MOT settings - if this is commented the MOT is incredibly dim on the first shot,
-    # # but this is remedied on the second iteration. if uncommented, the issue is never resolved
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-    delay(1*ms)
-    #
-    # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
-
-    self.dds_cooling_DP.sw.on()
-
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-
-    delay(1*ms) # if this delay is not here, the following line setting the dac doesn't execute
-
-    # Turn on the MOT coils and cooling light - this is being ignored
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-        channels=self.coil_channels)
-
-    counts_per_s = 0.0
-
-    delay(10 * ms)
-
-    # don't wait more than timeout s to load an atom
-    timeout = 20*s
-    for i in range(int(timeout/self.t_SPCM_exposure)):
-
-        t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-        counts = self.ttl0.count(t_end)
-        counts_per_s = counts / self.t_SPCM_exposure
-
-        if counts_per_s > self.single_atom_counts_per_s:
-            self.print_async("loaded atom")
-            break
-
-        delay(1 * ms)
-        self.append_to_dataset(self.count_rate_dataset, counts_per_s)
-
-    delay(1*ms)
-
-    # wait for the MOT to load
-    # delay(self.t_MOT_loading - self.t_MOT_phase2)
-
-    # if self.t_MOT_phase2 > 0:
-    #
-    #     self.zotino0.set_dac(
-    #         [self.AZ_bottom_volts_MOT_phase2, self.AZ_top_volts_MOT_phase2, self.AX_volts_MOT_phase2,
-    #          self.AY_volts_MOT_phase2],
-    #         channels=self.coil_channels)
-    #
-    #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
-    #                             amplitude=self.ampl_cooling_DP_MOT) # todo: make a variable for phase 2
-    #     delay(self.t_MOT_phase2)
-    #
-    # todo: try loading from a PGC phase
-    #
-    # turn on the dipole trap and wait to load atoms
-    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-    # delay_mu(self.t_FORT_loading_mu)
-    #
-    # turn off the coils # todo: this turns off the coils but they never come back on. wtf
-    self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
-                         channels=self.coil_channels)
-    delay(1*ms)
-
-    # if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
-    #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,
-    #                             amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_PGC)
-    #     delay(self.t_PGC_in_MOT)
-    #
-    self.dds_cooling_DP.sw.off()
-
-    delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
-
-@kernel
-def load_MOT_and_FORT_fixed_duration(self):
+def load_MOT_and_FORT(self):
     """
     The FORT loading sequence, from loading a MOT to hopefully trapping one atom
 
     Loads the MOT then the turns on the FORT and waits a fixed amount of time
-    to load an atom
+    to load an atom. Optionally, the FORT can be turned on right away if
+    FORT_on_at_start is True.
 
     :param self: the experiment instance
     :return:
@@ -183,8 +89,9 @@ def load_MOT_and_FORT_fixed_duration(self):
     if not self.FORT_on_at_MOT_start:
         delay_mu(self.t_FORT_loading_mu)
 
-    # delay(1*ms)
+    self.dds_cooling_DP.sw.off()
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+    self.dds_cooling_DP.sw.on()
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
 
@@ -200,21 +107,6 @@ def load_MOT_and_FORT_fixed_duration(self):
 
     self.dds_cooling_DP.sw.off()
 
-    # delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
-
-@kernel
-def load_MOT_and_FORT(self):
-    """
-    A wrapper function for the variation of load_MOT_and_FORT that we want to use
-
-    This allows us to avoid changing the experiment functions below, while still
-    being able to test out different loading functions
-    :param self:
-    :return:
-    """
-
-    # load_MOT_and_FORT_until_atom_loaded(self)
-    load_MOT_and_FORT_fixed_duration(self)
 
 @kernel
 def blow_away(self):
@@ -234,7 +126,6 @@ def blow_away(self):
             frequency=self.f_FORT,
             amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_blowaway)
 
-        # set cooling light to be resonant with a free-space atom
         self.dds_cooling_DP.set(
             frequency=self.f_cooling_DP_blowaway,  # resonant_2_to_3,
             amplitude=self.ampl_cooling_DP_MOT)
@@ -248,23 +139,25 @@ def blow_away(self):
         if self.blowaway_light_off:
             self.dds_AOM_A6.sw.off()
         else:
+            # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
+            # always give the same optical power
             self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
-                                amplitude=self.stabilizer_AOM_A6.amplitude * self.p_AOM_A6_blowaway)
+                                amplitude=dB_to_V_kernel(-7.0))
             self.dds_cooling_DP.sw.on()
 
     delay(self.t_blowaway)
 
-    # reset MOT power
+    # reset AOM RF powers
     self.dds_cooling_DP.sw.off()
     self.dds_cooling_DP.set(
         frequency=self.f_cooling_DP_RO,
         amplitude=self.ampl_cooling_DP_MOT)
-
-    # reset FORT power
     self.dds_FORT.set(
         frequency=self.f_FORT,
-        amplitude=self.stabilizer_FORT.amplitude)
-
+        amplitude=self.stabilizer_FORT.amplitude*self.p_FORT_RO)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
+                        amplitude=self.stabilizer_AOM_A6.amplitude)
+    delay(0.1*ms)
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
@@ -339,7 +232,8 @@ def chopped_optical_pumping(self):
     self.dds_cooling_DP.sw.off()  # no cooling light
 
     # ramp up the fiber AOMs to maximize the amount of pumping repump we get
-    self.dds_pumping_repump.sw.on()
+    if not self.pumping_light_off:
+        self.dds_pumping_repump.sw.on()
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V_kernel(-7.0))
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V_kernel(-7.0))
 
@@ -362,6 +256,10 @@ def chopped_optical_pumping(self):
 
         self.dds_D1_pumping_SP.sw.off()
         self.dds_pumping_repump.sw.off()
+
+        self.dds_FORT.set(
+            frequency=self.f_FORT,
+            amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
         # reset MOT power
         self.dds_cooling_DP.sw.off()
@@ -437,91 +335,6 @@ def MOT_loading_experiment(self):
     for measurement in range(self.n_measurements):
         self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
         load_MOT_and_FORT(self)
-
-@kernel
-def MOT_two_stage_loading_experiment(self):
-    """
-    for testing if I can get more atoms starting with light closer to resonance and higher power
-    and then switching to parameters better for lower temperature
-    """
-
-    self.core.reset()
-
-    # override the stabilizer setpoints
-
-    ampl_factor = 1
-    self.stabilizer_AOM_A1.set_point *= ampl_factor
-    self.stabilizer_AOM_A2.set_point *= ampl_factor
-    self.stabilizer_AOM_A3.set_point *= ampl_factor
-    self.stabilizer_AOM_A4.set_point *= ampl_factor
-    # self.stabilizer_AOM_A5.set_point *= ampl_factor
-    # self.stabilizer_AOM_A6.set_point *= ampl_factor
-
-
-    for measurement in range(self.n_measurements):
-
-
-        self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
-        # set the cooling DP AOM to the MOT settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-
-        self.ttl_scope_trigger.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
-
-        # Turn on the MOT coils and cooling light
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-            channels=self.coil_channels)
-        # delay(2 * ms)
-        self.dds_cooling_DP.sw.on()
-
-        # wait for the MOT to load
-        t_MOT_phase2 = 100*ms
-        delay(self.t_MOT_loading - t_MOT_phase2) # - self.t_MOT_phase2)
-        # phase 2
-
-        if self.t_MOT_phase2 > 0: # we will always have a pha
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_MOT_phase2, self.AZ_top_volts_MOT_phase2, self.AX_volts_MOT_phase2,
-                 self.AY_volts_MOT_phase2],
-                channels=self.coil_channels)
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT_phase2,
-                                amplitude=self.ampl_cooling_DP_MOT)  # todo: make a variable for phase 2
-        delay(self.t_MOT_phase2)
-
-        self.dds_AOM_A1.set(frequency=self.stabilizer_AOM_A1.frequency,
-                            amplitude=self.stabilizer_AOM_A1.amplitude)
-        self.dds_AOM_A2.set(frequency=self.stabilizer_AOM_A2.frequency,
-                            amplitude=self.stabilizer_AOM_A2.amplitude)
-        self.dds_AOM_A3.set(frequency=self.stabilizer_AOM_A3.frequency,
-                            amplitude=self.stabilizer_AOM_A3.amplitude)
-        self.dds_AOM_A4.set(frequency=self.stabilizer_AOM_A4.frequency,
-                            amplitude=self.stabilizer_AOM_A4.amplitude)
-        self.dds_AOM_A5.set(frequency=self.stabilizer_AOM_A5.frequency,
-                            amplitude=self.stabilizer_AOM_A5.amplitude)
-        self.dds_AOM_A6.set(frequency=self.stabilizer_AOM_A6.frequency,
-                            amplitude=self.stabilizer_AOM_A6.amplitude)
-
-        delay(t_MOT_phase2)
-
-        # todo: try loading from a PGC phase
-
-        # turn on the dipole trap and wait to load atoms
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-        delay_mu(self.t_FORT_loading_mu)
-
-        # turn off the coils
-        self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
-                             channels=self.coil_channels)
-
-        if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,
-                                    amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC)
-            delay(self.t_PGC_in_MOT)
-
-        self.dds_cooling_DP.sw.off()
-
-        delay(self.t_MOT_dissipation)  #
-
 
 @kernel
 def atom_loading_experiment(self):
@@ -671,10 +484,10 @@ def optical_pumping_experiment(self):
         if self.t_pumping > 0.0:
             chopped_optical_pumping(self)
 
-        # raise FORT power back to holding level
-        self.dds_FORT.set(
-            frequency=self.f_FORT,
-            amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
+        # # raise FORT power back to holding level
+        # self.dds_FORT.set(
+        #     frequency=self.f_FORT,
+        #     amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
 
         ############################
         # blow-away phase - push out atoms in F=2 only
@@ -682,7 +495,6 @@ def optical_pumping_experiment(self):
 
         if self.t_blowaway > 0.0:
             blow_away(self)
-        delay(self.t_delay_between_shots - self.t_blowaway)
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
