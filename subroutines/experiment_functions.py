@@ -280,7 +280,7 @@ def record_chopped_optical_pumping(self):
     n_chop_cycles = int(self.t_pumping /self.t_OP_chop_period)
     assert n_chop_cycles > 1, "t_pumping should be > t_OP_chop_period"
 
-    OP_pulse = self.t_OP_chop_period * 0.35
+    OP_pulse = self.t_OP_chop_period * 0.3
     FORT_pulse = self.t_OP_chop_period - OP_pulse
 
     n_depump_chop_cycles = int(self.t_depumping /self.t_OP_chop_period)
@@ -289,12 +289,14 @@ def record_chopped_optical_pumping(self):
 
     with self.core_dma.record("chopped_optical_pumping"):
 
+        # hardcoded for offsets for now, but this gives decent separation between the FORT and OP
+        # pulses
         start = now_mu()
         period_mu = self.core.seconds_to_mu(self.t_OP_chop_period)
         OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
-        OP_on_mu = self.core.seconds_to_mu(FORT_pulse)
+        OP_on_mu = self.core.seconds_to_mu(FORT_pulse-0.5*us)
         FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
-        FORT_on_mu = self.core.seconds_to_mu(OP_pulse)
+        FORT_on_mu = self.core.seconds_to_mu(OP_pulse+0.1*us)
 
         self.dds_FORT.sw.off()
         delay_mu(OP_pulse_length_mu)
