@@ -117,8 +117,8 @@ def record_chopped_blow_away(self):
 
     # todo: change OP -> BA
 
-    n_chop_cycles = int(self.t_blowaway /self.t_BA_chop_period)
-    assert n_chop_cycles > 1, "t_blowaway should be > t_BA_chop_period"
+    n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
+    assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
 
     BA_pulse = self.t_BA_chop_period * 0.35
     FORT_pulse = self.t_BA_chop_period - BA_pulse
@@ -277,8 +277,8 @@ def record_chopped_optical_pumping(self):
     :return:
     """
 
-    n_chop_cycles = int(self.t_pumping /self.t_OP_chop_period)
-    assert n_chop_cycles > 1, "t_pumping should be > t_OP_chop_period"
+    n_chop_cycles = int(self.t_pumping/self.t_OP_chop_period + 0.5)
+    assert n_chop_cycles >= 1, "t_pumping should be > t_OP_chop_period"
 
     OP_pulse = self.t_OP_chop_period * 0.3
     FORT_pulse = self.t_OP_chop_period - OP_pulse
@@ -293,36 +293,28 @@ def record_chopped_optical_pumping(self):
         # pulses
         start = now_mu()
         period_mu = self.core.seconds_to_mu(self.t_OP_chop_period)
-        OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
-        OP_on_mu = self.core.seconds_to_mu(FORT_pulse-0.5*us)
-        FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
-        FORT_on_mu = self.core.seconds_to_mu(OP_pulse+0.1*us)
 
-        self.dds_FORT.sw.off()
-        delay_mu(OP_pulse_length_mu)
+        OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
+        FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
+        FORT_on_mu = self.core.seconds_to_mu(0.0)
+        OP_on_mu = self.core.seconds_to_mu(0.5 * us)
 
         if not self.pumping_light_off:
             for i in range(n_chop_cycles):
                 at_mu(start+i*period_mu+FORT_on_mu)
-                self.dds_FORT.sw.on()
-                delay_mu(FORT_pulse_length_mu)
                 self.dds_FORT.sw.off()
+                delay_mu(OP_pulse_length_mu)
+                self.dds_FORT.sw.on()
                 at_mu(start+i*period_mu+OP_on_mu)
                 self.dds_D1_pumping_SP.sw.on()
                 delay_mu(OP_pulse_length_mu)
                 self.dds_D1_pumping_SP.sw.off()
-            self.dds_FORT.sw.on()
         else:
             for i in range(n_chop_cycles):
                 at_mu(start + i * period_mu + FORT_on_mu)
-                self.dds_FORT.sw.on()
-                delay_mu(FORT_pulse_length_mu)
                 self.dds_FORT.sw.off()
-                at_mu(start + i * period_mu + OP_on_mu)
-                # self.dds_D1_pumping_SP.sw.on()
                 delay_mu(OP_pulse_length_mu)
-                # self.dds_D1_pumping_SP.sw.off()
-            self.dds_FORT.sw.on()
+                self.dds_FORT.sw.on()
 
         if n_depump_chop_cycles > 0:
 
@@ -330,31 +322,24 @@ def record_chopped_optical_pumping(self):
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
             self.dds_pumping_repump.sw.off()
-            start = now_mu()
+            start = now_mu() + self.core.seconds_to_mu(0.5 * us)
 
             if not self.pumping_light_off:
                 for i in range(n_depump_chop_cycles):
                     at_mu(start + i * period_mu + FORT_on_mu)
-                    self.dds_FORT.sw.on()
-                    delay_mu(FORT_pulse_length_mu)
                     self.dds_FORT.sw.off()
+                    delay_mu(OP_pulse_length_mu)
+                    self.dds_FORT.sw.on()
                     at_mu(start + i * period_mu + OP_on_mu)
                     self.dds_D1_pumping_SP.sw.on()
                     delay_mu(OP_pulse_length_mu)
                     self.dds_D1_pumping_SP.sw.off()
-                self.dds_FORT.sw.on()
             else:
                 for i in range(n_depump_chop_cycles):
                     at_mu(start + i * period_mu + FORT_on_mu)
-                    self.dds_FORT.sw.on()
-                    delay_mu(FORT_pulse_length_mu)
                     self.dds_FORT.sw.off()
-                    at_mu(start + i * period_mu + OP_on_mu)
-                    # self.dds_D1_pumping_SP.sw.on()
                     delay_mu(OP_pulse_length_mu)
-                    # self.dds_D1_pumping_SP.sw.off()
-                self.dds_FORT.sw.on()
-
+                    self.dds_FORT.sw.on()
 
 @kernel
 def chopped_optical_pumping(self):
@@ -391,6 +376,7 @@ def chopped_optical_pumping(self):
         delay(1*us)
 
         self.core_dma.playback_handle(op_dma_handle)
+        delay(self.t_depumping)
 
         self.dds_D1_pumping_SP.sw.off()
         self.dds_pumping_repump.sw.off()
