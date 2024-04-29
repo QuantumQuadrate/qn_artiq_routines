@@ -17,8 +17,7 @@ from artiq.experiment import *
 import numpy as np
 
 import sys, os
-# get the current working directory
-current_working_directory = os.getcwd()
+
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
@@ -42,15 +41,20 @@ class GeneralVariableScan(EnvExperiment):
         # experiment parameters
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
         self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
-        # todo: need some error handling, or make this a drop box
         self.setattr_argument("scan_sequence1", StringValue(
             'np.array([0.000,0.005,0.02,0.05])*ms'))
 
         # this variable is optional
         self.setattr_argument('scan_variable2_name', StringValue(''))
-        # todo: need some error handling, or make this a drop box
         self.setattr_argument("scan_sequence2", StringValue(
             'np.linspace(-2,2,5)*V'))
+
+        # allows user to supply a dictionary of values to override. this is useful for when
+        # you don't want to constantly go check ExperimentVariables to see if, e.g. blowaway_light_off
+        # is False. You can just set it here to guarantee the behavior you want, without changing
+        # the value stored in the dataset, so subsequent experiments will be unaffected. This leads
+        # to fewer errors overall.
+        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
 
         experiment_function_names_list = [x for x in dir(exp_functions)
             if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"
@@ -98,6 +102,10 @@ class GeneralVariableScan(EnvExperiment):
         scan_vars = [x for x in scan_vars if x != '']
         self.scan_var_labels = ','.join(scan_vars)
         self.scan_var_filesuffix = '_and_'.join(scan_vars)
+
+        self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
+        assert type(self.override_ExperimentVariables_dict) == dict, \
+            "override_ExperimentVariables should be a python dictionary"
 
         try:
             self.experiment_name = self.experiment_function
@@ -165,6 +173,10 @@ class GeneralVariableScan(EnvExperiment):
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)
+
+        # override specific variables. this will apply to the entire scan, so it is outside the loops
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            setattr(self, variable, value)
 
         for variable1_value in self.scan_sequence1:
             # update the variable. setattr can't be called on the kernel, and this is what
