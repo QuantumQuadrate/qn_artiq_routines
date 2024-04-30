@@ -653,9 +653,6 @@ def optical_pumping_experiment(self):
 @kernel
 def microwave_Rabi_experiment(self):
     """
-    atom loading experiment with a microwave pulse of duration t_microwave_pulse
-    between the readouts
-
     self is the experiment instance to which ExperimentVariables are bound
     """
 
@@ -668,7 +665,12 @@ def microwave_Rabi_experiment(self):
                      [0.0],
                      broadcast=True)
 
-    self.dds_D1_pumping_SP.sw.off()
+    if self.t_pumping > 0.0:
+        record_chopped_optical_pumping(self)
+        delay(100*ms)
+    if self.t_blowaway > 0.0:
+        record_chopped_blow_away(self)
+        delay(100*ms)
 
     for measurement in range(self.n_measurements):
 
@@ -691,14 +693,14 @@ def microwave_Rabi_experiment(self):
                                 amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
 
         if not self.no_first_shot:
-            self.ttl_repump_switch.off()  # turns the RP AOM on
+            # take the first shot
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
             counts = self.ttl0.count(t_gate_end)
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
-        delay(1*ms)
-        self.ttl_repump_switch.off() # turns the RP AOM off
+        delay(1 * ms)
+        self.ttl_repump_switch.off()  # turns the RP AOM off
 
         # set the FORT to the holding setting, i.e. for doing nothing
         self.dds_FORT.set(frequency=self.f_FORT,
@@ -715,11 +717,6 @@ def microwave_Rabi_experiment(self):
         if self.t_pumping > 0.0:
             chopped_optical_pumping(self)
 
-        # raise FORT power back to holding level
-        self.dds_FORT.set(
-            frequency=self.f_FORT,
-            amplitude=self.stabilizer_FORT.amplitude*self.p_FORT_holding)
-
         ############################
         # microwave phase
         ############################
@@ -727,12 +724,17 @@ def microwave_Rabi_experiment(self):
         if self.t_microwave_pulse > 0.0:
             self.ttl_repump_switch.on()  # turns off the RP AOM
 
-            # set coils for microwaves. good for diagnostics-- we can use this phase to zero the B-field
+            # todo: set coils for microwaves. good for diagnostics-- we can use this phase to zero the B-field
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_microwave, self.AZ_top_volts_microwave,
-                 self.AX_volts_microwave, self.AY_volts_microwave],
+                [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP,
+                 self.AX_volts_OP, self.AY_volts_OP],
                 channels=self.coil_channels)
             delay(0.1*ms)
+            # self.zotino0.set_dac(
+            #     [self.AZ_bottom_volts_microwave, self.AZ_top_volts_microwave,
+            #      self.AX_volts_microwave, self.AY_volts_microwave],
+            #     channels=self.coil_channels)
+            # delay(0.1*ms)
 
             self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
@@ -750,8 +752,8 @@ def microwave_Rabi_experiment(self):
         ############################
 
         if self.t_blowaway > 0.0:
-            blow_away(self)
-        delay(self.t_delay_between_shots - self.t_blowaway)
+            # blow_away(self)
+            chopped_blow_away(self)
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
@@ -762,7 +764,7 @@ def microwave_Rabi_experiment(self):
             [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
             channels=self.coil_channels)
         delay(0.1 * ms)
-        self.ttl_repump_switch.off() # turns the RP AOM on
+        self.ttl_repump_switch.off()  # turns the RP AOM on
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
         counts2 = self.ttl0.count(t_gate_end)
