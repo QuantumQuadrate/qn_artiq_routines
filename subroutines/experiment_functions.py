@@ -280,6 +280,7 @@ def record_chopped_optical_pumping(self):
     n_chop_cycles = int(self.t_pumping/self.t_OP_chop_period + 0.5)
     assert n_chop_cycles >= 1, "t_pumping should be > t_OP_chop_period"
 
+    # todo: use duty cycle ExperimentVariables
     OP_pulse = self.t_OP_chop_period * 0.3
     FORT_pulse = self.t_OP_chop_period - OP_pulse
 
