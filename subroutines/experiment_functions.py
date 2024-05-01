@@ -212,64 +212,6 @@ def chopped_blow_away(self):
     self.ttl_repump_switch.off()  # turns on the RP AOM
 
 @kernel
-def blow_away(self):
-    self.ttl_repump_switch.on()  # turns off the RP AOM
-
-    # set coils for blowaway
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_blowaway, self.AZ_top_volts_blowaway,
-         self.AX_volts_blowaway, self.AY_volts_blowaway],
-        channels=self.coil_channels)
-    delay(0.1 * ms)
-
-    with sequential:
-
-        # lower FORT power
-        self.dds_FORT.set(
-            frequency=self.f_FORT,
-            amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_blowaway)
-
-        self.dds_cooling_DP.set(
-            frequency=self.f_cooling_DP_blowaway,  # resonant_2_to_3,
-            amplitude=self.ampl_cooling_DP_MOT)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-
-        if self.blowaway_light_off:
-            self.dds_AOM_A6.sw.off()
-        else:
-            # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
-            # always give the same optical power
-            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
-                                amplitude=dB_to_V_kernel(-7.0))
-            self.dds_cooling_DP.sw.on()
-
-    delay(self.t_blowaway)
-
-    # reset AOM RF powers
-    self.dds_cooling_DP.sw.off()
-    self.dds_cooling_DP.set(
-        frequency=self.f_cooling_DP_RO,
-        amplitude=self.ampl_cooling_DP_MOT)
-    self.dds_FORT.set(
-        frequency=self.f_FORT,
-        amplitude=self.stabilizer_FORT.amplitude*self.p_FORT_RO)
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
-                        amplitude=self.stabilizer_AOM_A6.amplitude)
-    delay(0.1*ms)
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-    self.ttl_repump_switch.off()  # turns on the RP AOM
-
-@kernel
 def record_chopped_optical_pumping(self):
     """
 
@@ -395,47 +337,6 @@ def chopped_optical_pumping(self):
         # reset the fiber AOM amplitudes
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
-def optical_pumping(self):
-    """
-
-    :param self:
-    :return:
-    """
-
-    self.ttl_repump_switch.on()  # turns off the RP AOM
-    self.dds_cooling_DP.sw.off()  # no cooling light
-
-    # set coils for pumping
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        channels=self.coil_channels)
-    delay(0.1 * ms)  # coil relaxation time
-
-    with sequential:
-
-        # lower FORT power
-        self.dds_FORT.set(
-            frequency=self.f_FORT,
-            amplitude=self.stabilizer_FORT.amplitude * p_FORT_OP)
-
-        if self.pumping_light_off:
-            self.dds_D1_pumping_SP.sw.off()
-            self.dds_pumping_repump.sw.off()
-        else:
-            self.dds_D1_pumping_SP.sw.on()
-            self.dds_pumping_repump.sw.on()
-
-        delay(self.t_pumping)
-
-        self.dds_D1_pumping_SP.sw.off()
-        self.dds_pumping_repump.sw.off()
-
-        # reset MOT power
-        self.dds_cooling_DP.sw.off()
-        self.dds_cooling_DP.set(
-            frequency=self.f_cooling_DP_RO,
-            amplitude=self.ampl_cooling_DP_MOT)
 
 
 ###############################################################################
@@ -617,7 +518,6 @@ def optical_pumping_experiment(self):
         ############################
 
         if self.t_blowaway > 0.0:
-            # blow_away(self)
             chopped_blow_away(self)
 
         # set the FORT AOM to the readout settings
@@ -752,7 +652,6 @@ def microwave_Rabi_experiment(self):
         ############################
 
         if self.t_blowaway > 0.0:
-            # blow_away(self)
             chopped_blow_away(self)
 
         # set the FORT AOM to the readout settings
@@ -781,6 +680,140 @@ def microwave_Rabi_experiment(self):
         self.append_to_dataset('photocounts2', counts2)
         self.append_to_dataset('photocounts2_current_iteration', counts2)
         self.counts2_list[measurement] = counts2
+
+    # effectively turn the FORT AOM off
+    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+
+@kernel
+def single_photon_experiment(self):
+    """
+    self is the experiment instance to which ExperimentVariables are bound
+    """
+
+    self.core.reset()
+
+    counts = 0
+    counts2 = 0
+    excitation_counts = 0
+
+    self.set_dataset(self.count_rate_dataset,
+                     [0.0],
+                     broadcast=True)
+
+    record_chopped_optical_pumping(self)
+    delay(100*ms)
+
+    for measurement in range(self.n_measurements):
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+        load_MOT_and_FORT(self)
+
+        delay(0.1 * ms)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+
+        # set the FORT AOM to the readout settings
+        self.dds_FORT.set(frequency=self.f_FORT,
+                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+        if not self.no_first_shot:
+            # take the first shot
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+            counts = self.ttl0.count(t_gate_end)
+            delay(1 * ms)
+            self.dds_cooling_DP.sw.off()
+        delay(1 * ms)
+        self.ttl_repump_switch.off()  # turns the RP AOM off # todo: supposed to turn switch on
+
+        # set the FORT to the holding setting, i.e. for doing nothing
+        self.dds_FORT.set(frequency=self.f_FORT,
+                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        ############################
+        # optical pumping phase - pumps atoms into F=1,m_F=0
+        ############################
+
+        chopped_optical_pumping(self)
+
+        ############################
+        # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
+        ############################
+
+        now = now_mu()
+
+        at_mu(now+1)
+        with parallel:
+            self.dds_FORT.sw.off()
+            self.dds_AOM_A1.sw.off()
+            self.dds_AOM_A2.sw.off()
+            self.dds_AOM_A3.sw.off()
+            self.dds_AOM_A4.sw.off()
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+        mu_offset = 800 # accounts for various latencies
+        at_mu(now + mu_offset) # make sure stuff is off, no more Raman photons from FORT
+        self.ttl_repump_switch.off()  # repump AOM is on for excitation
+        at_mu(now + mu_offset+100) # allow for repump rise time
+        t_collect = now_mu()
+        t_gate_end = self.ttl0.gate_rising(self.t_photon_collection_time)
+        at_mu(now + mu_offset+101)
+        t_excite = now_mu()
+        self.dds_excitation.sw.pulse(100 * ns)
+        at_mu(now + 200)
+        self.dds_FORT.sw.on()
+        excitation_counts = self.ttl0.count(t_gate_end)
+        delay(1*ms) # ttl count consumes all the RTIO slack
+
+        # turn AOMs back on
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+
+        # set the FORT AOM to the readout settings
+        self.dds_FORT.set(frequency=self.f_FORT,
+                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+
+        # take the second shot
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+        delay(0.1 * ms)
+        self.ttl_repump_switch.off()  # turns the RP AOM on
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        counts2 = self.ttl0.count(t_gate_end)
+
+        delay(1 * ms)
+
+        # update the datasets
+        if not self.no_first_shot:
+            self.append_to_dataset('photocounts', counts)
+            self.append_to_dataset('photocounts_current_iteration', counts)
+            self.counts_list[measurement] = counts
+
+        # update the datasets
+        self.append_to_dataset('excitation_counts', excitation_counts)
+        self.append_to_dataset('photocounts2', counts2)
+        self.append_to_dataset('photocounts2_current_iteration', counts2)
+        self.counts2_list[measurement] = counts2
+
+        self.print_async(t_collect-t_excite)
 
     # effectively turn the FORT AOM off
     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
