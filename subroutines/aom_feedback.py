@@ -494,7 +494,7 @@ class AOMPowerStabilizer:
             amplitudes have been changed in an experiment. This happens at the end of SamplerMOTCoilAndBeamBalance.
         """
 
-        self.exp.ttl7.pulse(1*ms) # scope trigger
+        # self.exp.ttl7.pulse(1*ms) # scope trigger
 
         # todo: up-date the set points for all channels in case they have been changed since
         #  the stabilizer was instantiated. not sure how to do this since getattr can not be
