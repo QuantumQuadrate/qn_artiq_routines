@@ -302,6 +302,8 @@ def chopped_optical_pumping(self):
         self.dds_pumping_repump.sw.on()
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V_kernel(-7.0))
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V_kernel(-7.0))
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
 
     # set coils for pumping
     self.zotino0.set_dac(
@@ -742,53 +744,54 @@ def single_photon_experiment(self):
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
 
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
+        self.ttl7.pulse(10 * us)  # in case we want to look at signals on an oscilloscope
 
-        chopped_optical_pumping(self)
+        excitation_counts = 0
+        for excitaton_cycle in range(self.n_excitation_cycles):
 
-        ############################
-        # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
-        ############################
+            delay(0.5*ms)
 
-        self.ttl7.pulse(10*us)  # in case we want to look at signals on an oscilloscope
+            ############################
+            # optical pumping phase - pumps atoms into F=1,m_F=0
+            ############################
 
-        now = now_mu()
+            chopped_optical_pumping(self)
 
-        at_mu(now+1)
-        with parallel:
-            self.dds_FORT.sw.off()
-            self.dds_AOM_A1.sw.off()
-            self.dds_AOM_A2.sw.off()
-            self.dds_AOM_A3.sw.off()
-            self.dds_AOM_A4.sw.off()
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-        mu_offset = 800 # accounts for various latencies
-        at_mu(now + mu_offset) # make sure stuff is off, no more Raman photons from FORT
-        self.ttl_repump_switch.off()  # repump AOM is on for excitation
-        at_mu(now + mu_offset+100) # allow for repump rise time
-        t_collect = now_mu()
-        t_gate_end = self.ttl0.gate_rising(self.n_excitation_attempts*(self.t_photon_collection_time+100*ns))
-        t_excite = now_mu()
-        pulses_over_mu = 0
-        for attempt in range(self.n_excitation_attempts):
-            at_mu(now + mu_offset + 101 + int(attempt*(self.t_excitation_pulse/ns + 100))+5)
-            self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-            pulses_over_mu = now_mu()
+            ############################
+            # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
+            ############################
 
-        at_mu(pulses_over_mu + 10)
+            now = now_mu()
 
-        # t_gate_duration = self.core.seconds_to_mu(self.t_excitation_pulse+100*ns)
-        # t_gate_end = self.ttl0.gate_rising(self.t_excitation_pulse+100*ns)
-        # t_excite = now_mu()
-        # at_mu(now + mu_offset + 101)
-        # self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-        # at_mu(t_excite + t_gate_duration - 1500)
-        self.dds_FORT.sw.on()
-        excitation_counts = self.ttl0.count(t_gate_end)
-        delay(1*ms) # ttl count consumes all the RTIO slack
+            at_mu(now+1)
+            with parallel:
+                self.dds_FORT.sw.off()
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+            mu_offset = 800 # accounts for various latencies
+            at_mu(now + mu_offset) # make sure stuff is off, no more Raman photons from FORT
+            self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            at_mu(now + mu_offset+100) # allow for repump rise time
+            t_collect = now_mu()
+            t_gate_end = self.ttl0.gate_rising(self.n_excitation_attempts*(self.t_photon_collection_time+100*ns))
+            t_excite = now_mu()
+            pulses_over_mu = 0
+            for attempt in range(self.n_excitation_attempts):
+                at_mu(now + mu_offset + 101 + int(attempt*(self.t_excitation_pulse/ns + 100))+5)
+                self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+                pulses_over_mu = now_mu()
+
+            at_mu(pulses_over_mu + 10)
+
+            self.dds_FORT.sw.on()
+            excitation_counts += self.ttl0.count(t_gate_end)
+            delay(0.1*ms) # ttl count consumes all the RTIO slack.
+
+        delay(1 * ms)
 
         # turn AOMs back on
         self.dds_AOM_A1.sw.on()
