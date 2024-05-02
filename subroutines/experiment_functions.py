@@ -770,22 +770,22 @@ def single_photon_experiment(self):
         self.ttl_repump_switch.off()  # repump AOM is on for excitation
         at_mu(now + mu_offset+100) # allow for repump rise time
         t_collect = now_mu()
-        # t_gate_end = self.ttl0.gate_rising(self.n_excitation_attempts*self.t_photon_collection_time)
-        # t_excite = now_mu()
-        # pulses_over_mu = 0
-        # for attempt in range(self.n_excitation_attempts):
-        #     at_mu(now + mu_offset + 101 + int(attempt*self.t_excitation_pulse/ns)+5)
-        #     self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-        #     pulses_over_mu = now_mu()
-        #
-        # at_mu(pulses_over_mu + 10)
-
-        t_gate_duration = self.core.seconds_to_mu(self.t_excitation_pulse+100*ns)
-        t_gate_end = self.ttl0.gate_rising(self.t_excitation_pulse+100*ns)
+        t_gate_end = self.ttl0.gate_rising(self.n_excitation_attempts*(self.t_photon_collection_time+100*ns))
         t_excite = now_mu()
-        at_mu(now + mu_offset + 101)
-        self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-        at_mu(t_excite + t_gate_duration - 1500)
+        pulses_over_mu = 0
+        for attempt in range(self.n_excitation_attempts):
+            at_mu(now + mu_offset + 101 + int(attempt*(self.t_excitation_pulse/ns + 100))+5)
+            self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+            pulses_over_mu = now_mu()
+
+        at_mu(pulses_over_mu + 10)
+
+        # t_gate_duration = self.core.seconds_to_mu(self.t_excitation_pulse+100*ns)
+        # t_gate_end = self.ttl0.gate_rising(self.t_excitation_pulse+100*ns)
+        # t_excite = now_mu()
+        # at_mu(now + mu_offset + 101)
+        # self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+        # at_mu(t_excite + t_gate_duration - 1500)
         self.dds_FORT.sw.on()
         excitation_counts = self.ttl0.count(t_gate_end)
         delay(1*ms) # ttl count consumes all the RTIO slack
