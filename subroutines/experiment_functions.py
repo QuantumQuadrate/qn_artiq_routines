@@ -771,8 +771,8 @@ def single_photon_experiment(self):
         t_gate_end = self.ttl0.gate_rising(self.t_photon_collection_time)
         at_mu(now + mu_offset+101)
         t_excite = now_mu()
-        self.dds_excitation.sw.pulse(100 * ns)
-        at_mu(now + 200)
+        self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+        at_mu(now + self.t_excitation_pulse + 100)
         self.dds_FORT.sw.on()
         excitation_counts = self.ttl0.count(t_gate_end)
         delay(1*ms) # ttl count consumes all the RTIO slack
@@ -813,7 +813,7 @@ def single_photon_experiment(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
         self.counts2_list[measurement] = counts2
 
-        self.print_async(t_collect-t_excite)
+        # self.print_async(t_collect-t_excite)
 
     # effectively turn the FORT AOM off
     self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)

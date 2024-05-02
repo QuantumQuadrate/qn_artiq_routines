@@ -240,6 +240,8 @@ class ExperimentVariables(EnvExperiment):
                                                              'scale': 1, 'ndecimals': 2}, "Timing"),
             Variable("duty_cycle_FORT", 0.65, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                           'scale': 1, 'ndecimals': 2}, "Timing"),
+            Variable("t_BA_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_excitation_pulse", 100 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
