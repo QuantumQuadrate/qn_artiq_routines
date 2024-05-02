@@ -52,6 +52,8 @@ class ExperimentVariables(EnvExperiment):
         self.vars_list = [
 
             Variable("n_measurements", 50, NumberValue, {'type': 'int', 'ndecimals':0, 'step':1, 'scale':1}, "general"),
+            Variable("n_excitation_attempts", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
+                     "general"),
 
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),

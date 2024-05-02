@@ -49,7 +49,7 @@ def load_MOT_and_FORT(self):
     # set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-    self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+    # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
     self.dds_cooling_DP.sw.on()
 
@@ -752,6 +752,8 @@ def single_photon_experiment(self):
         # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
         ############################
 
+        self.ttl7.pulse(10*us)  # in case we want to look at signals on an oscilloscope
+
         now = now_mu()
 
         at_mu(now+1)
@@ -768,11 +770,22 @@ def single_photon_experiment(self):
         self.ttl_repump_switch.off()  # repump AOM is on for excitation
         at_mu(now + mu_offset+100) # allow for repump rise time
         t_collect = now_mu()
-        t_gate_end = self.ttl0.gate_rising(self.t_photon_collection_time)
-        at_mu(now + mu_offset+101)
+        # t_gate_end = self.ttl0.gate_rising(self.n_excitation_attempts*self.t_photon_collection_time)
+        # t_excite = now_mu()
+        # pulses_over_mu = 0
+        # for attempt in range(self.n_excitation_attempts):
+        #     at_mu(now + mu_offset + 101 + int(attempt*self.t_excitation_pulse/ns)+5)
+        #     self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+        #     pulses_over_mu = now_mu()
+        #
+        # at_mu(pulses_over_mu + 10)
+
+        t_gate_duration = self.core.seconds_to_mu(self.t_excitation_pulse+100*ns)
+        t_gate_end = self.ttl0.gate_rising(self.t_excitation_pulse+100*ns)
         t_excite = now_mu()
+        at_mu(now + mu_offset + 101)
         self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-        at_mu(now + self.t_excitation_pulse + 100)
+        at_mu(t_excite + t_gate_duration - 1500)
         self.dds_FORT.sw.on()
         excitation_counts = self.ttl0.count(t_gate_end)
         delay(1*ms) # ttl count consumes all the RTIO slack
