@@ -160,6 +160,34 @@ class GeneralVariableScan(EnvExperiment):
         """
         self.base.prepare()
 
+    @kernel
+    def warm_up(self):
+        """hardware init and turn things on"""
+
+        self.core.reset()
+
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+            channels=self.coil_channels)
+
+        self.dds_cooling_DP.sw.on()
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+        self.dds_FORT.sw.on()
+
+        # delay for AOMs to thermalize
+        delay(2 * s)
+
+        self.core.break_realtime()
+        # warm up to get make sure we get to the setpoints
+        for i in range(10):
+            self.laser_stabilizer.run()
+        self.dds_FORT.sw.on()
+
     def run(self):
         """
         Step through the variable values defined by the scan sequences and run the experiment function.
@@ -170,6 +198,7 @@ class GeneralVariableScan(EnvExperiment):
         """
 
         self.initialize_datasets()
+        self.warm_up()
 
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
