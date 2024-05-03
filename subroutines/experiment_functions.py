@@ -773,7 +773,7 @@ def single_photon_experiment(self):
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
             mu_offset = 800 # accounts for various latencies
-            at_mu(now + mu_offset) # make sure stuff is off, no more Raman photons from FORT
+            at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
             self.ttl_repump_switch.off()  # repump AOM is on for excitation
             at_mu(now + mu_offset+100) # allow for repump rise time
             t_collect = now_mu()
