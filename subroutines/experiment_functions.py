@@ -302,6 +302,7 @@ def chopped_optical_pumping(self):
         self.dds_pumping_repump.sw.on()
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V_kernel(-7.0))
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V_kernel(-7.0))
+    delay(1*us)
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
@@ -339,7 +340,6 @@ def chopped_optical_pumping(self):
         # reset the fiber AOM amplitudes
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
 
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS

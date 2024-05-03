@@ -310,6 +310,7 @@ class BaseExperiment:
 
         # todo: turn off all Zotino channels?
 
+        self.experiment.print_async("initialize hardware - done")
         self.experiment.core.break_realtime()
 
 # do this so the code above will not actually run when ARTIQ scans the repository
