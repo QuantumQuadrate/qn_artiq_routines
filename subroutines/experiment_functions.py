@@ -697,6 +697,7 @@ def single_photon_experiment(self):
     counts = 0
     counts2 = 0
     excitation_counts = 0
+    excitation_counts_array = [0] # overwritten below but initialized here so it is always initialized
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
@@ -706,6 +707,8 @@ def single_photon_experiment(self):
     delay(100*ms)
 
     for measurement in range(self.n_measurements):
+
+        excitation_counts_array = [0] * self.n_excitation_cycles
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
@@ -776,19 +779,32 @@ def single_photon_experiment(self):
             at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
             self.ttl_repump_switch.off()  # repump AOM is on for excitation
             at_mu(now + mu_offset+100) # allow for repump rise time
+            # t_excite = now_mu()
+            # pulses_over_mu = 0
+            # for attempt in range(self.n_excitation_attempts):
+            #     at_mu(now + mu_offset + 100 + int(attempt*(self.t_excitation_pulse/ns + 100)))
+            #     t_gate_end = self.ttl0.gate_rising(self.t_excitation_pulse + 100 * ns)
+            #     at_mu(now + mu_offset + 101 + int(attempt*(self.t_excitation_pulse/ns + 100)))
+            #     self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+            #
+            #     # causes underflow
+            #     # excitation_counts_array[excitaton_cycle*self.n_excitation_attempts + attempt] = excitation_counts
+            #     pulses_over_mu = now_mu()
+
             t_collect = now_mu()
-            t_gate_end = self.ttl0.gate_rising(self.n_excitation_attempts*(self.t_photon_collection_time+100*ns))
+            t_gate_end = self.ttl0.gate_rising(self.n_excitation_attempts * (self.t_excitation_pulse + 100 * ns))
             t_excite = now_mu()
             pulses_over_mu = 0
             for attempt in range(self.n_excitation_attempts):
-                at_mu(now + mu_offset + 101 + int(attempt*(self.t_excitation_pulse/ns + 100))+5)
+                at_mu(now + mu_offset + 101 + int(attempt * (self.t_excitation_pulse / ns + 100)) + 5)
                 self.dds_excitation.sw.pulse(self.t_excitation_pulse)
                 pulses_over_mu = now_mu()
 
-            at_mu(pulses_over_mu + 10)
-
+            at_mu(pulses_over_mu - 400) # fudge factor
             self.dds_FORT.sw.on()
-            excitation_counts += self.ttl0.count(t_gate_end)
+            excitation_counts = self.ttl0.count(
+                t_gate_end)  # this is the number of clicks we got over n_excitation attempts
+            excitation_counts_array[excitaton_cycle] = excitation_counts
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
 
         delay(1 * ms)
@@ -824,10 +840,12 @@ def single_photon_experiment(self):
             self.counts_list[measurement] = counts
 
         # update the datasets
-        self.append_to_dataset('excitation_counts', excitation_counts)
         self.append_to_dataset('photocounts2', counts2)
         self.append_to_dataset('photocounts2_current_iteration', counts2)
         self.counts2_list[measurement] = counts2
+        for val in excitation_counts_array:
+            self.append_to_dataset('excitation_counts', val)
+
 
         # self.print_async(t_collect-t_excite)
 
