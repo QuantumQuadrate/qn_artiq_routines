@@ -493,6 +493,7 @@ class AOMPowerStabilizer:
             unless for example, in cases where one wants specifically wants to read the detector values after the dds
             amplitudes have been changed in an experiment. This happens at the end of SamplerMOTCoilAndBeamBalance.
         """
+        self.exp.core.reset()
 
         # self.exp.ttl7.pulse(1*ms) # scope trigger
 
