@@ -753,6 +753,7 @@ def single_photon_experiment(self):
         for excitaton_cycle in range(self.n_excitation_cycles):
 
             delay(0.5*ms)
+            self.ttl_SPCM_gate.off() # disables the SPCM
 
             ############################
             # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -775,9 +776,11 @@ def single_photon_experiment(self):
                 self.dds_AOM_A4.sw.off()
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
+            at_mu(now+10)
+            self.ttl_repump_switch.off()  # repump AOM is on for excitation
             mu_offset = 800 # accounts for various latencies
             at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
-            self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            # self.ttl_repump_switch.off()  # repump AOM is on for excitation
             at_mu(now + mu_offset+100) # allow for repump rise time
             # t_excite = now_mu()
             # pulses_over_mu = 0
@@ -796,8 +799,12 @@ def single_photon_experiment(self):
             t_excite = now_mu()
             pulses_over_mu = 0
             for attempt in range(self.n_excitation_attempts):
-                at_mu(now + mu_offset + 101 + int(attempt * (self.t_excitation_pulse / ns + 100)) + 5)
+                at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100)))
                 self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+                at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
+                                                  0.1*self.t_excitation_pulse / ns))
+                self.ttl_SPCM_gate.pulse(0.2*self.t_excitation_pulse+100*ns)
+
                 pulses_over_mu = now_mu()
 
             at_mu(pulses_over_mu - 400) # fudge factor
@@ -808,6 +815,7 @@ def single_photon_experiment(self):
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
 
         delay(1 * ms)
+        self.ttl_SPCM_gate.on()  # enables the SPCM
 
         # turn AOMs back on
         self.dds_AOM_A1.sw.on()
@@ -845,7 +853,6 @@ def single_photon_experiment(self):
         self.counts2_list[measurement] = counts2
         for val in excitation_counts_array:
             self.append_to_dataset('excitation_counts', val)
-
 
         # self.print_async(t_collect-t_excite)
 

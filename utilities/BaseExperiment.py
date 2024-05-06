@@ -102,6 +102,8 @@ class BaseExperiment:
         self.experiment.ttl_scope_trigger = self.experiment.ttl7
         self.experiment.ttl_Luca_trigger = self.experiment.ttl6
         self.experiment.ttl_UV = self.experiment.ttl15
+        self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+
 
 
         # initialize named channels.
@@ -293,6 +295,7 @@ class BaseExperiment:
         delay(1*ms)
         self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
         delay(1*ms)
+        self.experiment.ttl_SPCM_gate.on() # enables the SPCM(s)
 
         # turn off all dds channels
         for ch in self.experiment.all_dds_channels:
