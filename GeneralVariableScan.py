@@ -133,6 +133,9 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset(self.scan_sequence1_dataset,self.scan_sequence1, broadcast=True)
         self.set_dataset(self.scan_sequence2_dataset,self.scan_sequence2, broadcast=True)
 
+        for var,val in self.override_ExperimentVariables_dict.items():
+            self.set_dataset(var, val)
+
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.
