@@ -493,7 +493,7 @@ class AOMPowerStabilizer:
             unless for example, in cases where one wants specifically wants to read the detector values after the dds
             amplitudes have been changed in an experiment. This happens at the end of SamplerMOTCoilAndBeamBalance.
         """
-        self.exp.core.reset()
+        # self.exp.core.reset()
 
         # self.exp.ttl7.pulse(1*ms) # scope trigger
 
@@ -507,7 +507,7 @@ class AOMPowerStabilizer:
 
         # turn off the repumps which are mixed into the cooling light
         self.exp.ttl_repump_switch.on() # block RF to the RP AOM
-        # todo include pumping repump
+        self.exp.dds_pumping_repump.sw.off()
 
         if defaults_at_start:
             for ch in self.all_channels:
@@ -521,19 +521,19 @@ class AOMPowerStabilizer:
             for ch in self.series_channels:
                 ch.dds_obj.sw.off()
 
-            delay(1*ms)
+            delay(0.1*ms)
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.on()
-            delay(1*ms)
+            delay(0.1*ms)
 
             # do feedback on the "parallel" channels
             for i in range(self.iterations):
                 self.measure()
-                delay(1 * ms)
+                delay(0.1 * ms)
 
                 # strictly speaking, doesn't really matter if these are parallel
                 for ch in self.parallel_channels:
-                    delay(1*ms)
+                    delay(0.1*ms)
                     if not (self.dry_run or monitor_only):
                         ch.feedback(self.measurement_array - self.background_array)
                     else:
@@ -542,18 +542,18 @@ class AOMPowerStabilizer:
                     if record_all_measurements:
                         self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
-                delay(1 * ms)
+                delay(0.1 * ms)
 
             for ch in self.parallel_channels:
                 ch.dds_obj.sw.off()
-            delay(10 * ms)  # the Femto fW detector is slow
+            # delay(10 * ms)  # the Femto fW detector is slow
 
             # need to have this on
             self.exp.dds_cooling_DP.sw.on()
-            delay(50 * ms)
+            delay(1 * ms)
 
             # self.measure_background()
-            delay(1*ms)
+            # delay(1*ms)
 
             # do feedback on the series channels
             with sequential:
@@ -589,16 +589,14 @@ class AOMPowerStabilizer:
         # turn cooling DP back on
         self.exp.dds_cooling_DP.sw.on()
 
-        delay(1*ms)
+        delay(0.1*ms)
 
         if self.leave_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
 
-        delay(1 * ms)
+        delay(0.1* ms)
         if self.update_dds_settings:
             self.update_dB_dataset()
 
-        # turn on the repumps which are mixed into the cooling light
-        self.exp.ttl_repump_switch.off()  # block RF to the RP AOM
-        # todo include pumping repump
+        self.exp.ttl_repump_switch.off()  # enable RF to the RP AOM
