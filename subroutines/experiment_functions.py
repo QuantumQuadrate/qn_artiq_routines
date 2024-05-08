@@ -707,9 +707,9 @@ def single_photon_experiment(self):
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
-    self.zotino0.write_dac(14,4.0)
-    self.zotino0.load()
-    delay(1*ms)
+    # self.zotino0.write_dac(14,4.0)
+    # self.zotino0.load()
+    # delay(1*ms)
 
     for measurement in range(self.n_measurements):
 
@@ -733,9 +733,8 @@ def single_photon_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                                 amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
 
-        self.ttl_SPCM_gate.on()
         if not self.no_first_shot:
-            # take the first shot
+            self.ttl_SPCM_gate.off()
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
             counts = self.ttl0.count(t_gate_end)
@@ -795,11 +794,12 @@ def single_photon_experiment(self):
             t_excite = now_mu()
             pulses_over_mu = 0
             for attempt in range(self.n_excitation_attempts):
-                at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100)))
+                at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
+                      + self.gate_start_offset_mu)
                 self.dds_excitation.sw.pulse(self.t_excitation_pulse)
                 at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
-                                                  0.1*self.t_excitation_pulse / ns))
-                # not used right now. SPCM gating is too slow, but could use fast switch to gate SPCM output
+                                                  0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
+                # fast switch to gate SPCM output
                 self.ttl_SPCM_gate.off()
                 delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
                 self.ttl_SPCM_gate.on()
@@ -834,6 +834,7 @@ def single_photon_experiment(self):
             [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
             channels=self.coil_channels)
         delay(0.1 * ms)
+        self.ttl_SPCM_gate.off()
         self.ttl_repump_switch.off()  # turns the RP AOM on
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
