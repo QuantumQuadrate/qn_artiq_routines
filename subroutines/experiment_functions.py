@@ -707,9 +707,6 @@ def single_photon_experiment(self):
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
-    # self.zotino0.write_dac(14,4.0)
-    # self.zotino0.load()
-    # delay(1*ms)
 
     for measurement in range(self.n_measurements):
 
@@ -717,7 +714,7 @@ def single_photon_experiment(self):
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
-
+        delay(10*ms)
         load_MOT_and_FORT(self)
 
         delay(0.1 * ms)
@@ -741,7 +738,7 @@ def single_photon_experiment(self):
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
         delay(1 * ms)
-        self.ttl_repump_switch.off()  # turns the RP AOM off # todo: supposed to turn switch on
+        self.ttl_repump_switch.on()  # turns the RP AOM off
 
         # set the FORT to the holding setting, i.e. for doing nothing
         self.dds_FORT.set(frequency=self.f_FORT,
@@ -769,8 +766,6 @@ def single_photon_experiment(self):
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
-
-            # self.ttl_SPCM_gate.on()
 
             now = now_mu()
 
@@ -805,7 +800,7 @@ def single_photon_experiment(self):
                 self.ttl_SPCM_gate.on()
 
                 pulses_over_mu = now_mu()
-
+            self.ttl_repump_switch.on()
             at_mu(pulses_over_mu - 200) # fudge factor
             self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. signal blocked
             self.dds_FORT.sw.on()
