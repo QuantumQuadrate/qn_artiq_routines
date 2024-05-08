@@ -222,6 +222,8 @@ class GeneralVariableScan(EnvExperiment):
 
             for variable2_value in self.scan_sequence2:
 
+                self.set_dataset("iteration", iteration, broadcast=True)
+
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
 
@@ -235,8 +237,6 @@ class GeneralVariableScan(EnvExperiment):
                 self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                 iteration += 1
-                self.set_dataset("iteration", iteration, broadcast=True)
-
 
 
 
