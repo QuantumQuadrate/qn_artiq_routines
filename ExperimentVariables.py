@@ -247,6 +247,9 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_excitation_pulse", 100 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("gate_start_offset_mu", 0, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Timing"),
+            Variable("gate_switch_offset", 0*ns, NumberValue, {'type': 'int', 'unit':'ns',
+                                                            'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),

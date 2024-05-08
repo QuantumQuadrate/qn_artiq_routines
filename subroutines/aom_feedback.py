@@ -491,7 +491,7 @@ class AOMPowerStabilizer:
             unless for example, in cases where one wants specifically wants to read the detector values after the dds
             amplitudes have been changed in an experiment. This happens at the end of SamplerMOTCoilAndBeamBalance.
         """
-        # self.exp.core.reset()
+        self.exp.core.reset()
 
         # self.exp.ttl7.pulse(1*ms) # scope trigger
 
@@ -584,8 +584,8 @@ class AOMPowerStabilizer:
                     self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
         delay(1*ms)
-        # turn cooling DP back on
         self.exp.dds_cooling_DP.sw.on()
+        self.exp.ttl_repump_switch.off()  # enable RF to the RP AOM
 
         delay(0.1*ms)
 
@@ -597,4 +597,3 @@ class AOMPowerStabilizer:
         if self.update_dds_settings:
             self.update_dB_dataset()
 
-        self.exp.ttl_repump_switch.off()  # enable RF to the RP AOM

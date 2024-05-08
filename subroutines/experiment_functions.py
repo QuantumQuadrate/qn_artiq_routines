@@ -53,6 +53,8 @@ def load_MOT_and_FORT(self):
 
     self.dds_cooling_DP.sw.on()
 
+    delay(1*ms)
+
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
@@ -705,6 +707,9 @@ def single_photon_experiment(self):
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
+    self.zotino0.write_dac(14,4.0)
+    self.zotino0.load()
+    delay(1*ms)
 
     for measurement in range(self.n_measurements):
 
@@ -728,6 +733,7 @@ def single_photon_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                                 amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
 
+        self.ttl_SPCM_gate.on()
         if not self.no_first_shot:
             # take the first shot
             self.dds_cooling_DP.sw.on()
@@ -753,7 +759,7 @@ def single_photon_experiment(self):
         for excitaton_cycle in range(self.n_excitation_cycles):
 
             delay(0.5*ms)
-            self.ttl_SPCM_gate.off() # disables the SPCM
+            self.ttl_SPCM_gate.on() # blocks the SPCM output
 
             ############################
             # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -764,6 +770,8 @@ def single_photon_experiment(self):
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
+
+            # self.ttl_SPCM_gate.on()
 
             now = now_mu()
 
@@ -781,7 +789,7 @@ def single_photon_experiment(self):
             mu_offset = 800 # accounts for various latencies
             at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
             # self.ttl_repump_switch.off()  # repump AOM is on for excitation
-            at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time
+            at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
             t_collect = now_mu()
             t_gate_end = self.ttl0.gate_rising(self.n_excitation_attempts * (self.t_excitation_pulse + 100 * ns))
             t_excite = now_mu()
@@ -792,11 +800,14 @@ def single_photon_experiment(self):
                 at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
                                                   0.1*self.t_excitation_pulse / ns))
                 # not used right now. SPCM gating is too slow, but could use fast switch to gate SPCM output
-                self.ttl_SPCM_gate.pulse(0.2*self.t_excitation_pulse+100*ns)
+                self.ttl_SPCM_gate.off()
+                delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
+                self.ttl_SPCM_gate.on()
 
                 pulses_over_mu = now_mu()
 
-            at_mu(pulses_over_mu - 400) # fudge factor
+            at_mu(pulses_over_mu - 200) # fudge factor
+            self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. signal blocked
             self.dds_FORT.sw.on()
             excitation_counts = self.ttl0.count(
                 t_gate_end)  # this is the number of clicks we got over n_excitation attempts
@@ -804,7 +815,7 @@ def single_photon_experiment(self):
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
 
         delay(1 * ms)
-        self.ttl_SPCM_gate.on()  # enables the SPCM
+        # self.ttl_SPCM_gate.on()  # enables the SPCM
 
         # turn AOMs back on
         self.dds_AOM_A1.sw.on()
@@ -843,6 +854,7 @@ def single_photon_experiment(self):
         for val in excitation_counts_array:
             self.append_to_dataset('excitation_counts', val)
 
+        delay(10*ms)
         # self.print_async(t_collect-t_excite)
 
     # effectively turn the FORT AOM off
