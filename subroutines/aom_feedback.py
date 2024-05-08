@@ -73,7 +73,7 @@ keys in DeviceAliases.DDS_DEFAULTS. THIS IS ASSUMED BY THE CODE IN AOMPowerStabi
 stabilizer_dict = {
     'sampler0':
         {
-            'dds_cooling_DP': # signal monitored by PD0
+            'dds_cooling_DP':
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD0_AOM_cooling_DP', # volts
@@ -85,7 +85,7 @@ stabilizer_dict = {
                     't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
                     'max_dB': 0
                 },
-            'dds_AOM_A1': # signal monitored by Thorlabs fW detector
+            'dds_AOM_A1':
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD1_AOM_A1', # volts
@@ -97,7 +97,7 @@ stabilizer_dict = {
                     't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
-            'dds_AOM_A2': # signal monitored by Thorlabs fW detector
+            'dds_AOM_A2':
                 {
                     'sampler_ch': 5, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD2_AOM_A2', # volts
@@ -109,7 +109,7 @@ stabilizer_dict = {
                     't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
-            'dds_AOM_A3': # signal monitored by Thorlabs fW detector
+            'dds_AOM_A3':
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD3_AOM_A3', # volts
@@ -121,7 +121,7 @@ stabilizer_dict = {
                     't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
-            'dds_AOM_A4': # signal monitored by Thorlabs fW detector
+            'dds_AOM_A4':
                 {
                     'sampler_ch': 4, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD4_AOM_A4', # volts
@@ -133,7 +133,7 @@ stabilizer_dict = {
                     't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
-            'dds_AOM_A5': # signal monitored by PD5
+            'dds_AOM_A5':
                 {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD5_AOM_A5',
@@ -145,7 +145,7 @@ stabilizer_dict = {
                     't_measure_delay':0.5*ms,
                     'max_dB': 0
                 },
-            'dds_AOM_A6': # signal monitored by PD6
+            'dds_AOM_A6':
                 {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD6_AOM_A6', # volts
@@ -158,8 +158,6 @@ stabilizer_dict = {
                     'max_dB': 0
                 },
 
-            # todo: the FORT should ideally have a dedicated feedback stage, since we will need to first
-            #  feedback to motorized waveplates and then feedback to the AOM.
             'dds_FORT': # signal monitored by TTI detector connected to MM fiber
                 {
                     'sampler_ch': 6, # the channel connected to the appropriate PD

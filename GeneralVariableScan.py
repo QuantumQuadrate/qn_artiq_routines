@@ -201,7 +201,6 @@ class GeneralVariableScan(EnvExperiment):
         """
 
         self.initialize_datasets()
-        self.warm_up()
 
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
@@ -210,6 +209,8 @@ class GeneralVariableScan(EnvExperiment):
         # override specific variables. this will apply to the entire scan, so it is outside the loops
         for variable, value in self.override_ExperimentVariables_dict.items():
             setattr(self, variable, value)
+
+        self.warm_up()
 
         for variable1_value in self.scan_sequence1:
             # update the variable. setattr can't be called on the kernel, and this is what
