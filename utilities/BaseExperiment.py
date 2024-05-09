@@ -42,7 +42,7 @@ import logging
 import sys, os
 # get the current working directory
 current_working_directory = os.getcwd()
-cwd = os.getcwd()
+cwd = os.getcwd() + "\\"
 
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
@@ -69,7 +69,7 @@ class BaseExperiment:
         :return:
         """
 
-        with open(cwd) as f:
+        with open('C:\\Networking Experiment\\artiq codes\\artiq-master\\dataset_db.pyon') as f:
             datasets_str = f.read()
 
         # when the pyon file is saved python True and False are converted to lowercase...
@@ -104,6 +104,10 @@ class BaseExperiment:
         self.experiment.ttl_UV = self.experiment.ttl15
         self.experiment.ttl_SPCM_gate = self.experiment.ttl13
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> d7059e2 (experiment for optimizing the FORT polarization. also some syntax fixes and error handling on isntantiation of the rotors)
 
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(
@@ -226,8 +230,9 @@ class BaseExperiment:
             self.experiment.counts2_list = [0] * self.experiment.n_measurements
         except:
             # if this fails, your experiment probably didn't need it
-            self.experiment.print_async("experiment does not have variable n_measurements")
-            # logging.warn("experiment does not have variable n_measurements")
+
+            logging.warn("experiment does not have variable n_measurements")
+
 
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
@@ -282,7 +287,7 @@ class BaseExperiment:
 
         # for diagnostics including checking the performance of fast switches for SPCM gating
         self.experiment.ttl9.output()
-        delay(1 * ms)
+
         self.experiment.ttl9.off()
 
         self.experiment.ttl_UV.output()
@@ -291,6 +296,10 @@ class BaseExperiment:
         self.experiment.sampler0.init() # for reading laser feedback
         self.experiment.sampler1.init() # for reading laser feedback
         self.experiment.sampler2.init() # for reading laser feedback
+
+
+        self.experiment.print_async("base initialize_hardware - done")
+
 
         # turn on/off any switches. this ensures that switches always start in a default state,
         # which might not happen if we abort an experiment in the middle and don't reset it
@@ -301,9 +310,19 @@ class BaseExperiment:
         self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
         # turn off all dds channels
-        for dds_ch in self.experiment.all_dds_channels:
-            dds_ch.sw.off()
-            delay(1*ms)
+
+        for ch in self.experiment.all_dds_channels:
+            ch.sw.off()
+
+        # check that the SPCM is plugged in #todo add other SPCM channels as they are added to the experiment
+        self.experiment.dds_FORT.sw.on() # we'll get enough Raman scattering to see something
+        delay(100*ms)
+        t_gate_end = self.experiment.ttl_SPCM0.gate_rising(100*ms)
+        counts = self.experiment.ttl_SPCM0.count(t_gate_end)
+        delay(10 * ms)
+        self.experiment.dds_FORT.sw.off()
+
+        # assert counts > 0, "SPCM0 is likely unplugged"
 
         # todo: turn off all Zotino channels?
         self.experiment.zotino0.init()
@@ -312,6 +331,7 @@ class BaseExperiment:
             self.experiment.zotino0.load()
             delay(1*ms)
 
+        self.experiment.print_async("initialize hardware - done")
         self.experiment.core.break_realtime()
 
         self.experiment.print_async("initialize hardware - done")

@@ -1,6 +1,5 @@
-
 from time import sleep, time
-from pylablib.devices import Thorlabs # for Kinesis instrument control
+from pylablib.devices import Thorlabs  # for Kinesis instrument control
 import nidaqmx as daq
 from artiq.experiment import *
 import nidaqmx.constants as daq_constants
@@ -10,7 +9,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import argrelmax
 import logging
-# a dictionary specifying channels we want to optimize
+import os, sys
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+from utilities.BaseExperiment import BaseExperiment
+
 
 def numerical_partial_derivative_x(function, x, y, epsilon=0.5):
 
@@ -20,10 +24,12 @@ def numerical_partial_derivative_x(function, x, y, epsilon=0.5):
 def numerical_partial_derivative_y(function, x, y, epsilon=0.5):
 
     return (function(x, y + epsilon) - function(x, y - epsilon)) / (2 * epsilon)
-class RotatorFeedbackChannel():
 
-    def __init__(self,ch_name = "Dev1/ai0", dds_channel=0, rotator_sn=['55000741','55105674',], dry_run = True ,
-                 max_runs=10, spc = None, rate = None,):
+
+class RotatorFeedbackChannel:
+
+    def __init__(self, ch_name="Dev1/ai0", dds_channel=0, rotator_sn=['55000741','55105674'], dry_run=True,
+                 max_runs=10, spc=None, rate=None,):
 
         self.spc = spc
         self.dry_run = dry_run
@@ -35,7 +41,6 @@ class RotatorFeedbackChannel():
 
         if self.rate is None or self.rate > 1e5:
             self.rate = 1e5
-
 
         self.daq_task.ai_channels.add_ai_voltage_chan(physical_channel=ch_name)
 
@@ -50,13 +55,25 @@ class RotatorFeedbackChannel():
         self.ser1 = rotator_sn[1]
 
         self.scl = True  # whether to use physical units - this apparently has no effect
-        self.stage = [Thorlabs.KinesisMotor(conn=self.ser0, scale='K10CR1', ),
-                      Thorlabs.KinesisMotor(conn=self.ser1, scale='K10CR1', )]
+
+        self.stage = []
+        for sn in rotator_sn:
+            try:
+                rotor = Thorlabs.KinesisMotor(conn=sn, scale='K10CR1', )
+                self.stage.append(rotor)
+            except Exception as e:
+                rotor.close()
+                print(sn, e)
         self.extra_rotors = []
-        if (len(rotator_sn) > 2):
+
+        if len(rotator_sn) > 2:
             for i in range(2, len(rotator_sn)):
-                new_rotor = Thorlabs.KinesisMotor(conn=rotator_sn[i], scale = 'K10CR1')
-                self.extra_rotors.append(new_rotor)
+                try:
+                    new_rotor = Thorlabs.KinesisMotor(conn=rotator_sn[i], scale='K10CR1')
+                    self.extra_rotors.append(new_rotor)
+                except Exception as e:
+                    new_rotor.close()
+                    print(sn, e)
         self.r0 = self.stage[0]
         self.r1 = self.stage[1]
         self.r0.set_position_reference()
@@ -74,14 +91,14 @@ class RotatorFeedbackChannel():
     def print_pos(self, rotor_num=0):
         print("position = ", self._pos(rotor_num))
 
-    def wait_stop(self, rotor_num = 2):
+    def wait_stop(self, rotor_num=2):
         if rotor_num == 2:
             self.stage[0].wait_for_stop()
             self.stage[1].wait_for_stop()
         else:
             self.stage[rotor_num].wait_for_stop()
 
-    def is_moving(self, rotor_num = None):
+    def is_moving(self, rotor_num=None):
         if rotor_num is None:
             return self.r0.is_moving() or self.r1.is_moving()
         else:
@@ -105,42 +122,38 @@ class RotatorFeedbackChannel():
 
         return np.mean(data)
 
-
-
-
-    def q_h_gen(self, range, steps, center_x, center_y, random=False):
+    def q_h_gen(self, motor_range, steps, center_x, center_y, random=False):
         """
 
-        :param range: width and height of the range that the random/pre-generated points will be within
+        :param motor_range: width and height of the range that the random/pre-generated points will be within
         :param steps: amount of points
         :param center_x: center of axis of the range for "rotor1"
         :param center_y: center of axis of the range for "rotor2"
-        :param random: if False generates purely uniformly random points with specified range and center
+        :param random: if False generates purely uniformly random points with specified motor_range and center
         :return: x, y arrays of the random points where len(x) = len(y) = steps
         """
         if not random:
-            range /= 2
+            motor_range /= 2
             rads = np.arange(0, 2 * np.pi, (2 * np.pi) / steps)
-            x = range * (np.cos(rads)) + center_x
-            y = range * (np.sin(rads)) + center_y
-            x1 = range / 2 * (np.cos(rads)) + center_x
-            y1 = range / 2 * (np.sin(rads)) + center_y
-            x2 = range / 4 * (np.cos(rads)) + center_x
-            y2 = range / 4 * (np.sin(rads)) + center_y
+            x = motor_range * (np.cos(rads)) + center_x
+            y = motor_range * (np.sin(rads)) + center_y
+            x1 = motor_range / 2 * (np.cos(rads)) + center_x
+            y1 = motor_range / 2 * (np.sin(rads)) + center_y
+            x2 = motor_range / 4 * (np.cos(rads)) + center_x
+            y2 = motor_range / 4 * (np.sin(rads)) + center_y
             x0 = np.append(x, x1)
             x0 = np.append(x0, x2)
             y0 = np.append(y, y1)
             y0 = np.append(y0, y2)
 
         if random is True:
-            x0 = range*(np.random.rand(steps) - 1/2) + center_x
-            y0 = range*(np.random.rand(steps) - 1/2) + center_y
+            x0 = motor_range*(np.random.rand(steps) - 1/2) + center_x
+            y0 = motor_range*(np.random.rand(steps) - 1/2) + center_y
 
         return x0, y0
 
-
-    def move_and_measure(self, range=None, steps=None, a=0, b=0,
-                         dry_run=True, warnings = True):
+    def move_and_measure(self, motor_range=None, steps=None, a=0, b=0,
+                         dry_run=True, warnings=True):
         """
             Using pre selected point/randomly generated ones, the rotors are moved between points and then stopped.
             While the rotors are in the process of moving, we are keeping track of the angle it is at, and then the measurement.
@@ -152,16 +165,15 @@ class RotatorFeedbackChannel():
             changing time of computation
         """
         """
-        :param: range: range of values in both directions that will be walked through
+        :param: motor_range: motor_range of values in both directions that will be walked through
         :param: steps: the number of 2d points that will be moved between during the random walk
         :param: a = initial position of rotor1
         :param: b = initial position of rotor2
         :return: returns x, y, z of points where the first two are the postions and the third is the measured intensity  
         """
-        ang1, ang2 = self.q_h_gen(steps=steps, range=range, center_x=a, center_y=b, random=True)
+        ang1, ang2 = self.q_h_gen(steps=steps, motor_range=motor_range, center_x=a, center_y=b, random=True)
         m_ang1 = []
         m_ang2 = []
-        measure = self.measure
         measurements = []
         if dry_run and warnings is True:
             ##TODO
@@ -176,7 +188,7 @@ class RotatorFeedbackChannel():
                 while self.is_moving():
                     m_ang1 = np.append(m_ang1, self._pos(rotor_num=0))
                     m_ang2 = np.append(m_ang2, self._pos(rotor_num=1))
-                    measurement = measure(measurements=1)
+                    measurement = self.measure(measurements=1)
                     measurements = np.append(measurements, measurement)
 
                     i += 1
@@ -184,8 +196,9 @@ class RotatorFeedbackChannel():
                 self.stage[1].wait_for_stop()
                 self.stage[0].wait_for_stop()
 
-        return m_ang1%180, m_ang2%180, measurements
-    def move_by(self, degrees, rotor_num = -1, velocity = None, r1 = None):
+        return m_ang1 % 180, m_ang2 % 180, measurements
+
+    def move_by(self, degrees, rotor_num=-1, velocity=None, r1=None):
         """
         Moves by
         :param degrees: distance to move can be +/- any float, not accurate below ~ 0.5 degs
@@ -208,7 +221,7 @@ class RotatorFeedbackChannel():
             r.wait_move()
         return 0
 
-    def move_to(self, degrees, rotor_num, velocity = None, r1 = None):
+    def move_to(self, degrees, rotor_num, velocity=None, r1=None):
         r = r1
         if rotor_num == -1 and r is None:
             logging.warning("Must provide rotor number or instantiated rotor class: no movement will be made")
@@ -219,7 +232,8 @@ class RotatorFeedbackChannel():
         r.move_to(degrees)
         r.wait_move()
         return 1
-    def function_to_maximize(self,x,y,):
+
+    def function_to_maximize(self, x, y):
         """
 
         :param x: the position that the first initialized rotor "self.stage[0]" will be moved to
@@ -228,14 +242,16 @@ class RotatorFeedbackChannel():
         """
         self.move_to(x, 0)
         self.move_to(y, 1)
-        #ensures that the rotors are at the correct position before any measurement is made
+
+        # ensures that the rotors are at the correct position before any measurement is made
         self.wait_stop(rotor_num=0)
         self.wait_stop(rotor_num=1)
         measurement = self.measure(measurements=1000)
-        sleep(0.1) #sleeping to ensure that the measurement is completed before the rotors start moving again
+        sleep(0.1)  # sleeping to ensure that the measurement is completed before the rotors start moving again
         return measurement
-    def gradient_ascent_2d(self, learning_rate, tolerance, min_iterations=10, max_iteration=100, init_x = 0, init_y = 0,
-                           epsilon = 0.5):
+
+    def gradient_ascent_2d(self, learning_rate, tolerance, min_iterations=10, max_iteration=100, init_x=0, init_y=0,
+                           epsilon=0.5):
         # Start with initial guesses for the maximum (x, y)
         x = init_x
         y = init_y
@@ -243,13 +259,13 @@ class RotatorFeedbackChannel():
         xs = []
         ys = []
         zs = []
-        new_gradient_x = numerical_partial_derivative_x(self.function_to_maximize, x, y, epsilon = epsilon)
-        new_gradient_y = numerical_partial_derivative_y(self.function_to_maximize, x, y, epsilon = epsilon)
+        new_gradient_x = numerical_partial_derivative_x(self.function_to_maximize, x, y, epsilon=epsilon)
+        new_gradient_y = numerical_partial_derivative_y(self.function_to_maximize, x, y, epsilon=epsilon)
         # Perform gradient ascent
         percent_diff = 1
         i = 0
         gradient_close_to_zero = False
-        while ((i < min_iterations) or (percent_diff > tolerance and i < max_iteration)):
+        while (i < min_iterations) or (percent_diff > tolerance and i < max_iteration):
             # Compute the partial derivatives of the function at the current point using numerical differentiation
 
             gradient_x = new_gradient_x
@@ -282,13 +298,13 @@ class RotatorFeedbackChannel():
             y = ys[max_i]
         return x, y, xs, ys, zs
 
-    def optimize(self, range_val=180, default_steps = 3, gradient_ascent_tol=0.1, min_iterations = 10,
-                 max_iterations = 20, pre_optimized = False, learning_rate = 180, gradient_epsilon = 1, warnings = True):
+    def optimize(self, range_val=180, default_steps=3, gradient_ascent_tol=0.1, min_iterations=10,
+                 max_iterations=20, pre_optimized=False, learning_rate=180, gradient_epsilon=1, warnings=True):
         """
         Optimizes the output intensity of self.measures output by moving the first two rotors instantiated in the rotator_feedback
         class.
         Uses random walk to find possible relative maxima in the specified range.
-        random walks a smaller range around those points to check for more maxima. smaller range is defined as a ration
+        random walks a smaller range around those points to check for more maxima. smaller range is defined as a ratio
         of the initial range and the number of relative maxima that were found.
         Uses gradient ascent to reach near peak of highest relative maxima found
 
@@ -312,14 +328,13 @@ class RotatorFeedbackChannel():
                                 larger the epsilon, the lower the noise, but greater chance of finding off peak non maxima
                                 values lower than 0.5 discouraged due to accuracy of rotor movement being somewhat limited
         :return: true_max_x: the position in degrees that the first rotor will be moved to
-        :return: true_max_x: the value for whichever rotor is initialized first in the rotor_feedback_class
+        :return: true_max_y: the value for whichever rotor is initialized first in the rotor_feedback_class
         :return: possible_z_max:the found maximimum for intensity
         :return: X, Y, Z: the set of all points that were measured during the optimization process X, and Y representing
-                the positions of the first and second rotor respectivelt and Z representing the
+                the positions of the first and second rotor respectively and Z representing the
         """
-        if(range_val > 180 and warnings):
-            logging.warning("range_val should be <= 180\n Set \"warnings\" parameter to True to turn off warning")
-        learning_rate = learning_rate
+        if range_val > 180 and warnings:
+            logging.warning("range_val should be <= 180\n Set \"warnings\" parameter to False to turn off warning")
         epsilon = gradient_epsilon
         tolerance = gradient_ascent_tol
         init_pos_1 = self._pos(rotor_num=0)
@@ -327,12 +342,12 @@ class RotatorFeedbackChannel():
         range_val = range_val
         steps = default_steps
         if not pre_optimized:
-            X, Y, Z = self.move_and_measure(range=range_val, steps=steps, dry_run=False, a=init_pos_1, b=init_pos_2)
+            X, Y, Z = self.move_and_measure(motor_range=range_val, steps=steps, dry_run=False, a=init_pos_1,
+                                            b=init_pos_2)
 
             #Estimates relative maxima from data measured so far on the order of (#of data points)^(1/2)
             order = int(np.sqrt(len(X)))
             C = argrelmax(Z, order=order)
-
 
             max_x = X[C]
             max_y = Y[C]
@@ -344,7 +359,8 @@ class RotatorFeedbackChannel():
             num_rel_maxes = len(C)
             for x, y, z in zip(max_x, max_y, max_z):
                 print(f"Formatted pair: {x, y}")
-                newX, newY, newZ = self.move_and_measure(range=range_val/num_rel_maxes, steps=steps, dry_run=False, a=x, b=y)
+                newX, newY, newZ = self.move_and_measure(motor_range=range_val/num_rel_maxes, steps=steps,
+                                                         dry_run=False, a=x, b=y)
                 X = np.append(X, newX)
                 Y = np.append(Y, newY)
                 Z = np.append(Z, newZ)
@@ -359,10 +375,11 @@ class RotatorFeedbackChannel():
         else:
             possible_x_max = init_pos_1
             possible_y_max = init_pos_2
-        true_max_x, true_max_y, newXs, newYs, newZs = self.gradient_ascent_2d(learning_rate=learning_rate,
-                                                                              epsilon=epsilon, tolerance=tolerance,
-                                                                            max_iteration=max_iterations, min_iterations=min_iterations,
-                                                                              init_x=possible_x_max, init_y=possible_y_max)
+        true_max_x, true_max_y, newXs, newYs, newZs = self.gradient_ascent_2d(
+            learning_rate=learning_rate,
+            epsilon=epsilon, tolerance=tolerance,
+            max_iteration=max_iterations, min_iterations=min_iterations,
+            init_x=possible_x_max, init_y=possible_y_max)
         if not pre_optimized:
             X = np.append(X, newXs)
             Y = np.append(Y, newYs)
@@ -388,7 +405,7 @@ class RotatorFeedbackChannel():
         init_pos_2 = self._pos(rotor_num=1)
         range_val = range_val
         steps = default_steps
-        X, Y, Z = self.move_and_measure(range=range_val, steps=steps, dry_run=False, a=init_pos_1, b=init_pos_2)
+        X, Y, Z = self.move_and_measure(motor_range=range_val, steps=steps, dry_run=False, a=init_pos_1, b=init_pos_2)
         order = int(np.sqrt(len(X)))
         C = argrelmax(Z, order=order)
         max_x = X[C]
@@ -401,7 +418,7 @@ class RotatorFeedbackChannel():
         num_rel_maxes = len(C)
         for x, y, z in zip(max_x, max_y, max_z):
             print(f"Formatted pair: {x, y}")
-            newX, newY, newZ = self.move_and_measure(range=range_val/num_rel_maxes, steps=steps*2, dry_run=False, a=x, b=y)
+            newX, newY, newZ = self.move_and_measure(motor_range=range_val/num_rel_maxes, steps=steps*2, dry_run=False, a=x, b=y)
             X = np.append(X, newX)
             Y = np.append(Y, newY)
             Z = np.append(Z, newZ)
@@ -419,7 +436,7 @@ class RotatorFeedbackChannel():
         found_max = possible_z_max
         while(percent_diff > tol) and i <= 20:
             print(i)
-            newestX, newestY, newestZ = self.move_and_measure(range=(range_val/(num_rel_maxes*(i**2))), steps=steps*2, dry_run=False, a=possible_x_max, b=possible_y_max)
+            newestX, newestY, newestZ = self.move_and_measure(motor_range=(range_val/(num_rel_maxes*(i**2))), steps=steps*2, dry_run=False, a=possible_x_max, b=possible_y_max)
 
             max_f = np.argmax(newestZ)
             possible_x_max = newestX[max_f]
@@ -459,6 +476,7 @@ class RotatorFeedbackChannel():
         self.daq_task.close()
         print("Closed successfully")
 
+
 class RotorExperiment(EnvExperiment):
 
     def run(self):
@@ -470,14 +488,73 @@ class RotorExperiment(EnvExperiment):
         maxX, maxY, maxZ, X, Y, Z = rotor1.optimize(range_val=180, gradient_ascent_tol=0.01, pre_optimized=False)
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
-        ax.scatter(X, Y, Z, s= 20)
-        ax.scatter(maxX, maxY, maxZ, marker = "*", s = 200)
+        ax.scatter(X, Y, Z, s=20)
+        ax.scatter(maxX, maxY, maxZ, marker="*", s=200)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_zlabel('z')
         ax.set_title(' ')
         plt.show()
         rotor1.close()
+
+
+class FORTPolarizationOptimizer(EnvExperiment):
+
+    def build(self):
+        self.base = BaseExperiment(experiment=self)
+        self.base.build()
+
+        # does it matter which waveplate is which?
+        self.setattr_argument('K10CR1_serial_numbers', StringValue('["55000741", "55105674"]'))
+        self.setattr_argument('RotatorFeedbackChannel_kwargs',
+                              StringValue("{'range_val':180, 'gradient_ascent_tol':0.01, 'pre_optimized':False}"))
+
+        self.base.set_datasets_from_gui_args()
+
+    def prepare(self):
+        self.base.prepare()
+        self.k10cr1_SNs = eval(self.K10CR1_serial_numbers)
+        assert len(self.k10cr1_SNs) == 2, "there should be two serial numbers"
+        self.laser_stabilizer.dds_names = ['dds_FORT']  # the only AOM to which we're feeding back
+
+    @kernel
+    def sinara_hardware_setup(self):
+        """
+        Initialization and turning stuff on.
+        :return:
+        """
+        self.base.initialize_hardware()
+
+        self.core.reset()
+
+        self.dds_FORT.sw.on()
+        delay(100*ms)
+        self.laser_stabilizer.run()
+        self.dds_FORT.sw.on()
+
+    def run(self):
+
+        self.sinara_hardware_setup()
+
+        rotors = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=self.k10cr1_SNs, dry_run=False)
+
+        start = time()
+        maxX, maxY, maxZ, X, Y, Z = rotors.optimize(**eval(self.RotatorFeedbackChannel_kwargs))
+        logging.info(f"rotor optimization completed in {time()-start:.2f}s")
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+        ax.scatter(X, Y, Z, s=20)
+        ax.scatter(maxX, maxY, maxZ, marker="*", s=200)
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_zlabel('z')
+        ax.set_title(' ')
+        plt.show()
+        rotors.close()
+
+
+if __name__ == '__main__':
+    pass
 
 
 
