@@ -102,6 +102,8 @@ class BaseExperiment:
         self.experiment.ttl_scope_trigger = self.experiment.ttl7
         self.experiment.ttl_Luca_trigger = self.experiment.ttl6
         self.experiment.ttl_UV = self.experiment.ttl15
+        self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+
 
 
         # initialize named channels.
@@ -277,6 +279,10 @@ class BaseExperiment:
         self.experiment.ttl14.output()
         self.experiment.ttl14.on()
 
+        # for diagnostics including checking the performance of fast switches for SPCM gating
+        self.experiment.ttl9.output()
+        self.experiment.ttl9.off()
+
         self.experiment.ttl_UV.output()
         self.experiment.ttl_UV.off()
 
@@ -286,13 +292,14 @@ class BaseExperiment:
 
         self.experiment.print_async("base initialize_hardware - done")
 
-        # turn on any switches. this ensures that switches always start in a default state,
+        # turn on/off any switches. this ensures that switches always start in a default state,
         # which might not happen if we abort an experiment in the middle and don't reset it
         delay(1*ms)
         self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
         delay(1*ms)
         self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
         delay(1*ms)
+        self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
         # turn off all dds channels
         for ch in self.experiment.all_dds_channels:
@@ -310,6 +317,7 @@ class BaseExperiment:
 
         # todo: turn off all Zotino channels?
 
+        self.experiment.print_async("initialize hardware - done")
         self.experiment.core.break_realtime()
 
 # do this so the code above will not actually run when ARTIQ scans the repository

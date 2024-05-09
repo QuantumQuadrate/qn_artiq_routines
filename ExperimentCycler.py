@@ -56,7 +56,7 @@ class ExperimentCycler(EnvExperiment):
             self.experiment_name = self.experiment_function
             self.experiment_function = lambda :eval(self.experiment_name)(self)
         except NameError as e:
-            print(f"The function {experiment_name} is not defined. Did you forget to import it?")
+            print(f"The function {self.experiment_name} is not defined. Did you forget to import it?")
             raise
 
         self.measurement = 0
@@ -74,7 +74,6 @@ class ExperimentCycler(EnvExperiment):
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
         self.set_dataset("iteration", 0, broadcast=True)
-
 
     def reset_datasets(self):
         """
@@ -110,6 +109,7 @@ class ExperimentCycler(EnvExperiment):
 
             # the measurement loop.
             self.experiment_function()
+            self.write_results({'name': self.experiment_name[:-11]})
 
             if self.scheduler.check_pause():
                 self.core.comm.close()  # put the hardware in a safe state before checking pause

@@ -17,8 +17,7 @@ from artiq.experiment import *
 import numpy as np
 
 import sys, os
-# get the current working directory
-current_working_directory = os.getcwd()
+
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
@@ -42,15 +41,20 @@ class GeneralVariableScan(EnvExperiment):
         # experiment parameters
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
         self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
-        # todo: need some error handling, or make this a drop box
         self.setattr_argument("scan_sequence1", StringValue(
             'np.array([0.000,0.005,0.02,0.05])*ms'))
 
         # this variable is optional
         self.setattr_argument('scan_variable2_name', StringValue(''))
-        # todo: need some error handling, or make this a drop box
         self.setattr_argument("scan_sequence2", StringValue(
             'np.linspace(-2,2,5)*V'))
+
+        # allows user to supply a dictionary of values to override. this is useful for when
+        # you don't want to constantly go check ExperimentVariables to see if, e.g. blowaway_light_off
+        # is False. You can just set it here to guarantee the behavior you want, without changing
+        # the value stored in the dataset, so subsequent experiments will be unaffected. This leads
+        # to fewer errors overall.
+        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
 
         experiment_function_names_list = [x for x in dir(exp_functions)
             if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"
@@ -97,6 +101,11 @@ class GeneralVariableScan(EnvExperiment):
         scan_vars = [self.scan_variable1_name, self.scan_variable2_name]
         scan_vars = [x for x in scan_vars if x != '']
         self.scan_var_labels = ','.join(scan_vars)
+        self.scan_var_filesuffix = '_and_'.join(scan_vars)
+
+        self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
+        assert type(self.override_ExperimentVariables_dict) == dict, \
+            "override_ExperimentVariables should be a python dictionary"
 
         try:
             self.experiment_name = self.experiment_function
@@ -115,6 +124,7 @@ class GeneralVariableScan(EnvExperiment):
 
     def initialize_datasets(self):
         self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
+        self.set_dataset("excitation_counts", [0], broadcast=True)
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
@@ -122,6 +132,9 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset(self.scan_var_dataset,self.scan_var_labels,broadcast=True)
         self.set_dataset(self.scan_sequence1_dataset,self.scan_sequence1, broadcast=True)
         self.set_dataset(self.scan_sequence2_dataset,self.scan_sequence2, broadcast=True)
+
+        for var,val in self.override_ExperimentVariables_dict.items():
+            self.set_dataset(var, val)
 
     def reset_datasets(self):
         """
@@ -150,6 +163,34 @@ class GeneralVariableScan(EnvExperiment):
         """
         self.base.prepare()
 
+    @kernel
+    def warm_up(self):
+        """hardware init and turn things on"""
+
+        self.core.reset()
+
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+            channels=self.coil_channels)
+
+        self.dds_cooling_DP.sw.on()
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+        self.dds_FORT.sw.on()
+
+        # delay for AOMs to thermalize
+        delay(2 * s)
+
+        self.core.break_realtime()
+        # warm up to get make sure we get to the setpoints
+        for i in range(10):
+            self.laser_stabilizer.run()
+        self.dds_FORT.sw.on()
+
     def run(self):
         """
         Step through the variable values defined by the scan sequences and run the experiment function.
@@ -165,6 +206,12 @@ class GeneralVariableScan(EnvExperiment):
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)
 
+        # override specific variables. this will apply to the entire scan, so it is outside the loops
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            setattr(self, variable, value)
+
+        self.warm_up()
+
         for variable1_value in self.scan_sequence1:
             # update the variable. setattr can't be called on the kernel, and this is what
             # allows us to update an experiment variable without hardcoding it, i.e.
@@ -175,6 +222,8 @@ class GeneralVariableScan(EnvExperiment):
 
             for variable2_value in self.scan_sequence2:
 
+                self.set_dataset("iteration", iteration, broadcast=True)
+
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
 
@@ -184,13 +233,10 @@ class GeneralVariableScan(EnvExperiment):
 
                 # the measurement loop.
                 self.experiment_function()
+                # write and overwrite the file here so we can quit the experiment early without losing data
+                self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                 iteration += 1
-                self.set_dataset("iteration", iteration, broadcast=True)
-
-        self.write_results({'name':self.experiment_name[:-11]})  # write the h5 file here in case worker refuses to die
-
-
 
 
 

@@ -15,6 +15,7 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("Repump_AOM_ON", BooleanValue(default=True))
         self.setattr_argument("D1_pumping_SP_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("excitation_AOM_ON", BooleanValue(default=False))
@@ -35,21 +36,32 @@ class AOMsCoils(EnvExperiment):
         self.base.prepare()
 
     @kernel
-    def run(self):
-        self.base.initialize_hardware()
+    def turn_on_AOMs(self):
+        """
+        turns on the AOMs that we have elected to turn on
 
-        # MOT and D2 state prep AOMs:
-        delay(1*ms)
+        if the laser stabilizer is run, this should be called after that to turn on AOMs that were
+        shut off for the feedback phase
+        :return:
+        """
+
+        delay(1 * ms)
         if self.FORT_AOM_ON == True:
             self.dds_FORT.sw.on()
         else:
             self.dds_FORT.sw.off()
-        #
+
         delay(1 * ms)
         if self.Cooling_DP_AOM_ON == True:
             self.dds_cooling_DP.sw.on()
         else:
             self.dds_cooling_DP.sw.off()
+
+        delay(1 * ms)
+        if self.Repump_AOM_ON == True:
+            self.ttl_repump_switch.off()
+        else:
+            self.ttl_repump_switch.on()
 
         delay(1 * ms)
         if self.D1_pumping_SP_AOM_ON == True:
@@ -106,6 +118,12 @@ class AOMsCoils(EnvExperiment):
         else:
             self.dds_AOM_A5.sw.off()
 
+    @kernel
+    def run(self):
+        self.base.initialize_hardware()
+
+        self.turn_on_AOMs()
+
         if self.disable_coils:
             self.zotino0.set_dac([0.0,0.0,0.0,0.0],
                              channels=self.coil_channels)
@@ -124,24 +142,17 @@ class AOMsCoils(EnvExperiment):
                 while True:
                     self.laser_stabilizer.run()
                     delay(1*ms)
-                    if self.FORT_AOM_ON == True: # todo delete
-                        self.dds_FORT.sw.on()
+                    self.turn_on_AOMs()
                     delay(1*ms)
                     delay(self.t_feedback_period)
 
             elif self.run_laser_feedback_once:
                 self.laser_stabilizer.run() # this tunes the MOT and FORT AOMs
                 delay(1 * ms)
-                if self.FORT_AOM_ON == True:
-                    self.dds_FORT.sw.on()
-                else:
-                    self.dds_FORT.sw.off()
+                self.turn_on_AOMs()
                 delay(1 * ms)
             else:
                 # posts one data point for each beam
                 self.laser_stabilizer.monitor()
                 delay(1*ms)
-                if self.FORT_AOM_ON == True:
-                    self.dds_FORT.sw.on()
-                else:
-                    self.dds_FORT.sw.off()
+                self.turn_on_AOMs()

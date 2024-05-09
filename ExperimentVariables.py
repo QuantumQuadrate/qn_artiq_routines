@@ -52,6 +52,10 @@ class ExperimentVariables(EnvExperiment):
         self.vars_list = [
 
             Variable("n_measurements", 50, NumberValue, {'type': 'int', 'ndecimals':0, 'step':1, 'scale':1}, "general"),
+            Variable("n_excitation_attempts", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
+                     "general"),
+            Variable("n_excitation_cycles", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
+                     "general"),
 
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
@@ -228,12 +232,24 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_MOT_dissipation", 3 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_blowaway", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_depumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_microwave_pulse", 100 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_photon_collection_delay", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_UV_pulse", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_OP_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_BA_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("duty_cycle_OP", 0.35, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
+                                                             'scale': 1, 'ndecimals': 2}, "Timing"),
+            Variable("duty_cycle_FORT", 0.65, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
+                                                          'scale': 1, 'ndecimals': 2}, "Timing"),
+            Variable("t_excitation_pulse", 100 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
+            Variable("gate_start_offset_mu", 0, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
+                     "Timing"),
+            Variable("gate_switch_offset", 0*ns, NumberValue, {'type': 'int', 'unit':'ns',
+                                                            'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
