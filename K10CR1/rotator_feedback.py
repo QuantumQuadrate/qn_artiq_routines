@@ -28,8 +28,9 @@ def numerical_partial_derivative_y(function, x, y, epsilon=0.5):
 
 class RotatorFeedbackChannel:
 
-    def __init__(self, ch_name="Dev1/ai0", dds_channel=0, rotator_sn=['55000741','55105674'], dry_run=True,
-                 max_runs=10, spc=None, rate=None,):
+    def __init__(self, ch_name="Dev1/ai0", rotator_sn=['55000741','55105674'], dry_run=True,
+                 max_runs=10, spc=None, rate=None, n_measurements=1, use_sampler=True, sampler_ch=0,
+                 experiment=EnvExperiment):
 
         self.spc = spc
         self.dry_run = dry_run
@@ -42,14 +43,21 @@ class RotatorFeedbackChannel:
         if self.rate is None or self.rate > 1e5:
             self.rate = 1e5
 
+        self.n_measurements = n_measurements
+
         self.daq_task.ai_channels.add_ai_voltage_chan(physical_channel=ch_name)
 
         if self.dry_run:
             self.measure = None
             print("No dry run implemented, edit code")
             # use this for testing since you don't have access to artiq hardware yet
+        elif use_sampler:
+            self.measure = self._sampler_measure
         else:
-            self.measure = self._measure
+            self.measure = self._nidaq_measure
+
+        self.sampler_ch = sampler_ch
+        self.experiment = experiment
 
         self.ser0 = rotator_sn[0]
         self.ser1 = rotator_sn[1]
@@ -113,14 +121,27 @@ class RotatorFeedbackChannel:
     def _abs_pos(self, rotor_num=0):
         return self._pos(rotor_num) % 180
 
-    """Using the USB-NiDaq reads out voltage measured from a Si Amplified Detector"""
-    def _measure(self, measurements=None):
+    def _nidaq_measure(self, measurements=None):
+        """Read photodetector with USB-NiDaq"""
         if measurements is None:
             measurements = self.spc
 
         data = self.daq_task.read(number_of_samples_per_channel=measurements)
 
         return np.mean(data)
+
+    @kernel
+    def _sampler_measure(self, measurements: TInt32 = 10, averaging_delay: TFloat = 1*ms) -> TFloat:
+        """Read photodetector with Sinara Sampler"""
+
+        buffer = [0.0]*8
+        data = [0.0]*measurements
+        for i in range(measurements):
+            self.experiment.sampler1.sample(buffer)
+            data[i] = buffer[self.sampler_ch]
+
+        return np.mean(data)
+
 
     def q_h_gen(self, motor_range, steps, center_x, center_y, random=False):
         """
@@ -188,7 +209,7 @@ class RotatorFeedbackChannel:
                 while self.is_moving():
                     m_ang1 = np.append(m_ang1, self._pos(rotor_num=0))
                     m_ang2 = np.append(m_ang2, self._pos(rotor_num=1))
-                    measurement = self.measure(measurements=1)
+                    measurement = self.measure(measurements=self.n_measurements)
                     measurements = np.append(measurements, measurement)
 
                     i += 1
@@ -282,17 +303,19 @@ class RotatorFeedbackChannel:
             new_gradient_x = numerical_partial_derivative_x(self.function_to_maximize, newx, newy, epsilon)
             new_gradient_y = numerical_partial_derivative_y(self.function_to_maximize, newx, newy, epsilon)
 
-
             percent_diff_measurement = (abs(newz-z)/z)
-            percent_diff_gradient = np.sqrt(abs(gradient_x - new_gradient_x /gradient_x)*epsilon**2 + abs(gradient_y - new_gradient_y /gradient_y)*epsilon**2)
+            percent_diff_gradient = np.sqrt(
+                abs(gradient_x - new_gradient_x /gradient_x)*epsilon**2
+                + abs(gradient_y - new_gradient_y /gradient_y)*epsilon**2)
             percent_diff = percent_diff_gradient*percent_diff_measurement*100
             x = newx
             y = newy
             z = newz
 
-            print("Iteration {}: (x, y) = ({}, {}), f(x, y) = {}\nPercent_Diff{}".format(i + 1, x, y, self.function_to_maximize(x, y),percent_diff))
+            print("Iteration {}: (x, y) = ({}, {}), f(x, y) = {}\nPercent_Diff{}"
+                  .format(i + 1, x, y, self.function_to_maximize(x, y),percent_diff))
             i += 1
-        if(i >= max_iteration):
+        if i >= max_iteration:
             max_i = np.argmax(zs)
             x = xs[max_i]
             y = ys[max_i]
@@ -339,7 +362,6 @@ class RotatorFeedbackChannel:
         tolerance = gradient_ascent_tol
         init_pos_1 = self._pos(rotor_num=0)
         init_pos_2 = self._pos(rotor_num=1)
-        range_val = range_val
         steps = default_steps
         if not pre_optimized:
             X, Y, Z = self.move_and_measure(motor_range=range_val, steps=steps, dry_run=False, a=init_pos_1,
@@ -470,6 +492,14 @@ class RotatorFeedbackChannel:
             return self.optimize_2(range_val=range_val,tol = tol)
         return possible_x_max, possible_y_max, possible_z_max, X, Y, Z
 
+    # def fastimize(self):
+    #     """
+    #     For optimizing when we are close to optimium polarization, which is typically the case
+    #     :return:
+    #     """
+
+
+
     def close(self):
         self.stage[0].close()
         self.stage[1].close()
@@ -506,7 +536,7 @@ class FORTPolarizationOptimizer(EnvExperiment):
 
         # does it matter which waveplate is which?
         self.setattr_argument('K10CR1_serial_numbers', StringValue('["55000741", "55105674"]'))
-        self.setattr_argument('RotatorFeedbackChannel_kwargs',
+        self.setattr_argument('optimize_kwargs',
                               StringValue("{'range_val':180, 'gradient_ascent_tol':0.01, 'pre_optimized':False}"))
 
         self.base.set_datasets_from_gui_args()
@@ -516,6 +546,9 @@ class FORTPolarizationOptimizer(EnvExperiment):
         self.k10cr1_SNs = eval(self.K10CR1_serial_numbers)
         assert len(self.k10cr1_SNs) == 2, "there should be two serial numbers"
         self.laser_stabilizer.dds_names = ['dds_FORT']  # the only AOM to which we're feeding back
+
+        self.rotors = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=self.k10cr1_SNs,
+                                         dry_run=False, sampler_ch=0, experiment=self)
 
     @kernel
     def sinara_hardware_setup(self):
@@ -536,10 +569,8 @@ class FORTPolarizationOptimizer(EnvExperiment):
 
         self.sinara_hardware_setup()
 
-        rotors = RotatorFeedbackChannel(ch_name="Dev1/ai0", rotator_sn=self.k10cr1_SNs, dry_run=False)
-
         start = time()
-        maxX, maxY, maxZ, X, Y, Z = rotors.optimize(**eval(self.RotatorFeedbackChannel_kwargs))
+        maxX, maxY, maxZ, X, Y, Z = self.rotors.optimize(**eval(self.optimize_kwargs))
         logging.info(f"rotor optimization completed in {time()-start:.2f}s")
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
@@ -548,9 +579,9 @@ class FORTPolarizationOptimizer(EnvExperiment):
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_zlabel('z')
-        ax.set_title(' ')
+        ax.set_title('FORT optimization:'+str(self.scheduler.rid))
         plt.show()
-        rotors.close()
+        self.rotors.close()
 
 
 if __name__ == '__main__':
