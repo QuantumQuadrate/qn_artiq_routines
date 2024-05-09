@@ -17,7 +17,7 @@ DDS_DEFAULTS = {
     "dds_D1_pumping_SP": {"frequency": "f_D1_pumping_SP", "power": "p_D1_pumping_SP"},
     "dds_pumping_repump": {"frequency": "f_pumping_repump", "power": "p_pumping_repump"},
     "dds_excitation": {"frequency": "f_excitation", "power": "p_excitation"},
-    "dds_microwaves": {"frequency": "f_microwaves", "power": "p_microwaves"},
+    "dds_microwaves": {"frequency": "f_microwaves_dds", "power": "p_microwaves"},
     "dds_AOM_A1": {"frequency": "AOM_A1_freq", "power": "p_AOM_A1"},
     "dds_AOM_A2": {"frequency": "AOM_A2_freq", "power": "p_AOM_A2"},
     "dds_AOM_A3": {"frequency": "AOM_A3_freq", "power": "p_AOM_A3"},
@@ -51,7 +51,6 @@ class DeviceAliases:
     def __init__(self, experiment, device_aliases):
 
         self.experiment = experiment
-        self.core = experiment.get_device("core")
         self.dds_list = [] # internal list of references to the dds objects
         self.dds_powers = []
         self.dds_frequencies = []

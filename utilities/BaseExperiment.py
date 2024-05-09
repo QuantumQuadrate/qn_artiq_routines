@@ -42,7 +42,7 @@ import logging
 import sys, os
 # get the current working directory
 current_working_directory = os.getcwd()
-cwd = os.getcwd()
+cwd = os.getcwd() + "\\"
 
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
@@ -69,7 +69,7 @@ class BaseExperiment:
         :return:
         """
 
-        with open(cwd) as f:
+        with open('C:\\Networking Experiment\\artiq codes\\artiq-master\\dataset_db.pyon') as f:
             datasets_str = f.read()
 
         # when the pyon file is saved python True and False are converted to lowercase...
@@ -84,6 +84,7 @@ class BaseExperiment:
 
         # devices without nicknames. core should come first
         devices_no_alias = ["core",
+                            "core_dma",
                             "scheduler",
                             "urukul0_cpld", "urukul1_cpld", "urukul2_cpld",
                             "zotino0",  # for controlling coils
@@ -100,6 +101,10 @@ class BaseExperiment:
         self.experiment.ttl_SPCM0 = self.experiment.ttl0
         self.experiment.ttl_scope_trigger = self.experiment.ttl7
         self.experiment.ttl_Luca_trigger = self.experiment.ttl6
+        self.experiment.ttl_UV = self.experiment.ttl15
+        self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+
+
 
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(
@@ -134,6 +139,9 @@ class BaseExperiment:
 
         # dataset names
         self.experiment.count_rate_dataset = 'photocounts_per_s'
+        self.experiment.scan_var_dataset = "scan_variables"
+        self.experiment.scan_sequence1_dataset = "scan_sequence1"
+        self.experiment.scan_sequence2_dataset = "scan_sequence2"
 
         # functions
 
@@ -213,6 +221,14 @@ class BaseExperiment:
         self.experiment.t_FORT_loading_mu = seconds_to_mu(self.experiment.t_FORT_loading)
         self.experiment.t_SPCM_exposure_mu = seconds_to_mu(self.experiment.t_SPCM_exposure)
 
+        # mainly for cost functions
+        try:
+            self.experiment.counts_list = [0] * self.experiment.n_measurements
+            self.experiment.counts2_list = [0] * self.experiment.n_measurements
+        except:
+            # if this fails, your experiment probably didn't need it
+            logging.warn("experiment does not have variable n_measurements")
+
         dds_feedback_list = eval(self.experiment.feedback_dds_list)
         slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
         fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
@@ -245,6 +261,12 @@ class BaseExperiment:
         hardware initialization and setting of ttl switches, and set datasets
         :return:
         """
+
+        self.experiment.core.reset()
+        self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
+        self.experiment.set_dataset(self.experiment.scan_sequence1_dataset,[0.0],broadcast=True)
+        self.experiment.set_dataset(self.experiment.scan_sequence2_dataset,[0.0],broadcast=True)
+
         self.experiment.named_devices.initialize()
 
         self.experiment.ttl_microwave_switch.output()
@@ -257,19 +279,27 @@ class BaseExperiment:
         self.experiment.ttl14.output()
         self.experiment.ttl14.on()
 
+        # for diagnostics including checking the performance of fast switches for SPCM gating
+        self.experiment.ttl9.output()
+        self.experiment.ttl9.off()
+
+        self.experiment.ttl_UV.output()
+        self.experiment.ttl_UV.off()
+
         self.experiment.sampler0.init() # for reading laser feedback
         self.experiment.sampler1.init() # for reading laser feedback
         self.experiment.sampler2.init() # for reading laser feedback
 
         self.experiment.print_async("base initialize_hardware - done")
 
-        # turn on any switches. this ensures that switches always start in a default state,
+        # turn on/off any switches. this ensures that switches always start in a default state,
         # which might not happen if we abort an experiment in the middle and don't reset it
         delay(1*ms)
         self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
         delay(1*ms)
         self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
         delay(1*ms)
+        self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
         # turn off all dds channels
         for ch in self.experiment.all_dds_channels:
@@ -283,10 +313,11 @@ class BaseExperiment:
         delay(10 * ms)
         self.experiment.dds_FORT.sw.off()
 
-        assert counts > 0, "SPCM0 is likely unplugged"
+        # assert counts > 0, "SPCM0 is likely unplugged"
 
         # todo: turn off all Zotino channels?
 
+        self.experiment.print_async("initialize hardware - done")
         self.experiment.core.break_realtime()
 
 # do this so the code above will not actually run when ARTIQ scans the repository
