@@ -42,7 +42,7 @@ import logging
 import sys, os
 # get the current working directory
 current_working_directory = os.getcwd()
-cwd = os.getcwd() + "\\"
+cwd = os.getcwd()
 
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
@@ -69,7 +69,7 @@ class BaseExperiment:
         :return:
         """
 
-        with open('C:\\Networking Experiment\\artiq codes\\artiq-master\\dataset_db.pyon') as f:
+        with open(cwd) as f:
             datasets_str = f.read()
 
         # when the pyon file is saved python True and False are converted to lowercase...
