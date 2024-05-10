@@ -41,10 +41,9 @@ def load_MOT_and_FORT(self):
     self.dds_FORT.sw.on()
 
     if not self.FORT_on_at_MOT_start:
-        # FORT is on to thermalize but frequency shifted to not couple to the fiber
-        self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+        self.dds_FORT.sw.off()
     else:
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_loading)
 
     # set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
@@ -98,7 +97,7 @@ def load_MOT_and_FORT(self):
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
 
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_PGC)
+                          amplitude=self.stabilizer_FORT.amplitude)
 
         self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                              channels=self.coil_channels)
@@ -201,7 +200,7 @@ def chopped_blow_away(self):
         amplitude=self.ampl_cooling_DP_MOT)
     self.dds_FORT.set(
         frequency=self.f_FORT,
-        amplitude=self.stabilizer_FORT.amplitude*self.p_FORT_RO)
+        amplitude=self.stabilizer_FORT.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
                         amplitude=self.stabilizer_AOM_A6.amplitude)
     delay(0.1*ms)
@@ -316,10 +315,10 @@ def chopped_optical_pumping(self):
 
     with sequential:
 
-        # adjust FORT power
-        self.dds_FORT.set(
-            frequency=self.f_FORT,
-            amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_OP)
+        # # adjust FORT power
+        # self.dds_FORT.set(
+        #     frequency=self.f_FORT,
+        #     amplitude=self.stabilizer_FORT.amplitude)
 
         delay(1*us)
 
@@ -328,10 +327,10 @@ def chopped_optical_pumping(self):
 
         self.dds_D1_pumping_SP.sw.off()
         self.dds_pumping_repump.sw.off()
-
-        self.dds_FORT.set(
-            frequency=self.f_FORT,
-            amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+        #
+        # self.dds_FORT.set(
+        #     frequency=self.f_FORT,
+        #     amplitude=self.stabilizer_FORT.amplitude)
 
         # reset MOT power
         self.dds_cooling_DP.sw.off()
@@ -400,7 +399,7 @@ def atom_loading_experiment(self):
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
-                                amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+                                amplitude=self.stabilizer_FORT.amplitude)
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -414,9 +413,9 @@ def atom_loading_experiment(self):
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
-        # set the FORT to the holding setting, i.e. for doing nothing
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
+        # # set the FORT to the holding setting, i.e. for doing nothing
+        # self.dds_FORT.set(frequency=self.f_FORT,
+        #                   amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -427,7 +426,7 @@ def atom_loading_experiment(self):
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+                          amplitude=self.stabilizer_FORT.amplitude)
 
         # take the second shot
         self.dds_cooling_DP.sw.on()
@@ -447,8 +446,8 @@ def atom_loading_experiment(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
         self.counts2_list[measurement] = counts2
 
-    # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+
+    self.dds_FORT.sw.off()
 
 @kernel
 def optical_pumping_experiment(self):
@@ -486,7 +485,7 @@ def optical_pumping_experiment(self):
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+                          amplitude=self.stabilizer_FORT.amplitude)
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -502,9 +501,9 @@ def optical_pumping_experiment(self):
         delay(1 * ms)
         self.ttl_repump_switch.off()  # turns the RP AOM off
 
-        # set the FORT to the holding setting, i.e. for doing nothing
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
+        # # set the FORT to the holding setting, i.e. for doing nothing
+        # self.dds_FORT.set(frequency=self.f_FORT,
+        #                   amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -526,7 +525,7 @@ def optical_pumping_experiment(self):
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+                          amplitude=self.stabilizer_FORT.amplitude)
 
         # take the second shot
         self.zotino0.set_dac(
@@ -551,8 +550,8 @@ def optical_pumping_experiment(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
         self.counts2_list[measurement] = counts2
 
-    # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+
+    self.dds_FORT.sw.off()
 
 @kernel
 def microwave_Rabi_experiment(self):
@@ -590,7 +589,7 @@ def microwave_Rabi_experiment(self):
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+                          amplitude=self.stabilizer_FORT.amplitude)
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -660,7 +659,7 @@ def microwave_Rabi_experiment(self):
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+                          amplitude=self.stabilizer_FORT.amplitude)
 
         # take the second shot
         self.zotino0.set_dac(
@@ -685,8 +684,8 @@ def microwave_Rabi_experiment(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
         self.counts2_list[measurement] = counts2
 
-    # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+
+    self.dds_FORT.sw.off()
 
 @kernel
 def single_photon_experiment(self):
@@ -724,7 +723,7 @@ def single_photon_experiment(self):
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+                          amplitude=self.stabilizer_FORT.amplitude)
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -740,9 +739,9 @@ def single_photon_experiment(self):
         delay(1 * ms)
         self.ttl_repump_switch.on()  # turns the RP AOM off
 
-        # set the FORT to the holding setting, i.e. for doing nothing
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
+        # # set the FORT to the holding setting, i.e. for doing nothing
+        # self.dds_FORT.set(frequency=self.f_FORT,
+        #                   amplitude=self.stabilizer_FORT.amplitude)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -822,7 +821,7 @@ def single_photon_experiment(self):
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+                          amplitude=self.stabilizer_FORT.amplitude)
 
         # take the second shot
         self.zotino0.set_dac(
@@ -853,5 +852,4 @@ def single_photon_experiment(self):
         delay(10*ms)
         # self.print_async(t_collect-t_excite)
 
-    # effectively turn the FORT AOM off
-    self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
+    self.dds_FORT.sw.off()

@@ -166,7 +166,7 @@ stabilizer_dict = {
                     'i': 0.0, # the integral coefficient
                     'series': True, # setting to True because there's a bug with parallel
                     'dataset':'FORT_monitor',
-                    'power_dataset':'p_FORT_loading',
+                    'power_dataset':'p_FORT_default',
                     't_measure_delay':10*us, # time to wait between AOM turned on and measurement
                     'max_dB': 5
                 },
