@@ -120,8 +120,9 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                          broadcast=True)
 
         self.cost_dataset = "cost"
+        self.current_best_cost = 0
         self.set_dataset(self.cost_dataset,
-                         [0.0],
+                         [self.current_best_cost],
                          broadcast=True)
 
         # instantiate the M-LOOP interface
@@ -297,7 +298,18 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         cost = self.get_cost(self.counts_list)
         self.append_to_dataset(self.cost_dataset, cost)
-
+        if cost < self.current_best_cost:
+            self.current_best_cost = cost
+            self.set_dataset("best params", params)
+            self.print_async("NEW BEST COST:", cost)
+            if self.tune_beams:
+                for i in range(4):
+                    self.print_async("BEST setpoint",i+1,print(self.default_setpoints[i] * setpoint_multipliers[i]))
+                if not self.disable_z_beam_tuning:
+                    self.print_async("BEST setpoint", 5, print(self.default_setpoints[4] * setpoint_multipliers[4]))
+                    self.print_async("BEST setpoint", 6, print(self.default_setpoints[5] * setpoint_multipliers[5]))
+            if self.tune_coils:
+                self.print_async("BEST coil values:", params[:4])
         return cost
 
 
