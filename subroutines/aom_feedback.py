@@ -162,7 +162,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 6, # the channel connected to the appropriate PD
                     'set_point': 'set_point_FORT_MM',
-                    'p': 0.7, #
+                    'p': 0.4, # set to 0.7 if using VCA
                     'i': 0.0, # the integral coefficient
                     'series': True, # setting to True because there's a bug with parallel
                     'dataset':'FORT_monitor',
