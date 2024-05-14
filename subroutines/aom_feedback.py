@@ -137,7 +137,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD5_AOM_A5',
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.07, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset':'MOT5_monitor',
@@ -149,7 +149,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD6_AOM_A6', # volts
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.08, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT6_monitor',
@@ -494,6 +494,7 @@ class AOMPowerStabilizer:
         self.exp.core.reset()
 
         # self.exp.ttl7.pulse(1*ms) # scope trigger
+        delay(100*ms)
 
         # todo: up-date the set points for all channels in case they have been changed since
         #  the stabilizer was instantiated. not sure how to do this since getattr can not be
