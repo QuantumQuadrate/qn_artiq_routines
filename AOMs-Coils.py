@@ -118,41 +118,48 @@ class AOMsCoils(EnvExperiment):
         else:
             self.dds_AOM_A5.sw.off()
 
+        delay(1*ms)
+
     @kernel
-    def run(self):
-        self.base.initialize_hardware()
-
-        self.turn_on_AOMs()
-
-        if self.disable_coils:
-            self.zotino0.set_dac([0.0,0.0,0.0,0.0],
-                             channels=self.coil_channels)
-        else:
-            self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                             channels=self.coil_channels)
-
-        delay(1 * ms)
-        print("Coils and AOMs done!")
+    def run_feedback(self):
+        self.core.reset()
 
         if self.AOM_A1_ON and self.AOM_A2_ON and self.AOM_A3_ON and self.AOM_A4_ON and self.AOM_A5_ON and self.AOM_A6_ON and self.Cooling_DP_AOM_ON:
             if self.enable_laser_feedback_loop:
                 print("Will now run feedback and monitor powers until forcibly stopped")
-                delay(100*ms)
+                delay(100 * ms)
 
                 while True:
                     self.laser_stabilizer.run()
-                    delay(1*ms)
+                    delay(1 * ms)
                     self.turn_on_AOMs()
-                    delay(1*ms)
+                    delay(1 * ms)
                     delay(self.t_feedback_period)
 
             elif self.run_laser_feedback_once:
-                self.laser_stabilizer.run() # this tunes the MOT and FORT AOMs
+                self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
                 delay(1 * ms)
                 self.turn_on_AOMs()
                 delay(1 * ms)
             else:
                 # posts one data point for each beam
+                delay(10 * ms)
                 self.laser_stabilizer.monitor()
-                delay(1*ms)
+                delay(1 * ms)
                 self.turn_on_AOMs()
+
+    @kernel
+    def hardware_init_and_coils(self):
+        self.turn_on_AOMs()
+
+        if self.disable_coils:
+            self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],
+                                 channels=self.coil_channels)
+        else:
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                channels=self.coil_channels)
+
+    def run(self):
+        self.hardware_init_and_coils()
+        self.run_feedback()

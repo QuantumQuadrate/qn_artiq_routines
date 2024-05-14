@@ -511,6 +511,7 @@ class AOMPowerStabilizer:
         if defaults_at_start:
             for ch in self.all_channels:
                 ch.set_dds_to_defaults()
+                delay(0.1 * ms)
 
         with sequential:
 
@@ -576,8 +577,9 @@ class AOMPowerStabilizer:
                     if self.exp.Luca_trigger_for_feedback_verification:
                         self.exp.ttl6.pulse(5 * ms)
                         delay(60*ms)
-                    delay(0.1*ms)
+                    delay(1*ms)
                     ch.dds_obj.sw.off()
+
 
             # update the datasets with the last values if we have not already done so
             if not record_all_measurements:
