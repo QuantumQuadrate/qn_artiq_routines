@@ -98,7 +98,6 @@ class DeviceAliases:
         self.experiment.urukul1_cpld.init()
         self.experiment.urukul2_cpld.init()
         self.experiment.core.break_realtime()
-        self.experiment.zotino0.init()
 
         for i in range(len(self.dds_list)):
             self.dds_list[i].init()

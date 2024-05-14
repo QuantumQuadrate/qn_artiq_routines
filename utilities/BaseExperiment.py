@@ -290,8 +290,6 @@ class BaseExperiment:
         self.experiment.sampler1.init() # for reading laser feedback
         self.experiment.sampler2.init() # for reading laser feedback
 
-        self.experiment.print_async("base initialize_hardware - done")
-
         # turn on/off any switches. this ensures that switches always start in a default state,
         # which might not happen if we abort an experiment in the middle and don't reset it
         delay(1*ms)
@@ -300,25 +298,21 @@ class BaseExperiment:
         self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
         delay(1*ms)
         self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
-
+        #
         # turn off all dds channels
-        for ch in self.experiment.all_dds_channels:
-            ch.sw.off()
-
-        # check that the SPCM is plugged in #todo add other SPCM channels as they are added to the experiment
-        self.experiment.dds_FORT.sw.on() # we'll get enough Raman scattering to see something
-        delay(100*ms)
-        t_gate_end = self.experiment.ttl_SPCM0.gate_rising(100*ms)
-        counts = self.experiment.ttl_SPCM0.count(t_gate_end)
-        delay(10 * ms)
-        self.experiment.dds_FORT.sw.off()
-
-        # assert counts > 0, "SPCM0 is likely unplugged"
+        for dds_ch in self.experiment.all_dds_channels:
+            dds_ch.sw.off()
 
         # todo: turn off all Zotino channels?
+        self.experiment.zotino0.init()
+        for zot_ch in range(32):
+            self.experiment.zotino0.write_dac(zot_ch, 0.0)
+            self.experiment.zotino0.load()
+            delay(1*ms)
+
+        self.experiment.core.break_realtime()
 
         self.experiment.print_async("initialize hardware - done")
-        self.experiment.core.break_realtime()
 
 # do this so the code above will not actually run when ARTIQ scans the repository
 if __name__ == '__main__':
