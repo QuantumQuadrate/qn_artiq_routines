@@ -202,8 +202,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         self.core.reset()
 
-        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                             channels=self.coil_channels)
+        delay(1*ms)
 
         self.dds_cooling_DP.sw.on()
         self.dds_AOM_A1.sw.on()
@@ -222,6 +221,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         for i in range(10):
             self.laser_stabilizer.run()
         self.dds_FORT.sw.on()
+
+        delay(1*ms)
+        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                             channels=self.coil_channels)
 
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
