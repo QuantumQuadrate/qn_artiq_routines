@@ -222,9 +222,9 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             self.laser_stabilizer.run()
         self.dds_FORT.sw.on()
 
-        delay(1*ms)
-        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                             channels=self.coil_channels)
+        # delay(1*ms)
+        # self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        #                      channels=self.coil_channels)
 
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
@@ -265,10 +265,6 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         else:
             setpoint_multipliers = params
 
-        if self.tune_coils:
-            self.zotino0.set_dac(self.coil_values, channels=self.coil_channels)
-            delay(1 * ms)
-
         if self.tune_beams:
             self.stabilizer_AOM_A1.set_point = self.default_setpoints[0] * setpoint_multipliers[0]
             self.stabilizer_AOM_A2.set_point = self.default_setpoints[1] * setpoint_multipliers[1]
@@ -282,6 +278,9 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                 self.laser_stabilizer.run()
         else:
             self.laser_stabilizer.run()
+
+        if self.tune_coils:
+            self.zotino0.set_dac(self.coil_values, channels=self.coil_channels)
 
         delay(1 * ms)
 
