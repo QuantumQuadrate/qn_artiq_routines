@@ -149,7 +149,8 @@ class AOMsCoils(EnvExperiment):
                 self.turn_on_AOMs()
 
     @kernel
-    def hardware_init_and_coils(self):
+    def aoms_and_coils(self):
+        self.base.initialize_hardware()
         self.turn_on_AOMs()
 
         if self.disable_coils:
@@ -161,5 +162,5 @@ class AOMsCoils(EnvExperiment):
                 channels=self.coil_channels)
 
     def run(self):
-        self.hardware_init_and_coils()
+        self.aoms_and_coils()
         self.run_feedback()
