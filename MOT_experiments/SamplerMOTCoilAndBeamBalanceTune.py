@@ -126,9 +126,6 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         delay(1*ms)
 
-        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                             channels=self.coil_channels)
-
         if self.FORT_AOM_on:
             self.dds_FORT.sw.on()
 
@@ -142,6 +139,9 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
             self.laser_stabilizer.run(monitor_only=self.monitor_only)
             if self.FORT_AOM_on:
                 self.dds_FORT.sw.on()
+
+        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                             channels=self.coil_channels)
 
         saturated_coils = [False] * 4
         control_volts = [0.0] * 4
