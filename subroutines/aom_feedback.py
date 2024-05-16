@@ -137,7 +137,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD5_AOM_A5',
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.07, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset':'MOT5_monitor',
@@ -149,7 +149,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
                     'set_point': 'set_point_PD6_AOM_A6', # volts
-                    'p': 0.05, # the proportionality constant
+                    'p': 0.08, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT6_monitor',
@@ -162,7 +162,7 @@ stabilizer_dict = {
                 {
                     'sampler_ch': 6, # the channel connected to the appropriate PD
                     'set_point': 'set_point_FORT_MM',
-                    'p': 0.7, #
+                    'p': 0.4, # set to 0.7 if using VCA
                     'i': 0.0, # the integral coefficient
                     'series': True, # setting to True because there's a bug with parallel
                     'dataset':'FORT_monitor',
@@ -494,6 +494,7 @@ class AOMPowerStabilizer:
         self.exp.core.reset()
 
         # self.exp.ttl7.pulse(1*ms) # scope trigger
+        delay(100*ms)
 
         # todo: up-date the set points for all channels in case they have been changed since
         #  the stabilizer was instantiated. not sure how to do this since getattr can not be
@@ -510,6 +511,7 @@ class AOMPowerStabilizer:
         if defaults_at_start:
             for ch in self.all_channels:
                 ch.set_dds_to_defaults()
+                delay(0.1 * ms)
 
         with sequential:
 
@@ -575,8 +577,9 @@ class AOMPowerStabilizer:
                     if self.exp.Luca_trigger_for_feedback_verification:
                         self.exp.ttl6.pulse(5 * ms)
                         delay(60*ms)
-                    delay(0.1*ms)
+                    delay(1*ms)
                     ch.dds_obj.sw.off()
+
 
             # update the datasets with the last values if we have not already done so
             if not record_all_measurements:

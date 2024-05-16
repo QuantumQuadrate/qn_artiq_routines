@@ -66,10 +66,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         group = "beam tuning settings"
 
-        self.setattr_argument("max_RF_ampl_percent_deviation_plus",
+        self.setattr_argument("max_set_point_percent_deviation_plus",
                               NumberValue(0.1), group)
 
-        self.setattr_argument("max_RF_ampl_percent_deviation_minus",
+        self.setattr_argument("max_set_point_percent_deviation_minus",
                               NumberValue(0.3), group)
 
         # we can balance the z beams with confidence by measuring the powers outside the chamber,
@@ -120,8 +120,9 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                          broadcast=True)
 
         self.cost_dataset = "cost"
+        self.current_best_cost = 0
         self.set_dataset(self.cost_dataset,
-                         [0.0],
+                         [self.current_best_cost],
                          broadcast=True)
 
         # instantiate the M-LOOP interface
@@ -150,23 +151,25 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         if self.tune_beams:
             print("MLOOP will tune beam powers")
 
-            min_bounds += [1 - self.max_RF_ampl_percent_deviation_minus,
-                           1 - self.max_RF_ampl_percent_deviation_minus,
-                           1 - self.max_RF_ampl_percent_deviation_minus,
-                           1 - self.max_RF_ampl_percent_deviation_minus]
+            min_bounds += [1 - self.max_set_point_percent_deviation_minus,
+                           1 - self.max_set_point_percent_deviation_minus,
+                           1 - self.max_set_point_percent_deviation_minus,
+                           1 - self.max_set_point_percent_deviation_minus]
 
-            max_bounds += [1 + self.max_RF_ampl_percent_deviation_plus,
-                           1 + self.max_RF_ampl_percent_deviation_plus,
-                           1 + self.max_RF_ampl_percent_deviation_plus,
-                           1 + self.max_RF_ampl_percent_deviation_plus]
+            max_bounds += [1 + self.max_set_point_percent_deviation_plus,
+                           1 + self.max_set_point_percent_deviation_plus,
+                           1 + self.max_set_point_percent_deviation_plus,
+                           1 + self.max_set_point_percent_deviation_plus]
 
             if not self.disable_z_beam_tuning:
                 # append additional bounds for MOT5,6
-                min_bounds.append(1 - self.max_RF_ampl_percent_deviation_minus)
-                min_bounds.append(1 - self.max_RF_ampl_percent_deviation_minus)
-                max_bounds.append(1 + self.max_RF_ampl_percent_deviation_plus)
-                max_bounds.append(1 + self.max_RF_ampl_percent_deviation_plus)
+                min_bounds.append(1 - self.max_set_point_percent_deviation_minus)
+                min_bounds.append(1 - self.max_set_point_percent_deviation_minus)
+                max_bounds.append(1 + self.max_set_point_percent_deviation_plus)
+                max_bounds.append(1 + self.max_set_point_percent_deviation_plus)
         n_params = len(max_bounds)
+
+        self.best_params = np.zeros(n_params)
 
         print("max bounds")
         print(max_bounds)
@@ -201,8 +204,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         self.core.reset()
 
-        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                             channels=self.coil_channels)
+        delay(1*ms)
 
         self.dds_cooling_DP.sw.on()
         self.dds_AOM_A1.sw.on()
@@ -221,6 +223,10 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         for i in range(10):
             self.laser_stabilizer.run()
         self.dds_FORT.sw.on()
+
+        # delay(1*ms)
+        # self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        #                      channels=self.coil_channels)
 
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
@@ -261,10 +267,6 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         else:
             setpoint_multipliers = params
 
-        if self.tune_coils:
-            self.zotino0.set_dac(self.coil_values, channels=self.coil_channels)
-            delay(1 * ms)
-
         if self.tune_beams:
             self.stabilizer_AOM_A1.set_point = self.default_setpoints[0] * setpoint_multipliers[0]
             self.stabilizer_AOM_A2.set_point = self.default_setpoints[1] * setpoint_multipliers[1]
@@ -279,7 +281,12 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         else:
             self.laser_stabilizer.run()
 
+        if self.tune_coils:
+            self.zotino0.set_dac(self.coil_values, channels=self.coil_channels)
+
         delay(1 * ms)
+
+        self.ttl_UV.pulse(self.t_UV_pulse)
 
         self.dds_FORT.sw.on()
 
@@ -298,6 +305,24 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         cost = self.get_cost(self.counts_list)
         self.append_to_dataset(self.cost_dataset, cost)
 
+        param_idx = 0
+        if cost < self.current_best_cost:
+            self.current_best_cost = cost
+            self.print_async("NEW BEST COST:", cost)
+            if self.tune_coils:
+                self.print_async("BEST coil values:", params[:4])
+                self.best_params[:4] = params[:4]
+                param_idx = 3
+            if self.tune_beams:
+                for i in range(4):
+                    self.best_params[param_idx + i] = self.default_setpoints[i] * setpoint_multipliers[i]
+                    self.print_async("BEST setpoint",i+1,self.best_params[param_idx + i])
+                if not self.disable_z_beam_tuning:
+                    self.best_params[param_idx + 4] = self.default_setpoints[4] * setpoint_multipliers[4]
+                    self.best_params[param_idx + 5] = self.default_setpoints[5] * setpoint_multipliers[5]
+                    self.print_async("BEST setpoint", 5, self.best_params[param_idx + 4])
+                    self.print_async("BEST setpoint", 6, self.best_params[param_idx + 5])
+            self.set_dataset("best params", self.best_params)
         return cost
 
 
