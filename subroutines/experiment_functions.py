@@ -43,7 +43,7 @@ def load_MOT_and_FORT(self):
     if not self.FORT_on_at_MOT_start:
         self.dds_FORT.sw.off()
     else:
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_loading)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
     # set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
@@ -90,6 +90,8 @@ def load_MOT_and_FORT(self):
     if not self.FORT_on_at_MOT_start:
         delay_mu(self.t_FORT_loading_mu)
 
+    self.stabilizer_FORT.run(setpoint_index=1) # the loading setpoint
+
     self.dds_cooling_DP.sw.off()
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
     self.dds_cooling_DP.sw.on()
@@ -97,7 +99,7 @@ def load_MOT_and_FORT(self):
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
 
         self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude)
+                          amplitude=self.stabilizer_FORT.amplitudes[1])
 
         self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                              channels=self.coil_channels)
@@ -397,9 +399,12 @@ def atom_loading_experiment(self):
             [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
             channels=self.coil_channels)
 
-        # set the FORT AOM to the readout settings
+        # set the FORT AOM to the science setting. this is only valid if we have run
+        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
+
+        self.print_async(self.stabilizer_FORT.amplitudes[1])
         self.dds_FORT.set(frequency=self.f_FORT,
-                                amplitude=self.stabilizer_FORT.amplitude)
+                                amplitude=self.stabilizer_FORT.amplitudes[1])
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -413,20 +418,12 @@ def atom_loading_experiment(self):
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
-        # # set the FORT to the holding setting, i.e. for doing nothing
-        # self.dds_FORT.set(frequency=self.f_FORT,
-        #                   amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
-
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
 
         delay(self.t_delay_between_shots)
-
-        # set the FORT AOM to the readout settings
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitude)
 
         # take the second shot
         self.dds_cooling_DP.sw.on()

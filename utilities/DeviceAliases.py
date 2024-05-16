@@ -12,7 +12,7 @@ from artiq.experiment import *
 # not the readout settings. the variable names for power and frequency must
 # exist as a dataset create by ExperimentVariables.
 DDS_DEFAULTS = {
-    "dds_FORT": {"frequency":"f_FORT", "power":"p_FORT_default"},
+    "dds_FORT": {"frequency":"f_FORT", "power":"p_FORT_loading"},
     "dds_cooling_DP": {"frequency":"f_cooling_DP_MOT", "power":"p_cooling_DP_MOT"},
     "dds_D1_pumping_SP": {"frequency": "f_D1_pumping_SP", "power": "p_D1_pumping_SP"},
     "dds_pumping_repump": {"frequency": "f_pumping_repump", "power": "p_pumping_repump"},

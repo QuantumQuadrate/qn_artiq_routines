@@ -61,11 +61,9 @@ class ExperimentVariables(EnvExperiment):
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
 
             # FORT AOM
-            Variable("f_FORT", 210.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
-            Variable("p_FORT_default", -4, NumberValue,
+            Variable("f_FORT", 80.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
+            Variable("p_FORT_loading", -4, NumberValue,
                      {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1}, "FORT AOM"),
-            Variable("p_FORT_loading", 1.5, NumberValue,
-                     {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 2}, "FORT AOM"),
             Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM"),
             Variable("p_FORT_holding", 1, NumberValue,
@@ -271,7 +269,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("set_point_PD4_AOM_A4", 0.286, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD5_AOM_A5", 0.214, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD6_AOM_A6", 0.296, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-            Variable('set_point_FORT_MM', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable('set_point_FORT_MM_loading', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable('set_point_FORT_MM_science', 0.2, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
 
             # Plotting
             Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
@@ -290,7 +289,6 @@ class ExperimentVariables(EnvExperiment):
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback")
-
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so
