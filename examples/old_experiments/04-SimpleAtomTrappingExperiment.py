@@ -348,8 +348,8 @@ class SimpleAtomTrapping(EnvExperiment):
 
         self.core.break_realtime()
 
-        self.urukul0_cpld.set_profile(0)
-        self.urukul1_cpld.set_profile(0)
+        self.urukul0_cpld.set_profile(7)
+        self.urukul1_cpld.set_profile(7)
 
         self.core.break_realtime()
 
