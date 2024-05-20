@@ -69,7 +69,7 @@ class BaseExperiment:
         :return:
         """
 
-        with open('C:\\Networking Experiment\\artiq codes\\artiq-master\\dataset_db.pyon') as f:
+        with open('dataset_db.pyon') as f:
             datasets_str = f.read()
 
         # when the pyon file is saved python True and False are converted to lowercase...
@@ -103,11 +103,6 @@ class BaseExperiment:
         self.experiment.ttl_Luca_trigger = self.experiment.ttl6
         self.experiment.ttl_UV = self.experiment.ttl15
         self.experiment.ttl_SPCM_gate = self.experiment.ttl13
-
-<<<<<<< HEAD
-=======
-
->>>>>>> d7059e2 (experiment for optimizing the FORT polarization. also some syntax fixes and error handling on isntantiation of the rotors)
 
         # initialize named channels.
         self.experiment.named_devices = DeviceAliases(

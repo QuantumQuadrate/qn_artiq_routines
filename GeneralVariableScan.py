@@ -16,7 +16,6 @@ from artiq.experiment import *
 
 import numpy as np
 
-<<<<<<< HEAD
 
 import sys, os
 

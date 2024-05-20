@@ -70,8 +70,11 @@ class RotatorFeedbackChannel:
                 rotor = Thorlabs.KinesisMotor(conn=sn, scale='K10CR1', )
                 self.stage.append(rotor)
             except Exception as e:
-                rotor.close()
-                print(sn, e)
+                try:
+                    rotor.close()
+                    print(sn, e)
+                except Exception as e1:
+                    print(sn, e, e1)
         self.extra_rotors = []
 
         if len(rotator_sn) > 2:
@@ -417,7 +420,7 @@ class RotatorFeedbackChannel:
 
     def optimize_2(self, range_val=180, default_steps = 3, tol=0.01):
         """
-        Less funnctional version of optimize(),
+        Less functional version of optimize(),
         finds peaks quicker but doesn't easily converge to termination
         ##TODO FIX
         """
