@@ -313,6 +313,9 @@ class FeedbackChannel:
         :return:
         """
 
+        if not self.stabilizer.exp.enable_laser_feedback:
+            monitor_only = True
+
         self.dds_obj.sw.on()
         self.set_dds_to_defaults(setpoint_index)
         delay(0.1 * ms)
@@ -543,13 +546,17 @@ class AOMPowerStabilizer:
         be posted to the corresponding dataset, else, only post the final measurement, i.e. after the feedback
         loop has been run.
         monitor_only=False: if True, measurements of the detectors are made and the monitor datasets are updated,
-            but feedback is not applied
+            but feedback is not applied. this is overridden to be True if the experiment isntance for AOMPowerStabilizer
+            has enable_laser_feedback = False.
         defaults_at_start=True: if True, the dds for each FeedbackChannel is set to
             the frequency and amplitude associated with the FeedbackChannel object. This should nearly always be true,
             unless for example, in cases where one wants specifically wants to read the detector values after the dds
             amplitudes have been changed in an experiment. This happens at the end of SamplerMOTCoilAndBeamBalance.
         """
         self.exp.core.reset()
+
+        if not self.exp.enable_laser_feedback:
+            monitor_only = True
 
         # self.exp.ttl7.pulse(1*ms) # scope trigger
         delay(100*ms)
