@@ -33,3 +33,4 @@ artiqenv.bat
 dataset_db.pyon
 last_rid.pyon
 results
+/scratchpad.py
