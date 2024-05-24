@@ -665,7 +665,6 @@ def microwave_Rabi_experiment(self):
         self.append_to_dataset('photocounts2_current_iteration', counts2)
         self.counts2_list[measurement] = counts2
 
-
     self.dds_FORT.sw.off()
 
 @kernel
