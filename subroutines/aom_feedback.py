@@ -70,13 +70,17 @@ Notes about entries below.
 - All dds channel names should follow the convention "dds_description", and the "dds_description" must be one of the
 keys in DeviceAliases.DDS_DEFAULTS. THIS IS ASSUMED BY THE CODE IN AOMPowerStabilizer.
 """
-stabilizer_dict = {
+stabilizer_dict = { # todo: replace series/paralle with an index specifying the order in which to run.
+                    #   this will allow for giving two channels the same priority thus allowing them to be done in
+                    #   parallel or series in any combination, e.g. 1 1 1 2 3 3 4, etc. This would allow us to feedback
+                    #   orthogonal MOT beams in parallel in groups, thus significantly reducing the time needed for
+                    #   feedback.
     'sampler0':
         {
             'dds_cooling_DP':
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_PD0_AOM_cooling_DP', # volts
+                    'set_points': ['set_point_PD0_AOM_cooling_DP'], # volts
                     'p': 0.00, # the proportionality constant
                     'i': 0.0, # the integral coefficient
                     'series': False, # if series = True then these channels are fed-back to one at a time
@@ -88,7 +92,7 @@ stabilizer_dict = {
             'dds_AOM_A1':
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_PD1_AOM_A1', # volts
+                    'set_points': ['set_point_PD1_AOM_A1'], # volts
                     'p': 0.1, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
@@ -100,7 +104,7 @@ stabilizer_dict = {
             'dds_AOM_A2':
                 {
                     'sampler_ch': 5, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_PD2_AOM_A2', # volts
+                    'set_points': ['set_point_PD2_AOM_A2'], # volts
                     'p': 0.1, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
@@ -112,7 +116,7 @@ stabilizer_dict = {
             'dds_AOM_A3':
                 {
                     'sampler_ch': 3, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_PD3_AOM_A3', # volts
+                    'set_points': ['set_point_PD3_AOM_A3'], # volts
                     'p': 0.2, # the proportionality constant
                     'i': 0.000, # the integral coefficient
                     'series': True,
@@ -124,7 +128,7 @@ stabilizer_dict = {
             'dds_AOM_A4':
                 {
                     'sampler_ch': 4, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_PD4_AOM_A4', # volts
+                    'set_points': ['set_point_PD4_AOM_A4'], # volts
                     'p': 0.2, # the proportionality constant
                     'i': 0.0, # the integral coefficient
                     'series': True,
@@ -136,7 +140,7 @@ stabilizer_dict = {
             'dds_AOM_A5':
                 {
                     'sampler_ch': 1, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_PD5_AOM_A5',
+                    'set_points': ['set_point_PD5_AOM_A5'],
                     'p': 0.07, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
@@ -148,7 +152,7 @@ stabilizer_dict = {
             'dds_AOM_A6':
                 {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_PD6_AOM_A6', # volts
+                    'set_points': ['set_point_PD6_AOM_A6'], # volts
                     'p': 0.08, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
@@ -161,7 +165,7 @@ stabilizer_dict = {
             'dds_FORT': # signal monitored by TTI detector connected to MM fiber
                 {
                     'sampler_ch': 6, # the channel connected to the appropriate PD
-                    'set_point': 'set_point_FORT_MM',
+                    'set_points': ['set_point_FORT_MM_loading', 'set_point_FORT_MM_science'],
                     'p': 0.4, # set to 0.7 if using VCA
                     'i': 0.0, # the integral coefficient
                     'series': True, # setting to True because there's a bug with parallel
@@ -179,16 +183,18 @@ stabilizer_dict = {
 
 class FeedbackChannel:
 
-    def __init__(self, name, dds_obj, buffer_index, set_point, p, i, frequency, amplitude, dataset,
+    def __init__(self, stabilizer, name, dds_obj, buffer_index, set_points, p, i, frequency, amplitude, dataset,
                  dB_dataset, t_measure_delay, error_history_length, max_dB):
         """
         class which defines a DDS feedback channel
 
         parameters:
+        'stabilizer': an instance of AOMPowerStabilizer
         'name': the name of the dds channel, e.g. dds_AOM_A1
         'dds_obj': the experiment reference to the dds object with name 'name', e.g. experiment.dds_AOM_A1
         'buffer_index': int, the Sampler channel, e.g., 3, which we measure from.
-        'set_point': the float value we are trying to reach
+        'set_points': a list of the float value(s) we are trying to reach. an index specifies which to use, with the
+            first entry in the list assumed to be the default value.
         'p': the proportional constant for feedback
         'i': the integral constant. typically zero, as integral doesn't make much sense for our feedback scheme
         'frequency': the default frequency for the dds. see DeviceAliases.py
@@ -198,15 +204,18 @@ class FeedbackChannel:
         'error_history_length->int':, how many errors to store for the integral term
         'max_dB': the maximum dB we can attempt to set for the dds channel
         """
+        self.stabilizer = stabilizer
         self.name = name
         self.dds_obj = dds_obj
         self.buffer_index = buffer_index
         # self.g = g
-        self.set_point = set_point
+        self.set_points = set_points
         self.p = p
         self.i = i
         self.frequency = frequency
         self.amplitude = amplitude
+        self.amplitudes = np.zeros(len(self.set_points)) # we would rather output too no RF than too much
+        self.amplitudes[0] = self.amplitude
         self.feedback_sign = 1.0
         self.value = 0.0 # the last value of the measurement
         self.value_normalized = 0.0 # self.value normalized to the set point
@@ -219,7 +228,6 @@ class FeedbackChannel:
         self.cumulative_error = 0.0 # will store a sum of the
         self.max_dB = max_dB
         self.max_ampl = (2 * 50 * 10 ** (self.max_dB / 10 - 3)) ** (1 / 2)
-
         self.ampl_default = 0.0
 
     @rpc(flags={"async"})
@@ -227,9 +235,9 @@ class FeedbackChannel:
         print(x)
 
     @kernel
-    def set_value(self, value):
+    def set_value(self, value, setpoint_index=0):
         self.value = value
-        self.value_normalized = value / self.set_point
+        self.value_normalized = value / self.set_points[setpoint_index]
 
     @rpc(flags={'async'})
     def update_error_history(self, error):
@@ -246,50 +254,101 @@ class FeedbackChannel:
         self.cumulative_error = sum(self.error_history_arr)
 
     @kernel
-    def feedback(self, buffer):
+    def feedback(self, buffer, setpoint_index=0):
         """ feedback to this channel
         buffer: a list of length storing the measurement result from all samplers
         """
 
-        measured_last = self.value
-        ampl_last = self.amplitude
-
         measured = buffer[self.buffer_index]
-        err = self.set_point - measured
+        err = self.set_points[setpoint_index] - measured
 
         # runs off the kernel, else the error array isn't correctly updated
         self.update_error_history(err)
 
-        ampl = self.amplitude + self.feedback_sign*self.p * err + self.i * self.cumulative_error
+        ampl = self.amplitudes[setpoint_index] + self.feedback_sign*self.p * err + self.i * self.cumulative_error
 
-        self.set_value(measured)
+        self.set_value(measured, setpoint_index)
 
         if ampl < 0:
-            self.amplitude = 0.0
+            self.amplitudes[setpoint_index] = 0.0
         elif ampl > self.max_ampl:
-            # self.amplitude = max_ampl
-
             # we either overcorrected  or there is not enough laser power right now to reach the setpoint
             # and in either case we are now stuck because the slope changed sign, so we throw ourselves
             # back to the bottom of the correct side of the laser power vs RF amplitude curve
-            self.amplitude = (2 * 50 * 10 ** (-20 / 10 - 3)) ** (1 / 2)
+            self.amplitudes[setpoint_index] = (2 * 50 * 10 ** (-20 / 10 - 3)) ** (1 / 2)
 
         else:  # valid amplitude for DDS
-            self.amplitude = ampl
+            self.amplitudes[setpoint_index] = ampl
+
+        if setpoint_index == 0:
+            self.amplitude = self.amplitudes[0] # for seamless backwards compatibility with older code
 
         # update the dds amplitude
-        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
+        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index])
 
     @kernel
-    def set_dds_to_defaults(self):
+    def set_dds_to_defaults(self, setpoint_index=0):
         """
-        sets the dds channel to the default frequency and to the most recent amplitude
+        sets the dds channel to the default frequency and to the most recent amplitude.
 
         Except for the first time the feedback runs in your experiment, the amplitude stored in
         self.amplitude will be the one that was set at the end of the feedback routine.
+        :param setpoint_index=0: the index of the setpoint, which specifies which amplitude we should use
         """
-        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitude)
+        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index])
 
+    @kernel
+    def run(self, monitor_only=False, record_all_measurements=False, setpoint_index=0):
+        """
+        Run feedback for this instance of FeedbackChannel only, and leave the DDS on
+
+        This ignores the any other FeedbackChannels which belong to self.stabilizer, so it is the responsibility of the
+        user to turn channels on/off prior to calling this.
+
+        :param monitor_only=False:. If True, does not apply feedback but still updates datasets based on measurements
+        :param record_all_measurements=False: If True, dataset will be updated with each iteration of feedback, not just
+            the last value measured
+        :param setpoint_index=0: the index of the setpoint to use, where 0 is the default. note that dB dataset is not
+            updated for setpoint_index != 0.
+        :return:
+        """
+
+        if not self.stabilizer.exp.enable_laser_feedback:
+            monitor_only = True
+
+        self.dds_obj.sw.on()
+        self.set_dds_to_defaults(setpoint_index)
+        delay(0.1 * ms)
+
+        # do feedback on the "parallel" channels
+        for i in range(self.stabilizer.iterations):
+            self.stabilizer.measure()
+            delay(0.1 * ms)
+
+            if not (self.stabilizer.dry_run or monitor_only):
+                self.feedback(self.stabilizer.measurement_array - self.stabilizer.background_array, setpoint_index)
+            else:
+                self.set_value((self.stabilizer.measurement_array - self.stabilizer.background_array)[
+                                   self.buffer_index], setpoint_index)
+
+            if record_all_measurements:
+                self.stabilizer.exp.append_to_dataset(self.dataset, self.value_normalized)
+
+            delay(0.1 * ms)
+
+        # self.stabilizer.measure_background()
+        # delay(1*ms)
+
+        self.dds_obj.sw.on()
+
+        # update the datasets with the last values if we have not already done so
+        if not record_all_measurements:
+            self.stabilizer.exp.append_to_dataset(self.dataset, self.value_normalized)
+
+        delay(0.1 * ms)
+
+        if self.stabilizer.update_dds_settings and setpoint_index == 0:
+            self.stabilizer.update_dB_dataset()
 
 class AOMPowerStabilizer:
 
@@ -348,10 +407,12 @@ class AOMPowerStabilizer:
 
                         ch_params = feedback_channels[ch_name]
 
-                        fb_channel = FeedbackChannel(name=ch_name,
+                        fb_channel = FeedbackChannel(
+                                            stabilizer=self,
+                                            name=ch_name,
                                             dds_obj=getattr(self.exp, ch_name),
                                             buffer_index=ch_params['sampler_ch'] + i*8,
-                                            set_point=getattr(self.exp,ch_params['set_point']),
+                                            set_points=[getattr(self.exp,sp) for sp in ch_params['set_points']],
                                             p=ch_params['p'],
                                             i=ch_params['i'],
                                             frequency=getattr(self.exp,DDS_DEFAULTS[ch_name]["frequency"]),
@@ -485,7 +546,8 @@ class AOMPowerStabilizer:
         be posted to the corresponding dataset, else, only post the final measurement, i.e. after the feedback
         loop has been run.
         monitor_only=False: if True, measurements of the detectors are made and the monitor datasets are updated,
-            but feedback is not applied
+            but feedback is not applied. this is overridden to be True if the experiment isntance for AOMPowerStabilizer
+            has enable_laser_feedback = False.
         defaults_at_start=True: if True, the dds for each FeedbackChannel is set to
             the frequency and amplitude associated with the FeedbackChannel object. This should nearly always be true,
             unless for example, in cases where one wants specifically wants to read the detector values after the dds
@@ -493,16 +555,11 @@ class AOMPowerStabilizer:
         """
         self.exp.core.reset()
 
+        if not self.exp.enable_laser_feedback:
+            monitor_only = True
+
         # self.exp.ttl7.pulse(1*ms) # scope trigger
         delay(100*ms)
-
-        # todo: up-date the set points for all channels in case they have been changed since
-        #  the stabilizer was instantiated. not sure how to do this since getattr can not be
-        #  used in the kernel, and I don't want to have to pass in a variable explicitly.
-
-        # todo: modify this to only affect the DDSs we're feeding back to?
-        # make sure that all of the DDSs are set the default frequency and power levels
-        # self.exp.named_devices.set_dds_default_settings()
 
         # turn off the repumps which are mixed into the cooling light
         self.exp.ttl_repump_switch.on() # block RF to the RP AOM
@@ -548,8 +605,8 @@ class AOMPowerStabilizer:
                 ch.dds_obj.sw.off()
             # delay(10 * ms)  # the Femto fW detector is slow
 
-            # need to have this on
-            self.exp.dds_cooling_DP.sw.on()
+            # need to have this on for MOT feedback
+            self.exp.dds_cooling_DP.sw.on() # todo: only turn this on if the one of the FeedbackChannels depends on it
             delay(1 * ms)
 
             # self.measure_background()
@@ -580,14 +637,13 @@ class AOMPowerStabilizer:
                     delay(1*ms)
                     ch.dds_obj.sw.off()
 
-
             # update the datasets with the last values if we have not already done so
             if not record_all_measurements:
                 for ch in self.all_channels:
                     self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
         delay(1*ms)
-        self.exp.dds_cooling_DP.sw.on()
+        self.exp.dds_cooling_DP.sw.on() # todo: only turn this on if the one of the FeedbackChannels depends on it
         self.exp.ttl_repump_switch.off()  # enable RF to the RP AOM
 
         delay(0.1*ms)
