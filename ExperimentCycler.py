@@ -82,7 +82,7 @@ class ExperimentCycler(EnvExperiment):
         value = 0.0
         for ch_i in range(len(self.laser_stabilizer.all_channels)):
             self.set_dataset(self.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
-                             [self.initial_RF_dB_values[ch_i]], broadcast=True, persist=True)
+                             [float(self.initial_RF_dB_values[ch_i])], broadcast=True, persist=True)
 
     def reset_datasets(self):
         """

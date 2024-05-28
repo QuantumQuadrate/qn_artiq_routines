@@ -39,11 +39,10 @@ class MyExp(EnvExperiment):
 """
 from artiq.experiment import *
 import logging
+import numpy as np
 import sys, os
-# get the current working directory
-current_working_directory = os.getcwd()
-cwd = os.getcwd() + "\\"
 
+cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
@@ -57,11 +56,15 @@ from utilities.conversions import dB_to_V
 class BaseExperiment:
 
     def __init__(self, experiment: EnvExperiment):
+        """
+        Instantiate BaseExperiment in your build method, with experiment=self
+        :param experiment: an instance of an ARTIQ Experiment.
+        """
         self.experiment = experiment
 
     def build(self):
         """
-        Put this in your experiment's build method with experiment=self
+        Put this in your experiment's build method
 
         Assigning attributes, methods, and devices to the experiment should be done here.
 
@@ -249,8 +252,21 @@ class BaseExperiment:
                                                               averages=self.experiment.aom_feedback_averages,
                                                               leave_AOMs_on=True)
 
-        if hasattr(self.experiment, 'n_measurements'):
-            self.experiment.set_dataset("n_measurements",self.experiment.n_measurements,broadcast=True)
+        self.experiment.initial_RF_dB_values = np.zeros(len(fast_feedback_dds_list))
+        for ch_i, ch in enumerate(self.experiment.laser_stabilizer.all_channels):
+            self.experiment.initial_RF_dB_values[ch_i] = self.experiment.get_dataset(ch.dB_dataset, archive=False)
+            try:
+                self.experiment.get_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
+                                            archive=False)
+            except KeyError:
+                self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
+                                 [float(self.initial_RF_dB_values[ch_i])], broadcast=True, persist=True)
+
+            # self.experiment.set_dataset(ch.dB_history_dataset, [self.experiment.get_dataset(ch.dB_dataset)],
+            #                             broadcast=True, persist=True)
+
+        # if hasattr(self.experiment, 'n_measurements'):
+        #     self.experiment.set_dataset("n_measurements",self.experiment.n_measurements,broadcast=True,persist=True)
 
         logging.debug("base prepare - done")
 
@@ -262,6 +278,7 @@ class BaseExperiment:
         """
 
         self.experiment.core.reset()
+
         self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
         self.experiment.set_dataset(self.experiment.scan_sequence1_dataset,[0.0],broadcast=True)
         self.experiment.set_dataset(self.experiment.scan_sequence2_dataset,[0.0],broadcast=True)

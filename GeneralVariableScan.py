@@ -136,6 +136,11 @@ class GeneralVariableScan(EnvExperiment):
         for var,val in self.override_ExperimentVariables_dict.items():
             self.set_dataset(var, val)
 
+        value = 0.0
+        for ch_i in range(len(self.laser_stabilizer.all_channels)):
+            self.set_dataset(self.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
+                             [float(self.initial_RF_dB_values[ch_i])], broadcast=True, persist=True)
+
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.
