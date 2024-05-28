@@ -1,11 +1,16 @@
 """
-Example of how to make a "rolling" xy plot of two data channels
+For plotting up to 10 numeric sequences, for example, the DDS RF power history
+
+python "C:\..\applets\plot_xy_multichannel.py" p_AOM_A1_history
+--y2 p_AOM_A2_history --y3 p_AOM_A3_history --y4 p_AOM_A4_history --y5 p_AOM_A5_history --y6 p_AOM_A6_history
+--y7 p_FORT_loading --pts MOT_beam_monitor_points --labels feedbackchannels
 """
 
 import numpy as np
 import PyQt5  # make sure pyqtgraph imports Qt5
 from PyQt5.QtCore import QTimer
 import pyqtgraph
+from matplotlib import pyplot as plt
 
 from artiq.applets.simple import TitleApplet
 
@@ -23,37 +28,27 @@ class XYPlot(pyqtgraph.PlotWidget):
 
     def data_changed(self, data, mods, title):
         try:
-            # should be a numpy array where each row is a different data channel
-
             # the data display will be rolling, only showing display_pts at a time
-            pts = (data[self.args.pts][1])[0]
+            pts = (data[self.args.pts][1])
 
-            y1 = data[self.args.y1][1][-pts:]
-            y2 = data[self.args.y2][1][-pts:]
+            labels = data.get(self.args.labels, (False, None))[1]
+
+            colors = plt.rcParams["axes.prop_cycle"]()
+            if labels is None:
+                labels = list(range(10))
+
+            self.clear()
+            for i in range(10):
+                try:
+                    y_data = data[getattr(self.args, f"y{i+1}")][1][-pts:]
+                    self.plot(np.arange(len(y_data)), y_data, pen=next(colors)["color"], name=labels[i])
+                except KeyError as e:
+                    break
+
+            self.addLegend()
 
         except KeyError:
             return
-        x1 = data.get(self.args.x1, (False, None))[1]
-        x2 = data.get(self.args.x2, (False, None))[1]
-
-        if x1 is None:
-            x1 = np.arange(len(y1))
-        if x2 is None:
-            x2 = np.arange(len(y2))
-
-        # allows data to be different lengths, e.g. if the datasets don't update
-        # at the same time
-        # self.clear()
-        # self.plot(x1, y1, pen=(1, 2), symbol="o")
-        # self.plot(x2, y2, pen=(2, 2), symbol="o")
-        # self.setTitle(title)
-
-        # if for some reason we want to only update if the data is the same length:
-        if len(y1) == len(y2):
-            self.clear()
-            self.plot(x1, y1, pen=(1, 2), symbol="o")
-            self.plot(x1, y2, pen=(2, 2), symbol="o")
-            self.setTitle(title)
 
     def length_warning(self):
         self.clear()
@@ -65,14 +60,23 @@ class XYPlot(pyqtgraph.PlotWidget):
 
 def main():
     applet = TitleApplet(XYPlot)
-    applet.add_dataset("y1", "Y1 values")
-    applet.add_dataset("y2", "Y2 values")
+    applet.add_dataset("y1", "y1 values")
     applet.add_dataset("pts", "number of points to display")
-    applet.add_dataset("x1", "X1 values", required=False)
-    applet.add_dataset("x2", "X2 values", required=False)
+    applet.add_dataset("y2", "y2 values", required=False)
+    applet.add_dataset("y3", "y3 values", required=False)
+    applet.add_dataset("y4", "y4 values", required=False)
+    applet.add_dataset("y5", "y5 values", required=False)
+    applet.add_dataset("y6", "y6 values", required=False)
+    applet.add_dataset("y7", "y7 values", required=False)
+    applet.add_dataset("y8", "y8 values", required=False)
+    applet.add_dataset("y9", "y9 values", required=False)
+    applet.add_dataset("y10", "y10 values", required=False)
+    applet.add_dataset("x", "x values", required=False)
+    applet.add_dataset("labels", "channel names", required=False)
     # applet.add_dataset("error", "Error bars for each X value", required=False)
     # applet.add_dataset("fit", "Fit values for each X value", required=False)
     applet.run()
+
 
 if __name__ == "__main__":
     main()

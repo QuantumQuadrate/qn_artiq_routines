@@ -221,6 +221,7 @@ class FeedbackChannel:
         self.value_normalized = 0.0 # self.value normalized to the set point
         self.dataset = dataset
         self.dB_dataset = dB_dataset # the name of the dataset that stores the dB RF power for the dds
+        self.dB_history_dataset = dB_dataset + str("_history")
         self.t_measure_delay = t_measure_delay
         self.error_history_arr = np.full(error_history_length,0.0)
         self.error_buffer = np.full(error_history_length-1,0.0)
@@ -449,7 +450,8 @@ class AOMPowerStabilizer:
         self.all_channels = self.parallel_channels + self.series_channels
 
         # for logging the measured voltages
-        for ch in self.all_channels: # todo: update with the last value from the dataset
+
+        for ch in self.all_channels:
             try:
                 self.exp.set_dataset(ch.dataset, [self.exp.get_dataset(ch.dataset)[-1]], broadcast=True)
             except Exception as e:
@@ -465,6 +467,7 @@ class AOMPowerStabilizer:
         for ch in self.all_channels:
             dB = 10*(np.log10(ch.amplitude**2/(2*50)) + 3)
             self.exp.set_dataset(ch.dB_dataset, dB, broadcast=True, persist=True)
+            self.exp.append_to_dataset(ch.dB_history_dataset, dB)
 
     @kernel
     def measure(self):

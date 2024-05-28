@@ -75,6 +75,15 @@ class ExperimentCycler(EnvExperiment):
         self.set_dataset("photocount_bins", [50], broadcast=True)
         self.set_dataset("iteration", 0, broadcast=True)
 
+        self.set_dataset("feedbackchannels",
+                         [ch.name for ch in self.laser_stabilizer.all_channels],
+                         broadcast=True, persist=True)
+
+        value = 0.0
+        for ch_i in range(len(self.laser_stabilizer.all_channels)):
+            self.set_dataset(self.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
+                             [self.initial_RF_dB_values[ch_i]], broadcast=True, persist=True)
+
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.
