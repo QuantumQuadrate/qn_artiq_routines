@@ -260,13 +260,7 @@ class BaseExperiment:
                                             archive=False)
             except KeyError:
                 self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
-                                 [float(self.initial_RF_dB_values[ch_i])], broadcast=True, persist=True)
-
-            # self.experiment.set_dataset(ch.dB_history_dataset, [self.experiment.get_dataset(ch.dB_dataset)],
-            #                             broadcast=True, persist=True)
-
-        # if hasattr(self.experiment, 'n_measurements'):
-        #     self.experiment.set_dataset("n_measurements",self.experiment.n_measurements,broadcast=True,persist=True)
+                                 [float(self.initial_RF_dB_values[ch_i])], broadcast=True)
 
         logging.debug("base prepare - done")
 
