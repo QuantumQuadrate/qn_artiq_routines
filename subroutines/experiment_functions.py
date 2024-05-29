@@ -310,7 +310,7 @@ def chopped_optical_pumping(self):
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
         channels=self.coil_channels)
-    delay(0.1 * ms)  # coil relaxation time
+    delay(0.4 * ms)  # coil relaxation time
 
     with sequential:
 
