@@ -1,9 +1,10 @@
 """
 For plotting up to 10 numeric sequences, for example, the DDS RF power history
 
-python "C:\..\applets\plot_xy_multichannel.py" p_AOM_A1_history
---y2 p_AOM_A2_history --y3 p_AOM_A3_history --y4 p_AOM_A4_history --y5 p_AOM_A5_history --y6 p_AOM_A6_history
---y7 p_FORT_loading --pts MOT_beam_monitor_points --labels feedbackchannels
+Example usage: 
+python "C:\..\qn_artiq_routines\applets\plot_xy_multichannel.py"
+p_AOM_A1_history MOT_beam_monitor_points --y2 p_AOM_A2_history --y3 p_AOM_A3_history
+--y4 p_AOM_A4_history --y5 p_AOM_A5_history --y6 p_AOM_A6_history --y7 p_FORT_loading_history --labels feedbackchannels
 """
 
 import numpy as np
