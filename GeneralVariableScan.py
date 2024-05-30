@@ -123,7 +123,6 @@ class GeneralVariableScan(EnvExperiment):
         self.base.initialize_hardware()
 
     def initialize_datasets(self):
-        self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
         self.set_dataset("excitation_counts", [0], broadcast=True)
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)

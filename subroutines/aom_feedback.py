@@ -454,13 +454,9 @@ class AOMPowerStabilizer:
         for ch in self.all_channels:
             try:
                 self.exp.set_dataset(ch.dataset, [self.exp.get_dataset(ch.dataset)[-1]], broadcast=True)
-                self.exp.append_to_dataset(ch.dB_history_dataset,
-                                           [self.exp.get_dataset(ch.dB_dataset, archive=False)])
             except Exception as e:
                 logging.warning(e)
                 self.exp.set_dataset(ch.dataset, [1.0], broadcast=True)
-                self.exp.set_dataset(ch.dB_history_dataset,
-                                           [float(self.exp.get_dataset(ch.dB_dataset, archive=False))], broadcast=True)
 
     @rpc(flags={"async"})
     def print(self, x):
