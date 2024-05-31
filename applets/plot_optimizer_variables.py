@@ -34,7 +34,6 @@ class XYPlot(pyqtgraph.PlotWidget):
     def __init__(self, args):
         pyqtgraph.PlotWidget.__init__(self)
         self.args = args
-        print("hi")
 
         self.symbols = ['o']*MAX_VARIABLE_NUMBER
         self.colors = generate_colorblind_friendly_colors(MAX_VARIABLE_NUMBER)

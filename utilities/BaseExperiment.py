@@ -261,6 +261,7 @@ class BaseExperiment:
                 self.experiment.append_to_dataset(
                     self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                     float(self.experiment.initial_RF_dB_values[ch_i]))
+
             except KeyError:
                 self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                  [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
