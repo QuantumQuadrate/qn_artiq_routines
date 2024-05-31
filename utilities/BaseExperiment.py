@@ -256,11 +256,14 @@ class BaseExperiment:
         for ch_i, ch in enumerate(self.experiment.laser_stabilizer.all_channels):
             self.experiment.initial_RF_dB_values[ch_i] = self.experiment.get_dataset(ch.dB_dataset, archive=False)
             try:
-                self.experiment.get_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
-                                            archive=False)
+                # self.experiment.get_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
+                #                             archive=False)
+                self.experiment.append_to_dataset(
+                    self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
+                    float(self.experiment.initial_RF_dB_values[ch_i]))
             except KeyError:
                 self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
-                                 [float(self.initial_RF_dB_values[ch_i])], broadcast=True)
+                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
         logging.debug("base prepare - done")
 
