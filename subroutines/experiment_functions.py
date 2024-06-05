@@ -332,6 +332,32 @@ def chopped_optical_pumping(self):
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
+@kernel
+def end_measurement(self):
+    """
+    End the measurement by setting datasets and deciding whether to increment the measuement index
+    :param self:
+    :return measurement: TInt32, the measurement index
+    """
+
+    # update the datasets
+    if not self.no_first_shot:
+        self.append_to_dataset('photocounts', self.counts)
+        self.append_to_dataset('photocounts_current_iteration', self.counts)
+        self.counts_list[self.measurement] = self.counts
+
+    # update the datasets
+    self.set_dataset(self.measurements_progress, 100*self.measurement/self.n_measurements, broadcast=True)
+    self.append_to_dataset('photocounts2', self.counts2)
+    self.append_to_dataset('photocounts2_current_iteration', self.counts2)
+    self.counts2_list[self.measurement] = self.counts2
+
+    if self.require_atom_loading_to_advance:
+        if self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+            self.measurement += 1
+    else:
+        self.measurement += 1
+
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS
 # These are the experiments we run, and the name of each should end with
@@ -368,14 +394,15 @@ def atom_loading_experiment(self):
 
     self.core.reset()
 
-    counts = 0
-    counts2 = 0
+    self.counts = 0
+    self.counts2 = 0
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
                      broadcast=True)
 
-    for measurement in range(self.n_measurements):
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
@@ -401,7 +428,7 @@ def atom_loading_experiment(self):
             # take the first shot
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
-            counts = self.ttl0.count(t_gate_end)
+            self.counts = self.ttl0.count(t_gate_end)
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
@@ -415,21 +442,11 @@ def atom_loading_experiment(self):
         # take the second shot
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
-        counts2 = self.ttl0.count(t_gate_end)
+        self.counts2 = self.ttl0.count(t_gate_end)
 
         delay(1 * ms)
 
-        # update the datasets
-        if not self.no_first_shot:
-            self.append_to_dataset('photocounts', counts)
-            self.append_to_dataset('photocounts_current_iteration', counts)
-            self.counts_list[measurement] = counts
-
-        # update the datasets
-        self.append_to_dataset('photocounts2', counts2)
-        self.append_to_dataset('photocounts2_current_iteration', counts2)
-        self.counts2_list[measurement] = counts2
-
+        end_measurement(self)
 
     self.dds_FORT.sw.off()
 
@@ -439,10 +456,8 @@ def optical_pumping_experiment(self):
     self is the experiment instance to which ExperimentVariables are bound
     """
 
-    self.core.reset()
-
-    counts = 0
-    counts2 = 0
+    self.counts = 0
+    self.counts2 = 0
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
@@ -455,7 +470,8 @@ def optical_pumping_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
-    for measurement in range(self.n_measurements):
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
@@ -479,7 +495,7 @@ def optical_pumping_experiment(self):
             # take the first shot
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
-            counts = self.ttl0.count(t_gate_end)
+            self.counts = self.ttl0.count(t_gate_end)
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
         delay(1 * ms)
@@ -520,21 +536,11 @@ def optical_pumping_experiment(self):
         self.ttl_repump_switch.off()  # turns the RP AOM on
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
-        counts2 = self.ttl0.count(t_gate_end)
+        self.counts2 = self.ttl0.count(t_gate_end)
 
         delay(1 * ms)
 
-        # update the datasets
-        if not self.no_first_shot:
-            self.append_to_dataset('photocounts', counts)
-            self.append_to_dataset('photocounts_current_iteration', counts)
-            self.counts_list[measurement] = counts
-
-        # update the datasets
-        self.append_to_dataset('photocounts2', counts2)
-        self.append_to_dataset('photocounts2_current_iteration', counts2)
-        self.counts2_list[measurement] = counts2
-
+        end_measurement(self)
 
     self.dds_FORT.sw.off()
 
@@ -546,8 +552,8 @@ def microwave_Rabi_experiment(self):
 
     self.core.reset()
 
-    counts = 0
-    counts2 = 0
+    self.counts = 0
+    self.counts2 = 0
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
@@ -560,7 +566,8 @@ def microwave_Rabi_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
-    for measurement in range(self.n_measurements):
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
@@ -584,7 +591,7 @@ def microwave_Rabi_experiment(self):
             # take the first shot
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
-            counts = self.ttl0.count(t_gate_end)
+            self.counts = self.ttl0.count(t_gate_end)
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
         delay(1 * ms)
@@ -650,20 +657,11 @@ def microwave_Rabi_experiment(self):
         self.ttl_repump_switch.off()  # turns the RP AOM on
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
-        counts2 = self.ttl0.count(t_gate_end)
+        self.counts2 = self.ttl0.count(t_gate_end)
 
         delay(1 * ms)
 
-        # update the datasets
-        if not self.no_first_shot:
-            self.append_to_dataset('photocounts', counts)
-            self.append_to_dataset('photocounts_current_iteration', counts)
-            self.counts_list[measurement] = counts
-
-        # update the datasets
-        self.append_to_dataset('photocounts2', counts2)
-        self.append_to_dataset('photocounts2_current_iteration', counts2)
-        self.counts2_list[measurement] = counts2
+        end_measurement(self)
 
     self.dds_FORT.sw.off()
 
@@ -675,8 +673,8 @@ def single_photon_experiment(self):
 
     self.core.reset()
 
-    counts = 0
-    counts2 = 0
+    self.counts = 0
+    self.counts2 = 0
     excitation_counts = 0
     excitation_counts_array = [0] # overwritten below but initialized here so it is always initialized
 
@@ -687,7 +685,8 @@ def single_photon_experiment(self):
     record_chopped_optical_pumping(self)
     delay(100*ms)
 
-    for measurement in range(self.n_measurements):
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
 
         excitation_counts_array = [0] * self.n_excitation_cycles
 
@@ -713,7 +712,7 @@ def single_photon_experiment(self):
             self.ttl_SPCM_gate.off()
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
-            counts = self.ttl0.count(t_gate_end)
+            self.counts = self.ttl0.count(t_gate_end)
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
         delay(1 * ms)
@@ -812,24 +811,14 @@ def single_photon_experiment(self):
         self.ttl_repump_switch.off()  # turns the RP AOM on
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
-        counts2 = self.ttl0.count(t_gate_end)
+        self.counts2 = self.ttl0.count(t_gate_end)
 
         delay(1 * ms)
 
-        # update the datasets
-        if not self.no_first_shot:
-            self.append_to_dataset('photocounts', counts)
-            self.append_to_dataset('photocounts_current_iteration', counts)
-            self.counts_list[measurement] = counts
-
-        # update the datasets
-        self.append_to_dataset('photocounts2', counts2)
-        self.append_to_dataset('photocounts2_current_iteration', counts2)
-        self.counts2_list[measurement] = counts2
+        end_measurement(self)
         for val in excitation_counts_array:
             self.append_to_dataset('excitation_counts', val)
 
         delay(10*ms)
-        # self.print_async(t_collect-t_excite)
 
     self.dds_FORT.sw.off()

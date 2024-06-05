@@ -140,6 +140,7 @@ class BaseExperiment:
                                  for card in range(3) for channel in range(4)]
 
         # dataset names
+        self.experiment.measurements_progress = 'measurements_progress'
         self.experiment.count_rate_dataset = 'photocounts_per_s'
         self.experiment.scan_var_dataset = "scan_variables"
         self.experiment.scan_sequence1_dataset = "scan_sequence1"
@@ -277,6 +278,7 @@ class BaseExperiment:
 
         self.experiment.core.reset()
 
+        self.experiment.set_dataset(self.experiment.measurements_progress,0.0,broadcast=True)
         self.experiment.set_dataset(self.experiment.scan_var_dataset,'',broadcast=True)
         self.experiment.set_dataset(self.experiment.scan_sequence1_dataset,[0.0],broadcast=True)
         self.experiment.set_dataset(self.experiment.scan_sequence2_dataset,[0.0],broadcast=True)

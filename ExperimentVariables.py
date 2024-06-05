@@ -25,7 +25,6 @@ def setattr_variables(experiment):
             else:
                 print(f"Exception {e}") # todo: replace with raise statement
 
-
 class ExperimentVariables(EnvExperiment):
 
     def build(self):
@@ -257,6 +256,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("FORT_on_at_MOT_start", False, BooleanValue, {}, "Booleans"),
+            Variable("require_atom_loading_to_advance", True, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
