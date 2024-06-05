@@ -91,10 +91,8 @@ class XYPlot(pyqtgraph.PlotWidget):
                         self.setYRange(-0.0, 1.0, padding=0)
 
                         title = str(data[self.args.scan_vars][1])
-                        if title != '':
-                            self.setTitle(title)
+                        self.setTitle(title)
 
-                        #
                         if error is not None:
                             # See https://github.com/pyqtgraph/pyqtgraph/issues/211
                             if hasattr(error, "__len__") and not isinstance(error, np.ndarray):

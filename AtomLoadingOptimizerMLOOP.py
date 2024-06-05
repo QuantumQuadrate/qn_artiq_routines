@@ -268,13 +268,13 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             setpoint_multipliers = params
 
         if self.tune_beams:
-            self.stabilizer_AOM_A1.set_point = self.default_setpoints[0] * setpoint_multipliers[0]
-            self.stabilizer_AOM_A2.set_point = self.default_setpoints[1] * setpoint_multipliers[1]
-            self.stabilizer_AOM_A3.set_point = self.default_setpoints[2] * setpoint_multipliers[2]
-            self.stabilizer_AOM_A4.set_point = self.default_setpoints[3] * setpoint_multipliers[3]
+            self.stabilizer_AOM_A1.set_points[0] = self.default_setpoints[0] * setpoint_multipliers[0]
+            self.stabilizer_AOM_A2.set_points[0] = self.default_setpoints[1] * setpoint_multipliers[1]
+            self.stabilizer_AOM_A3.set_points[0] = self.default_setpoints[2] * setpoint_multipliers[2]
+            self.stabilizer_AOM_A4.set_points[0] = self.default_setpoints[3] * setpoint_multipliers[3]
             if not self.disable_z_beam_tuning and not self.what_to_tune == self.coil_mode:
-                self.stabilizer_AOM_A5.set_point = self.default_setpoints[4] * setpoint_multipliers[4]
-                self.stabilizer_AOM_A6.set_point = self.default_setpoints[5] * setpoint_multipliers[5]
+                self.stabilizer_AOM_A5.set_points[0] = self.default_setpoints[4] * setpoint_multipliers[4]
+                self.stabilizer_AOM_A6.set_points[0] = self.default_setpoints[5] * setpoint_multipliers[5]
 
             for i in range(3):
                 self.laser_stabilizer.run()
