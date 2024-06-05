@@ -136,7 +136,7 @@ class KeyValueTableWidget(QtWidgets.QWidget):
             for col in range(self.table.columnCount() // 2):
                 key_item = self.table.item(row, col * 2)
                 value_item = self.table.item(row, col * 2 + 1)
-                
+
                 if key_item and key_item.background() == QtGui.QColor('yellow') or \
                         (value_item and value_item.background() == QtGui.QColor('yellow')):
                     highlighted_keys.add(key_item.text())
