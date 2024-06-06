@@ -69,6 +69,7 @@ class ExperimentCycler(EnvExperiment):
 
     # todo: this should really be determined by the specific experiment eventually
     def initialize_datasets(self):
+        self.require_atom_loading_to_advance = False  # override so the Cycler can provide loading data
         self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)

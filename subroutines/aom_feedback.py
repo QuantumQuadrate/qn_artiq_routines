@@ -153,13 +153,13 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
                 {
                     'sampler_ch': 2, # the channel connected to the appropriate PD
                     'set_points': ['set_point_PD6_AOM_A6'], # volts
-                    'p': 0.08, # the proportionality constant
+                    'p': 0.1, # the proportionality constant
                     'i': 0.00, # the integral coefficient
                     'series': True,
                     'dataset': 'MOT6_monitor',
                     'power_dataset':'p_AOM_A6',
                     't_measure_delay':0.5*ms,
-                    'max_dB': 0
+                    'max_dB': -3
                 },
 
             'dds_FORT': # signal monitored by TTI detector connected to MM fiber

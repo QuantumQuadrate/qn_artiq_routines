@@ -342,21 +342,26 @@ def end_measurement(self):
 
     # update the datasets
     if not self.no_first_shot:
-        self.append_to_dataset('photocounts', self.counts)
         self.append_to_dataset('photocounts_current_iteration', self.counts)
         self.counts_list[self.measurement] = self.counts
 
     # update the datasets
     self.set_dataset(self.measurements_progress, 100*self.measurement/self.n_measurements, broadcast=True)
-    self.append_to_dataset('photocounts2', self.counts2)
     self.append_to_dataset('photocounts2_current_iteration', self.counts2)
     self.counts2_list[self.measurement] = self.counts2
 
     if self.require_atom_loading_to_advance:
         if self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
             self.measurement += 1
+            if not self.no_first_shot:
+                self.append_to_dataset('photocounts', self.counts)
+            self.append_to_dataset('photocounts2', self.counts2)
+
     else:
         self.measurement += 1
+        if not self.no_first_shot:
+            self.append_to_dataset('photocounts', self.counts)
+        self.append_to_dataset('photocounts2', self.counts2)
 
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS
