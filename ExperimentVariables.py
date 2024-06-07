@@ -51,6 +51,8 @@ class ExperimentVariables(EnvExperiment):
         self.vars_list = [
 
             Variable("n_measurements", 50, NumberValue, {'type': 'int', 'ndecimals':0, 'step':1, 'scale':1}, "general"),
+            Variable("require_atom_loading_to_advance", True, BooleanValue, {}, "general"),
+
             Variable("n_excitation_attempts", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
                      "general"),
             Variable("n_excitation_cycles", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
@@ -138,10 +140,6 @@ class ExperimentVariables(EnvExperiment):
                      "Fiber AOMs"),
             Variable("p_AOM_A6", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
-            Variable("p_AOM_A6_blowaway", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
-                                                            'scale': 1, 'ndecimals': 1},
-                     "Fiber AOMs"),
-
 
             # Microwaves
             # assumes the microwave source is set at 6.5 GHz
@@ -256,7 +254,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("FORT_on_at_MOT_start", False, BooleanValue, {}, "Booleans"),
-            Variable("require_atom_loading_to_advance", True, BooleanValue, {}, "Booleans"),
+            Variable("D1_off_in_OP_phase", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
@@ -324,3 +322,6 @@ class ExperimentVariables(EnvExperiment):
 
         microwave_frequency_GHz = self.get_dataset("f_microwaves_dds")*1e-9 + 6.5
         self.set_dataset("microwave_frequency_GHz", microwave_frequency_GHz, broadcast=True, persist=True)
+
+        # assumes 6.5 GHz
+        self.set_dataset("f_dds_clock_resonance", 334.682*MHz, broadcast=True, persist=True)

@@ -242,7 +242,7 @@ def record_chopped_optical_pumping(self):
         FORT_on_mu = self.core.seconds_to_mu(0.0)
         OP_on_mu = self.core.seconds_to_mu(0.5 * us)
 
-        if not self.pumping_light_off:
+        if not (self.pumping_light_off or self.D1_off_in_OP_phase):
             for i in range(n_chop_cycles):
                 at_mu(start+i*period_mu+FORT_on_mu)
                 self.dds_FORT.sw.off()
