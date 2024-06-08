@@ -51,7 +51,9 @@ from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
 from utilities.write_h5 import write_results
 from utilities.conversions import dB_to_V
+import os
 
+cwd = os.getcwd() # must be called here. if called in class, returns the results level dir
 
 class BaseExperiment:
 
@@ -66,13 +68,17 @@ class BaseExperiment:
         """
         Put this in your experiment's build method
 
-        Assigning attributes, methods, and devices to the experiment should be done here.
+        Assigning attributes and methods to the experiment should be done here.
+
+        The main difference between Base.build and Base.prepare is that build should contain things we only
+        want to happen once per experiment, whereas we might want to call prepare each iteration to reinitialize
+        things pertaining to hardware.
 
         :param experiment: your experiment.
         :return:
         """
 
-        with open('C:\\Networking Experiment\\artiq codes\\artiq-master\\dataset_db.pyon') as f:
+        with open(os.path.join(cwd,'dataset_db.pyon')) as f:
             datasets_str = f.read()
 
         # when the pyon file is saved python True and False are converted to lowercase...
@@ -107,21 +113,6 @@ class BaseExperiment:
         self.experiment.ttl_UV = self.experiment.ttl15
         self.experiment.ttl_SPCM_gate = self.experiment.ttl13
 
-
-        # initialize named channels.
-        self.experiment.named_devices = DeviceAliases(
-            experiment=self.experiment,
-            device_aliases=[
-                'dds_FORT',
-                'dds_D1_pumping_SP',
-                'dds_cooling_DP',
-                'dds_pumping_repump',
-                'dds_excitation',
-                'dds_microwaves',
-                *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
-            ]
-        )
-
         # for debugging/logging purposes in experiments
         self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
 
@@ -135,10 +126,6 @@ class BaseExperiment:
                                          self.experiment.AX_Zotino_channel,
                                          self.experiment.AY_Zotino_channel]
 
-        # this is an attribute of of the experiment in case we want to access it elsewhere
-        self.experiment.all_dds_channels = [getattr(self.experiment,f'urukul{card}_ch{channel}')
-                                 for card in range(3) for channel in range(4)]
-
         # dataset names
         self.experiment.measurements_progress = 'measurements_progress'
         self.experiment.count_rate_dataset = 'photocounts_per_s'
@@ -147,7 +134,6 @@ class BaseExperiment:
         self.experiment.scan_sequence2_dataset = "scan_sequence2"
 
         # functions
-
         @rpc(flags={"async"})
         def print_async(*x):
             """print asynchronously so we don't block the RTIO counter.
@@ -213,10 +199,33 @@ class BaseExperiment:
 
     def prepare(self):
         """
-        Compute DDS amplitudes from powers, instantiate the laser servo, any other math
-        that needs to happen before we run stuff on the kernel.
+        Initialize DeviceAliases, compute DDS amplitudes from powers, instantiate the laser servo,
+        any other math that needs to happen before we run stuff on the kernel.
+
+        The main difference between Base.build and Base.prepare is that build should contain things we only
+        want to happen once per experiment, whereas we might want to call prepare each iteration to reinitialize
+        things pertaining to hardware.
+
         :return:
         """
+
+        # initialize named channels.
+        self.experiment.named_devices = DeviceAliases(
+            experiment=self.experiment,
+            device_aliases=[
+                'dds_FORT',
+                'dds_D1_pumping_SP',
+                'dds_cooling_DP',
+                'dds_pumping_repump',
+                'dds_excitation',
+                'dds_microwaves',
+                *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
+            ]
+        )
+
+        # this is an attribute of of the experiment in case we want to access it elsewhere
+        self.experiment.all_dds_channels = [getattr(self.experiment, f'urukul{card}_ch{channel}')
+                                            for card in range(3) for channel in range(4)]
 
         # convert times to machine units
         seconds_to_mu = self.experiment.core.seconds_to_mu
