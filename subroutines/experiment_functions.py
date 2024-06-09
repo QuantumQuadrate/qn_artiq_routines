@@ -267,7 +267,7 @@ def record_chopped_optical_pumping(self):
             self.dds_pumping_repump.sw.off()
             start = now_mu() + self.core.seconds_to_mu(0.5 * us)
 
-            if not self.pumping_light_off:
+            if not (self.pumping_light_off or self.D1_off_in_depump_phase):
                 for i in range(n_depump_chop_cycles):
                     at_mu(start + i * period_mu + FORT_on_mu)
                     self.dds_FORT.sw.off()
@@ -293,7 +293,8 @@ def chopped_optical_pumping(self):
     """
 
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
-
+    if self.t_depumping + self.t_pumping > 3*ms:
+        delay(2000 * us)  # we need extra slack
     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
     self.dds_cooling_DP.sw.off()  # no cooling light
 
