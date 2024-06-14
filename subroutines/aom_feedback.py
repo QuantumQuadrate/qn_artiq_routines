@@ -77,18 +77,6 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
                     #   feedback.
     'sampler0':
         {
-            'dds_cooling_DP':
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_PD0_AOM_cooling_DP'], # volts
-                    'p': 0.00, # the proportionality constant
-                    'i': 0.0, # the integral coefficient
-                    'series': False, # if series = True then these channels are fed-back to one at a time
-                    'dataset':'MOT_switchyard_monitor',
-                    'power_dataset':'p_cooling_DP_MOT', # the dataset for the RF power in dB; see ExperimentVariables
-                    't_measure_delay':1*ms, # time to wait between AOM turned on and measurement
-                    'max_dB': 0
-                },
             'dds_AOM_A1':
                 {
                     'sampler_ch': 0, # the channel connected to the appropriate PD
@@ -99,7 +87,7 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
                     'dataset': 'MOT1_monitor',
                     'power_dataset':'p_AOM_A1',
                     't_measure_delay':0.5*ms,
-                    'max_dB': 0
+                    'max_dB': -3
                 },
             'dds_AOM_A2':
                 {
@@ -111,7 +99,7 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
                     'dataset': 'MOT2_monitor',
                     'power_dataset':'p_AOM_A2',
                     't_measure_delay':0.5*ms,
-                    'max_dB': 0
+                    'max_dB': -3
                 },
             'dds_AOM_A3':
                 {
@@ -123,7 +111,7 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
                     'dataset': 'MOT3_monitor',
                     'power_dataset':'p_AOM_A3',
                     't_measure_delay':0.5*ms,
-                    'max_dB': 0
+                    'max_dB': -3
                 },
             'dds_AOM_A4':
                 {
@@ -135,7 +123,7 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
                     'dataset': 'MOT4_monitor',
                     'power_dataset':'p_AOM_A4',
                     't_measure_delay':0.5*ms,
-                    'max_dB': 0
+                    'max_dB': -3
                 },
             'dds_AOM_A5':
                 {
@@ -147,7 +135,7 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
                     'dataset':'MOT5_monitor',
                     'power_dataset':'p_AOM_A5',
                     't_measure_delay':0.5*ms,
-                    'max_dB': 0
+                    'max_dB': -3
                 },
             'dds_AOM_A6':
                 {
@@ -177,6 +165,18 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
         },
     'sampler1':
         {
+            'dds_D1_pumping_SP': # power in experiment box measured by pick-off to TTI PD (G=10, TR=14)
+                {
+                    'sampler_ch': 4, # the channel connected to the appropriate PD
+                    'set_points': ['set_point_D1_SP'],
+                    'p': 0.001,
+                    'i': 0.0, # the integral coefficient
+                    'series': True, # setting to True because there's a bug with parallel
+                    'dataset':'D1_SP_monitor',
+                    'power_dataset':'p_D1_pumping_SP',
+                    't_measure_delay':10*us, # time to wait between AOM turned on and measurement
+                    'max_dB': -5
+                },
         }
 }
 
@@ -262,6 +262,9 @@ class FeedbackChannel:
 
         measured = buffer[self.buffer_index]
         err = self.set_points[setpoint_index] - measured
+
+        if self.name == 'dds_D1_pumping_SP':
+            self.stabilizer.exp.print_async(measured, self.buffer_index, self.stabilizer.measurement_array)
 
         # runs off the kernel, else the error array isn't correctly updated
         self.update_error_history(err)
@@ -354,7 +357,8 @@ class FeedbackChannel:
 class AOMPowerStabilizer:
 
     def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False,
-                 update_dds_settings=True, dry_run=False, open_loop_monitor_names=[]):
+                 update_dds_settings=True, dry_run=False, open_loop_monitor_names=[],
+                 leave_MOT_AOMs_on=True):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
 
@@ -376,6 +380,7 @@ class AOMPowerStabilizer:
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.averages = averages
         self.leave_AOMs_on = leave_AOMs_on
+        self.leave_MOT_AOMs_on = leave_MOT_AOMs_on
         self.update_dds_settings = update_dds_settings
         self.dry_run = dry_run
         self.open_loop_monitor_names = open_loop_monitor_names
@@ -475,10 +480,12 @@ class AOMPowerStabilizer:
         measure all Sampler cards used for feedback
         # todo: could add option to average for better snr
         """
+
+        # doesn't properly read sampler1
         dummy = np.full(8 * self.num_samplers, 0.0)
-        measurement_array = np.full(8, 0.0)
         i = 0
         for sampler in self.sampler_list:
+            measurement_array = np.full(8, 0.0)
             for j in range(self.averages):
                 sampler.sample(measurement_array)
                 delay(0.1*ms)
@@ -487,6 +494,44 @@ class AOMPowerStabilizer:
             i += 1
         dummy /= self.averages
         self.measurement_array = dummy
+
+        # doesn't properly read sampler1
+        # dummy = np.full(8 * self.num_samplers, 0.0)
+        # i = 0
+        # measurement_array0 = np.full(8, 0.0)
+        # for j in range(self.averages):
+        #     self.sampler_list[i].sample(measurement_array0)
+        #     delay(0.1 * ms)
+        #     dummy[i * 8:(i + 1) * 8] += measurement_array0
+        #     delay(0.1 * ms)
+        # if self.num_samplers > 1:
+        #     i += 1
+        #     measurement_array1 = np.full(8, 0.0)
+        #     for j in range(self.averages):
+        #         self.sampler_list[i].sample(measurement_array1)
+        #         delay(0.1 * ms)
+        #         dummy[i * 8:(i + 1) * 8] += measurement_array1
+        #         delay(0.1 * ms)
+
+        # doesn't properly read sampler1
+        # dummy = np.full(8 * self.num_samplers, 0.0)
+        # i = 0
+        # measurement_array0 = np.full(8, 0.0)
+        # for j in range(self.averages):
+        #     self.exp.sampler0.sample(measurement_array0)
+        #     delay(0.1 * ms)
+        #     dummy[i * 8:(i + 1) * 8] += measurement_array0
+        #     delay(0.1 * ms)
+        # i = 1
+        # measurement_array1 = np.full(8, 0.0)
+        # for j in range(self.averages):
+        #     self.exp.sampler1.sample(measurement_array1)
+        #     delay(0.1 * ms)
+        #     dummy[i * 8:(i + 1) * 8] += measurement_array1
+        #     delay(0.1 * ms)
+        #
+        # dummy /= self.averages
+        # self.measurement_array = dummy
 
     @kernel
     def measure_background(self):
@@ -575,9 +620,6 @@ class AOMPowerStabilizer:
 
         with sequential:
 
-            # don't blind the fW detector
-            self.exp.dds_FORT.sw.off()
-
             for ch in self.series_channels:
                 ch.dds_obj.sw.off()
 
@@ -629,6 +671,7 @@ class AOMPowerStabilizer:
                             ch.feedback(self.measurement_array - self.background_array)
 
                         else:
+
                             ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
                         if record_all_measurements:
                             self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
@@ -654,6 +697,15 @@ class AOMPowerStabilizer:
         if self.leave_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
+        elif self.leave_MOT_AOMs_on:
+            self.exp.dds_cooling_DP.sw.on()
+            self.exp.dds_AOM_A1.sw.on()
+            self.exp.dds_AOM_A2.sw.on()
+            self.exp.dds_AOM_A3.sw.on()
+            self.exp.dds_AOM_A4.sw.on()
+            self.exp.dds_AOM_A5.sw.on()
+            self.exp.dds_AOM_A6.sw.on()
+            delay(0.1*ms)
 
         delay(0.1* ms)
         if self.update_dds_settings:

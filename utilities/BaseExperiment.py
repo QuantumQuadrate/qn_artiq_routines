@@ -260,7 +260,12 @@ class BaseExperiment:
                                                               dds_names=fast_feedback_dds_list,
                                                               iterations=self.experiment.aom_feedback_iterations,
                                                               averages=self.experiment.aom_feedback_averages,
-                                                              leave_AOMs_on=True)
+                                                              leave_AOMs_on=False,
+                                                              leave_MOT_AOMs_on=True)
+
+        self.experiment.set_dataset("feedbackchannels",
+                         [ch.dB_dataset for ch in self.experiment.laser_stabilizer.all_channels],
+                         broadcast=True, persist=True)
 
         self.experiment.initial_RF_dB_values = np.zeros(len(fast_feedback_dds_list))
         for ch_i, ch in enumerate(self.experiment.laser_stabilizer.all_channels):

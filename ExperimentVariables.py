@@ -261,7 +261,6 @@ class ExperimentVariables(EnvExperiment):
             Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
-            Variable("set_point_PD0_AOM_cooling_DP", 0.784, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD2_AOM_A2", 0.148, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD3_AOM_A3", 0.293, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
@@ -270,6 +269,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("set_point_PD6_AOM_A6", 0.296, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable('set_point_FORT_MM_loading', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable('set_point_FORT_MM_science', 0.2, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
+            Variable('set_point_D1_SP', 0.175, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
 
             # Plotting
             Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
