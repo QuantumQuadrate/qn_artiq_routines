@@ -164,7 +164,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.set_dataset(self.cost_dataset,
                          [0.0],
                          broadcast=True)
-        self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
+        self.set_dataset("n_measurements", self.n_measurements, broadcast=True, persist=True)
         self.set_dataset("iteration", 0, broadcast=True)
 
         self.set_dataset("photocounts", [0], broadcast=True)
@@ -180,6 +180,11 @@ class GeneralVariableOptimizer(EnvExperiment):
             self.optimizer_var_datasets.append("optimizer_var"+str(i))
             self.set_dataset(self.optimizer_var_datasets[i], [0.0], broadcast=True)
 
+        value = 0.0
+        for ch_i in range(len(self.laser_stabilizer.all_channels)):
+            self.set_dataset(self.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
+                             [float(self.initial_RF_dB_values[ch_i])], broadcast=True, persist=True)
+
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.
@@ -194,8 +199,8 @@ class GeneralVariableOptimizer(EnvExperiment):
 
     def run(self):
         self.initialize_datasets()
-        self.initialize_hardware()
         self.warm_up()
+        self.initialize_hardware()
 
         self.mloop_controller.optimize()
 

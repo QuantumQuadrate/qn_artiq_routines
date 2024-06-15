@@ -35,30 +35,29 @@ class XYPlot(pyqtgraph.PlotWidget):
             counts_shot1 = data[self.args.counts_shot1][1][1:]
             counts_shot2 = data[self.args.counts_shot2][1][1:]
             measurements = data[self.args.measurements][1]
-
             threshold_cts_per_s = data[self.args.threshold_cts_per_s][1]
             t_exposure = data[self.args.t_exposure][1]
             cutoff = int(t_exposure*threshold_cts_per_s)
 
             iteration = len(counts_shot1)//measurements
+            if iteration > 0:
+                if len(counts_shot1) == len(counts_shot2):
 
-            if len(counts_shot1) == len(counts_shot2) and iteration > 0:
+                    retention_array = np.zeros(iteration)
+                    loading_rate_array = np.zeros(iteration)
+                    n_atoms_loaded_array = np.zeros(iteration)
 
-                retention_array = np.zeros(iteration)
-                loading_rate_array = np.zeros(iteration)
-                n_atoms_loaded_array = np.zeros(iteration)
+                    x = np.arange(iteration)
 
-                x = np.arange(iteration)
+                    try:
+                        nsteps = len(data.get(self.args.scan_sequence1, (False, None))[1])
+                        scan_sequence1 = data[self.args.scan_sequence1][1]
+                        if nsteps > 1 or scan_sequence1 != [0.0]:
+                            x = np.array(scan_sequence1[:iteration])
+                    except: # len will fail if sequence is None
+                        pass
 
-                try:
-                    nsteps = len(data.get(self.args.scan_sequence1, (False, None))[1])
-                    scan_sequence1 = data[self.args.scan_sequence1][1]
-                    if nsteps > 1 or scan_sequence1 != [0.0]:
-                        x = np.array(scan_sequence1[:iteration])
-                except: # len will fail if sequence is None
-                    pass
-
-                if iteration > 0:
+                    # if iteration > 0:
                     for i in range(iteration):
                         shot1 = counts_shot1[i * measurements:(i + 1) * measurements]
                         shot2 = counts_shot2[i * measurements:(i + 1) * measurements]
@@ -100,12 +99,11 @@ class XYPlot(pyqtgraph.PlotWidget):
                         errbars = pyqtgraph.ErrorBarItem(
                             x=x, y=retention_array, height=2*error, pen=(255, 0, 0)) # error should be +/- the std, hence 2*
                         self.addItem(errbars)
-                    self.addLegend()
-                else:
-                    self.clear()
+                        self.addLegend()
+            else:
+                self.clear()
         except:
             self.clear()
-
 
 def main():
     applet = TitleApplet(XYPlot)

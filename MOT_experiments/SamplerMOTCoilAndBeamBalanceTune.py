@@ -140,6 +140,8 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
             if self.FORT_AOM_on:
                 self.dds_FORT.sw.on()
 
+        delay(1*ms)
+
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
 
@@ -166,6 +168,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                 delay(100*ms)
                 if self.FORT_AOM_on:
                     self.dds_FORT.sw.on()
+
             else:
                 delay(10*ms)
 
