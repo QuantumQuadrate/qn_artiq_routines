@@ -50,6 +50,7 @@ from artiq.experiment import *
 import logging
 import numpy as np
 import time
+import json
 
 import sys, os
 # get the current working directory
@@ -179,6 +180,9 @@ stabilizer_dict = { # todo: replace series/paralle with an index specifying the 
                 },
         }
 }
+#
+# with open(os.path.join('cibfugm')) as f:
+#     stabilizer_dict = json.load(f)
 
 
 class FeedbackChannel:
