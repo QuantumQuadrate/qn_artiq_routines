@@ -10,7 +10,8 @@ FeedbackChannels:
 The feedback channels which group together a given dds channel with a sampler channel for monitoring, P and I values
 for feedback, and other parameters, are defined in utilities/config/your_node/feedback_channels.json where your_node
 is alice, bob, etc. All feedback channel names should follow the convention "dds_description", and the "dds_description"
-must be one of the keys in DeviceAliases.DDS_DEFAULTS. THIS IS ASSUMED BY THE CODE IN AOMPowerStabilizer.
+must be one of the keys in the DDS_DEFAULTS dictionary in utilities/config/your_node/device_aliases.json.
+THIS IS ASSUMED BY THE CODE IN AOMPowerStabilizer.
 
 Intended usage:
 1. Instantiate the servo in the prepare method of the parent artiq experiment (e.g. the BaseExperiment)
@@ -28,7 +29,8 @@ class MyStableExperiment(EnvExperiment):
 
         for n in range(self.n_measurements):
 
-            # feedback to adjust the AOMs. this adjusts the default powers, given in DeviceAliases.DDS_DEFAULTS.
+            # feedback to adjust the AOMs. this adjusts the default powers
+                (see utilities/config/your_node/device_aliases.json).
             # e.g., the default power for dds_FORT is p_FORT_loading. the set point we try to meet refers to
             # the voltage we try to reach on the detector for this particular RF setting.
             self.laser_stabilizer.run()
@@ -65,7 +67,6 @@ sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.conversions import dB_to_V
-from utilities.DeviceAliases import DDS_DEFAULTS
 from utilities.helper_functions import print_async
 
 
@@ -314,8 +315,8 @@ class AOMPowerStabilizer:
                                             set_points=[getattr(self.exp,sp) for sp in ch_params['set_points']],
                                             p=ch_params['p'],
                                             i=ch_params['i'],
-                                            frequency=getattr(self.exp,DDS_DEFAULTS[ch_name]["frequency"]),
-                                            amplitude=dB_to_V(getattr(self.exp,DDS_DEFAULTS[ch_name]["power"])),
+                                            frequency=getattr(self.exp,self.exp.dds_defaults[ch_name]["frequency"]),
+                                            amplitude=dB_to_V(getattr(self.exp,self.exp.dds_defaults[ch_name]["power"])),
                                             dataset=ch_params['dataset'],
                                             dB_dataset=ch_params['power_dataset'],
                                             t_measure_delay=ch_params['t_measure_delay'],

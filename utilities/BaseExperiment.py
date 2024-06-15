@@ -41,6 +41,7 @@ from artiq.experiment import *
 import logging
 import numpy as np
 import sys, os
+import json
 
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
@@ -65,6 +66,15 @@ class BaseExperiment:
         """
         self.node = experiment.get_dataset("which_node")
         self.experiment = experiment
+
+        devices_file = os.path.join(cwd, "repository\\qn_artiq_routines\\utilities\\config\\",
+                                    self.node,
+                                    "device_aliases.json")
+
+        with open(devices_file) as f:
+            devices_dict = json.load(f)
+            self.experiment.alias_map = devices_dict["ALIAS_MAP"]
+            self.experiment.dds_defaults = devices_dict["DDS_DEFAULTS"]
 
     def build(self):
         """
