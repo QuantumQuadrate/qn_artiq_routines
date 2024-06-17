@@ -6,6 +6,13 @@ continuous noise-eating. This code is for adjusting DDS power only when
 we want to, and doesn't prevent us from using some channels on a given
 Sampler for other purposes.
 
+FeedbackChannels:
+The feedback channels which group together a given dds channel with a sampler channel for monitoring, P and I values
+for feedback, and other parameters, are defined in utilities/config/your_node/feedback_channels.json where your_node
+is alice, bob, etc. All feedback channel names should follow the convention "dds_description", and the "dds_description"
+must be one of the keys in the DDS_DEFAULTS dictionary in utilities/config/your_node/device_aliases.json.
+THIS IS ASSUMED BY THE CODE IN AOMPowerStabilizer.
+
 Intended usage:
 1. Instantiate the servo in the prepare method of the parent artiq experiment (e.g. the BaseExperiment)
 2. Call run() during the parent experiment loop whenever it is desired to tune up
@@ -22,7 +29,8 @@ class MyStableExperiment(EnvExperiment):
 
         for n in range(self.n_measurements):
 
-            # feedback to adjust the AOMs. this adjusts the default powers, given in DeviceAliases.DDS_DEFAULTS.
+            # feedback to adjust the AOMs. this adjusts the default powers
+                (see utilities/config/your_node/device_aliases.json).
             # e.g., the default power for dds_FORT is p_FORT_loading. the set point we try to meet refers to
             # the voltage we try to reach on the detector for this particular RF setting.
             self.laser_stabilizer.run()
@@ -50,135 +58,16 @@ from artiq.experiment import *
 import logging
 import numpy as np
 import time
+import json
 
 import sys, os
 # get the current working directory
-current_working_directory = os.getcwd()
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.conversions import dB_to_V
-from utilities.DeviceAliases import DDS_DEFAULTS
 from utilities.helper_functions import print_async
-
-
-"""
-Group all dds channels and feedback params by sampler card
-
-Notes about entries below. 
-- All dds channel names should follow the convention "dds_description", and the "dds_description" must be one of the
-keys in DeviceAliases.DDS_DEFAULTS. THIS IS ASSUMED BY THE CODE IN AOMPowerStabilizer.
-"""
-stabilizer_dict = { # todo: replace series/paralle with an index specifying the order in which to run.
-                    #   this will allow for giving two channels the same priority thus allowing them to be done in
-                    #   parallel or series in any combination, e.g. 1 1 1 2 3 3 4, etc. This would allow us to feedback
-                    #   orthogonal MOT beams in parallel in groups, thus significantly reducing the time needed for
-                    #   feedback.
-    'sampler0':
-        {
-            'dds_AOM_A1':
-                {
-                    'sampler_ch': 0, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_PD1_AOM_A1'], # volts
-                    'p': 0.1, # the proportionality constant
-                    'i': 0.000, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT1_monitor',
-                    'power_dataset':'p_AOM_A1',
-                    't_measure_delay':0.5*ms,
-                    'max_dB': -3
-                },
-            'dds_AOM_A2':
-                {
-                    'sampler_ch': 5, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_PD2_AOM_A2'], # volts
-                    'p': 0.1, # the proportionality constant
-                    'i': 0.00, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT2_monitor',
-                    'power_dataset':'p_AOM_A2',
-                    't_measure_delay':0.5*ms,
-                    'max_dB': -3
-                },
-            'dds_AOM_A3':
-                {
-                    'sampler_ch': 3, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_PD3_AOM_A3'], # volts
-                    'p': 0.2, # the proportionality constant
-                    'i': 0.000, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT3_monitor',
-                    'power_dataset':'p_AOM_A3',
-                    't_measure_delay':0.5*ms,
-                    'max_dB': -3
-                },
-            'dds_AOM_A4':
-                {
-                    'sampler_ch': 4, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_PD4_AOM_A4'], # volts
-                    'p': 0.2, # the proportionality constant
-                    'i': 0.0, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT4_monitor',
-                    'power_dataset':'p_AOM_A4',
-                    't_measure_delay':0.5*ms,
-                    'max_dB': -3
-                },
-            'dds_AOM_A5':
-                {
-                    'sampler_ch': 1, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_PD5_AOM_A5'],
-                    'p': 0.07, # the proportionality constant
-                    'i': 0.00, # the integral coefficient
-                    'series': True,
-                    'dataset':'MOT5_monitor',
-                    'power_dataset':'p_AOM_A5',
-                    't_measure_delay':0.5*ms,
-                    'max_dB': -3
-                },
-            'dds_AOM_A6':
-                {
-                    'sampler_ch': 2, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_PD6_AOM_A6'], # volts
-                    'p': 0.1, # the proportionality constant
-                    'i': 0.00, # the integral coefficient
-                    'series': True,
-                    'dataset': 'MOT6_monitor',
-                    'power_dataset':'p_AOM_A6',
-                    't_measure_delay':0.5*ms,
-                    'max_dB': -3
-                },
-
-            'dds_FORT': # signal monitored by TTI detector connected to MM fiber
-                {
-                    'sampler_ch': 6, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_FORT_MM_loading', 'set_point_FORT_MM_science'],
-                    'p': 0.4, # set to 0.7 if using VCA
-                    'i': 0.0, # the integral coefficient
-                    'series': True, # setting to True because there's a bug with parallel
-                    'dataset':'FORT_monitor',
-                    'power_dataset':'p_FORT_loading',
-                    't_measure_delay':10*us, # time to wait between AOM turned on and measurement
-                    'max_dB': 5
-                },
-        },
-    'sampler1':
-        {
-            'dds_D1_pumping_SP': # power in experiment box measured by pick-off to TTI PD (G=10, TR=14)
-                {
-                    'sampler_ch': 4, # the channel connected to the appropriate PD
-                    'set_points': ['set_point_D1_SP'],
-                    'p': 0.001,
-                    'i': 0.0, # the integral coefficient
-                    'series': True, # setting to True because there's a bug with parallel
-                    'dataset':'D1_SP_monitor',
-                    'power_dataset':'p_D1_pumping_SP',
-                    't_measure_delay':10*us, # time to wait between AOM turned on and measurement
-                    'max_dB': -5
-                },
-        }
-}
 
 
 class FeedbackChannel:
@@ -394,6 +283,11 @@ class AOMPowerStabilizer:
         self.parallel_channels = []
         self.open_loop_monitor_channels = []
 
+        config_file = os.path.join(cwd, "repository\\qn_artiq_routines\\utilities\\config\\",self.exp.which_node,
+                                   "feedback_channels.json")
+        with open(config_file) as f:
+            stabilizer_dict = json.load(f)
+
         # this block instantiates FeedbackChannel objects and groups them by series/parallel feedback flag
         for i, sampler_name in enumerate(stabilizer_dict):
 
@@ -421,8 +315,8 @@ class AOMPowerStabilizer:
                                             set_points=[getattr(self.exp,sp) for sp in ch_params['set_points']],
                                             p=ch_params['p'],
                                             i=ch_params['i'],
-                                            frequency=getattr(self.exp,DDS_DEFAULTS[ch_name]["frequency"]),
-                                            amplitude=dB_to_V(getattr(self.exp,DDS_DEFAULTS[ch_name]["power"])),
+                                            frequency=getattr(self.exp,self.exp.dds_defaults[ch_name]["frequency"]),
+                                            amplitude=dB_to_V(getattr(self.exp,self.exp.dds_defaults[ch_name]["power"])),
                                             dataset=ch_params['dataset'],
                                             dB_dataset=ch_params['power_dataset'],
                                             t_measure_delay=ch_params['t_measure_delay'],

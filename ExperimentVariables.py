@@ -304,10 +304,14 @@ class ExperimentVariables(EnvExperiment):
                 else:
                     print(f"Exception {e}")
 
+        self.setattr_argument('which_node', EnumerationValue(['alice','bob','two_nodes']), "general")
+
     def run(self):
 
         for var in self.vars_list:
             self.set_dataset(var.name, getattr(self, var.name), broadcast=True, persist=True)
+
+        self.set_dataset("which_node", self.which_node, broadcast=True, persist=True)
 
         # dependent quantities
 

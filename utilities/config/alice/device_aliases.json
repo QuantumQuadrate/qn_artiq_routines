@@ -1,0 +1,65 @@
+{ "ALIAS_MAP": {
+  "dds_FORT": "urukul0_ch0",
+  "dds_cooling_DP": "urukul0_ch1",
+  "dds_D1_pumping_SP": "urukul2_ch2",
+  "dds_pumping_repump": "urukul0_ch2",
+  "dds_AOM_A2": "urukul1_ch0",
+  "dds_AOM_A3": "urukul1_ch1",
+  "dds_AOM_A1": "urukul1_ch2",
+  "dds_AOM_A6": "urukul1_ch3",
+  "dds_AOM_A4": "urukul2_ch0",
+  "dds_AOM_A5": "urukul2_ch1",
+  "dds_excitation": "urukul0_ch3",
+  "dds_microwaves": "urukul2_ch3"
+  },
+  "DDS_DEFAULTS": {
+    "dds_FORT": {
+      "frequency": "f_FORT",
+      "power": "p_FORT_loading"
+    },
+    "dds_cooling_DP": {
+      "frequency": "f_cooling_DP_MOT",
+      "power": "p_cooling_DP_MOT"
+    },
+    "dds_D1_pumping_SP": {
+      "frequency": "f_D1_pumping_SP",
+      "power": "p_D1_pumping_SP"
+    },
+    "dds_pumping_repump": {
+      "frequency": "f_pumping_repump",
+      "power": "p_pumping_repump"
+    },
+    "dds_excitation": {
+      "frequency": "f_excitation",
+      "power": "p_excitation"
+    },
+    "dds_microwaves": {
+      "frequency": "f_microwaves_dds",
+      "power": "p_microwaves"
+    },
+    "dds_AOM_A1": {
+      "frequency": "AOM_A1_freq",
+      "power": "p_AOM_A1"
+    },
+    "dds_AOM_A2": {
+      "frequency": "AOM_A2_freq",
+      "power": "p_AOM_A2"
+    },
+    "dds_AOM_A3": {
+      "frequency": "AOM_A3_freq",
+      "power": "p_AOM_A3"
+    },
+    "dds_AOM_A4": {
+      "frequency": "AOM_A4_freq",
+      "power": "p_AOM_A4"
+    },
+    "dds_AOM_A5": {
+      "frequency": "AOM_A5_freq",
+      "power": "p_AOM_A5"
+    },
+    "dds_AOM_A6": {
+      "frequency": "AOM_A6_freq",
+      "power": "p_AOM_A6"
+    }
+  }
+}
