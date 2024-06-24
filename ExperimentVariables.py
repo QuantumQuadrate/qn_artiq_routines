@@ -264,6 +264,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("FORT_on_at_MOT_start", False, BooleanValue, {}, "Booleans"),
             Variable("D1_off_in_OP_phase", False, BooleanValue, {}, "Booleans"),
             Variable("D1_off_in_depump_phase", False, BooleanValue, {}, "Booleans"),
+            Variable("require_D1_lock_to_advance", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),

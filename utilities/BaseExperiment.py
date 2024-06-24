@@ -127,6 +127,7 @@ class BaseExperiment:
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_UV = self.experiment.ttl15
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
 
             # for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -622,6 +623,7 @@ class BaseExperiment:
             self.experiment.ttl14.output()
             self.experiment.ttl14.on()
 
+            self.experiment.ttl_D1_lock_monitor.input()
 
             # for diagnostics including checking the performance of fast switches for SPCM gating
             self.experiment.ttl9.output()
