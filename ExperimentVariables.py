@@ -3,7 +3,7 @@ import numpy as np
 from collections import namedtuple
 
 
-def setattr_variables(experiment):
+def setattr_variables(experiment, exclude_list=[], exclude_keywords=[]):
     """
     Set variables in your experiment from existing datasets of the same names.
 
@@ -13,17 +13,25 @@ def setattr_variables(experiment):
     :param experiment: an ARTIQ Experiment object with an attribute variables which is a list
         of strings which are the variables names we want. It is assumed that the variables
         have already been defined in ExperimentVariables.
+    :param exclude_list list(str): for variables that store very long lists of data, we don't we want to try to add
+        these. they can lead to timeout errors are also generally not needed as variables within an experiment.
+    :param exclude_keywords list(str): ignore variable names that contain keywords in this list. this is useful for
+        auto-generated datasets such as the RF history datasets created in aom_feedback.py, so we don't have to
+        remember to update the exclude_list for those when we create or remove feedback channels.
+        For variables that store very long lists of data, we don't we want to try to add
+        these. they can lead to timeout errors are also generally not needed as variables within an experiment.
     :return:
     """
     for var in experiment.variables:
-        try:  # get the value of the variable from the dataset, if it exists
-            value = experiment.get_dataset(var)
-            setattr(experiment, var, value)
-        except Exception as e:
-            if type(e) == KeyError:  # if the variable does not exist
-                print(f"Couldn't find variable {e}! Did you define it in vars_list in ExperimentVariables?")
-            else:
-                print(f"Exception {e}") # todo: replace with raise statement
+        if not var in exclude_list and not np.product([x in var for x in exclude_keywords]):
+            try:
+                value = experiment.get_dataset(var)
+                setattr(experiment, var, value)
+            except Exception as e:
+                if type(e) == KeyError:  # if the variable does not exist
+                    print(f"Couldn't find variable {e}! Did you define it in vars_list in ExperimentVariables?")
+                else:
+                    print(f"Exception {e}") # todo: replace with raise statement
 
 class ExperimentVariables(EnvExperiment):
 
