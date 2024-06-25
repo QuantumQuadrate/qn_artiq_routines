@@ -353,19 +353,6 @@ def end_measurement(self):
     self.counts2_list[self.measurement] = self.counts2
 
     advance = 1
-    # if self.require_atom_loading_to_advance:
-    #     if self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
-    #         self.measurement += 1
-    #         if not self.no_first_shot:
-    #             self.append_to_dataset('photocounts', self.counts)
-    #         self.append_to_dataset('photocounts2', self.counts2)
-    #
-    # else:
-    #     self.measurement += 1
-    #     if not self.no_first_shot:
-    #         self.append_to_dataset('photocounts', self.counts)
-    #     self.append_to_dataset('photocounts2', self.counts2)
-
     if self.__class__.__name__ != 'ExperimentCycler':
         if self.require_atom_loading_to_advance:
             if self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
