@@ -355,8 +355,8 @@ def end_measurement(self):
     advance = 1
     if self.__class__.__name__ != 'ExperimentCycler':
         if self.require_atom_loading_to_advance:
-            if self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
-                advance *= 1
+            if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+                advance *= 0
         if self.require_D1_lock_to_advance:
             self.ttl_D1_lock_monitor.sample_input()
             delay(0.1 * ms)
