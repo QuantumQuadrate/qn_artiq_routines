@@ -122,6 +122,8 @@ def record_chopped_blow_away(self):
     # todo: change OP -> BA
 
     n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
+    self.print_async("blowaway cycles:", n_chop_cycles)
+
     assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
 
     BA_pulse = self.t_BA_chop_period * 0.35
@@ -360,8 +362,9 @@ def end_measurement(self):
         if self.require_D1_lock_to_advance:
             self.ttl_D1_lock_monitor.sample_input()
             delay(0.1 * ms)
-            advance *= int(1 - self.ttl_D1_lock_monitor.sample_get())
-            if not advance:
+            laser_locked = int(1 - self.ttl_D1_lock_monitor.sample_get())
+            advance *= laser_locked
+            if not laser_locked:
                 logging.warning("D1 laser not locked")
 
     if advance:
