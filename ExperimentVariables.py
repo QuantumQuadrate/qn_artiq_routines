@@ -296,7 +296,14 @@ class ExperimentVariables(EnvExperiment):
             Variable("aom_feedback_averages", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
-                     "Laser feedback")
+                     "Laser feedback"),
+
+            Variable("carrier_frequency", 40 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
+            Variable("FM_deviation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
+            Variable("f_FORT_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so

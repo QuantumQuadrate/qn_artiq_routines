@@ -128,6 +128,7 @@ class BaseExperiment:
             self.experiment.ttl_UV = self.experiment.ttl15
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
+            self.experiment.FORT_mod_switch = self.experiment.ttl12
 
             # for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -641,7 +642,14 @@ class BaseExperiment:
             self.experiment.ttl9.off()
 
             self.experiment.ttl_UV.output()
+            delay(1*ms)
             self.experiment.ttl_UV.off()
+
+            # ttl channel for toggling between what we send to the VCA: the zotino voltage or the Rigol signal
+            # for modulating the FORT
+            self.experiment.FORT_mod_switch.output()
+            delay(1*ms)
+            self.experiment.FORT_mod_switch.off() # off = no modulation
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
@@ -660,12 +668,15 @@ class BaseExperiment:
                 dds_ch.sw.off()
                 delay(1*ms)
 
-            # todo: turn off all Zotino channels?
             self.experiment.zotino0.init()
             for zot_ch in range(32):
                 self.experiment.zotino0.write_dac(zot_ch, 0.0)
                 self.experiment.zotino0.load()
                 delay(1*ms)
+
+            self.experiment.zotino0.write_dac(5, 0.62)  # turn on the VCA for the FORT
+            self.experiment.zotino0.load()
+            delay(1 * ms)
 
             self.experiment.core.break_realtime()
         elif self.node == "bob":

@@ -466,6 +466,75 @@ def atom_loading_experiment(self):
     self.dds_FORT.sw.off()
 
 @kernel
+def trap_frequency_experiment(self):
+    """
+    For spectroscopy of the trap vibrational frequencies.
+
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+
+    self.counts = 0
+    self.counts2 = 0
+
+    self.set_dataset(self.count_rate_dataset,
+                     [0.0],
+                     broadcast=True)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+        load_MOT_and_FORT(self)
+
+        delay(0.1*ms)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+
+        # set the FORT AOM to the science setting. this is only valid if we have run
+        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
+
+        self.dds_FORT.set(frequency=self.f_FORT,
+                                amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
+
+        if not self.no_first_shot:
+            # take the first shot
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+            self.counts = self.ttl0.count(t_gate_end)
+            delay(1 * ms)
+            self.dds_cooling_DP.sw.off()
+
+        # modulate the FORT
+        self.zotino0.write_dac(4, self.Rigol_modulation_volts)
+        self.zotino0.load()
+        self.FORT_mod_switch.on()  # toggle the modulation to the VCA
+        delay(10 * ms)
+        self.FORT_mod_switch.off()
+        delay(1 * ms)
+
+        # take the second shot
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        self.counts2 = self.ttl0.count(t_gate_end)
+
+        delay(1 * ms)
+
+        end_measurement(self)
+
+    self.dds_FORT.sw.off()
+
+
+@kernel
 def optical_pumping_experiment(self):
     """
     self is the experiment instance to which ExperimentVariables are bound

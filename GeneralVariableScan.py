@@ -98,6 +98,29 @@ class GeneralVariableScan(EnvExperiment):
             self.scan_sequence2 = np.zeros(1) # we need a non-empty array to have a definite type for ARTIQ
             self.n_iterations2 = 0
 
+        # handle some special scan cases
+        if scan_variable1 == 'f_FORT_modulation':
+
+            # carry out all these asserts, but then actually do the conversion to volts inside
+            # the experiment function
+
+            # make sure we aren't going to generate a voltage outside of the -5 to 5V range of the Rigol input
+            assert min(self.scan_sequence1) >= self.carrier_frequency - self.FM_deviation, \
+                "f_modulation lower bound should be > carrier_frequency - FM_deviation!"
+            assert max(self.scan_sequence1) <= self.carrier_frequency + self.FM_deviation, \
+                "f_modulation upper bound should be < carrier_frequency + FM_deviation!"
+
+            # conversion to voltage assuming a linear response. this is not exactly true.
+            self.V_modulation_list = (self.f_modulation_list - self.carrier_frequency) * 5 / self.FM_deviation
+            self.n_iterations = len(self.f_modulation_list)
+
+            # this should never be triggered because the asserts above should catch this,
+            # but it serves as redundancy in case someone changes the frequency modulation definitions
+            assert min(self.V_modulation_list) >= -5, f"{min(self.V_modulation_list)} is invalid voltage for Rigol"
+            assert max(self.V_modulation_list) <= 5, f"{max(self.V_modulation_list)} is invalid voltage for Rigol"
+
+            print(self.V_modulation_list)
+
         scan_vars = [self.scan_variable1_name, self.scan_variable2_name]
         scan_vars = [x for x in scan_vars if x != '']
         self.scan_var_labels = ','.join(scan_vars)
