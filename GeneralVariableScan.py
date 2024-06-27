@@ -99,27 +99,24 @@ class GeneralVariableScan(EnvExperiment):
             self.n_iterations2 = 0
 
         # handle some special scan cases
-        if scan_variable1 == 'f_FORT_modulation':
-
-            # carry out all these asserts, but then actually do the conversion to volts inside
-            # the experiment function
+        if self.scan_variable1 == 'f_Rigol_modulation':
 
             # make sure we aren't going to generate a voltage outside of the -5 to 5V range of the Rigol input
-            assert min(self.scan_sequence1) >= self.carrier_frequency - self.FM_deviation, \
+            assert min(self.scan_sequence1) >= self.Rigol_carrier_frequency - self.Rigol_FM_deviation, \
                 "f_modulation lower bound should be > carrier_frequency - FM_deviation!"
-            assert max(self.scan_sequence1) <= self.carrier_frequency + self.FM_deviation, \
+            assert max(self.scan_sequence1) <= self.Rigol_carrier_frequency + self.Rigol_FM_deviation, \
                 "f_modulation upper bound should be < carrier_frequency + FM_deviation!"
 
-            # conversion to voltage assuming a linear response. this is not exactly true.
-            self.V_modulation_list = (self.f_modulation_list - self.carrier_frequency) * 5 / self.FM_deviation
-            self.n_iterations = len(self.f_modulation_list)
+            # this list is only used for the asserts below
+            V_modulation_list = (self.scan_sequence1 - self.Rigol_carrier_frequency) * 5 / self.Rigol_FM_deviation
 
             # this should never be triggered because the asserts above should catch this,
             # but it serves as redundancy in case someone changes the frequency modulation definitions
-            assert min(self.V_modulation_list) >= -5, f"{min(self.V_modulation_list)} is invalid voltage for Rigol"
-            assert max(self.V_modulation_list) <= 5, f"{max(self.V_modulation_list)} is invalid voltage for Rigol"
-
-            print(self.V_modulation_list)
+            assert min(V_modulation_list) >= -5, f"{min(V_modulation_list)} is an invalid voltage for Rigol"
+            assert max(V_modulation_list) <= 5, f"{max(V_modulation_list)} is an invalid voltage for Rigol"
+        if self.scan_variable2 == 'f_Rigol_modulation':
+            self.print_async("why would you use scan_variable2 for this?")
+            raise
 
         scan_vars = [self.scan_variable1_name, self.scan_variable2_name]
         scan_vars = [x for x in scan_vars if x != '']

@@ -412,6 +412,8 @@ def atom_loading_experiment(self):
     self.counts = 0
     self.counts2 = 0
 
+    self.require_D1_lock_to_advance = False # override experiment variable
+
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
                      broadcast=True)
@@ -468,7 +470,11 @@ def atom_loading_experiment(self):
 @kernel
 def trap_frequency_experiment(self):
     """
-    For spectroscopy of the trap vibrational frequencies.
+    For spectroscopy of the trap vibrational frequencies with the Rigol D11022Z function generator.
+
+    One way to use this is with GeneralVariableScan and scan_variable1 = f_Rigol_modulation,
+    where f_Rigol_modulation must be within the boundaries Rigol_carrier_frequency +/- Rigol_FM_deviation
+    specified in ExpermientVariables (which in turn must be set on the Rigol D11022Z).
 
     :param self: an experiment instance.
     :return:
@@ -478,6 +484,8 @@ def trap_frequency_experiment(self):
 
     self.counts = 0
     self.counts2 = 0
+
+    self.require_D1_lock_to_advance = False # override experiment variable
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
@@ -514,7 +522,14 @@ def trap_frequency_experiment(self):
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
+        ##############################################################################
         # modulate the FORT
+        ##############################################################################
+
+        # conversion to voltage assuming a linear response. this is not exactly true.
+        # check the frequency on the oscilloscope. Rigol_modulation_volts is declared in BaseExperiment
+        self.Rigol_modulation_volts = ((self.f_Rigol_modulation - self.Rigol_carrier_frequency)
+                                       * 5 / self.Rigol_FM_deviation)
         self.zotino0.write_dac(4, self.Rigol_modulation_volts)
         self.zotino0.load()
         self.FORT_mod_switch.on()  # toggle the modulation to the VCA

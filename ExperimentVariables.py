@@ -229,6 +229,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_MOT_phase2", 500 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_loading", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_drop", 10 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_FORT_modulation", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
@@ -297,12 +298,11 @@ class ExperimentVariables(EnvExperiment):
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
-
-            Variable("carrier_frequency", 40 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+            Variable("Rigol_carrier_frequency", 40 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
-            Variable("FM_deviation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+            Variable("Rigol_FM_deviation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
-            Variable("f_FORT_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+            Variable("f_Rigol_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
         ]
 
