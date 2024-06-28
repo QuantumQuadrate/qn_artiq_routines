@@ -6,7 +6,13 @@
 from ctypes import *
 import numpy
 
-salib = CDLL("sadevice/sa_api.dll")
+import os, sys
+
+# cwd = os.getcwd() + "\\"
+# sys.path.append(cwd)
+# sys.path.append(cwd+"repository\\qn_artiq_routines")
+
+salib = CDLL("repository/qn_artiq_routines/third_party/signal_hound/sadevice/sa_api.dll")
 
 
 # ---------------------------------- Defines -----------------------------------
