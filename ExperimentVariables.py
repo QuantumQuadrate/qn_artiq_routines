@@ -302,6 +302,10 @@ class ExperimentVariables(EnvExperiment):
                      "Rigol DG1022Z settings"),
             Variable("Rigol_FM_deviation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
+            Variable("Rigol_V_DC", 0.595, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
+            Variable("Rigol_V_pp", 0.03, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
             Variable("f_Rigol_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
         ]

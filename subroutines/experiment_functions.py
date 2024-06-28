@@ -1,7 +1,7 @@
 from artiq.experiment import *
 import logging
 import numpy as np
-from abc import ABC
+import pyvisa as visa
 
 import os, sys
 cwd = os.getcwd() + "\\"
@@ -373,6 +373,49 @@ def end_measurement(self):
             self.append_to_dataset('photocounts', self.counts)
         self.append_to_dataset('photocounts2', self.counts2)
 
+@rpc(flags={"async"})
+def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
+    """
+    Set the frequency, V_DC, and V_pp of a connected Rigol DG1000 series function generator.
+
+    See https://www.batronix.com/pdf/Rigol/ProgrammingGuide/DG1000Z_ProgrammingGuide_EN.pdf
+
+    :return TFloat: the frequency of the Rigol DG1022Z in Hz
+    """
+    # NAME = 'USB0::0x1AB1::0x0642::DG1ZA252402452::INSTR'
+
+    rm = visa.ResourceManager()
+    instruments = rm.list_resources()
+    for instr in instruments:
+        if 'DG' in instr:
+            NAME = instr
+            break
+
+    funcgen = rm.open_resource(NAME, timeout=20, chunk_size=1024000)
+    funcgen.timeout = 1000  # in ms I think
+
+    # Make sure mod is off
+    funcgen.write(r":SOUR1:MOD OFF")
+
+    # Set the frequency
+    freq = int(frequency)
+    funcgen.write(f":SOUR1:FREQ {freq}")
+    actual_freq = float(funcgen.query("SOUR1:FREQ?"))
+    assert actual_freq == freq, "Oops! The device frequency is not set to the requested value!"
+    print(f"f_carrier: {actual_freq} Hz")
+
+    # Set the Vpp
+    funcgen.write(f":SOUR1:VOLT {vpp}")
+    actual_vpp = float(funcgen.query("SOUR1:VOLT?"))
+    assert actual_vpp == vpp, "Oops! The device V_pp is not set to the requested value!"
+    print(f"Vpp: {actual_vpp} V")
+
+    # Set the dc offset
+    funcgen.write(f":SOUR1:VOLT:OFFS {vdc}")
+    actual_vdc = float(funcgen.query("SOUR1:VOLT:OFFS?"))
+    assert actual_vdc == vdc, "Oops! The device V_DC is not set to the requested value!"
+    print(f"Vdc: {actual_vdc} V")
+
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS
 # These are the experiments we run, and the name of each should end with
@@ -480,6 +523,10 @@ def trap_frequency_experiment(self):
     :return:
     """
 
+    set_RigolDG1022Z(frequency=self.Rigol_carrier_frequency,
+                     vpp=self.Rigol_V_pp,
+                     vdc=self.Rigol_V_DC)
+
     self.core.reset()
 
     self.counts = 0
@@ -494,6 +541,8 @@ def trap_frequency_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
+        #TODO: just set the rigol frequency using pyvisa
+
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
@@ -506,7 +555,6 @@ def trap_frequency_experiment(self):
 
         # set the FORT AOM to the science setting. this is only valid if we have run
         # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
-
         self.dds_FORT.set(frequency=self.f_FORT,
                                 amplitude=self.stabilizer_FORT.amplitudes[1])
 
@@ -526,12 +574,6 @@ def trap_frequency_experiment(self):
         # modulate the FORT
         ##############################################################################
 
-        # conversion to voltage assuming a linear response. this is not exactly true.
-        # check the frequency on the oscilloscope. Rigol_modulation_volts is declared in BaseExperiment
-        self.Rigol_modulation_volts = ((self.f_Rigol_modulation - self.Rigol_carrier_frequency)
-                                       * 5 / self.Rigol_FM_deviation)
-        self.zotino0.write_dac(4, self.Rigol_modulation_volts)
-        self.zotino0.load()
         self.FORT_mod_switch.on()  # toggle the modulation to the VCA
         delay(10 * ms)
         self.FORT_mod_switch.off()
@@ -547,7 +589,6 @@ def trap_frequency_experiment(self):
         end_measurement(self)
 
     self.dds_FORT.sw.off()
-
 
 @kernel
 def optical_pumping_experiment(self):
