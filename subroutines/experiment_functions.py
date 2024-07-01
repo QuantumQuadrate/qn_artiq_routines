@@ -1,6 +1,7 @@
 from artiq.experiment import *
+import logging
 import numpy as np
-from abc import ABC
+import pyvisa as visa
 
 import os, sys
 cwd = os.getcwd() + "\\"
@@ -121,6 +122,8 @@ def record_chopped_blow_away(self):
     # todo: change OP -> BA
 
     n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
+    self.print_async("blowaway cycles:", n_chop_cycles)
+
     assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
 
     BA_pulse = self.t_BA_chop_period * 0.35
@@ -351,18 +354,67 @@ def end_measurement(self):
     self.append_to_dataset('photocounts2_current_iteration', self.counts2)
     self.counts2_list[self.measurement] = self.counts2
 
-    if self.require_atom_loading_to_advance:
-        if self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
-            self.measurement += 1
-            if not self.no_first_shot:
-                self.append_to_dataset('photocounts', self.counts)
-            self.append_to_dataset('photocounts2', self.counts2)
+    advance = 1
+    if self.__class__.__name__ != 'ExperimentCycler':
+        if self.require_atom_loading_to_advance:
+            if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+                advance *= 0
+        if self.require_D1_lock_to_advance:
+            self.ttl_D1_lock_monitor.sample_input()
+            delay(0.1 * ms)
+            laser_locked = int(1 - self.ttl_D1_lock_monitor.sample_get())
+            advance *= laser_locked
+            if not laser_locked:
+                logging.warning("D1 laser not locked")
 
-    else:
+    if advance:
         self.measurement += 1
         if not self.no_first_shot:
             self.append_to_dataset('photocounts', self.counts)
         self.append_to_dataset('photocounts2', self.counts2)
+
+@rpc(flags={"async"})
+def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
+    """
+    Set the frequency, V_DC, and V_pp of a connected Rigol DG1000 series function generator.
+
+    See https://www.batronix.com/pdf/Rigol/ProgrammingGuide/DG1000Z_ProgrammingGuide_EN.pdf
+
+    :return TFloat: the frequency of the Rigol DG1022Z in Hz
+    """
+    # NAME = 'USB0::0x1AB1::0x0642::DG1ZA252402452::INSTR'
+
+    rm = visa.ResourceManager()
+    instruments = rm.list_resources()
+    for instr in instruments:
+        if 'DG' in instr:
+            NAME = instr
+            break
+
+    funcgen = rm.open_resource(NAME, timeout=20, chunk_size=1024000)
+    funcgen.timeout = 1000  # in ms I think
+
+    # Make sure mod is off
+    funcgen.write(r":SOUR1:MOD OFF")
+
+    # Set the frequency
+    freq = int(frequency)
+    funcgen.write(f":SOUR1:FREQ {freq}")
+    actual_freq = float(funcgen.query("SOUR1:FREQ?"))
+    assert actual_freq == freq, "Oops! The device frequency is not set to the requested value!"
+    print(f"f_carrier: {actual_freq} Hz")
+
+    # Set the Vpp
+    funcgen.write(f":SOUR1:VOLT {vpp}")
+    actual_vpp = float(funcgen.query("SOUR1:VOLT?"))
+    assert actual_vpp == vpp, "Oops! The device V_pp is not set to the requested value!"
+    print(f"Vpp: {actual_vpp} V")
+
+    # Set the dc offset
+    funcgen.write(f":SOUR1:VOLT:OFFS {vdc}")
+    actual_vdc = float(funcgen.query("SOUR1:VOLT:OFFS?"))
+    assert actual_vdc == vdc, "Oops! The device V_DC is not set to the requested value!"
+    print(f"Vdc: {actual_vdc} V")
 
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS
@@ -402,6 +454,8 @@ def atom_loading_experiment(self):
 
     self.counts = 0
     self.counts2 = 0
+
+    self.require_D1_lock_to_advance = False # override experiment variable
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
@@ -444,6 +498,86 @@ def atom_loading_experiment(self):
             self.dds_FORT.sw.on()
 
         delay(self.t_delay_between_shots)
+
+        # take the second shot
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        self.counts2 = self.ttl0.count(t_gate_end)
+
+        delay(1 * ms)
+
+        end_measurement(self)
+
+    self.dds_FORT.sw.off()
+
+@kernel
+def trap_frequency_experiment(self):
+    """
+    For spectroscopy of the trap vibrational frequencies with the Rigol D11022Z function generator.
+
+    One way to use this is with GeneralVariableScan and scan_variable1 = f_Rigol_modulation,
+    where f_Rigol_modulation must be within the boundaries Rigol_carrier_frequency +/- Rigol_FM_deviation
+    specified in ExpermientVariables (which in turn must be set on the Rigol D11022Z).
+
+    :param self: an experiment instance.
+    :return:
+    """
+
+    set_RigolDG1022Z(frequency=self.Rigol_carrier_frequency,
+                     vpp=self.Rigol_V_pp,
+                     vdc=self.Rigol_V_DC)
+
+    self.core.reset()
+
+    self.counts = 0
+    self.counts2 = 0
+
+    self.require_D1_lock_to_advance = False # override experiment variable
+
+    self.set_dataset(self.count_rate_dataset,
+                     [0.0],
+                     broadcast=True)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        #TODO: just set the rigol frequency using pyvisa
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+        load_MOT_and_FORT(self)
+
+        delay(0.1*ms)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+
+        # set the FORT AOM to the science setting. this is only valid if we have run
+        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
+        self.dds_FORT.set(frequency=self.f_FORT,
+                                amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
+
+        if not self.no_first_shot:
+            # take the first shot
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+            self.counts = self.ttl0.count(t_gate_end)
+            delay(1 * ms)
+            self.dds_cooling_DP.sw.off()
+
+        ##############################################################################
+        # modulate the FORT
+        ##############################################################################
+
+        self.FORT_mod_switch.on()  # toggle the modulation to the VCA
+        delay(10 * ms)
+        self.FORT_mod_switch.off()
+        delay(1 * ms)
 
         # take the second shot
         self.dds_cooling_DP.sw.on()

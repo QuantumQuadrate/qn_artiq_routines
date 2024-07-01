@@ -23,7 +23,7 @@ analysis/csv_data/qn_labjack_data_20230908_coil_monitoring.csv
 analysis/csv_data/20230906_173637_coil_scan.csv
 analysis/physics_scratchpad.ipynb
 tests/Card_Test.py
-thorlabs/images
+third_party/thorlabs/images
 run_artiq.bat
 device_db.py
 repository

@@ -31,6 +31,11 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("FORT_AOM_on", BooleanValue(False))
+
+        # this can be used to modulate the FORT while atom loading in nothing mode, to find the
+        # trap frequencies by watching the atom loading go away
+        self.setattr_argument("FORT_modulation_switch_on", BooleanValue(False))
+
         self.setattr_argument("set_current_parameters_at_finish", BooleanValue(False))
         self.setattr_argument("leave_coils_on_at_finish", BooleanValue(True))
 
@@ -157,6 +162,11 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         last_state = False
 
+        delay(1 * ms)
+        if self.FORT_modulation_switch_on:
+            self.FORT_mod_switch.on()  # transmit the modulation to the VCA
+            delay(1 * ms)
+
         print("ready!")
 
         for i in range(self.n_steps):
@@ -168,6 +178,9 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                 delay(100*ms)
                 if self.FORT_AOM_on:
                     self.dds_FORT.sw.on()
+                if self.FORT_modulation_switch_on:
+                    self.FORT_mod_switch.on()  # transmit the modulation to the VCA
+                    delay(1 * ms)
 
             else:
                 delay(10*ms)

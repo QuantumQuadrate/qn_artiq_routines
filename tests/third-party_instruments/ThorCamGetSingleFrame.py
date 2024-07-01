@@ -11,7 +11,7 @@ from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
 import matplotlib.pyplot as plt
 
 NUM_FRAMES = 1  # adjust to the desired number of frames
-dll_parent_dir = 'C:\\Networking Experiment\\artiq codes\\artiq-master\\repository\\qn_artiq_routines\\thorlabs'
+dll_parent_dir = '/qn_artiq_routines/third_party/thorlabs'
 
 os.add_dll_directory(dll_parent_dir + "\\dlls")
 os.environ['PATH'] = dll_parent_dir + "\\dlls\\" + os.pathsep + os.environ['PATH']

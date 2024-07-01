@@ -229,6 +229,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_MOT_phase2", 500 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_loading", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_drop", 10 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_FORT_modulation", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
@@ -264,6 +265,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("FORT_on_at_MOT_start", False, BooleanValue, {}, "Booleans"),
             Variable("D1_off_in_OP_phase", False, BooleanValue, {}, "Booleans"),
             Variable("D1_off_in_depump_phase", False, BooleanValue, {}, "Booleans"),
+            Variable("require_D1_lock_to_advance", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
@@ -295,7 +297,17 @@ class ExperimentVariables(EnvExperiment):
             Variable("aom_feedback_averages", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
-                     "Laser feedback")
+                     "Laser feedback"),
+            Variable("Rigol_carrier_frequency", 40 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
+            Variable("Rigol_FM_deviation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
+            Variable("Rigol_V_DC", 0.595, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
+            Variable("Rigol_V_pp", 0.03, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
+            Variable("f_Rigol_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
+                     "Rigol DG1022Z settings"),
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so

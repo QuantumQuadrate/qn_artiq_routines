@@ -154,11 +154,15 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.n_params = len(self.var_and_bounds_objects)
 
         self.mloop_controller = mlc.create_controller(interface,
-                                           max_num_runs=self.max_runs,
-                                           target_cost=self.target_cost,
-                                           num_params=self.n_params,
-                                           min_boundary=min_bounds,
-                                           max_boundary=max_bounds)
+                                                      max_num_runs=self.max_runs,
+                                                      target_cost=self.target_cost,
+                                                      num_params=self.n_params,
+                                                      min_boundary=min_bounds,
+                                                      max_boundary=max_bounds)
+
+        self.measurement = 0
+        self.counts = 0
+        self.counts2 = 0
 
     def initialize_datasets(self):
         self.set_dataset(self.cost_dataset,
