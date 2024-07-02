@@ -42,40 +42,6 @@ class XYPlot(pyqtgraph.PlotWidget):
             iteration = len(counts_shot1)//measurements
             if iteration > 0:
                 if len(counts_shot1) == len(counts_shot2):
-                #
-                #     retention_array = np.zeros(iteration)
-                #     loading_rate_array = np.zeros(iteration)
-                #     n_atoms_loaded_array = np.zeros(iteration)
-                #
-                #     x = np.arange(iteration)
-                #
-                #     try:
-                #         nsteps = len(data.get(self.args.scan_sequence1, (False, None))[1])
-                #         scan_sequence1 = data[self.args.scan_sequence1][1]
-                #         if nsteps > 1 or scan_sequence1 != [0.0]:
-                #             x = np.array(scan_sequence1[:iteration])
-                #     except: # len will fail if sequence is None
-                #         pass
-                #
-                #     # if iteration > 0:
-                #     for i in range(iteration):
-                #         shot1 = counts_shot1[i * measurements:(i + 1) * measurements]
-                #         shot2 = counts_shot2[i * measurements:(i + 1) * measurements]
-                #         atoms_loaded = [x > cutoff for x in shot1]
-                #         n_atoms_loaded = sum(atoms_loaded)
-                #         n_atoms_loaded_array[i] = n_atoms_loaded
-                #         atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
-                #         loading_fraction = n_atoms_loaded / measurements
-                #         loading_rate_array[i] = loading_fraction
-                #         retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
-                #         retention_array[i] = retention_fraction
-                #
-                #     error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
-
-                    # print(len(counts_shot1), measurements)
-                    # shot1_background_counts =
-                    # print(len(shot1_background_counts))
-
                     mean1_by_iteration = [
                         np.mean(counts_shot1[i * measurements:(i + 1) * measurements][
                                 counts_shot1[i * measurements:(i + 1) * measurements] < cutoff] / t_exposure)
@@ -85,10 +51,6 @@ class XYPlot(pyqtgraph.PlotWidget):
                         np.mean(counts_shot2[i * measurements:(i + 1) * measurements][
                                 counts_shot2[i * measurements:(i + 1) * measurements] < cutoff] / t_exposure)
                         for i in range(iteration)]
-
-                    print(cutoff)
-                    print(len(mean1_by_iteration))
-
 
                     self.clear()
                     self.plot(range(iteration), mean1_by_iteration,
@@ -104,9 +66,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                               symbolPen='w',
                               name='shot 2 background')
 
-                # title = str(data[self.args.scan_vars][1])
-                # self.setTitle(title)
-
+                # todo: add std error
                 # if error is not None:
                 #     # See https://github.com/pyqtgraph/pyqtgraph/issues/211
                 #     if hasattr(error, "__len__") and not isinstance(error, np.ndarray):
