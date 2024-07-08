@@ -12,7 +12,11 @@ from scipy.signal import argrelmax
 import logging
 import os, sys
 
+
 class KinesisMotorWrapper:
+    """
+    wrapper class to explicitly declare return types and add some functions for diagnostics
+    """
 
     def __init__(self, *args, **kwargs):
         self.motor = Thorlabs.KinesisMotor(*args, **kwargs)
@@ -27,6 +31,7 @@ class KinesisMotorWrapper:
     def get_position_query_time(self) -> TFloat:
         _ = self.motor.get_position()
         return time()
+
 
 @rpc
 def get_host_time() -> TFloat:
@@ -44,7 +49,6 @@ class RotatorCommTest(EnvExperiment):
         sn = int(self.K10CR1_SN)
 
         try:
-            # self.rotor = Thorlabs.KinesisMotor(conn=sn, scale='K10CR1')
             self.rotor = KinesisMotorWrapper(conn=sn, scale='K10CR1')
             print(f"opened K10CR1 {sn}")
         except Exception as e:
@@ -54,7 +58,6 @@ class RotatorCommTest(EnvExperiment):
             raise
 
         self.rotor_degrees = 0.0
-
 
     @kernel
     def run(self):
