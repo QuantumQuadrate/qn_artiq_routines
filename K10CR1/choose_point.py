@@ -20,7 +20,7 @@ from scipy.stats import norm
 
 class RotatorFeedbackChannel():
 
-    def __init__(self,ch_name = "Dev1/ai0", dds_channel=0, rotator_sn=['55000741','55105674',], dry_run = True ,
+    def __init__(self,ch_name = "Dev1/ai0", dds_channel=0, rotator_sn=['55000741','55105674'], dry_run = True ,
                  max_runs=10, leave_laser_on=False, spc = None, rate = None, plate_config = None):
 
         self.spc = spc
@@ -120,43 +120,61 @@ class RotatorFeedbackChannel():
         return np.mean(data)
 
 
-    """
-    Self explanatory, generated points for two wave plates, named q and h here, represented by y0 and x0
-    """
+    def q_h_gen(self, xy_range, steps, center_x, center_y, random=False):
+        """
+        Return a list of x coordinates and y coordinates
 
-    def q_h_gen(self, range, steps, center_x, center_y, random=False):
+        What are x and y in the lab?
 
+        Parameters:
+        ----------
+        xy_range : float
+            The maximum distance from the center for the generated points.
+        steps : int
+            The number of points to generate.
+        center_x : float
+            The x-coordinate of the center point.
+        center_y : float
+            The y-coordinate of the center point.
+        random : bool, optional
+            If True, generate points randomly within the range. Default is False.
+
+        Returns:
+        -------
+        tuple of numpy.ndarray
+            Two arrays containing the x and y coordinates of the generated points.
+        """
         if not random:
-            range /= 2
+            xy_range /= 2
             rads = np.arange(0, 2 * np.pi, (2 * np.pi) / steps)
-            x = range * (np.cos(rads)) + center_x
-            y = range * (np.sin(rads)) + center_y
-            x1 = range / 2 * (np.cos(rads)) + center_x
-            y1 = range / 2 * (np.sin(rads)) + center_y
-            x2 = range / 4 * (np.cos(rads)) + center_x
-            y2 = range / 4 * (np.sin(rads)) + center_y
+            x = xy_range * (np.cos(rads)) + center_x
+            y = xy_range * (np.sin(rads)) + center_y
+            x1 = xy_range / 2 * (np.cos(rads)) + center_x
+            y1 = xy_range / 2 * (np.sin(rads)) + center_y
+            x2 = xy_range / 4 * (np.cos(rads)) + center_x
+            y2 = xy_range / 4 * (np.sin(rads)) + center_y
             x0 = np.append(x, x1)
             x0 = np.append(x0, x2)
             y0 = np.append(y, y1)
             y0 = np.append(y0, y2)
         if random is True:
-            x0 = np.random.rand(steps) * range + center_x
-            y0 = np.random.rand(steps) * range + center_y
+            x0 = np.random.rand(steps) * xy_range + center_x
+            y0 = np.random.rand(steps) * xy_range + center_y
 
         return x0, y0
 
-    """
-    Using pre selected point/randomly generated ones, the rotors are moved between points and then stopped.
-    While the rotors are in the process of moving, we are keeping track of the angle it is at, and then the measurement.
-    Due to time to measure, acceleration and speed of rotor, there is slight discrepancy between measured angle and 
-    actual angle for some given intensity measurement, but the non acceleration component of the discrepancy is solved 
-    for in the optimize portion of the code, and the acceleration error component seems to be negligible, when the goal
-    is achieving maximum intensity.
-    """
-    def move_and_measure(self, del_phi=None, range=None, steps=None, a=0, b=0, theta_1=0, theta_2=0,
-                         dry_run=True, E=None, start_time = None, points = None):
+    def move_and_measure(self, del_phi=None, angular_range=None, steps=None, a=0, b=0, theta_1=0, theta_2=0,
+                         dry_run=True, E=None, start_time=None, points=None):
+        """
+        Using pre selected point/randomly generated ones, the rotors are moved between points and then stopped.
+        While the rotors are in the process of moving, we are keeping track of the angle it is at,
+        and then the measurement. Due to time to measure, acceleration and speed of rotor, there is slight discrepancy
+        between measured angle and actual angle for some given intensity measurement, but the non acceleration component
+        of the discrepancy is solved for in the optimize portion of the code, and the acceleration error component
+        seems to be negligible, when the goal is achieving maximum intensity.
+        """
         if points is None:
-            ang1, ang2 = self.q_h_gen(steps=steps, range=range, center_x=a, center_y=b, random=True)
+            ang1, ang2 = self.q_h_gen(xy_range=angular_range, steps=steps, center_x=a, center_y=b, random=True)
             ang1 -= theta_1
             ang2 -= theta_2
         else:
@@ -167,7 +185,9 @@ class RotatorFeedbackChannel():
         measurements = []
         if dry_run or self is None:
             for h, q in zip(ang1, ang2):
-                measurements.append(np.sum(measure(q_ang=q, h_ang=h, del_phi=del_phi, E=E)))
+                # todo delete
+                # measurements.append(np.sum(measure(q_ang=q, h_ang=h, del_phi=del_phi, E=E))) # measure doesn't take any of these arguments...
+                measurements.append(np.sum(measure()))
         else:
             for a1, a2 in zip(ang1, ang2):
                 self.r0.move_to(a1)
@@ -187,6 +207,7 @@ class RotatorFeedbackChannel():
                 self.stage[0].wait_for_stop()
 
         return m_ang1%180, m_ang2%180, measurements
+
     def move_by(self, degrees, rotor_num = -1, velocity = None, r1 = None):
         r = r1
         if rotor_num == -1 and r is None:
@@ -204,14 +225,15 @@ class RotatorFeedbackChannel():
             r.wait_move()
         return 0
 
+    @staticmethod
     def max_with_tolerance(self, h, q, m, peak, tol):
-        m_indices = [i < (peak * (1 + tol)) and i > (peak * (1 - tol)) for i in m]
+        m_indices = [(peak * (1 + tol)) > i > (peak * (1 - tol)) for i in m] # this is never used... # todo delete
         for i, j, m_1 in zip(h, q, m):
-            if m_1 == max(m) and (m_1 < (peak * (1 + tol)) and m_1 > (peak * 1 - tol)):
+            if m_1 == max(m) and ((peak * (1 + tol)) > m_1 > (peak * 1 - tol)):
                 return i, j, m_1
         return None, None, None
 
-    def move_to(self, degrees, rotor_num = 0, velocity = None, r1 = None):
+    def move_to(self, degrees, rotor_num = 0, velocity = None, r1=None):
         r = r1
         if rotor_num == -1 and r is None:
             r = self.stage[0]
@@ -316,8 +338,8 @@ class RotatorFeedbackChannel():
         if not terminate:
             x = del_phi, E, a, p1, p2
             gen_points = self.select_next_point(data, x0=x, points=steps)
-            newh, newq, newm = self.move_and_measure(range=180, steps=5, dry_run=False, a=0,
-                                                b=0, points=gen_points)
+            newh, newq, newm = self.move_and_measure(angular_range=180, steps=5, a=0, b=0, dry_run=False,
+                                                     points=gen_points)
             h, q, m = data
             h = np.append(h, newh)
             q = np.append(q, newq)
@@ -360,8 +382,8 @@ class RotorExperiment2(EnvExperiment):
         steps = 15
         del_phi = None
         E_0 = None
-        data = rotor1.move_and_measure(del_phi = del_phi, range=range_val,
-                                steps=steps, dry_run=False, E=E_0, a=init_pos_1, b=init_pos_2)
+        data = rotor1.move_and_measure(del_phi=del_phi, angular_range=range_val, steps=steps, a=init_pos_1,
+                                       b=init_pos_2, dry_run=False, E=E_0)
 
         X, Y, Z1, maxX, maxY, maxZ, data = rotor1.optimize(data=data, tol=0.03)
         fig = plt.figure()
