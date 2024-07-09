@@ -1,6 +1,7 @@
-from time import time
+from time import time, sleep
 from pylablib.devices import Thorlabs  # for Kinesis instrument control
 from artiq.experiment import *
+import numpy as np
 
 
 class KinesisMotorWrapper:
@@ -43,4 +44,48 @@ class KinesisMotorWrapper:
     def get_position_query_time(self) -> TFloat:
         _ = self.motor.get_position()
         return time()
-    
+
+
+class KinesisMotorSimulator:
+    """
+    A simulator of the KinesisMotorWrapper class for hardware-free tests
+
+    Note that this is a rather simple class and does not attempt to mimic the full the thing
+    except in very basic ways. Methods such as is_moving, e.g., will always return False as
+    I haven't taken the time to implement threading so we can use non-blocking function calls.
+
+    Where applicable, the methods here shadow the names of the methods belonging to Thorlabs.KinesisMotor
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.position = np.pi
+
+    @rpc
+    def get_position(self) -> TFloat:
+        sleep(0.01)
+        return self.position
+
+    @rpc
+    def is_moving(self) -> TBool:
+        sleep(0.01)
+        return False
+
+    @rpc
+    def move_by(self, degrees):
+        sleep(0.01)
+        self.position += degrees
+
+    @rpc
+    def move_to(self, degrees):
+        sleep(0.01)
+        self.position = degrees
+
+    @rpc
+    def wait_move(self):
+        sleep(0.1)
+
+    # additional functions for diagnostics
+    @rpc
+    def get_position_query_time(self) -> TFloat:
+        sleep(0.01)
+        return time()
