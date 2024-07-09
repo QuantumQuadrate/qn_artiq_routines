@@ -72,12 +72,12 @@ class KinesisMotorSimulator:
 
     @rpc
     def move_by(self, degrees):
-        sleep(0.01)
+        sleep(0.1)
         self.position += degrees
 
     @rpc
     def move_to(self, degrees):
-        sleep(0.01)
+        sleep(.1)
         self.position = degrees
 
     @rpc

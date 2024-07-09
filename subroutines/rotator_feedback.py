@@ -7,9 +7,9 @@ describable as an arbitrary waveplate given by a unitary matrix (we don't care a
 by the fiber).
 
 For the plotting the datasets for 1D fits in debugging mode, use the applet command
-python "C:\Networking Experiment\artiq codes\artiq-master\repository\qn_artiq_routines\applets\plot_xyline.py"
-FORT_PV_measured_pts --x FORT_waveplate_angle_pts --fit FORT_PV_fit_pts --fitx FORT_fit_angle_pts
---marker FORT_estimated_max_tuple
+'python "C:\\...\\qn_artiq_routines\\applets\\plot_xyline.py" FORT_PV_measured_pts
+--x FORT_waveplate_angle_pts --fit FORT_PV_fit_pts --fitx FORT_fit_angle_pts
+--marker FORT_estimated_max_tuple'
 """
 
 from artiq.experiment import *
@@ -126,7 +126,7 @@ class FORTPolarizationOptimizer:
 
     def get_PV_grid(self, thetas, phis):
         """
-        return a grid of the P(V) over arrays of theta and phi values,
+        return a simulated grid of the P(V) over arrays of theta and phi values,
         for a given arbitrary waveplate. assumes an input state of V
         """
 
@@ -151,14 +151,28 @@ class FORTPolarizationOptimizer:
         return result
 
     @rpc
-    def get_next_maximum(self):
+    def get_estimated_maximum(self, angles: TArray(TFloat), measurements: TArray(TFloat)) -> TArray(TFloat):
         """
-        Fit the measured data to a Fourier series, find the angle that maximizes the fit, update the motor position
-        :return:
+        Fit the measured data to a Fourier series and return max and angle for the angle that maximizes the fit
+
+        angles: TArray(TFloat) angles in radians
+        measurements: TArray(TFloat) the recorded voltages
+        :return: TArray(TFloat) floats max_angle, max_PV, fit_params
         """
 
-        # todo: could expose this in the future
-        p0 = np.zeros(9)
+        p0 = np.zeros(9) # todo: could expose this in the future
+        model = self.fourier_sine_series
+
+        popt, _ = curve_fit(model, angles, measurements, p0=p0)
+
+        # go the nearest estimated maximum P(V) value
+        minimum = minimize(lambda p: -1 * model(p, *popt),
+                           x0=angles[len(angles)//2], bounds=[(angles[0], angles[-1])])
+
+        max_angle = minimum.x[0]  # update the qwp angle
+        max_PV = model(minimum.x[0], *popt)
+
+        return max_angle, max_PV, popt
 
     # @kernel
     def iterative_optimization(self):
@@ -184,7 +198,6 @@ class FORTPolarizationOptimizer:
         theta_pts = np.zeros(self.n_samples1D)
 
         p0 = np.zeros(9) # fit guess
-        model = FORTPolarizationOptimizer.fourier_sine_series
 
         self.theta_coords = [theta0]
         self.phi_coords = [phi0]
@@ -196,69 +209,68 @@ class FORTPolarizationOptimizer:
                 phi_pts = np.linspace(-np.pi / 2, np.pi / 2,
                                       self.n_samples1D) + phi  # generate pts centered on the starting angle
 
-                # sample PV
+                self.QWP_rotor.move_to(phi_pts[0]*180/np.pi)
+
+                # sample PV - todo: bundle this into a function?
                 if self.dry_run:
                     PV_sample = np.array([self.PV(theta, p) for p in phi_pts])
                 else:
                     pass  # todo measure the Sampler
 
-                # todo: bundle fit and minimze into a single function call
-                # fit to a sin
-                popt, _ = curve_fit(model, phi_pts, PV_sample, p0=p0)
+                # todo: rename popt fit_params
+                max_angle, estimated_PV_max, popt = self.get_estimated_maximum(phi_pts, PV_sample)
 
-                # go the nearest estimated maximum P(V) value
-                minimum = minimize(lambda p: -1 * model(p, *popt),
-                                   x0=phi, bounds=[(phi_pts[0], phi_pts[-1])])
+                phi = max_angle
 
-                phi = minimum.x[0]  # update the qwp angle
-
-                running_max.append(model(phi, *popt))
+                # running_max.append(model(phi, *popt))
+                running_max.append(estimated_PV_max)
 
                 self.phi_coords.append(phi)
                 self.theta_coords.append(theta)
 
                 if self.debugging:
                     hi_res_phi_pts = np.linspace(phi_pts[0], phi_pts[-1], 50)
-                    fit_pts = model(hi_res_phi_pts, *popt)
+                    fit_pts = self.fourier_sine_series(hi_res_phi_pts, *popt)
 
                     # update the datasets
                     self.experiment.set_dataset(self.measure_pts_dataset, PV_sample, broadcast=True)
                     self.experiment.set_dataset(self.waveplate_angle_pts_dataset, phi_pts, broadcast=True)
                     self.experiment.set_dataset(self.fit_pts_dataset, fit_pts, broadcast=True)
                     self.experiment.set_dataset(self.fit_angle_pts_dataset, hi_res_phi_pts, broadcast=True)
-                    self.experiment.set_dataset(self.estimated_max_tuple_dataset, [phi, model(phi, *popt)],
+                    self.experiment.set_dataset(self.estimated_max_tuple_dataset, [phi, estimated_PV_max],
                                                 broadcast=True)
 
             else:
                 rel_pts = np.linspace(-np.pi / 2, np.pi / 2, self.n_samples1D)
 
+                self.QWP_rotor.move_to((rel_pts[0] + phi) * 180 / np.pi)
+                self.HWP_rotor.move_to((rel_pts[0] + theta) * 180 / np.pi)
+
                 # sample PV
-                PV_sample = np.array([self.PV(x + theta, x + phi) for x in rel_pts])
+                if self.dry_run:
+                    PV_sample = np.array([self.PV(x + theta, x + phi) for x in rel_pts])
+                else:
+                    pass  # todo
 
-                popt, _ = curve_fit(model, rel_pts, PV_sample, p0=p0)
+                max_rel_angle, estimated_PV_max, popt = self.get_estimated_maximum(rel_pts, PV_sample)
 
-                # go the nearest estimated maximum P(V) value
-                minimum = minimize(lambda x: -1 * model(x, *popt), x0=0, bounds=[(rel_pts[0], rel_pts[-1])])
+                phi += max_rel_angle
+                theta += max_rel_angle
 
-                # update the waveplate angles
-                phi += minimum.x[0]
-                theta += minimum.x[0]
-
-                running_max.append(model(minimum.x[0], *popt))
+                running_max.append(estimated_PV_max)
                 self.phi_coords.append(phi)
                 self.theta_coords.append(theta)
 
                 if self.debugging:
                     hi_res_angles = np.linspace(rel_pts[0], rel_pts[-1], 50)
-                    fit_pts = model(hi_res_angles, *popt)
+                    fit_pts = self.fourier_sine_series(hi_res_angles, *popt)
 
                     # update the datasets
                     self.experiment.set_dataset(self.measure_pts_dataset, PV_sample, broadcast=True)
                     self.experiment.set_dataset(self.waveplate_angle_pts_dataset, rel_pts+phi, broadcast=True)
                     self.experiment.set_dataset(self.fit_pts_dataset, fit_pts, broadcast=True)
                     self.experiment.set_dataset(self.fit_angle_pts_dataset, hi_res_angles+phi, broadcast=True)
-                    self.experiment.set_dataset(self.estimated_max_tuple_dataset,
-                                                [minimum.x[0]+phi, model(minimum.x[0], *popt)],
+                    self.experiment.set_dataset(self.estimated_max_tuple_dataset, [phi, estimated_PV_max],
                                                 broadcast=True)
 
             # P(V) is occasionally > 1 by on the order of 0.001, which is numerical error
