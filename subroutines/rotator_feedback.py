@@ -5,6 +5,11 @@ The setup assumed is has linearly polarized light, say, |V>, which passes throug
 SM fiber, a polarizer oriented to transmit |V>, and finally, a photodetector. The SM fiber is
 describable as an arbitrary waveplate given by a unitary matrix (we don't care about attenuation
 by the fiber).
+
+For the plotting the datasets for 1D fits in debugging mode, use the applet command
+python "C:\Networking Experiment\artiq codes\artiq-master\repository\qn_artiq_routines\applets\plot_xyline.py"
+FORT_PV_measured_pts --x FORT_waveplate_angle_pts --fit FORT_PV_fit_pts --fitx FORT_fit_angle_pts
+--marker FORT_estimated_max_tuple
 """
 
 from artiq.experiment import *
@@ -88,13 +93,17 @@ class FORTPolarizationOptimizer:
 
         # initialize datasets
         self.measure_pts_dataset = "FORT_PV_measured_pts"
-        self.experiment.set_dataset(self.measure_pts_dataset, [0.0], broadcast=True, persist=False)
         self.fit_pts_dataset = "FORT_PV_fit_pts"
-        self.experiment.set_dataset(self.fit_pts_dataset, [0.0], broadcast=True, persist=False)
         self.waveplate_angle_pts_dataset = "FORT_waveplate_angle_pts"  # generic angle dataset for either waveplate
-        self.experiment.set_dataset(self.waveplate_angle_pts_dataset, [0.0], broadcast=True, persist=False)
+        self.fit_angle_pts_dataset = "FORT_fit_angle_pts"  # generic angle dataset for either waveplate
         self.running_maxima_dataset = "running_maxima"
-        self.experiment.set_dataset(self.running_maxima_dataset, [0.0], broadcast=True, persist=False)
+        self.estimated_max_tuple_dataset = "FORT_estimated_max_tuple"  # [angle, value]
+        self.experiment.set_dataset(self.measure_pts_dataset, [0.0], broadcast=True)
+        self.experiment.set_dataset(self.fit_pts_dataset, [0.0], broadcast=True)
+        self.experiment.set_dataset(self.waveplate_angle_pts_dataset, [0.0], broadcast=True)
+        self.experiment.set_dataset(self.fit_angle_pts_dataset, [0.0], broadcast=True)
+        self.experiment.set_dataset(self.running_maxima_dataset, [0.0], broadcast=True)
+        self.experiment.set_dataset(self.estimated_max_tuple_dataset, [0.0, 0.0], broadcast=True)
 
     def final_state(self, theta, phi):
         """
@@ -181,9 +190,9 @@ class FORTPolarizationOptimizer:
         self.phi_coords = [phi0]
         running_max = [self.PV(theta0, phi0)]
 
-        for i in range(self.max_moves):
+        for move in range(self.max_moves):
 
-            if not i % 2:  # move the QWP
+            if not move % 2:  # move the QWP
                 phi_pts = np.linspace(-np.pi / 2, np.pi / 2,
                                       self.n_samples1D) + phi  # generate pts centered on the starting angle
 
@@ -208,6 +217,18 @@ class FORTPolarizationOptimizer:
                 self.phi_coords.append(phi)
                 self.theta_coords.append(theta)
 
+                if self.debugging:
+                    hi_res_phi_pts = np.linspace(phi_pts[0], phi_pts[-1], 50)
+                    fit_pts = model(hi_res_phi_pts, *popt)
+
+                    # update the datasets
+                    self.experiment.set_dataset(self.measure_pts_dataset, PV_sample, broadcast=True)
+                    self.experiment.set_dataset(self.waveplate_angle_pts_dataset, phi_pts, broadcast=True)
+                    self.experiment.set_dataset(self.fit_pts_dataset, fit_pts, broadcast=True)
+                    self.experiment.set_dataset(self.fit_angle_pts_dataset, hi_res_phi_pts, broadcast=True)
+                    self.experiment.set_dataset(self.estimated_max_tuple_dataset, [phi, model(phi, *popt)],
+                                                broadcast=True)
+
             else:
                 rel_pts = np.linspace(-np.pi / 2, np.pi / 2, self.n_samples1D)
 
@@ -227,8 +248,22 @@ class FORTPolarizationOptimizer:
                 self.phi_coords.append(phi)
                 self.theta_coords.append(theta)
 
+                if self.debugging:
+                    hi_res_angles = np.linspace(rel_pts[0], rel_pts[-1], 50)
+                    fit_pts = model(hi_res_angles, *popt)
+
+                    # update the datasets
+                    self.experiment.set_dataset(self.measure_pts_dataset, PV_sample, broadcast=True)
+                    self.experiment.set_dataset(self.waveplate_angle_pts_dataset, rel_pts+phi, broadcast=True)
+                    self.experiment.set_dataset(self.fit_pts_dataset, fit_pts, broadcast=True)
+                    self.experiment.set_dataset(self.fit_angle_pts_dataset, hi_res_angles+phi, broadcast=True)
+                    self.experiment.set_dataset(self.estimated_max_tuple_dataset,
+                                                [minimum.x[0]+phi, model(minimum.x[0], *popt)],
+                                                broadcast=True)
+
             # P(V) is occasionally > 1 by on the order of 0.001, which is numerical error
             if abs(1 - running_max[-1]) <= self.tolerance:
+                logging.info("finished in "+str(move)+" moves")
                 break
 
         # wrap up -- if debugging, reset waveplate positions
@@ -273,12 +308,13 @@ class FORTPolarizationOptimizerTest(EnvExperiment):
 
     def build(self):
         self.setattr_argument('dry_run', BooleanValue(True))
+        self.setattr_argument('debugging', BooleanValue(True))
 
     def prepare(self):
 
         self.pol_optimizer = FORTPolarizationOptimizer(
             experiment=self, sampler=None, sampler_ch=None, max_moves=10, HWP_SN='55000759', QWP_SN='55000740',
-            tolerance=0.05, debugging=False, dry_run=self.dry_run
+            tolerance=0.05, debugging=self.debugging, dry_run=self.dry_run
         )
 
     def run(self):
