@@ -9,7 +9,7 @@ cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
-from utilities.conversions import dB_to_V_kernel
+from utilities.conversions import dB_to_V_kernel as dB_to_V
 
 # todo: think about how to implement the experiment functions in a wrapper.
 #  need to pass the experiments by reference.
@@ -192,7 +192,7 @@ def chopped_blow_away(self):
             # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
             # always give the same optical power
             self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
-                                amplitude=dB_to_V_kernel(-7.0))
+                                amplitude=dB_to_V(-7.0))
             self.dds_AOM_A6.sw.on()
             self.dds_cooling_DP.sw.on()
 
@@ -304,8 +304,8 @@ def chopped_optical_pumping(self):
     # ramp up the fiber AOMs to maximize the amount of pumping repump we get
     if not self.pumping_light_off:
         self.dds_pumping_repump.sw.on()
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V_kernel(-7.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V_kernel(-7.0))
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-7.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-7.0))
     delay(1*us)
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
@@ -769,7 +769,7 @@ def microwave_Rabi_experiment(self):
 
             self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-            self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=self.ampl_microwaves)
+            self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
             self.dds_microwaves.sw.on()
             self.ttl_microwave_switch.off()
 
@@ -777,6 +777,8 @@ def microwave_Rabi_experiment(self):
 
             self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
+
+            self.print_async(self.p_microwaves)
 
         ############################
         # blow-away phase - push out atoms in F=2 only
