@@ -127,8 +127,10 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 
     self.dds_FORT.sw.on()
 
-    if self.MOT_repump_off: # this is useful so that the photocounts dataset is all background
+    if self.MOT_repump_off or self.MOT_light_off: # this is useful so that the photocounts dataset is all background
         self.ttl_repump_switch.on()  # turns the RP AOM off
+    if self.MOT_light_off:
+        self.dds_cooling_DP.sw.off()
 
     if not self.FORT_on_at_MOT_start:
         self.dds_FORT.sw.off()
@@ -147,16 +149,17 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 
     # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-    self.dds_cooling_DP.sw.on()
+    if not self.MOT_light_off:
+        self.dds_cooling_DP.sw.on()
 
-    delay(1*ms)
+        delay(1*ms)
 
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
 
     delay(1*ms) # if this delay is not here, the following line setting the dac doesn't execute
 
@@ -189,11 +192,11 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.ttl_SPCM_gate.off()
     t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
     self.counts_FORT_science = self.ttl0.count(t_gate_end)
-    delay(100*ms)  # should wait tens of ms for the MOT to dissipate
+    delay(100*ms)  # this is 100 ms to ensure the Luca takes the next shot
     delay(1 * ms)
 
-
-    self.dds_cooling_DP.sw.on()
+    if not self.MOT_light_off:
+        self.dds_cooling_DP.sw.on()
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
 
@@ -1120,7 +1123,8 @@ def FORT_monitoring_with_Luca_experiment(self):
                                 amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
 
         # take the first shot
-        self.dds_cooling_DP.sw.on()
+        if not self.MOT_light_off:
+            self.dds_cooling_DP.sw.on()
         with parallel:
             self.ttl_Luca_trigger.pulse(5 * ms)
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
@@ -1131,7 +1135,8 @@ def FORT_monitoring_with_Luca_experiment(self):
         delay(self.t_delay_between_shots)
 
         # take the second shot
-        self.dds_cooling_DP.sw.on()
+        if not self.MOT_light_off:
+            self.dds_cooling_DP.sw.on()
         # with parallel:
             # self.ttl_Luca_trigger.pulse(5 * ms)
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)

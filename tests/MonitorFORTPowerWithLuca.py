@@ -23,26 +23,22 @@ cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd + "\\repository\\qn_artiq_routines")
 
-from utilities.BaseExperiment import BaseExperiment
 from subroutines.experiment_functions import *
 
 
 class MonitorFORTWithLuca(EnvExperiment):
 
     def build(self):
-        self.base = BaseExperiment(experiment=self)
-        self.base.build()
-
+        self.setattr_device('scheduler')
         self.setattr_argument("n_measurements",
                               NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
         self.setattr_argument("MOT_repump_off", BooleanValue(True))
-
-        self.base.set_datasets_from_gui_args()
+        self.setattr_argument("MOT_light_off", BooleanValue(False))
 
     def prepare(self):
-
         # inject variable attributes defined here into the scheduled experiment
-        variable_dict = {'MOT_repump_off': str(self.MOT_repump_off),
+        variable_dict = {'MOT_repump_off': self.MOT_repump_off,
+                         'MOT_light_off': self.MOT_light_off,
                          'counts_FORT_loading': 0,
                          'counts_FORT_and_MOT': 0,
                          'counts_FORT_science': 0
