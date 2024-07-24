@@ -18,9 +18,10 @@ import csv
 from time import sleep
 
 import sys, os
+
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
-sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+sys.path.append(cwd + "\\repository\\qn_artiq_routines")
 
 from utilities.BaseExperiment import BaseExperiment
 from subroutines.experiment_functions import *
@@ -34,28 +35,30 @@ class MonitorFORTWithLuca(EnvExperiment):
 
         self.setattr_argument("n_measurements",
                               NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
-
-        # configure the Luca in Andor Solis
-        self.setattr_argument("t_Luca_exposure", NumberValue(1 * us, ndecimals=3, unit='us'))
+        self.setattr_argument("MOT_repump_off", BooleanValue(True))
 
         self.base.set_datasets_from_gui_args()
 
     def prepare(self):
+
+        # inject variable attributes defined here into the scheduled experiment
+        variable_dict = {'MOT_repump_off': str(self.MOT_repump_off),
+                         'counts_FORT_loading': 0,
+                         'counts_FORT_and_MOT': 0,
+                         'counts_FORT_science': 0
+                         }
+
         self.new_job_expid = {'log_level': 30,
                               'file': 'qn_artiq_routines\\GeneralVariableScan.py',
                               'class_name': 'GeneralVariableScan',
                               'arguments': {'n_measurements': str(self.n_measurements),
-                                            'scan_variable1': 'dummy_variable',
+                                            'scan_variable1_name': 'dummy_variable',
                                             'scan_sequence1': '[1]',
-                                            'scan_variable2': '',
+                                            'scan_variable2_name': '',
                                             'scan_sequence2': '',
-                                            'override_ExperimentVariables':
-                                                '{"t_Luca_exposure":'+str(self.t_Luca_exposure)+'}',
+                                            'override_ExperimentVariables': str(variable_dict),
                                             'experiment_function': 'FORT_monitoring_with_Luca_experiment'},
                               'repo_rev': 'N/A'}
-
-    def initialize_hardware(self):
-        self.base.initialize_hardware()
 
     def run(self):
         self.scheduler.submit(pipeline_name=self.scheduler.pipeline_name,

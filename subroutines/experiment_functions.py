@@ -120,7 +120,6 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     The following shots are taken with the Luca:
     1. FORT scattering after feedback to loading setpoint
     2. FORT + MOT beam scattering
-    3. FORT scattering after feedback to science setpoint
 
     :param self: the experiment instance
     :return:
@@ -128,12 +127,20 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 
     self.dds_FORT.sw.on()
 
+    if self.MOT_repump_off: # this is useful so that the photocounts dataset is all background
+        self.ttl_repump_switch.on()  # turns the RP AOM off
+
     if not self.FORT_on_at_MOT_start:
         self.dds_FORT.sw.off()
     else:
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
+    # record FORT scattering with Luca and record Raman scattering from SM fiber
     self.ttl_Luca_trigger.pulse(5 * ms) # FORT loading scattering shot
+    self.ttl_SPCM_gate.off()
+    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+    self.counts_FORT_loading = self.ttl0.count(t_gate_end)
+    delay(1 * ms)
 
     # set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
@@ -158,10 +165,14 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         channels=self.coil_channels)
 
-    self.ttl_Luca_trigger.pulse(5 * ms) # total scattering shot
-
     # wait for the MOT to load
-    delay(self.t_MOT_loading - self.t_MOT_phase2 - 5 * ms)
+    delay(self.t_MOT_loading/2)
+    self.ttl_Luca_trigger.pulse(5 * ms) # total scattering shot
+    self.ttl_SPCM_gate.off()
+    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+    self.counts_FORT_and_MOT = self.ttl0.count(t_gate_end)
+    delay(1 * ms)
+    delay(self.t_MOT_loading/2)
 
     # turn on the dipole trap and wait to load atoms if it is not already on
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
@@ -172,8 +183,16 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.stabilizer_FORT.run(setpoint_index=1) # set to  science setpoint
 
     self.dds_cooling_DP.sw.off()
-    delay(self.t_MOT_dissipation - 5 * ms)  # should wait tens of ms for the MOT to dissipate
-    self.ttl_Luca_trigger.pulse(5 * ms) # FORT science setpoint shot
+    delay(1*ms)
+    # record FORT scattering with Luca and record Raman scattering from SM fiber
+    self.ttl_Luca_trigger.pulse(5 * ms)  # FORT loading scattering shot
+    self.ttl_SPCM_gate.off()
+    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+    self.counts_FORT_science = self.ttl0.count(t_gate_end)
+    delay(100*ms)  # should wait tens of ms for the MOT to dissipate
+    delay(1 * ms)
+
+
     self.dds_cooling_DP.sw.on()
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
@@ -201,7 +220,7 @@ def record_chopped_blow_away(self):
     # todo: change OP -> BA
 
     n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
-    self.print_async("blowaway cycles:", n_chop_cycles)
+    # self.print_async("blowaway cycles:", n_chop_cycles)
 
     assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
 
@@ -857,8 +876,6 @@ def microwave_Rabi_experiment(self):
             self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
 
-            self.print_async(self.p_microwaves)
-
         ############################
         # blow-away phase - push out atoms in F=2 only
         ############################
@@ -1066,6 +1083,10 @@ def FORT_monitoring_with_Luca_experiment(self):
 
     self.core.reset()
 
+    self.set_dataset("photocounts_FORT_loading", [0.0], broadcast=True)
+    self.set_dataset("photocounts_FORT_and_MOT", [0.0], broadcast=True)
+    self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
+
     self.counts = 0
     self.counts2 = 0
 
@@ -1111,13 +1132,18 @@ def FORT_monitoring_with_Luca_experiment(self):
 
         # take the second shot
         self.dds_cooling_DP.sw.on()
-        with parallel:
-            self.ttl_Luca_trigger.pulse(5 * ms)
-            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        # with parallel:
+            # self.ttl_Luca_trigger.pulse(5 * ms)
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
         self.counts2 = self.ttl0.count(t_gate_end)
 
         delay(1 * ms)
 
         end_measurement(self)
+
+        # update experiment-specific datasets:
+        self.append_to_dataset("photocounts_FORT_loading", self.counts_FORT_loading)
+        self.append_to_dataset("photocounts_FORT_and_MOT", self.counts_FORT_and_MOT)
+        self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
 
     self.dds_FORT.sw.off()
