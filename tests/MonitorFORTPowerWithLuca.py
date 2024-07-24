@@ -23,7 +23,7 @@ sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.BaseExperiment import BaseExperiment
-from subroutines.experiment_functions import FORT_monitoring_with_Luca_experiment
+from subroutines.experiment_functions import *
 
 
 class MonitorFORTWithLuca(EnvExperiment):
@@ -35,25 +35,31 @@ class MonitorFORTWithLuca(EnvExperiment):
         self.setattr_argument("n_measurements",
                               NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
 
+        # configure the Luca in Andor Solis
         self.setattr_argument("t_Luca_exposure", NumberValue(1 * us, ndecimals=3, unit='us'))
-        self.setattr_argument("MOT_beams_off", NumberValue(1 * us, ndecimals=3, unit='us'))
-
-        # the Luca will be setup here using pylablib and the analysis will be carried
-        # out in self.analyze
-        # self.setattr_argument("enable_feedback", BooleanValue(True))
 
         self.base.set_datasets_from_gui_args()
 
     def prepare(self):
-        self.base.prepare()
+        self.new_job_expid = {'log_level': 30,
+                              'file': 'qn_artiq_routines\\GeneralVariableScan.py',
+                              'class_name': 'GeneralVariableScan',
+                              'arguments': {'n_measurements': str(self.n_measurements),
+                                            'scan_variable1': 'dummy_variable',
+                                            'scan_sequence1': '[1]',
+                                            'scan_variable2': '',
+                                            'scan_sequence2': '',
+                                            'override_ExperimentVariables':
+                                                '{"t_Luca_exposure":'+str(self.t_Luca_exposure)+'}',
+                                            'experiment_function': 'FORT_monitoring_with_Luca_experiment'},
+                              'repo_rev': 'N/A'}
 
-    @kernel
-    def run(self):
+    def initialize_hardware(self):
         self.base.initialize_hardware()
 
-        # if not self.control_Luca_in_software:
-        print("*****************************  REMEMBER TO START THE CAMERA ACQUISITION  *****************************")
-        delay(1000*ms)
-
-        FORT_monitoring_with_Luca_experiment(self)
-
+    def run(self):
+        self.scheduler.submit(pipeline_name=self.scheduler.pipeline_name,
+                              expid=self.new_job_expid,
+                              priority=self.scheduler.priority,
+                              due_date=None,
+                              flush=False)

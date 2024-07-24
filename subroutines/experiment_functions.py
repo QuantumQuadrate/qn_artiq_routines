@@ -1070,6 +1070,7 @@ def FORT_monitoring_with_Luca_experiment(self):
     self.counts2 = 0
 
     self.require_D1_lock_to_advance = False # override experiment variable
+    self.require_atom_loading_to_advance = False # override experiment variable
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
