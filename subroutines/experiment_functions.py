@@ -1100,6 +1100,15 @@ def FORT_monitoring_with_Luca_experiment(self):
                      [0.0],
                      broadcast=True)
 
+    delay(100*ms)
+    now = now_mu()
+    for i in range(self.warm_up_shots):
+        at_mu(now+i*self.core.seconds_to_mu(500*ms))
+        self.ttl_Luca_trigger.pulse(5 * ms)
+        # now = now_mu()
+
+    self.core.wait_until_mu(now_mu())
+
     self.measurement = 0
     while self.measurement < self.n_measurements:
 

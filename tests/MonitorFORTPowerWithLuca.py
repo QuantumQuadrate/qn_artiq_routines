@@ -32,6 +32,8 @@ class MonitorFORTWithLuca(EnvExperiment):
         self.setattr_device('scheduler')
         self.setattr_argument("n_measurements",
                               NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("warm_up_shots",
+                              NumberValue(0, type='int', ndecimals=0, scale=1, step=1))
         self.setattr_argument("MOT_repump_off", BooleanValue(True))
         self.setattr_argument("MOT_light_off", BooleanValue(False))
 
@@ -39,6 +41,7 @@ class MonitorFORTWithLuca(EnvExperiment):
         # inject variable attributes defined here into the scheduled experiment
         variable_dict = {'MOT_repump_off': self.MOT_repump_off,
                          'MOT_light_off': self.MOT_light_off,
+                         'warm_up_shots': self.warm_up_shots,
                          'counts_FORT_loading': 0,
                          'counts_FORT_and_MOT': 0,
                          'counts_FORT_science': 0
