@@ -17,19 +17,19 @@ import numpy as np
 class SamplerPrint(EnvExperiment):
 
     def build(self):
-        self.base = BaseExperiment(experiment=self)
-        self.base.build()
-
-        self.base.set_datasets_from_gui_args()
+        self.setattr_device('core')
+        self.setattr_device('sampler0')
+        self.setattr_device('sampler1')
+        self.setattr_device('sampler2')
 
     def prepare(self):
-        self.base.prepare()
         self.sampler_list = [self.sampler0, self.sampler1, self.sampler2]
         self.buffer = np.array([0.0]*8)
 
     @kernel
     def run(self):
-        self.base.initialize_hardware()
+
+        self.core.reset()
 
         print("Print out measurement from each sampler:")
         delay(10*ms)
