@@ -44,7 +44,10 @@ class MonitorFORTWithLuca(EnvExperiment):
                          'warm_up_shots': self.warm_up_shots,
                          'counts_FORT_loading': 0,
                          'counts_FORT_and_MOT': 0,
-                         'counts_FORT_science': 0
+                         'counts_FORT_science': 0,
+                         'APD_FORT_volts_loading': 0.0,
+                         'APD_FORT_volts_science': 0.0,
+                         'APD_buffer': np.zeros(8)
                          }
 
         self.new_job_expid = {'log_level': 30,

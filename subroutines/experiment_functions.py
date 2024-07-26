@@ -142,6 +142,9 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.ttl_SPCM_gate.off()
     t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
     self.counts_FORT_loading = self.ttl0.count(t_gate_end)
+    delay(10*us)
+    self.sampler2.sample(self.APD_buffer)
+    self.APD_FORT_volts_loading = self.APD_buffer[3]
     delay(1 * ms)
 
     # set the cooling DP AOM to the MOT settings
@@ -192,8 +195,10 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.ttl_SPCM_gate.off()
     t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
     self.counts_FORT_science = self.ttl0.count(t_gate_end)
+    delay(10*us)
+    self.sampler2.sample(self.APD_buffer)
+    self.APD_FORT_volts_science = self.APD_buffer[3]
     delay(100*ms)  # this is 100 ms to ensure the Luca takes the next shot
-    delay(1 * ms)
 
     if not self.MOT_light_off:
         self.dds_cooling_DP.sw.on()
@@ -1089,6 +1094,8 @@ def FORT_monitoring_with_Luca_experiment(self):
     self.set_dataset("photocounts_FORT_loading", [0.0], broadcast=True)
     self.set_dataset("photocounts_FORT_and_MOT", [0.0], broadcast=True)
     self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
+    self.set_dataset("APD_FORT_volts_loading", [0.0], broadcast=True)
+    self.set_dataset("APD_FORT_volts_science", [0.0], broadcast=True)
 
     self.counts = 0
     self.counts2 = 0
@@ -1159,5 +1166,7 @@ def FORT_monitoring_with_Luca_experiment(self):
         self.append_to_dataset("photocounts_FORT_loading", self.counts_FORT_loading)
         self.append_to_dataset("photocounts_FORT_and_MOT", self.counts_FORT_and_MOT)
         self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
+        self.append_to_dataset("APD_FORT_volts_loading", self.APD_FORT_volts_loading)
+        self.append_to_dataset("APD_FORT_volts_science", self.APD_FORT_volts_science)
 
     self.dds_FORT.sw.off()
