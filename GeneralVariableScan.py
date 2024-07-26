@@ -15,6 +15,7 @@ base.build before each call of the experiment function, i.e., at the start of ea
 from artiq.experiment import *
 
 import numpy as np
+from numpy import array  # necessary for some override_ExperimentVariable entries
 
 import sys, os
 
