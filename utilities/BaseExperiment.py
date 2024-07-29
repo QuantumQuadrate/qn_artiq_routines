@@ -40,6 +40,7 @@ class MyExp(EnvExperiment):
 from artiq.experiment import *
 import logging
 import numpy as np
+from numpy import inf
 import sys, os
 import json
 
