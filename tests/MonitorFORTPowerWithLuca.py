@@ -35,7 +35,8 @@ class MonitorFORTWithLuca(EnvExperiment):
         self.setattr_argument("warm_up_shots",
                               NumberValue(0, type='int', ndecimals=0, scale=1, step=1))
         self.setattr_argument("MOT_repump_off", BooleanValue(True))
-        self.setattr_argument("MOT_light_off", BooleanValue(False))
+        self.setattr_argument("MOT_light_off", BooleanValue(True))
+        self.setattr_argument("APD_averages", NumberValue(1, type='int', ndecimals=0, scale=1, step=1))
 
     def prepare(self):
         # inject variable attributes defined here into the scheduled experiment
@@ -47,7 +48,8 @@ class MonitorFORTWithLuca(EnvExperiment):
                          'counts_FORT_science': 0,
                          'APD_FORT_volts_loading': 0.0,
                          'APD_FORT_volts_science': 0.0,
-                         'APD_buffer': np.zeros(8)
+                         'APD_buffer': np.zeros(8),
+                         'APD_averages': self.APD_averages
                          }
 
         self.new_job_expid = {'log_level': 30,

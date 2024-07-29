@@ -115,7 +115,11 @@ def load_MOT_and_FORT(self):
 @kernel
 def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     """
-    Modified version of load_MOT_and_FORT for imaging scattering in the chamber with the Luca.
+    Modified version of load_MOT_and_FORT for imaging scattering in the chamber with the Luca
+    and with an APD. Assumes the APD is connected to the Sampler card and channel specified in
+    the code below.
+
+    I typically run this with the MonitorFORTWithLuca experiment.
 
     The following shots are taken with the Luca:
     1. FORT scattering after feedback to loading setpoint
@@ -143,8 +147,14 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
     self.counts_FORT_loading = self.ttl0.count(t_gate_end)
     delay(10*us)
-    self.sampler2.sample(self.APD_buffer)
-    self.APD_FORT_volts_loading = self.APD_buffer[3]
+
+    self.APD_FORT_volts_loading = 0.0
+    for i in range(self.APD_averages):
+        self.sampler1.sample(self.APD_buffer)
+        self.APD_FORT_volts_loading += self.APD_buffer[7]
+        delay(1*ms)
+    self.APD_FORT_volts_loading /= self.APD_averages
+
     delay(1 * ms)
 
     # set the cooling DP AOM to the MOT settings
@@ -196,8 +206,14 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
     self.counts_FORT_science = self.ttl0.count(t_gate_end)
     delay(10*us)
-    self.sampler2.sample(self.APD_buffer)
-    self.APD_FORT_volts_science = self.APD_buffer[3]
+
+    self.APD_FORT_volts_science = 0.0
+    for i in range(self.APD_averages):
+        self.sampler1.sample(self.APD_buffer)
+        self.APD_FORT_volts_science += self.APD_buffer[7]
+        delay(1*ms)
+
+    self.APD_FORT_volts_science /= self.APD_averages
     delay(100*ms)  # this is 100 ms to ensure the Luca takes the next shot
 
     if not self.MOT_light_off:
@@ -1082,8 +1098,19 @@ def single_photon_experiment(self):
 def FORT_monitoring_with_Luca_experiment(self):
     """
     A modified version of atom_loading_experiment for monitoring the FORT scattering.
+    This is most easily run with tests/MonitorFORTPowerWithLuca.py
 
     Load a MOT, load a single atom, readout, wait self.t_delay_between_shots, readout again.
+
+    For this experiment, we were still using the MM fiber monitor (i.e. after the polarizer) to
+    feed back to the FORT power. We used this experiment to characterize how well the signal
+    from an APD monitoring the scattered 852 nm light in the chamber correlated with the signal
+    seen by the Luca in an ROI restricted to a section of the parabolic mirror tube.
+
+    The assumed connection of the Sampler card and channel used to monitor the APD is given
+    in load_MOT_and_FORT_for_Luca_scattering_measurement.
+
+    For analysis, see FORT feedback/monitor_FORT_scattering_and_Raman_light.ipynb
 
     :param self: an experiment instance.
     :return:
