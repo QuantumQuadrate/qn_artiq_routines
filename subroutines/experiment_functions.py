@@ -1110,6 +1110,18 @@ def FORT_monitoring_with_Luca_experiment(self):
     The assumed connection of the Sampler card and channel used to monitor the APD is given
     in load_MOT_and_FORT_for_Luca_scattering_measurement.
 
+    ----
+    Alternatively, if you are using the APD to feedback to the FORT:
+    The MM fiber is monitored with the channel specified in load_MOT_and_FORT_for_Luca_scattering_measurement.
+
+    The purpose of this experiment is to be able to compare the normalized FORT power recorded
+    by the dds_FORT feedback channel, the scattering seen by the camera, and the voltage of
+    the detector monitoring the MM fiber after the polarizer. Rotating the 852 nm
+    motorized waveplates, e.g. with the APT program, we can check whether the scattering in the
+    chamber seen with the Luca correlates with polarization. This is a way to vet our APD
+    feedback scheme.
+
+    ----
     For analysis, see FORT feedback/monitor_FORT_scattering_and_Raman_light.ipynb
 
     :param self: an experiment instance.

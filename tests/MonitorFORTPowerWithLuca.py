@@ -39,6 +39,9 @@ class MonitorFORTWithLuca(EnvExperiment):
         self.setattr_argument("APD_averages", NumberValue(1, type='int', ndecimals=0, scale=1, step=1))
 
     def prepare(self):
+        # note: the APD_FORT datasets will record values from the sampler channel specified in the experiment function.
+        # in the APD_feedback version, this channel should be connected to the detector monitoring the MM fiber.
+
         # inject variable attributes defined here into the scheduled experiment
         variable_dict = {'MOT_repump_off': self.MOT_repump_off,
                          'MOT_light_off': self.MOT_light_off,
