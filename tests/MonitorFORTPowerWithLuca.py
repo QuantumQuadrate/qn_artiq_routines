@@ -37,6 +37,7 @@ class MonitorFORTWithLuca(EnvExperiment):
         self.setattr_argument("MOT_repump_off", BooleanValue(True))
         self.setattr_argument("MOT_light_off", BooleanValue(True))
         self.setattr_argument("APD_averages", NumberValue(1, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("no_feedback", BooleanValue(True))
 
     def prepare(self):
         # note: the APD_FORT datasets will record values from the sampler channel specified in the experiment function.
@@ -52,7 +53,8 @@ class MonitorFORTWithLuca(EnvExperiment):
                          'APD_FORT_volts_loading': 0.0,
                          'APD_FORT_volts_science': 0.0,
                          'APD_buffer': np.zeros(8),
-                         'APD_averages': self.APD_averages
+                         'APD_averages': self.APD_averages,
+                         'no_feedback': self.no_feedback
                          }
 
         self.new_job_expid = {'log_level': 30,

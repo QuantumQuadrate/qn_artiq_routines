@@ -1159,7 +1159,7 @@ def FORT_monitoring_with_Luca_experiment(self):
     while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+            self.laser_stabilizer.run(monitor_only=self.no_feedback)  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT_for_Luca_scattering_measurement(self)
 
