@@ -96,6 +96,10 @@ def load_MOT_and_FORT(self):
 
     self.dds_cooling_DP.sw.off()
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+    self.ttl_SPCM_gate.off()
+    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+    self.counts_FORT_science = self.ttl0.count(t_gate_end)
+    delay(1*ms)
     self.dds_cooling_DP.sw.on()
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
@@ -477,6 +481,8 @@ def end_measurement(self):
     self.set_dataset(self.measurements_progress, 100*self.measurement/self.n_measurements, broadcast=True)
     self.append_to_dataset('photocounts2_current_iteration', self.counts2)
     self.counts2_list[self.measurement] = self.counts2
+
+    self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
 
     advance = 1
     if self.__class__.__name__ != 'ExperimentCycler':

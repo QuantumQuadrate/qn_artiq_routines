@@ -149,6 +149,7 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
+        self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
 
         self.set_dataset(self.scan_var_dataset,self.scan_var_labels,broadcast=True)
         self.set_dataset(self.scan_sequence1_dataset,self.scan_sequence1, broadcast=True)

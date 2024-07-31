@@ -108,6 +108,7 @@ class BaseExperiment:
 
         self.experiment.counts = 0
         self.experiment.counts2 = 0
+        self.experiment.counts_FORT_science = 0
         self.experiment.measurement = 0
 
         if self.node == "alice":

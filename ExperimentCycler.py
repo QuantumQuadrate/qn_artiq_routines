@@ -20,6 +20,7 @@ from utilities.BaseExperiment import BaseExperiment
 from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 
+
 class ExperimentCycler(EnvExperiment):
 
     def build(self):
@@ -74,6 +75,7 @@ class ExperimentCycler(EnvExperiment):
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
+        self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
         self.set_dataset("iteration", 0, broadcast=True)
 
         value = 0.0

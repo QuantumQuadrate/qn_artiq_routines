@@ -40,7 +40,6 @@ class MonitorFORTWithLuca(EnvExperiment):
         self.setattr_argument("no_feedback", BooleanValue(True))
         self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
 
-
     def prepare(self):
         # note: the APD_FORT datasets will record values from the sampler channel specified in the experiment function.
         # in the APD_feedback version, this channel should be connected to the detector monitoring the MM fiber.
