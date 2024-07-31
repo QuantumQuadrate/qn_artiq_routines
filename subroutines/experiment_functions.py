@@ -195,8 +195,9 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 
     if not self.FORT_on_at_MOT_start:
         delay_mu(self.t_FORT_loading_mu)
-
-    self.stabilizer_FORT.run(setpoint_index=1) # set to  science setpoint
+    delay(1*ms)
+    if not self.no_feedback:
+        self.stabilizer_FORT.run(setpoint_index=1) # set to  science setpoint
 
     self.dds_cooling_DP.sw.off()
     delay(1*ms)
@@ -221,8 +222,9 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
 
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitudes[1])
+        if not self.no_feedback:
+            self.dds_FORT.set(frequency=self.f_FORT,
+                              amplitude=self.stabilizer_FORT.amplitudes[1])
 
         self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                              channels=self.coil_channels)
@@ -1170,8 +1172,9 @@ def FORT_monitoring_with_Luca_experiment(self):
 
         # set the FORT AOM to the science setting. this is only valid if we have run
         # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
-        self.dds_FORT.set(frequency=self.f_FORT,
-                                amplitude=self.stabilizer_FORT.amplitudes[1])
+        if not self.no_feedback:
+            self.dds_FORT.set(frequency=self.f_FORT,
+                                    amplitude=self.stabilizer_FORT.amplitudes[1])
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,

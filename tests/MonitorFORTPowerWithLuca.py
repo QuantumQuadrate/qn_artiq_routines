@@ -38,6 +38,7 @@ class MonitorFORTWithLuca(EnvExperiment):
         self.setattr_argument("MOT_light_off", BooleanValue(True))
         self.setattr_argument("APD_averages", NumberValue(1, type='int', ndecimals=0, scale=1, step=1))
         self.setattr_argument("no_feedback", BooleanValue(True))
+        
 
     def prepare(self):
         # note: the APD_FORT datasets will record values from the sampler channel specified in the experiment function.
