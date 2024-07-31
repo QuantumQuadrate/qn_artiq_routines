@@ -38,7 +38,8 @@ class MonitorFORTWithLuca(EnvExperiment):
         self.setattr_argument("MOT_light_off", BooleanValue(True))
         self.setattr_argument("APD_averages", NumberValue(1, type='int', ndecimals=0, scale=1, step=1))
         self.setattr_argument("no_feedback", BooleanValue(True))
-        
+        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
+
 
     def prepare(self):
         # note: the APD_FORT datasets will record values from the sampler channel specified in the experiment function.
@@ -57,6 +58,12 @@ class MonitorFORTWithLuca(EnvExperiment):
                          'APD_averages': self.APD_averages,
                          'no_feedback': self.no_feedback
                          }
+
+        override_dict = eval(self.override_ExperimentVariables)
+
+        # add any variables we want to override to the variable dictionary
+        for key, value in override_dict.items():
+            variable_dict[key] = value
 
         self.new_job_expid = {'log_level': 30,
                               'file': 'qn_artiq_routines\\GeneralVariableScan.py',
