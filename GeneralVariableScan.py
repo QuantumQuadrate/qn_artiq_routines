@@ -13,6 +13,7 @@ base.build before each call of the experiment function, i.e., at the start of ea
 
 
 from artiq.experiment import *
+import logging
 
 import numpy as np
 from numpy import array  # necessary for some override_ExperimentVariable entries
@@ -214,8 +215,10 @@ class GeneralVariableScan(EnvExperiment):
 
         self.core.break_realtime()
         # warm up to get make sure we get to the setpoints
-        for i in range(10):
-            self.laser_stabilizer.run()
+
+        if self.enable_laser_feedback:
+            for i in range(10):
+                self.laser_stabilizer.run()
         self.dds_FORT.sw.on()
 
     def run(self):
@@ -246,6 +249,7 @@ class GeneralVariableScan(EnvExperiment):
             # have a kernel decorator, and we have to re-initialize the hardware each
             # iteration.
             setattr(self, self.scan_variable1, variable1_value)
+            logging.info(f"current iteration: {self.scan_variable1_name} = {variable1_value}")
 
             for variable2_value in self.scan_sequence2:
 
@@ -253,6 +257,7 @@ class GeneralVariableScan(EnvExperiment):
 
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
+                    logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
 
                 self.initialize_dependent_variables()
                 self.initialize_hardware()
