@@ -836,6 +836,8 @@ def microwave_Rabi_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
+    self.dds_microwaves.sw.on()
+
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
@@ -900,12 +902,10 @@ def microwave_Rabi_experiment(self):
             self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
             self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-            self.dds_microwaves.sw.on()
             self.ttl_microwave_switch.off()
 
             delay(self.t_microwave_pulse)
 
-            self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
 
         ############################
@@ -934,6 +934,7 @@ def microwave_Rabi_experiment(self):
         end_measurement(self)
 
     self.dds_FORT.sw.off()
+    self.dds_microwaves.sw.off()
 
 @kernel
 def single_photon_experiment(self):
