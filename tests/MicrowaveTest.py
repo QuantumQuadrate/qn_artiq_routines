@@ -25,6 +25,8 @@ class MicrowaveTest(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("microwave_dds_ON", BooleanValue(default=False))
+        self.setattr_argument("microwave_dds_pulse_only", BooleanValue(default=False))
+        self.setattr_argument("microwave_dds_pulse_time", NumberValue(10*ms, unit="ms"))
 
         self.base.set_datasets_from_gui_args()
         print("build - done")
@@ -43,21 +45,20 @@ class MicrowaveTest(EnvExperiment):
     @kernel
     def run(self):
         self.base.initialize_hardware()
-        self.expt()
 
-        if self.microwave_dds_ON:
-            self.dds_microwaves.sw.on()
-            self.ttl_microwave_switch.off()
+        self.ttl7.pulse(5*ms)  # diagnostic trigger
+
+        if not self.microwave_dds_pulse_only:
+            if self.microwave_dds_ON:
+                self.dds_microwaves.sw.on()
+                self.ttl_microwave_switch.off()
+            else:
+                self.dds_microwaves.sw.off()
+                self.ttl_microwave_switch.on()
         else:
-            self.dds_microwaves.sw.off()
+            self.ttl_microwave_switch.off()
+            self.dds_microwaves.sw.pulse(self.microwave_dds_pulse_time)
             self.ttl_microwave_switch.on()
 
         print("Experiment finished.")
 
-    @kernel
-    def expt(self):
-        """
-        The experiment loop.
-
-        :return:
-        """
