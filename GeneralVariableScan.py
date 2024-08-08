@@ -219,6 +219,8 @@ class GeneralVariableScan(EnvExperiment):
         if self.enable_laser_feedback:
             for i in range(10):
                 self.laser_stabilizer.run()
+        else:
+            delay(500*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
     def run(self):
