@@ -27,15 +27,16 @@ class KinesisMotorWrapper:
         moving = self.motor.is_moving()
         return moving
 
-    @rpc
+    @rpc(flags={'async'})
     def move_by(self, degrees):
         self.motor.move_by(degrees)
+        print("K10CR1 moving!")
 
-    @rpc
+    @rpc(flags={'async'})
     def move_to(self, degrees):
         self.motor.move_to(degrees)
 
-    @rpc
+    @rpc(flags={'async'})
     def wait_move(self):
         self.motor.wait_move()
 
@@ -70,17 +71,17 @@ class KinesisMotorSimulator:
         sleep(0.01)
         return False
 
-    @rpc
+    @rpc(flags={'async'})
     def move_by(self, degrees):
         sleep(0.1)
         self.position += degrees
 
-    @rpc
+    @rpc(flags={'async'})
     def move_to(self, degrees):
         sleep(.1)
         self.position = degrees
 
-    @rpc
+    @rpc(flags={'async'})
     def wait_move(self):
         sleep(0.1)
 
