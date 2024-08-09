@@ -427,10 +427,8 @@ class BaseExperiment:
             #                                                       averages=self.experiment.aom_feedback_averages,
             #                                                       leave_AOMs_on=True)
 
-            # feedback channels which are fast enough to include both every atom loading attempt.
-            # this excludes the on-chip MOT beams because the fW detectors have slow rise time.
-            # The external MOT beams and cooling laser could technically be in this list, but
-            # why change what isn't broken.
+            # feedback channels which are fast enough to include on every atom loading attempt.
+            # this excludes things which use fW detectors which have slow rise time.
             self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
                                                                   dds_names=fast_feedback_dds_list,
                                                                   iterations=self.experiment.aom_feedback_iterations,
@@ -499,10 +497,8 @@ class BaseExperiment:
             #                                                       averages=self.experiment.aom_feedback_averages,
             #                                                       leave_AOMs_on=True)
 
-            # feedback channels which are fast enough to include both every atom loading attempt.
-            # this excludes the on-chip MOT beams because the fW detectors have slow rise time.
-            # The external MOT beams and cooling laser could technically be in this list, but
-            # why change what isn't broken.
+            # feedback channels which are fast enough to include on every atom loading attempt.
+            # this excludes things which use fW detectors which have slow rise time.
             self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
                                                                   dds_names=fast_feedback_dds_list,
                                                                   iterations=self.experiment.aom_feedback_iterations,
@@ -571,10 +567,8 @@ class BaseExperiment:
             #                                                       averages=self.experiment.aom_feedback_averages,
             #                                                       leave_AOMs_on=True)
 
-            # feedback channels which are fast enough to include both every atom loading attempt.
-            # this excludes the on-chip MOT beams because the fW detectors have slow rise time.
-            # The external MOT beams and cooling laser could technically be in this list, but
-            # why change what isn't broken.
+            # feedback channels which are fast enough to include on every atom loading attempt.
+            # this excludes things which use fW detectors which have slow rise time.
             self.experiment.laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
                                                                   dds_names=fast_feedback_dds_list,
                                                                   iterations=self.experiment.aom_feedback_iterations,
