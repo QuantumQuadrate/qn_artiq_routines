@@ -10,12 +10,10 @@ cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
-# from K10CR1.KinesisMotorWrapper import KinesisMotorWrapper, KinesisMotorSimulator
-# from utilities.physics.polarization import V, QWP, HWP, AWP
 from subroutines.rotator_feedback import FORTPolarizationOptimizer
 
 
-class CheckMeasurementsPerDegree(EnvExperiment):
+class SamplerMeasurementsPerDegree(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
