@@ -166,7 +166,7 @@ class SingleAtomLoading(EnvExperiment):
         # NaNs only arise if the class is empty, in which case the contribution should be zero, which `nansum` accomplishes.
 class SingleAtomTest(EnvExperiment):
     """
-    Count Fiting
+    Count Fitting
     """
 
     def build(self):
