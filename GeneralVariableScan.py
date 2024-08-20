@@ -140,6 +140,17 @@ class GeneralVariableScan(EnvExperiment):
         self.counts = 0
         self.counts2 = 0
 
+        # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
+        # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
+        # datasets. However, ARTIQ runs build and prepare while the previous experiment is running, so our base.build
+        # and base.prepare calls might use outdated datasets. This checks if there are other experiments scheduled
+        # earlier than this one, and sets a flag so that base.build and base.prepare can be called again if needed.
+        status_dict = self.scheduler.get_status()
+        my_rid = self.scheduler.rid
+        earlier_experiments = len([rid for rid, _ in status_dict.items() if rid < my_rid])
+        logging.info("my rid is", my_rid, ", and there are", earlier_experiments, " experiment(s) that I am waiting on to run")
+        self.needs_fresh_build = earlier_experiments > 0
+
     @kernel
     def initialize_hardware(self):
         self.base.initialize_hardware()
@@ -231,6 +242,10 @@ class GeneralVariableScan(EnvExperiment):
         hardware (e.g. a frequency for a dds channel), the hardware is reinitialized in each step of the
         variable scan, i.e., each iteration.
         """
+
+        if self.needs_fresh_build:
+            self.base.build()
+            self.base.prepare()
 
         self.initialize_datasets()
 

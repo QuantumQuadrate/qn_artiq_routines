@@ -16,10 +16,17 @@ class SchedulerTest(EnvExperiment):
                              'arguments': {'test_variable': 3.14},
                              'repo_rev': 'N/A'}
 
-        print(self.scheduler.rid)
         print(self.scheduler.priority)
         print(self.scheduler.expid)
         print(self.scheduler.pipeline_name)
+
+        status_dict = self.scheduler.get_status()
+        # print(status_dict)
+        # print(len(status_dict), "experiments in the schedule")
+
+        my_rid = self.scheduler.rid
+        earlier_experiments = len([rid for rid, _ in status_dict.items() if rid < my_rid])
+        print("my rid is", my_rid, ", and there are", earlier_experiments, " experiment(s) that I am waiting on to run")
 
     @rpc(flags={'async'})
     def submit_higher_priority_job(self):
@@ -39,7 +46,7 @@ class SchedulerTest(EnvExperiment):
 
         for i in range(10):
 
-            print("parent experiment, i=",i)
+            print("parent experiment, i=", i)
             self.my_function()
             sleep(1)
 
