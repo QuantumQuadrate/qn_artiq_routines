@@ -1,0 +1,106 @@
+{
+    "sampler0":
+        {
+            "dds_AOM_A1":
+                {
+                    "sampler_ch": 0,
+                    "set_points": ["set_point_PD1_AOM_A1"],
+                    "p": 0.1,
+                    "i": 0.000,
+                    "series": true,
+                    "dataset": "MOT1_monitor",
+                    "power_dataset":"p_AOM_A1",
+                    "t_measure_delay":0.0005,
+                    "max_dB": -3
+                },
+            "dds_AOM_A2":
+                {
+                    "sampler_ch": 5,
+                    "set_points": ["set_point_PD2_AOM_A2"],
+                    "p": 0.1,
+                    "i": 0.00,
+                    "series": true,
+                    "dataset": "MOT2_monitor",
+                    "power_dataset":"p_AOM_A2",
+                    "t_measure_delay":0.0005,
+                    "max_dB": -3
+                },
+            "dds_AOM_A3":
+                {
+                    "sampler_ch": 3,
+                    "set_points": ["set_point_PD3_AOM_A3"],
+                    "p": 0.2,
+                    "i": 0.000,
+                    "series": true,
+                    "dataset": "MOT3_monitor",
+                    "power_dataset":"p_AOM_A3",
+                    "t_measure_delay":0.0005,
+                    "max_dB": -3
+                },
+            "dds_AOM_A4":
+                {
+                    "sampler_ch": 4,
+                    "set_points": ["set_point_PD4_AOM_A4"],
+                    "p": 0.2,
+                    "i": 0.0,
+                    "series": true,
+                    "dataset": "MOT4_monitor",
+                    "power_dataset":"p_AOM_A4",
+                    "t_measure_delay":0.0005,
+                    "max_dB": -3
+                },
+            "dds_AOM_A5":
+                {
+                    "sampler_ch": 1,
+                    "set_points": ["set_point_PD5_AOM_A5"],
+                    "p": 0.07,
+                    "i": 0.00,
+                    "series": true,
+                    "dataset":"MOT5_monitor",
+                    "power_dataset":"p_AOM_A5",
+                    "t_measure_delay":0.0005,
+                    "max_dB": -3
+                },
+            "dds_AOM_A6":
+                {
+                    "sampler_ch": 2,
+                    "set_points": ["set_point_PD6_AOM_A6"],
+                    "p": 0.1,
+                    "i": 0.00,
+                    "series": true,
+                    "dataset": "MOT6_monitor",
+                    "power_dataset":"p_AOM_A6",
+                    "t_measure_delay":0.0005,
+                    "max_dB": -3
+                },
+
+            "dds_FORT":
+                {
+                    "sampler_ch": 6,
+                    "set_points": ["set_point_FORT_MM_loading", "set_point_FORT_MM_science"],
+                    "p": 0.7,
+                    "i": 0.0,
+                    "series": true,
+                    "dataset":"FORT_monitor",
+                    "power_dataset":"p_FORT_loading",
+                    "t_measure_delay":0.00001,
+                    "max_dB": 5,
+                    "comment": "use p=0.7 if going through VCA, else use 0.4"
+                }
+        },
+    "sampler1":
+        {
+            "dds_D1_pumping_SP":
+                {
+                    "sampler_ch": 4,
+                    "set_points": ["set_point_D1_SP"],
+                    "p": 0.001,
+                    "i": 0.0,
+                    "series": true,
+                    "dataset":"D1_SP_monitor",
+                    "power_dataset":"p_D1_pumping_SP",
+                    "t_measure_delay":0.00001,
+                    "max_dB": -5
+                }
+        }
+}

@@ -13,8 +13,10 @@ base.build before each call of the experiment function, i.e., at the start of ea
 
 
 from artiq.experiment import *
+import logging
 
 import numpy as np
+from numpy import array  # necessary for some override_ExperimentVariable entries
 
 import sys, os
 
@@ -138,6 +140,17 @@ class GeneralVariableScan(EnvExperiment):
         self.counts = 0
         self.counts2 = 0
 
+        # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
+        # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
+        # datasets. However, ARTIQ runs build and prepare while the previous experiment is running, so our base.build
+        # and base.prepare calls might use outdated datasets. This checks if there are other experiments scheduled
+        # earlier than this one, and sets a flag so that base.build and base.prepare can be called again if needed.
+        status_dict = self.scheduler.get_status()
+        my_rid = self.scheduler.rid
+        earlier_experiments = len([rid for rid, _ in status_dict.items() if rid < my_rid])
+        logging.info("my rid is", my_rid, ", and there are", earlier_experiments, " experiment(s) that I am waiting on to run")
+        self.needs_fresh_build = earlier_experiments > 0
+
     @kernel
     def initialize_hardware(self):
         self.base.initialize_hardware()
@@ -148,6 +161,7 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
+        self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
 
         self.set_dataset(self.scan_var_dataset,self.scan_var_labels,broadcast=True)
         self.set_dataset(self.scan_sequence1_dataset,self.scan_sequence1, broadcast=True)
@@ -212,8 +226,12 @@ class GeneralVariableScan(EnvExperiment):
 
         self.core.break_realtime()
         # warm up to get make sure we get to the setpoints
-        for i in range(10):
-            self.laser_stabilizer.run()
+
+        if self.enable_laser_feedback:
+            for i in range(10):
+                self.laser_stabilizer.run()
+        else:
+            delay(500*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
     def run(self):
@@ -224,6 +242,10 @@ class GeneralVariableScan(EnvExperiment):
         hardware (e.g. a frequency for a dds channel), the hardware is reinitialized in each step of the
         variable scan, i.e., each iteration.
         """
+
+        if self.needs_fresh_build:
+            self.base.build()
+            self.base.prepare()
 
         self.initialize_datasets()
 
@@ -244,6 +266,7 @@ class GeneralVariableScan(EnvExperiment):
             # have a kernel decorator, and we have to re-initialize the hardware each
             # iteration.
             setattr(self, self.scan_variable1, variable1_value)
+            logging.info(f"current iteration: {self.scan_variable1_name} = {variable1_value}")
 
             for variable2_value in self.scan_sequence2:
 
@@ -251,6 +274,7 @@ class GeneralVariableScan(EnvExperiment):
 
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
+                    logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
 
                 self.initialize_dependent_variables()
                 self.initialize_hardware()

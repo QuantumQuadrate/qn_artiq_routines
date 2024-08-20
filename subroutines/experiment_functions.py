@@ -9,7 +9,7 @@ cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
-from utilities.conversions import dB_to_V_kernel
+from utilities.conversions import dB_to_V_kernel as dB_to_V
 
 # todo: think about how to implement the experiment functions in a wrapper.
 #  need to pass the experiments by reference.
@@ -17,6 +17,7 @@ from utilities.conversions import dB_to_V_kernel
 Table of contents:
 1. Subroutine functions
 2. Experiment functions
+3. Diagnostic functions
 """
 
 ###############################################################################
@@ -64,7 +65,7 @@ def load_MOT_and_FORT(self):
 
     delay(1*ms) # if this delay is not here, the following line setting the dac doesn't execute
 
-    # Turn on the MOT coils and cooling light - this is being ignored
+    # Turn on the MOT coils and cooling light
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         channels=self.coil_channels)
@@ -95,12 +96,139 @@ def load_MOT_and_FORT(self):
 
     self.dds_cooling_DP.sw.off()
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+    self.ttl_SPCM_gate.off()
+    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+    self.counts_FORT_science = self.ttl0.count(t_gate_end)
+    delay(1*ms)
     self.dds_cooling_DP.sw.on()
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
 
         self.dds_FORT.set(frequency=self.f_FORT,
                           amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                             channels=self.coil_channels)
+
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_PGC)
+        delay(self.t_PGC_in_MOT)
+
+    self.dds_cooling_DP.sw.off()
+
+@kernel
+def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
+    """
+    Modified version of load_MOT_and_FORT for imaging scattering in the chamber with the Luca
+    and with an APD. Assumes the APD is connected to the Sampler card and channel specified in
+    the code below.
+
+    I typically run this with the MonitorFORTWithLuca experiment.
+
+    The following shots are taken with the Luca:
+    1. FORT scattering after feedback to loading setpoint
+    2. FORT + MOT beam scattering
+
+    :param self: the experiment instance
+    :return:
+    """
+
+    self.dds_FORT.sw.on()
+
+    if self.MOT_repump_off or self.MOT_light_off: # this is useful so that the photocounts dataset is all background
+        self.ttl_repump_switch.on()  # turns the RP AOM off
+    if self.MOT_light_off:
+        self.dds_cooling_DP.sw.off()
+
+    if not self.FORT_on_at_MOT_start:
+        self.dds_FORT.sw.off()
+    else:
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+
+    # record FORT scattering with Luca and record Raman scattering from SM fiber
+    self.ttl_Luca_trigger.pulse(5 * ms) # FORT loading scattering shot
+    self.ttl_SPCM_gate.off()
+    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+    self.counts_FORT_loading = self.ttl0.count(t_gate_end)
+    delay(10*us)
+
+    self.APD_FORT_volts_loading = 0.0
+    for i in range(self.APD_averages):
+        self.sampler1.sample(self.APD_buffer)
+        self.APD_FORT_volts_loading += self.APD_buffer[7]
+        delay(1*ms)
+    self.APD_FORT_volts_loading /= self.APD_averages
+
+    delay(1 * ms)
+
+    # set the cooling DP AOM to the MOT settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+
+    # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+
+    if not self.MOT_light_off:
+        self.dds_cooling_DP.sw.on()
+
+        delay(1*ms)
+
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+
+    delay(1*ms) # if this delay is not here, the following line setting the dac doesn't execute
+
+    # Turn on the MOT coils and cooling light
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        channels=self.coil_channels)
+
+    # wait for the MOT to load
+    delay(self.t_MOT_loading/2)
+    self.ttl_Luca_trigger.pulse(5 * ms) # total scattering shot
+    self.ttl_SPCM_gate.off()
+    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+    self.counts_FORT_and_MOT = self.ttl0.count(t_gate_end)
+    delay(1 * ms)
+    delay(self.t_MOT_loading/2)
+
+    # turn on the dipole trap and wait to load atoms if it is not already on
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+
+    if not self.FORT_on_at_MOT_start:
+        delay_mu(self.t_FORT_loading_mu)
+    delay(1*ms)
+    if not self.no_feedback:
+        self.stabilizer_FORT.run(setpoint_index=1) # set to  science setpoint
+
+    self.dds_cooling_DP.sw.off()
+    delay(1*ms)
+    # record FORT scattering with Luca and record Raman scattering from SM fiber
+    self.ttl_Luca_trigger.pulse(5 * ms)  # FORT loading scattering shot
+    self.ttl_SPCM_gate.off()
+    t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+    self.counts_FORT_science = self.ttl0.count(t_gate_end)
+    delay(10*us)
+
+    self.APD_FORT_volts_science = 0.0
+    for i in range(self.APD_averages):
+        self.sampler1.sample(self.APD_buffer)
+        self.APD_FORT_volts_science += self.APD_buffer[7]
+        delay(1*ms)
+
+    self.APD_FORT_volts_science /= self.APD_averages
+    delay(100*ms)  # this is 100 ms to ensure the Luca takes the next shot
+
+    if not self.MOT_light_off:
+        self.dds_cooling_DP.sw.on()
+
+    if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
+
+        if not self.no_feedback:
+            self.dds_FORT.set(frequency=self.f_FORT,
+                              amplitude=self.stabilizer_FORT.amplitudes[1])
 
         self.zotino0.set_dac([self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                              channels=self.coil_channels)
@@ -122,7 +250,7 @@ def record_chopped_blow_away(self):
     # todo: change OP -> BA
 
     n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
-    self.print_async("blowaway cycles:", n_chop_cycles)
+    # self.print_async("blowaway cycles:", n_chop_cycles)
 
     assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
 
@@ -192,7 +320,7 @@ def chopped_blow_away(self):
             # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
             # always give the same optical power
             self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
-                                amplitude=dB_to_V_kernel(-7.0))
+                                amplitude=dB_to_V(-7.0))
             self.dds_AOM_A6.sw.on()
             self.dds_cooling_DP.sw.on()
 
@@ -304,8 +432,8 @@ def chopped_optical_pumping(self):
     # ramp up the fiber AOMs to maximize the amount of pumping repump we get
     if not self.pumping_light_off:
         self.dds_pumping_repump.sw.on()
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V_kernel(-7.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V_kernel(-7.0))
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-7.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-7.0))
     delay(1*us)
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
@@ -353,6 +481,8 @@ def end_measurement(self):
     self.set_dataset(self.measurements_progress, 100*self.measurement/self.n_measurements, broadcast=True)
     self.append_to_dataset('photocounts2_current_iteration', self.counts2)
     self.counts2_list[self.measurement] = self.counts2
+
+    self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
 
     advance = 1
     if self.__class__.__name__ != 'ExperimentCycler':
@@ -706,6 +836,8 @@ def microwave_Rabi_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
+    self.dds_microwaves.sw.on()
+
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
@@ -769,13 +901,11 @@ def microwave_Rabi_experiment(self):
 
             self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-            self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=self.ampl_microwaves)
-            self.dds_microwaves.sw.on()
+            self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
             self.ttl_microwave_switch.off()
 
             delay(self.t_microwave_pulse)
 
-            self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
 
         ############################
@@ -804,6 +934,7 @@ def microwave_Rabi_experiment(self):
         end_measurement(self)
 
     self.dds_FORT.sw.off()
+    self.dds_microwaves.sw.off()
 
 @kernel
 def single_photon_experiment(self):
@@ -960,5 +1091,131 @@ def single_photon_experiment(self):
             self.append_to_dataset('excitation_counts', val)
 
         delay(10*ms)
+
+    self.dds_FORT.sw.off()
+
+###############################################################################
+# 3. DIAGNOSTIC FUNCTIONS
+# These are functions that are used for various tests, but are not typical
+# experiments. You might not want to run them with GeneralVariableScan, but you
+# import these functions from other files. The advantage of having them in
+# experiment_functions is that they can benefit from the other functions defined
+# here.
+###############################################################################
+
+@kernel
+def FORT_monitoring_with_Luca_experiment(self):
+    """
+    A modified version of atom_loading_experiment for monitoring the FORT scattering.
+    This is most easily run with tests/MonitorFORTPowerWithLuca.py
+
+    Load a MOT, load a single atom, readout, wait self.t_delay_between_shots, readout again.
+
+    For this experiment, we were still using the MM fiber monitor (i.e. after the polarizer) to
+    feed back to the FORT power. We used this experiment to characterize how well the signal
+    from an APD monitoring the scattered 852 nm light in the chamber correlated with the signal
+    seen by the Luca in an ROI restricted to a section of the parabolic mirror tube.
+
+    The assumed connection of the Sampler card and channel used to monitor the APD is given
+    in load_MOT_and_FORT_for_Luca_scattering_measurement.
+
+    ----
+    Alternatively, if you are using the APD to feedback to the FORT:
+    The MM fiber is monitored with the channel specified in load_MOT_and_FORT_for_Luca_scattering_measurement.
+
+    The purpose of this experiment is to be able to compare the normalized FORT power recorded
+    by the dds_FORT feedback channel, the scattering seen by the camera, and the voltage of
+    the detector monitoring the MM fiber after the polarizer. Rotating the 852 nm
+    motorized waveplates, e.g. with the APT program, we can check whether the scattering in the
+    chamber seen with the Luca correlates with polarization. This is a way to vet our APD
+    feedback scheme.
+
+    ----
+    For analysis, see FORT feedback/monitor_FORT_scattering_and_Raman_light.ipynb
+
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+
+    self.set_dataset("photocounts_FORT_loading", [0.0], broadcast=True)
+    self.set_dataset("photocounts_FORT_and_MOT", [0.0], broadcast=True)
+    self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
+    self.set_dataset("APD_FORT_volts_loading", [0.0], broadcast=True)
+    self.set_dataset("APD_FORT_volts_science", [0.0], broadcast=True)
+
+    self.counts = 0
+    self.counts2 = 0
+
+    self.require_D1_lock_to_advance = False # override experiment variable
+    self.require_atom_loading_to_advance = False # override experiment variable
+
+    self.set_dataset(self.count_rate_dataset,
+                     [0.0],
+                     broadcast=True)
+
+    delay(100*ms)
+    now = now_mu()
+    for i in range(self.warm_up_shots):
+        at_mu(now+i*self.core.seconds_to_mu(500*ms))
+        self.ttl_Luca_trigger.pulse(5 * ms)
+        # now = now_mu()
+
+    self.core.wait_until_mu(now_mu())
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run(monitor_only=self.no_feedback)  # this tunes the MOT and FORT AOMs
+
+        load_MOT_and_FORT_for_Luca_scattering_measurement(self)
+
+        delay(0.1*ms)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+
+        # set the FORT AOM to the science setting. this is only valid if we have run
+        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
+        if not self.no_feedback:
+            self.dds_FORT.set(frequency=self.f_FORT,
+                                    amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
+
+        # take the first shot
+        if not self.MOT_light_off:
+            self.dds_cooling_DP.sw.on()
+        with parallel:
+            self.ttl_Luca_trigger.pulse(5 * ms)
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+        self.counts = self.ttl0.count(t_gate_end)
+        delay(1 * ms)
+        self.dds_cooling_DP.sw.off()
+
+        delay(self.t_delay_between_shots)
+
+        # take the second shot
+        if not self.MOT_light_off:
+            self.dds_cooling_DP.sw.on()
+        # with parallel:
+            # self.ttl_Luca_trigger.pulse(5 * ms)
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        self.counts2 = self.ttl0.count(t_gate_end)
+
+        delay(1 * ms)
+
+        end_measurement(self)
+
+        # update experiment-specific datasets:
+        self.append_to_dataset("photocounts_FORT_loading", self.counts_FORT_loading)
+        self.append_to_dataset("photocounts_FORT_and_MOT", self.counts_FORT_and_MOT)
+        self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
+        self.append_to_dataset("APD_FORT_volts_loading", self.APD_FORT_volts_loading)
+        self.append_to_dataset("APD_FORT_volts_science", self.APD_FORT_volts_science)
 
     self.dds_FORT.sw.off()

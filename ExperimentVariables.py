@@ -277,6 +277,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("set_point_PD4_AOM_A4", 0.286, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD5_AOM_A5", 0.214, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable("set_point_PD6_AOM_A6", 0.296, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable('set_point_FORT_APD_loading', 0.051, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
+            Variable('set_point_FORT_APD_science', 0.04, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
             Variable('set_point_FORT_MM_loading', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable('set_point_FORT_MM_science', 0.2, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
             Variable('set_point_D1_SP', 0.175, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
@@ -286,6 +288,7 @@ class ExperimentVariables(EnvExperiment):
                      "Plotting"),
             Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
                      'step': 1}, "Plotting"),
+            Variable("second_shot_hist_color", 'r', StringValue, {}, "Plotting"),
 
             # Laser feedback
             Variable("Luca_trigger_for_feedback_verification", False, BooleanValue, {}, "Laser feedback"),

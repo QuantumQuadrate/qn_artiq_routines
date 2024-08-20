@@ -54,18 +54,18 @@ class XYPlot(pyqtgraph.PlotWidget):
 
                     self.clear()
                     self.plot(range(iteration), mean1_by_iteration,
-                              pen=(255, 0, 0),
+                              pen=(0, 0, 255),
                               symbol='o',
                               symbolBrush=(0, 0, 255),
                               symbolPen='w',
                               name='shot 1 background')
                     self.plot(range(iteration), mean2_by_iteration,
-                              pen=(0, 100, 100),
+                              pen=(255, 0, 0),
                               symbol='o',
                               symbolBrush=(255, 0, 0),
                               symbolPen='w',
                               name='shot 2 background')
-
+                    
                 # todo: add std error
                 # if error is not None:
                 #     # See https://github.com/pyqtgraph/pyqtgraph/issues/211

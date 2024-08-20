@@ -36,6 +36,9 @@ class XYPlot(pyqtgraph.PlotWidget):
             y = y[-pts:]
         error = data.get(self.args.error, (False, None))[1]
         fit = data.get(self.args.fit, (False, None))[1]
+        fitx = data.get(self.args.fitx, (False, None))[1]
+
+        marker_point = data.get(self.args.marker, (False, None))[1]
 
         if not len(y) or len(y) != len(x):
             self.mismatch['X values'] = True
@@ -51,8 +54,9 @@ class XYPlot(pyqtgraph.PlotWidget):
         if fit is not None:
             if not len(fit):
                 fit = None
-            elif len(fit) != len(y):
-                self.mismatch['Fit values'] = True
+            elif fitx is not None:
+                if len(fit) != len(fitx):
+                    self.mismatch['Fit values'] = True
             else:
                 self.mismatch['Fit values'] = False
         if not any(self.mismatch.values()):
@@ -77,8 +81,16 @@ class XYPlot(pyqtgraph.PlotWidget):
                 x=np.array(x), y=np.array(y), height=error)
             self.addItem(errbars)
         if fit is not None:
-            xi = np.argsort(x)
-            self.plot(x[xi], fit[xi])
+            if fitx is not None:
+                self.plot(fitx, fit, pen=(197, 5, 12))  # Badger Red
+            else:
+                self.plot(range(len(fit)), fit, pen=(197, 5, 12))  # Badger Red
+
+        if marker_point is not None:
+            print("whats wrong")
+            markerx, markery = marker_point
+            print(markerx, markery)
+            self.plot([markerx], [markery], symbol='o', symbolPen=(0, 0, 255))
 
     def length_warning(self):
         self.clear()
@@ -93,14 +105,13 @@ def main():
     applet.add_dataset("y", "Y values")
     applet.add_dataset("pts", "max number of pts to plot", required=False)
     applet.add_dataset("x", "X values", required=False)
+    applet.add_dataset("marker", "a single plot point as a marker", required=False)
     applet.add_dataset("error", "Error bars for each X value", required=False)
-    applet.add_dataset("fit", "Fit values for each X value", required=False)
+    applet.add_dataset("fit", "Fit values", required=False)
+    applet.add_dataset("fitx", "X values for the fit", required=False)
+
     applet.run()
+
 
 if __name__ == "__main__":
     main()
-
-    # self.plot(x, y, pen=(255, 138, 0),
-    #                 symbol='x',
-    #                 symbolBrush=(255, 138, 0),
-    #                 symbolPen='w')
