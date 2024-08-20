@@ -1,5 +1,14 @@
 from artiq.experiment import *
 from scipy.stats import poisson
+import numpy as np
+
+import sys, os
+# get the current working directory
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+
+
 from fitting.run_modeling import *
 import matplotlib.pyplot as plt
 # a no-hardware simulation that we can use to test plotting

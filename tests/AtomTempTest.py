@@ -2,7 +2,12 @@ from artiq.experiment import *
 from numpy import *
 from collections import namedtuple
 
-#from utilities.dropsimulation import *
+import sys, os
+# get the current working directory
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+
 from fitting.run_modeling import *
 class AtomExperimentSim(EnvExperiment):
     """
@@ -31,11 +36,8 @@ class AtomExperimentSim(EnvExperiment):
         self.set_dataset("tlist", tlist, broadcast=True)
         self.set_dataset("ret_1", reten_1, broadcast=True)
 
-
         if p0 == None:
            p0 = [4.e-5, 0.95]
-
-
 
         TLIST = linspace(0, 160, 20)  # time [us]
         R1 = retention_at_t(TLIST, 5e-5, base_retention=0.90)

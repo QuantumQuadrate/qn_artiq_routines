@@ -1,6 +1,7 @@
 #### libraries
 # np.seterr(all='raise') # raise errors, don't just print warnings
 from numpy import *
+import numpy as np
 from numpy.random import normal
 from scipy.optimize import curve_fit
 from random import random as rand
