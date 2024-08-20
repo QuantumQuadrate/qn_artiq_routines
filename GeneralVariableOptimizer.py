@@ -110,6 +110,13 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.setattr_argument('cost_function',
                               EnumerationValue(cost_function_names_list, default='atom_retention_cost'))
 
+        # allows user to supply a dictionary of values to override. this is useful for when
+        # you don't want to constantly go check ExperimentVariables to see if, e.g. blowaway_light_off
+        # is False. You can just set it here to guarantee the behavior you want, without changing
+        # the value stored in the dataset, so subsequent experiments will be unaffected. This leads
+        # to fewer errors overall.
+        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
+
         group1 = "optimizer settings"
         self.setattr_argument("max_runs", NumberValue(70, type='int', scale=1, ndecimals=0, step=1), group1)
         self.setattr_argument("target_cost", NumberValue(-100, type='int', scale=1, ndecimals=0, step=1), group1)
@@ -125,6 +132,10 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         self.atom_counts_threshold = self.single_atom_counts_per_s*self.t_SPCM_first_shot
         self.atom_counts2_threshold = self.single_atom_counts_per_s*self.t_SPCM_second_shot
+
+        self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
+        assert type(self.override_ExperimentVariables_dict) == dict, \
+            "override_ExperimentVariables should be a python dictionary"
 
         self.variables_and_bounds = eval(self.variables_and_bounds)
 
@@ -164,6 +175,18 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.counts = 0
         self.counts2 = 0
 
+        # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
+        # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
+        # datasets. However, ARTIQ runs build and prepare while the previous experiment is running, so our base.build
+        # and base.prepare calls might use outdated datasets. This checks if there are other experiments scheduled
+        # earlier than this one, and sets a flag so that base.build and base.prepare can be called again if needed.
+        status_dict = self.scheduler.get_status()
+        my_rid = self.scheduler.rid
+        earlier_experiments = len([rid for rid, _ in status_dict.items() if rid < my_rid])
+        logging.info("my rid is", my_rid, ", and there are", earlier_experiments,
+                     " experiment(s) that I am waiting on to run")
+        self.needs_fresh_build = earlier_experiments > 0
+
     def initialize_datasets(self):
         self.set_dataset(self.cost_dataset,
                          [0.0],
@@ -174,6 +197,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.set_dataset("photocounts", [0], broadcast=True)
         self.set_dataset("photocounts2", [0], broadcast=True)
         self.set_dataset("photocount_bins", [50], broadcast=True)
+        self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
 
         self.set_dataset("optimizer_vars_dataset", [var.name for var in self.var_and_bounds_objects], broadcast=True)
         self.set_dataset("optimizer_bounds", [(var.min_bound, var.max_bound) for
@@ -183,6 +207,9 @@ class GeneralVariableOptimizer(EnvExperiment):
         for i in range(self.n_params):
             self.optimizer_var_datasets.append("optimizer_var"+str(i))
             self.set_dataset(self.optimizer_var_datasets[i], [0.0], broadcast=True)
+
+        for var, val in self.override_ExperimentVariables_dict.items():
+            self.set_dataset(var, val)
 
         value = 0.0
         for ch_i in range(len(self.laser_stabilizer.all_channels)):
@@ -202,7 +229,17 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
 
     def run(self):
+
+        if self.needs_fresh_build:
+            self.base.build()
+            self.base.prepare()
+
         self.initialize_datasets()
+
+        # override specific variables. this will apply to the entire scan, so it is outside the loops
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            setattr(self, variable, value)
+
         self.warm_up()
         self.initialize_hardware()
 
