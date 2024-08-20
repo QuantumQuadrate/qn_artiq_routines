@@ -65,7 +65,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                               symbolBrush=(255, 0, 0),
                               symbolPen='w',
                               name='shot 2 background')
-
+                    
                 # todo: add std error
                 # if error is not None:
                 #     # See https://github.com/pyqtgraph/pyqtgraph/issues/211
