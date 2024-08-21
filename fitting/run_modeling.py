@@ -1,6 +1,9 @@
-#### libraries
-# np.seterr(all='raise') # raise errors, don't just print warnings
+"""
+
+"""
+
 from numpy import *
+import numpy as np
 from numpy.random import normal
 from scipy.optimize import curve_fit
 from random import random as rand
@@ -11,23 +14,30 @@ from utilities.physics.rbconsts import *
 from utilities.physics.rbensemble import RbEnsemble as ensemble
 
 
-def retention_at_t(t, T=None, base_retention=0.9, Tdepth = 1e-3, wx = 0.7e-6, wy =0.7e-6, lmda = 8.52e-7):
+def release_recap_retention_at_t(t, T, base_retention, Tdepth=1e-3, wx=0.7e-6, wy=None, lmda=8.52e-7, events=1000):
         """ Procedure for simulating a release ("drop") and recapture experiment
-            to deduce the temperature of actual atoms in such an experiment.
+        to deduce the temperature of actual atoms in such an experiment.
 
-            Based on code by Mark, with some corrections
-            'wx': waist
-            'Tdepth': FORT temperature depth
-            'T': atom temp
-            'tmax': max time in units us
-            'steps': number of FORT drop outs
-            'events': number of release-recapture events per photocounts pt
-            'wy': optional waist for elliptical FORT
-            'lmda': optional wavelength of the FORT
+        Based on code by Mark, with some corrections
+        't': time at which to evaluate the simulation (us). can be scalar or 1D numpy array
+        'wx': waist
+        'Tdepth': FORT temperature depth (K)
+        'T': atom temp (K)
+        'tmax': max time in units us
+        'steps': number of FORT drop outs
+        'events': number of release-recapture events per photocounts pt
+        'wy': optional waist for elliptical FORT
+        'lmda': optional wavelength of the FORT
+
+        Note: the time entered in microseconds empirically gives a much more reliable fit value
+        compared to entering the values in seconds, likely due to precision loss somewhere.
         """
-        T = abs(T)
-        events = 20000
 
+        if wy is None:
+                wy = wx
+
+        # print(f"scipy is trying T={T*1e6:.2f}K, base_retention={base_retention:.2f}...")
+        # print(f"scipy is trying wx = {wx}, wy = {wy}, lmda = {lmda}, Tdepth = {Tdepth}, ")
         umax = kB * Tdepth
         zR = pi * wx ** 2 / lmda
 
@@ -70,7 +80,7 @@ def retention_at_t(t, T=None, base_retention=0.9, Tdepth = 1e-3, wx = 0.7e-6, wy
         if events is None:
                 events = 20000
         if base_retention is None:
-                base_retention = 1  #the retention baseline with no fort drop
+                base_retention = 1  # the retention baseline with no fort drop
 
         escape = float64(empty(len(t)))
 
@@ -91,23 +101,38 @@ def retention_at_t(t, T=None, base_retention=0.9, Tdepth = 1e-3, wx = 0.7e-6, wy
 
         retention = base_retention * (1 - escape / float64(events))
 
-        print(f"finished. T={T * 1e6} [uK], r = {base_retention}")
+        # print(f"finished. T={T * 1e6} [uK], r = {base_retention}")
 
         return retention
 
-def temp(tlist, retention, p0 = None):
-        if p0 == None:
-                p0 = [4e-5, retention[0], 1e-3, 0.7e-6, 0.7e-6]
+def get_release_recap_fit_result(tlist, retention, p0=None, bounds=None, retention_at_t_kwargs={}):
+        """
 
+        :param tlist:
+        :param retention:
+        :param p0:
+        :param bounds: array of 2-tuple of boundaries for temp in K and retention with 1st (2nd) tuple minima (maxima)
+        :param retention_at_t_kwargs: keyword arguments for release_recap_retention_at_t which is used as the model
+                for the fit. these arguments might specify, e.g., the trap parameters
+        :return: tuple of popt from curve_fit, y points from model evaluated with fit params
+        """
+        if p0 is None:
+                p0 = [4e-5, retention[0]]
+        if bounds is None:
+                lower_bounds = np.array([1e-7, 0.0])
+                upper_bounds = np.array([5e-4, 1.0])
+                bounds = (lower_bounds, upper_bounds)
 
-        popt, pcov = curve_fit(retention_at_t, tlist, retention, p0=p0, absolute_sigma=False,
-                                                   maxfev=1000000000, epsfcn=1)
+        model = lambda t, T, r: release_recap_retention_at_t(t, T, r, **retention_at_t_kwargs)
 
-        modeled_y = retention_at_t(tlist, *popt)
+        popt, pcov = curve_fit(model, tlist, retention, p0=p0, absolute_sigma=False, bounds=bounds,
+                               x_scale=(1e-6,1), diff_step=0.1)
+
+        modeled_y = release_recap_retention_at_t(tlist, *popt, **retention_at_t_kwargs)
         return popt, modeled_y
 
 
-def atom_loading_fit(xdata=None, p0 = None, bin_count = 40, measurements = 500):
+def atom_loading_fit(xdata=None, p0=None, bin_count=40, measurements=500):
         ret_args = {}
         print("Proceding with atom_loading_fit at time:", time.time())
         factor = 1 / 100
@@ -176,7 +201,7 @@ def atom_loading_fit(xdata=None, p0 = None, bin_count = 40, measurements = 500):
                 return ret_args
 
 
-def start_modeling(model = "temperature", args = None):
+def start_modeling(model = "temperature", args=None):
         starting_time = time.time()
         print(f"Attempting to run: {model} at {starting_time}")
 
@@ -186,7 +211,7 @@ def start_modeling(model = "temperature", args = None):
                 xdata should be time in terms of micro seconds
                 if p0 is not provided, p0 = (40(uK), retention[0], Tdepth = 1e-3, wx = 0.7e-6, wy =0.7e-6 )
                 """
-                ret_args = temp(*args)
+                ret_args = get_release_recap_fit_result(*args)
                 print(f"Completed: {model} after {(time.time() - starting_time)} seconds")
                 return ret_args
 
