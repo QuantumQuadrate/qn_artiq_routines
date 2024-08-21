@@ -836,13 +836,20 @@ def microwave_Rabi_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
+    delay(10 * ms)
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(10 * ms)
     self.dds_microwaves.sw.on()
+    delay(100 * ms)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+            # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
+            self.dds_microwaves.sw.on()
 
         load_MOT_and_FORT(self)
 
@@ -901,7 +908,6 @@ def microwave_Rabi_experiment(self):
 
             self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-            self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
             self.ttl_microwave_switch.off()
 
             delay(self.t_microwave_pulse)
