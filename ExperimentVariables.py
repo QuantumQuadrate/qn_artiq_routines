@@ -245,6 +245,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_UV_pulse", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_OP_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_OP_chop_offset", 0.5 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_BA_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("duty_cycle_OP", 0.35, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                              'scale': 1, 'ndecimals': 2}, "Timing"),

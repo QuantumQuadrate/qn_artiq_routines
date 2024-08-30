@@ -354,8 +354,8 @@ def record_chopped_optical_pumping(self):
     assert n_chop_cycles >= 1, "t_pumping should be > t_OP_chop_period"
 
     # todo: use duty cycle ExperimentVariables
-    OP_pulse = self.t_OP_chop_period * 0.3
-    FORT_pulse = self.t_OP_chop_period - OP_pulse
+    OP_pulse = self.t_OP_chop_period * self.duty_cycle_OP
+    FORT_pulse = self.t_OP_chop_period * self.duty_cycle_FORT
 
     n_depump_chop_cycles = int(self.t_depumping /self.t_OP_chop_period)
 
@@ -371,7 +371,7 @@ def record_chopped_optical_pumping(self):
         OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
         FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
         FORT_on_mu = self.core.seconds_to_mu(0.0)
-        OP_on_mu = self.core.seconds_to_mu(0.5 * us)
+        OP_on_mu = self.core.seconds_to_mu(self.t_OP_chop_offset)
 
         if not (self.pumping_light_off or self.D1_off_in_OP_phase):
             for i in range(n_chop_cycles):
