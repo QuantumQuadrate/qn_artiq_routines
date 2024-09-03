@@ -149,6 +149,8 @@ class BaseExperiment:
                                              self.experiment.AX_Zotino_channel,
                                              self.experiment.AY_Zotino_channel]
 
+            self.experiment.FORT_MM_sampler_ch = 7
+
             # dataset names
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.count_rate_dataset = 'photocounts_per_s'

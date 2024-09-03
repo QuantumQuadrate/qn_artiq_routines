@@ -289,6 +289,8 @@ class ExperimentVariables(EnvExperiment):
                      "Plotting"),
             Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
                      'step': 1}, "Plotting"),
+            Variable("FORT_MM_monitor_sci_ref_volts", 0.25, NumberValue, {'type': 'float', 'ndecimals': 3, 'scale': 1,
+                                                                          'step': 0.05}, "Plotting"),
             Variable("second_shot_hist_color", 'r', StringValue, {}, "Plotting"),
 
             # Laser feedback

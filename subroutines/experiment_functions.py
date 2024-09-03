@@ -465,6 +465,18 @@ def chopped_optical_pumping(self):
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 @kernel
+def measure_FORT_MM_fiber(self):
+    measurement_buf = np.array([0.0]*8)
+    measurement = 0.0
+    avgs = 50
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        measurement += measurement_buf[self.FORT_MM_sampler_ch]
+        delay(0.1*ms)
+    measurement /= avgs
+    self.append_to_dataset("FORT_MM_science_volts", measurement)
+
+@kernel
 def end_measurement(self):
     """
     End the measurement by setting datasets and deciding whether to increment the measuement index
@@ -483,6 +495,7 @@ def end_measurement(self):
     self.counts2_list[self.measurement] = self.counts2
 
     self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
+    measure_FORT_MM_fiber(self)
 
     advance = 1
     if self.__class__.__name__ != 'ExperimentCycler':
