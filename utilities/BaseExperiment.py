@@ -53,6 +53,8 @@ from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
 from utilities.write_h5 import write_results
 from utilities.conversions import dB_to_V
+from K10CR1.KinesisMotorWrapper import KinesisMotorWrapper
+
 import os
 
 cwd = os.getcwd() # must be called here. if called in class, returns the results level dir
@@ -418,6 +420,10 @@ class BaseExperiment:
                 # if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
                 # logging.warn("experiment does not have variable n_measurements")
+
+            # the motorized rotator objects
+            self.experiment.FORT_HWP = KinesisMotorWrapper(conn=self.experiment.K10CR1_FORT_HWP_SN, scale='K10CR1')
+            self.experiment.FORT_QWP = KinesisMotorWrapper(conn=self.experiment.K10CR1_FORT_QWP_SN, scale='K10CR1')
 
             slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
             fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)

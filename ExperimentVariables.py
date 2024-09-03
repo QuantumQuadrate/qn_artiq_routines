@@ -314,6 +314,31 @@ class ExperimentVariables(EnvExperiment):
                      "Rigol DG1022Z settings"),
             Variable("f_Rigol_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
+            # Thorlabs Devices
+            Variable("K10CR1_FORT_HWP_SN", 55000759, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
+                     "Thorlabs Devices"),
+            Variable("K10CR1_FORT_QWP_SN", 55000740, NumberValue,
+                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Thorlabs Devices"),
+            Variable("K10CR1_780_HWP_SN", 55422044, NumberValue,
+                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Thorlabs Devices"),
+            Variable("K10CR1_780_QWP_SN", 55420984, NumberValue,
+                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Thorlabs Devices"),
+            Variable("hwp_degrees_to_move_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("hwp_degrees_to_move_to", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("qwp_degrees_to_move_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("qwp_degrees_to_move_to", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices")
+
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so

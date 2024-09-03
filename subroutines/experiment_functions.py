@@ -11,8 +11,6 @@ sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.conversions import dB_to_V_kernel as dB_to_V
 
-# todo: think about how to implement the experiment functions in a wrapper.
-#  need to pass the experiments by reference.
 """
 Table of contents:
 1. Subroutine functions
@@ -1237,5 +1235,81 @@ def FORT_monitoring_with_Luca_experiment(self):
         self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
         self.append_to_dataset("APD_FORT_volts_loading", self.APD_FORT_volts_loading)
         self.append_to_dataset("APD_FORT_volts_science", self.APD_FORT_volts_science)
+
+    self.dds_FORT.sw.off()
+
+@kernel
+def atom_loading_and_waveplate_rotation_experiment(self):
+    """
+    The most basic two-readout single atom experiment.
+
+    Load a MOT, load a single atom, readout, wait self.t_delay_between_shots, readout again.
+
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+
+    self.counts = 0
+    self.counts2 = 0
+
+    self.require_D1_lock_to_advance = False # override experiment variable
+    self.require_atom_loading_to_advance = False # override experiment variable
+
+    self.set_dataset(self.count_rate_dataset,
+                     [0.0],
+                     broadcast=True)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        self.FORT_HWP.move_by(self.hwp_degrees_to_move_by) # degrees
+        self.FORT_QWP.move_by(self.qwp_degrees_to_move_by) # degrees
+        delay(10*ms)
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+        load_MOT_and_FORT(self)
+
+        delay(0.1*ms)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+
+        # set the FORT AOM to the science setting. this is only valid if we have run
+        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
+
+        self.dds_FORT.set(frequency=self.f_FORT,
+                                amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
+
+        if not self.no_first_shot:
+            # take the first shot
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+            self.counts = self.ttl0.count(t_gate_end)
+            delay(1 * ms)
+            self.dds_cooling_DP.sw.off()
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        delay(self.t_delay_between_shots)
+
+        # take the second shot
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        self.counts2 = self.ttl0.count(t_gate_end)
+
+        delay(1 * ms)
+
+        end_measurement(self)
 
     self.dds_FORT.sw.off()
