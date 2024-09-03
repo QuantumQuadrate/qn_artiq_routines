@@ -598,6 +598,20 @@ class BaseExperiment:
 
         logging.debug("base prepare - done")
 
+    def initialize_datasets(self):
+        """
+        Initialize datasets which are common to many experiments
+        :return:
+        """
+        self.experiment.set_dataset("iteration", 0, broadcast=True)
+        self.experiment.set_dataset("n_measurements", self.experiment.n_measurements, broadcast=True)
+        self.experiment.set_dataset("photocounts", [0], broadcast=True)
+        self.experiment.set_dataset("photocounts2", [0], broadcast=True)
+        self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
+        self.experiment.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
+        self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
+        self.experiment.set_dataset("excitation_counts", [0], broadcast=True)
+
     @kernel
     def initialize_hardware(self):
         """

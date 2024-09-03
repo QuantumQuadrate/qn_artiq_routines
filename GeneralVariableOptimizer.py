@@ -188,16 +188,12 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.needs_fresh_build = earlier_experiments > 0
 
     def initialize_datasets(self):
+
+        self.base.initialize_datasets()
+
         self.set_dataset(self.cost_dataset,
                          [0.0],
                          broadcast=True)
-        self.set_dataset("n_measurements", self.n_measurements, broadcast=True, persist=True)
-        self.set_dataset("iteration", 0, broadcast=True)
-
-        self.set_dataset("photocounts", [0], broadcast=True)
-        self.set_dataset("photocounts2", [0], broadcast=True)
-        self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
 
         self.set_dataset("optimizer_vars_dataset", [var.name for var in self.var_and_bounds_objects], broadcast=True)
         self.set_dataset("optimizer_bounds", [(var.min_bound, var.max_bound) for
