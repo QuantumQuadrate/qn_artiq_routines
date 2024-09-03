@@ -886,6 +886,7 @@ def microwave_Rabi_experiment(self):
         ############################
         if self.t_pumping > 0.0:
             chopped_optical_pumping(self)
+            delay(0.1*ms)
 
         ############################
         # microwave phase
