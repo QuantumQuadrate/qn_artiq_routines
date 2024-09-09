@@ -368,8 +368,8 @@ class GeneralVariableOptimizer(EnvExperiment):
                                  broadcast=True,
                                  persist=True)
 
-            self.print_async("initial cost:", initial_cost)
-            self.print_async("best cost:", best_cost)
+            self.print_async("initial cost:", self.initial_cost)
+            self.print_async("best cost:", self.best_cost)
 
     def analyze(self):
         mlv.show_all_default_visualizations(self.mloop_controller)

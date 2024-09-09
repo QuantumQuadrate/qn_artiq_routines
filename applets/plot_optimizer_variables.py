@@ -1,7 +1,7 @@
 """
 Plot the values for the variables being optimized
 
-The values plotted are normalized to the very first value in the series
+The values plotted are normalized to the very first value in the series if bounds are not supplied
 
 applet command:
 python "C:\...\qn_artiq_routines\applets\plot_optimizer_variables.py"
@@ -53,16 +53,20 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             optimizer_var_data = []
             for i in range(n_variables):
-                optimizer_var_data.append(data[getattr(self.args, f"var{i}")][1][1:])
+                optimizer_var_data.append(np.array(data[getattr(self.args, f"var{i}")][1]))
                 if use_var_bounds:
-                    minb,maxb = bounds[i]
+                    minb, maxb = bounds[i]
+
+                    b = -(maxb + minb) / (maxb - minb)
+                    m = -(1 + b) / minb
+                    optimizer_var_data[i] = m*optimizer_var_data[i] + b
+
                 else:
                     sorted_data = sorted(optimizer_var_data[i])
                     minb = sorted_data[0]
                     maxb = sorted_data[-1]
-
-                optimizer_var_data[i] -= minb
-                optimizer_var_data[i] /= (maxb - minb)
+                    optimizer_var_data[i] -= optimizer_var_data[i][0]
+                    optimizer_var_data[i] /= (maxb - minb)
 
         except KeyError:
             return
@@ -89,7 +93,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                           symbolPen='w',
                           name=var_names[i])
                 if use_var_bounds:
-                    self.setYRange(-0.0, 1.0, padding=0)
+                    self.setYRange(-1.0, 1.0, padding=0)
             self.setTitle(title)
             self.addLegend()
 
