@@ -30,6 +30,7 @@ def generate_colorblind_friendly_colors(n):
     # return rgb_colors
     return [(r, g, b) for r, g, b in rgb_colors]
 
+
 class XYPlot(pyqtgraph.PlotWidget):
     def __init__(self, args):
         pyqtgraph.PlotWidget.__init__(self)
@@ -58,7 +59,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                 else:
                     sorted_data = sorted(optimizer_var_data[i])
                     minb = sorted_data[0]
-                    minb = sorted_data[-1]
+                    maxb = sorted_data[-1]
 
                 optimizer_var_data[i] -= minb
                 optimizer_var_data[i] /= (maxb - minb)
@@ -97,7 +98,7 @@ def main():
     applet = TitleApplet(XYPlot)
     applet.add_dataset("var_names", "a list of names of the variables being optimized")
     applet.add_dataset("var0", "optimizer variable 1")
-    for i in range(1, MAX_VARIABLE_NUMBER):
+    for i in range(1, MAX_VARIABLE_NUMBER+1):
         applet.add_dataset(f"var{i}", f"optimizer variable {i}", required=False)
     applet.add_dataset("var_bounds", "list of tuples specifying var bounds. "
                                      "if given, the data will be normalized to the bounds", required=False)

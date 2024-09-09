@@ -151,7 +151,7 @@ class ExperimentVariables(EnvExperiment):
 
             # Microwaves
             # assumes the microwave source is set at 6.5 GHz
-            Variable("f_microwaves_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
+            Variable("f_microwaves_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
                      "Microwaves"),
             Variable("p_microwaves", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Microwaves"),
@@ -269,7 +269,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("require_D1_lock_to_advance", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
-            Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_counts_per_s", 33000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
             Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
