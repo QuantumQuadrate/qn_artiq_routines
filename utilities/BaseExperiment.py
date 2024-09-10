@@ -421,10 +421,6 @@ class BaseExperiment:
                 self.experiment.print_async("experiment does not have variable n_measurements")
                 # logging.warn("experiment does not have variable n_measurements")
 
-            # the motorized rotator objects
-            self.experiment.FORT_HWP = KinesisMotorWrapper(conn=self.experiment.K10CR1_FORT_HWP_SN, scale='K10CR1')
-            self.experiment.FORT_QWP = KinesisMotorWrapper(conn=self.experiment.K10CR1_FORT_QWP_SN, scale='K10CR1')
-
             slow_feedback_dds_list = eval(self.experiment.slow_feedback_dds_list)
             fast_feedback_dds_list = eval(self.experiment.fast_feedback_dds_list)
 

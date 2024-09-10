@@ -249,8 +249,11 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         print('Best parameters found:')
         print(self.mloop_controller.best_params)
-        best_params = self.mloop_controller.best_params
-        self.set_experiment_variables_to_best_params(best_params)
+        # best_params = self.mloop_controller.best_params
+        # self.set_experiment_variables_to_best_params(best_params)
+
+        self.print_async("initial cost:", self.initial_cost)
+        self.print_async("best cost:", self.best_cost)
 
         # todo: set best params to dataset
 
@@ -333,6 +336,12 @@ class GeneralVariableOptimizer(EnvExperiment):
             self.append_to_dataset(self.cost_dataset, cost)
             if cost < self.best_cost:
                 self.best_cost = cost
+
+                for i in range(self.n_params):
+                    param_val = params[i]
+                    self.set_dataset(self.var_and_bounds_objects[i].name, param_val,
+                                     broadcast=True,
+                                     persist=True)
         else:
             self.set_dataset(self.cost_dataset, [cost], broadcast=True)
             self.initial_cost = cost

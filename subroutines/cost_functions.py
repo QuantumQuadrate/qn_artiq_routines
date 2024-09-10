@@ -20,6 +20,7 @@ explicitly thus allowing us to keep the interface general.
 See GeneralVariableOptimizer.py to use these functions.
 """
 
+
 @kernel
 def template_cost(self) -> TFloat:
     """
