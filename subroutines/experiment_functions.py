@@ -474,6 +474,55 @@ def measure_FORT_MM_fiber(self):
     measurement /= avgs
     self.append_to_dataset("FORT_MM_science_volts", measurement)
 
+
+# @rpc #(flags={'async'})
+# def end_measurement_update_datasets(self):
+#     if not self.no_first_shot:
+#         self.append_to_dataset('photocounts_current_iteration', self.counts)
+#
+#     self.set_dataset(self.measurements_progress, 100 * self.measurement / self.n_measurements, broadcast=True)
+#     self.append_to_dataset('photocounts2_current_iteration', self.counts2)
+#     self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
+#
+#     if self.advance:
+#         if not self.no_first_shot:
+#             self.append_to_dataset('photocounts', self.counts)
+#         self.append_to_dataset('photocounts2', self.counts2)
+#
+# @kernel
+# def end_measurement(self):
+#     """
+#     End the measurement by setting datasets and deciding whether to increment the measuement index
+#     :param self:
+#     :return measurement: TInt32, the measurement index
+#     """
+#
+#     if not self.no_first_shot:
+#         self.counts_list[self.measurement] = self.counts
+#
+#     self.counts2_list[self.measurement] = self.counts2
+#
+#     measure_FORT_MM_fiber(self)
+#
+#     self.advance = 1
+#     if self.__class__.__name__ != 'ExperimentCycler':
+#         if self.require_atom_loading_to_advance:
+#             if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+#                 self.advance *= 0
+#         if self.require_D1_lock_to_advance:
+#             self.ttl_D1_lock_monitor.sample_input()
+#             delay(0.1 * ms)
+#             laser_locked = int(1 - self.ttl_D1_lock_monitor.sample_get())
+#             self.advance *= laser_locked
+#             if not laser_locked:
+#                 logging.warning("D1 laser not locked")
+#
+#     if self.advance:
+#         self.measurement += 1
+#
+#     end_measurement_update_datasets(self)
+
+
 @kernel
 def end_measurement(self):
     """
@@ -481,6 +530,8 @@ def end_measurement(self):
     :param self:
     :return measurement: TInt32, the measurement index
     """
+
+    pass
 
     # update the datasets
     if not self.no_first_shot:
@@ -602,34 +653,47 @@ def atom_loading_experiment(self):
                      [0.0],
                      broadcast=True)
 
+    t_end = 0
+
     self.measurement = 0
-    while self.measurement < self.n_measurements:
+    # while self.measurement < self.n_measurements:
+    for measurent in range(self.n_measurements):
+
+        t = now_mu()
+        at_mu(t+1)
+        self.ttl_scope_trigger.pulse(1*ms) # diagnostic trigger
+        delay(1*ms)
+        t_start = now_mu()
+        self.print_async("end of meas. to start of next", self.core.mu_to_seconds(t_start - t_end))
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+        t_after_feedback = now_mu()
+        self.print_async("feedback duration", self.core.mu_to_seconds(t_after_feedback - t_start))
 
         load_MOT_and_FORT(self)
+        t_after_MOT = now_mu()
+
+        self.print_async("load_MOT_and_FORT duration", self.core.mu_to_seconds(t_after_MOT - t_after_feedback))
 
         delay(0.1*ms)
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
             channels=self.coil_channels)
 
-        # set the FORT AOM to the science setting. this is only valid if we have run
-        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
-
-        self.dds_FORT.set(frequency=self.f_FORT,
-                                amplitude=self.stabilizer_FORT.amplitudes[1])
-
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                                 amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
+        t_after_RO_settings = now_mu()
+        self.print_async("set RO coils/AOM", self.core.mu_to_seconds(t_after_RO_settings - t_after_MOT))
 
         if not self.no_first_shot:
             # take the first shot
+            t_before_RO1 = now_mu()
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
             self.counts = self.ttl0.count(t_gate_end)
+            self.print_async("RO1 time", self.core.mu_to_seconds(now_mu() - t_before_RO1))
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
@@ -637,17 +701,28 @@ def atom_loading_experiment(self):
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
+        t_after_FORT_drop = now_mu()
 
         delay(self.t_delay_between_shots)
 
         # take the second shot
+        at_mu(t_after_FORT_drop + self.core.seconds_to_mu(self.t_delay_between_shots))
+        t_before_RO2 = now_mu()
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
         self.counts2 = self.ttl0.count(t_gate_end)
+        t_end_RO2 = now_mu()
+        self.print_async("RO2 time", self.core.mu_to_seconds(t_end_RO2 - t_before_RO2))
+        delay(1 * ms)
 
+        delay(1 * ms)
+        self.ttl_scope_trigger.pulse(1 * ms)  # diagnostic trigger
         delay(1 * ms)
 
         end_measurement(self)
+
+        t_end = now_mu()
+        self.print_async("end of measurement", self.core.mu_to_seconds(t_end - t_end_RO2))
 
     self.dds_FORT.sw.off()
 
