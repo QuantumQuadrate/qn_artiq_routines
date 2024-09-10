@@ -73,7 +73,7 @@ from utilities.helper_functions import print_async
 class FeedbackChannel:
 
     def __init__(self, stabilizer, name, dds_obj, buffer_index, set_points, p, i, frequency, amplitude, dataset,
-                 dB_dataset, t_measure_delay, error_history_length, max_dB):
+                 dB_dataset, t_measure_delay, error_history_length, max_dB, tol=0.01):
         """
         class which defines a DDS feedback channel
 
@@ -119,6 +119,7 @@ class FeedbackChannel:
         self.max_dB = max_dB
         self.max_ampl = (2 * 50 * 10 ** (self.max_dB / 10 - 3)) ** (1 / 2)
         self.ampl_default = 0.0
+        self.tol = tol
 
     @rpc(flags={"async"})
     def print(self, x):
@@ -144,9 +145,11 @@ class FeedbackChannel:
         self.cumulative_error = sum(self.error_history_arr)
 
     @kernel
-    def feedback(self, buffer, setpoint_index=0):
+    def feedback(self, buffer, setpoint_index=0) -> TBool:
         """ feedback to this channel
         buffer: a list of length storing the measurement result from all samplers
+
+        returns True if the power is within tolerance, else False
         """
 
         measured = buffer[self.buffer_index]
@@ -162,22 +165,27 @@ class FeedbackChannel:
 
         self.set_value(measured, setpoint_index)
 
-        if ampl < 0:
-            self.amplitudes[setpoint_index] = 0.0
-        elif ampl > self.max_ampl:
-            # we either overcorrected  or there is not enough laser power right now to reach the setpoint
-            # and in either case we are now stuck because the slope changed sign, so we throw ourselves
-            # back to the bottom of the correct side of the laser power vs RF amplitude curve
-            self.amplitudes[setpoint_index] = (2 * 50 * 10 ** (-20 / 10 - 3)) ** (1 / 2)
+        if abs(1 - measured/self.set_points[setpoint_index]) >= self.tol:
 
-        else:  # valid amplitude for DDS
-            self.amplitudes[setpoint_index] = ampl
+            if ampl < 0:
+                self.amplitudes[setpoint_index] = 0.0
+            elif ampl > self.max_ampl:
+                # we either overcorrected  or there is not enough laser power right now to reach the setpoint
+                # and in either case we are now stuck because the slope changed sign, so we throw ourselves
+                # back to the bottom of the correct side of the laser power vs RF amplitude curve
+                self.amplitudes[setpoint_index] = (2 * 50 * 10 ** (-20 / 10 - 3)) ** (1 / 2)
 
-        if setpoint_index == 0:
-            self.amplitude = self.amplitudes[0] # for seamless backwards compatibility with older code
+            else:  # valid amplitude for DDS
+                self.amplitudes[setpoint_index] = ampl
 
-        # update the dds amplitude
-        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index])
+            if setpoint_index == 0:
+                self.amplitude = self.amplitudes[0] # for seamless backwards compatibility with older code
+
+            # update the dds amplitude
+            self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index])
+            return False
+        else:
+            return True
 
     @kernel
     def set_dds_to_defaults(self, setpoint_index=0):
@@ -206,6 +214,8 @@ class FeedbackChannel:
         :return:
         """
 
+        in_tol = False
+
         if not self.stabilizer.exp.enable_laser_feedback:
             monitor_only = True
 
@@ -219,7 +229,7 @@ class FeedbackChannel:
             delay(0.1 * ms)
 
             if not (self.stabilizer.dry_run or monitor_only):
-                self.feedback(self.stabilizer.measurement_array - self.stabilizer.background_array, setpoint_index)
+                in_tol = self.feedback(self.stabilizer.measurement_array - self.stabilizer.background_array, setpoint_index)
             else:
                 self.set_value((self.stabilizer.measurement_array - self.stabilizer.background_array)[
                                    self.buffer_index], setpoint_index)
@@ -500,8 +510,9 @@ class AOMPowerStabilizer:
         if not self.exp.enable_laser_feedback:
             monitor_only = True
 
-        # self.exp.ttl7.pulse(1*ms) # scope trigger
-        delay(100*ms)
+        in_tol = False
+
+        delay(1*ms)
 
         # turn off the repumps which are mixed into the cooling light
         self.exp.ttl_repump_switch.on() # block RF to the RP AOM
@@ -536,7 +547,7 @@ class AOMPowerStabilizer:
                 for ch in self.parallel_channels:
                     delay(0.1*ms)
                     if not (self.dry_run or monitor_only):
-                        ch.feedback(self.measurement_array - self.background_array)
+                        in_tol = ch.feedback(self.measurement_array - self.background_array)
                     else:
                         ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
 
@@ -567,13 +578,13 @@ class AOMPowerStabilizer:
                         delay(0.1 * ms)
 
                         if not (self.dry_run or monitor_only):
-                            ch.feedback(self.measurement_array - self.background_array)
-
+                            in_tol = ch.feedback(self.measurement_array - self.background_array)
                         else:
-
                             ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
                         if record_all_measurements:
                             self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+                        if in_tol:
+                            break
 
                     ## trigger for Andor Luca camera for independent verification of the measured signals
                     if self.exp.Luca_trigger_for_feedback_verification:
