@@ -240,6 +240,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_depumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_microwave_pulse", 100 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_pi_microwave_pulse", 1.494 * us, NumberValue, {'type': 'float', 'unit': 'us', 'ndecimals': 3}, "Timing"),
             Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_photon_collection_delay", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
