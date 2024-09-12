@@ -653,28 +653,14 @@ def atom_loading_experiment(self):
                      [0.0],
                      broadcast=True)
 
-    t_end = 0
-
     self.measurement = 0
     # while self.measurement < self.n_measurements:
     for measurent in range(self.n_measurements):
 
-        t = now_mu()
-        at_mu(t+1)
-        self.ttl_scope_trigger.pulse(1*ms) # diagnostic trigger
-        delay(1*ms)
-        t_start = now_mu()
-        self.print_async("end of meas. to start of next", self.core.mu_to_seconds(t_start - t_end))
-
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
-        t_after_feedback = now_mu()
-        self.print_async("feedback duration", self.core.mu_to_seconds(t_after_feedback - t_start))
 
         load_MOT_and_FORT(self)
-        t_after_MOT = now_mu()
-
-        self.print_async("load_MOT_and_FORT duration", self.core.mu_to_seconds(t_after_MOT - t_after_feedback))
 
         delay(0.1*ms)
         self.zotino0.set_dac(
@@ -684,16 +670,12 @@ def atom_loading_experiment(self):
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                                 amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
-        t_after_RO_settings = now_mu()
-        self.print_async("set RO coils/AOM", self.core.mu_to_seconds(t_after_RO_settings - t_after_MOT))
 
         if not self.no_first_shot:
             # take the first shot
-            t_before_RO1 = now_mu()
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
             self.counts = self.ttl0.count(t_gate_end)
-            self.print_async("RO1 time", self.core.mu_to_seconds(now_mu() - t_before_RO1))
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
@@ -701,28 +683,16 @@ def atom_loading_experiment(self):
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
-        t_after_FORT_drop = now_mu()
 
         delay(self.t_delay_between_shots)
 
         # take the second shot
-        at_mu(t_after_FORT_drop + self.core.seconds_to_mu(self.t_delay_between_shots))
-        t_before_RO2 = now_mu()
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
         self.counts2 = self.ttl0.count(t_gate_end)
-        t_end_RO2 = now_mu()
-        self.print_async("RO2 time", self.core.mu_to_seconds(t_end_RO2 - t_before_RO2))
-        delay(1 * ms)
-
-        delay(1 * ms)
-        self.ttl_scope_trigger.pulse(1 * ms)  # diagnostic trigger
         delay(1 * ms)
 
         end_measurement(self)
-
-        t_end = now_mu()
-        self.print_async("end of measurement", self.core.mu_to_seconds(t_end - t_end_RO2))
 
     self.dds_FORT.sw.off()
 
