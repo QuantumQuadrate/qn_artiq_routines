@@ -119,10 +119,9 @@ class ExperimentCycler(EnvExperiment):
                 self.core.comm.close()  # put the hardware in a safe state before checking pause
                 self.scheduler.pause()  # check if we need to run a new experiment*
 
-                # todo: build executes but doesn't seem to update the parameters used by the
-                #  experiment. I tried updating n_measurements
                 # after pause is done, we want to re-initialize variables in case they have changed
-                # self.base.build()
+                self.base.build()
+                self.base.prepare()
 
             iteration += 1
             self.set_dataset("iteration", iteration, broadcast=True)
