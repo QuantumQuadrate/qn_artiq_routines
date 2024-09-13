@@ -11,8 +11,6 @@ sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.conversions import dB_to_V_kernel as dB_to_V
 
-# todo: think about how to implement the experiment functions in a wrapper.
-#  need to pass the experiments by reference.
 """
 Table of contents:
 1. Subroutine functions
@@ -354,8 +352,8 @@ def record_chopped_optical_pumping(self):
     assert n_chop_cycles >= 1, "t_pumping should be > t_OP_chop_period"
 
     # todo: use duty cycle ExperimentVariables
-    OP_pulse = self.t_OP_chop_period * 0.3
-    FORT_pulse = self.t_OP_chop_period - OP_pulse
+    OP_pulse = self.t_OP_chop_period * self.duty_cycle_OP
+    FORT_pulse = self.t_OP_chop_period * self.duty_cycle_FORT
 
     n_depump_chop_cycles = int(self.t_depumping /self.t_OP_chop_period)
 
@@ -371,7 +369,7 @@ def record_chopped_optical_pumping(self):
         OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
         FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
         FORT_on_mu = self.core.seconds_to_mu(0.0)
-        OP_on_mu = self.core.seconds_to_mu(0.5 * us)
+        OP_on_mu = self.core.seconds_to_mu(self.t_OP_chop_offset)
 
         if not (self.pumping_light_off or self.D1_off_in_OP_phase):
             for i in range(n_chop_cycles):
@@ -465,12 +463,75 @@ def chopped_optical_pumping(self):
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 @kernel
+def measure_FORT_MM_fiber(self):
+    measurement_buf = np.array([0.0]*8)
+    measurement = 0.0
+    avgs = 50
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        measurement += measurement_buf[self.FORT_MM_sampler_ch]
+        delay(0.1*ms)
+    measurement /= avgs
+    self.append_to_dataset("FORT_MM_science_volts", measurement)
+
+
+# @rpc #(flags={'async'})
+# def end_measurement_update_datasets(self):
+#     if not self.no_first_shot:
+#         self.append_to_dataset('photocounts_current_iteration', self.counts)
+#
+#     self.set_dataset(self.measurements_progress, 100 * self.measurement / self.n_measurements, broadcast=True)
+#     self.append_to_dataset('photocounts2_current_iteration', self.counts2)
+#     self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
+#
+#     if self.advance:
+#         if not self.no_first_shot:
+#             self.append_to_dataset('photocounts', self.counts)
+#         self.append_to_dataset('photocounts2', self.counts2)
+#
+# @kernel
+# def end_measurement(self):
+#     """
+#     End the measurement by setting datasets and deciding whether to increment the measuement index
+#     :param self:
+#     :return measurement: TInt32, the measurement index
+#     """
+#
+#     if not self.no_first_shot:
+#         self.counts_list[self.measurement] = self.counts
+#
+#     self.counts2_list[self.measurement] = self.counts2
+#
+#     measure_FORT_MM_fiber(self)
+#
+#     self.advance = 1
+#     if self.__class__.__name__ != 'ExperimentCycler':
+#         if self.require_atom_loading_to_advance:
+#             if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+#                 self.advance *= 0
+#         if self.require_D1_lock_to_advance:
+#             self.ttl_D1_lock_monitor.sample_input()
+#             delay(0.1 * ms)
+#             laser_locked = int(1 - self.ttl_D1_lock_monitor.sample_get())
+#             self.advance *= laser_locked
+#             if not laser_locked:
+#                 logging.warning("D1 laser not locked")
+#
+#     if self.advance:
+#         self.measurement += 1
+#
+#     end_measurement_update_datasets(self)
+
+
+@kernel
 def end_measurement(self):
     """
     End the measurement by setting datasets and deciding whether to increment the measuement index
     :param self:
     :return measurement: TInt32, the measurement index
     """
+
+    pass
 
     # update the datasets
     if not self.no_first_shot:
@@ -483,6 +544,7 @@ def end_measurement(self):
     self.counts2_list[self.measurement] = self.counts2
 
     self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
+    measure_FORT_MM_fiber(self)
 
     advance = 1
     if self.__class__.__name__ != 'ExperimentCycler':
@@ -592,7 +654,8 @@ def atom_loading_experiment(self):
                      broadcast=True)
 
     self.measurement = 0
-    while self.measurement < self.n_measurements:
+    # while self.measurement < self.n_measurements:
+    for measurent in range(self.n_measurements):
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
@@ -603,12 +666,6 @@ def atom_loading_experiment(self):
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
             channels=self.coil_channels)
-
-        # set the FORT AOM to the science setting. this is only valid if we have run
-        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
-
-        self.dds_FORT.set(frequency=self.f_FORT,
-                                amplitude=self.stabilizer_FORT.amplitudes[1])
 
         # set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -633,7 +690,6 @@ def atom_loading_experiment(self):
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
         self.counts2 = self.ttl0.count(t_gate_end)
-
         delay(1 * ms)
 
         end_measurement(self)
@@ -836,13 +892,20 @@ def microwave_Rabi_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
+    delay(10 * ms)
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(10 * ms)
     self.dds_microwaves.sw.on()
+    delay(100 * ms)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+            # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
+            self.dds_microwaves.sw.on()
 
         load_MOT_and_FORT(self)
 
@@ -879,6 +942,7 @@ def microwave_Rabi_experiment(self):
         ############################
         if self.t_pumping > 0.0:
             chopped_optical_pumping(self)
+            delay(0.1*ms)
 
         ############################
         # microwave phase
@@ -901,7 +965,6 @@ def microwave_Rabi_experiment(self):
 
             self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-            self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
             self.ttl_microwave_switch.off()
 
             delay(self.t_microwave_pulse)
@@ -1217,5 +1280,81 @@ def FORT_monitoring_with_Luca_experiment(self):
         self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
         self.append_to_dataset("APD_FORT_volts_loading", self.APD_FORT_volts_loading)
         self.append_to_dataset("APD_FORT_volts_science", self.APD_FORT_volts_science)
+
+    self.dds_FORT.sw.off()
+
+@kernel
+def atom_loading_and_waveplate_rotation_experiment(self):
+    """
+    The most basic two-readout single atom experiment.
+
+    Load a MOT, load a single atom, readout, wait self.t_delay_between_shots, readout again.
+
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+
+    self.counts = 0
+    self.counts2 = 0
+
+    self.require_D1_lock_to_advance = False # override experiment variable
+    self.require_atom_loading_to_advance = False # override experiment variable
+
+    self.set_dataset(self.count_rate_dataset,
+                     [0.0],
+                     broadcast=True)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        self.FORT_HWP.move_by(self.hwp_degrees_to_move_by) # degrees
+        self.FORT_QWP.move_by(self.qwp_degrees_to_move_by) # degrees
+        delay(10*ms)
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+        load_MOT_and_FORT(self)
+
+        delay(0.1*ms)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+
+        # set the FORT AOM to the science setting. this is only valid if we have run
+        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
+
+        self.dds_FORT.set(frequency=self.f_FORT,
+                                amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
+
+        if not self.no_first_shot:
+            # take the first shot
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+            self.counts = self.ttl0.count(t_gate_end)
+            delay(1 * ms)
+            self.dds_cooling_DP.sw.off()
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        delay(self.t_delay_between_shots)
+
+        # take the second shot
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        self.counts2 = self.ttl0.count(t_gate_end)
+
+        delay(1 * ms)
+
+        end_measurement(self)
 
     self.dds_FORT.sw.off()

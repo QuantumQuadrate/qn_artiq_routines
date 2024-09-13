@@ -25,6 +25,8 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A4_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "Fiber AOMs")
+        self.setattr_argument("microwave_dds_ON", BooleanValue(default=False), "Microwaves")
+        self.setattr_argument("yes_Im_sure_I_want_the_microwave_dds_ON", BooleanValue(default=False), "Microwaves")
         self.setattr_argument("enable_laser_feedback_loop", BooleanValue(default=True),"Laser power stabilization")
         self.setattr_argument("run_laser_feedback_once", BooleanValue(default=False),"Laser power stabilization")
         self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
@@ -118,6 +120,13 @@ class AOMsCoils(EnvExperiment):
         else:
             self.dds_AOM_A5.sw.off()
 
+        delay(1*ms)
+        if self.microwave_dds_ON and self.yes_Im_sure_I_want_the_microwave_dds_ON:
+            self.dds_microwaves.sw.on()
+            self.ttl_microwave_switch.off()
+        else:
+            self.dds_microwaves.sw.off()
+            self.ttl_microwave_switch.on()
         delay(1*ms)
 
     @kernel

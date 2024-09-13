@@ -7,15 +7,16 @@ over any set of ExperimentVariables
 Example strings for the variables_and_bounds argument:
     [('AZ_bottom_volts_RO',-0.4*V,0.0*V,'diff'),('AZ_top_volts_RO',-0.1*V,0.3*V,'diff'),
 ('AX_volts_RO',-0.1*V,0.3*V,'diff'),('AY_volts_RO',-0.1*V,0.3*V,'diff')]
+
     [('f_cooling_DP_RO',-2*MHz,2*MHz,'diff'),('p_cooling_DP_RO',0.75,1.0,'abs')]
     [('p_cooling_DP_PGC',0.1,1.0,'abs'),('f_cooling_DP_PGC',115*MHz,125*MHz,'abs'),
 ('t_PGC_in_MOT',1*ms,40*ms,'abs')]
 
-    [('set_point_PD1_AOM_A1',0.5,1.1,'perc'),('set_point_PD2_AOM_A2',0.5,1.1,'perc'),
-('set_point_PD3_AOM_A3',0.5,1.1,'perc'),('set_point_PD4_AOM_A4',0.5,1.1,'perc'),
-('set_point_PD5_AOM_A5',0.5,1.1,'perc'),('set_point_PD6_AOM_A6',0.5,1.1,'perc'),
-('AZ_bottom_MOT',-0.2*V,0.2*V,'diff'),('AZ_top_MOT',-0.2*V,0.2*V,'diff'),
-('AX_volts_MOT',-0.2*V,0.2*V,'diff'),('AY_volts_MOT',-0.2*V,0.2*V,'diff')]
+    [('set_point_PD1_AOM_A1',0.95,1.05,'perc'),('set_point_PD2_AOM_A2',0.95,1.05,'perc'),
+('set_point_PD3_AOM_A3',0.95,1.05,'perc'),('set_point_PD4_AOM_A4',0.95,1.05,'perc'),
+('set_point_PD5_AOM_A5',0.95,1.05,'perc'),('set_point_PD6_AOM_A6',0.95,1.05,'perc'),
+('AZ_bottom_volts_MOT',-0.05*V,0.05*V,'diff'),('AZ_top_volts_MOT',-0.05*V,0.05*V,'diff'),
+('AX_volts_MOT',-0.05*V,0.05*V,'diff'),('AY_volts_MOT',-0.05*V,0.05*V,'diff')]
 
 See also GeneralVariableScan and AtomLoadingOptimizerMLOOP
 """
@@ -42,7 +43,6 @@ from subroutines.experiment_functions import *
 from subroutines.cost_functions import *
 import subroutines.experiment_functions as exp_functions
 import subroutines.cost_functions as cost_functions
-from subroutines.aom_feedback import AOMPowerStabilizer
 
 
 class OptimizerVariable:
@@ -53,7 +53,7 @@ class OptimizerVariable:
     def __init__(self, var_and_bounds_tuple, experiment):
         self.name = var_and_bounds_tuple[0]
         assert hasattr(experiment, self.name), (f"There is no ExperimentVariable " + self.name +
-                                                  ". Did you mistype it?")
+                                                ". Did you mistype it?")
         self.is_differential = 1 if var_and_bounds_tuple[3] == 'diff' else 0
         self.is_percentage = 1 if var_and_bounds_tuple[3] == 'perc' else 0
         self.default_value = getattr(experiment, self.name)
@@ -63,6 +63,7 @@ class OptimizerVariable:
         else:
             self.min_bound = var_and_bounds_tuple[1] + self.is_differential*self.default_value
             self.max_bound = var_and_bounds_tuple[2] + self.is_differential*self.default_value
+
 
 # Declare your custom class that inherits from the Interface class
 class MLOOPInterface(mli.Interface):
@@ -74,7 +75,7 @@ class MLOOPInterface(mli.Interface):
 
     # You must include the get_next_cost_dict method in your class
     # this method is called whenever M-LOOP wants to run an experiment
-    def get_next_cost_dict(self, params_dict): # we'll redefine this function later
+    def get_next_cost_dict(self, params_dict):  # we'll redefine this function later
         pass
 
 
@@ -115,7 +116,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         # is False. You can just set it here to guarantee the behavior you want, without changing
         # the value stored in the dataset, so subsequent experiments will be unaffected. This leads
         # to fewer errors overall.
-        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
+        self.setattr_argument('override_ExperimentVariables', StringValue("{'require_atom_loading_to_advance':False}"))
 
         group1 = "optimizer settings"
         self.setattr_argument("max_runs", NumberValue(70, type='int', scale=1, ndecimals=0, step=1), group1)
@@ -130,8 +131,8 @@ class GeneralVariableOptimizer(EnvExperiment):
     def prepare(self):
         self.base.prepare()
 
-        self.atom_counts_threshold = self.single_atom_counts_per_s*self.t_SPCM_first_shot
-        self.atom_counts2_threshold = self.single_atom_counts_per_s*self.t_SPCM_second_shot
+        self.single_atom_counts_threshold = self.single_atom_counts_per_s*self.t_SPCM_first_shot
+        self.single_atom_counts2_threshold = self.single_atom_counts_per_s*self.t_SPCM_second_shot
 
         self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
         assert type(self.override_ExperimentVariables_dict) == dict, \
@@ -157,6 +158,8 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.measurement = 0
         self.iteration = 0
         self.cost_dataset = "cost"
+        self.initial_cost = 0
+        self.best_cost = 0
 
         # instantiate the M-LOOP interface
         interface = MLOOPInterface()
@@ -188,16 +191,12 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.needs_fresh_build = earlier_experiments > 0
 
     def initialize_datasets(self):
+
+        self.base.initialize_datasets()
+
         self.set_dataset(self.cost_dataset,
                          [0.0],
                          broadcast=True)
-        self.set_dataset("n_measurements", self.n_measurements, broadcast=True, persist=True)
-        self.set_dataset("iteration", 0, broadcast=True)
-
-        self.set_dataset("photocounts", [0], broadcast=True)
-        self.set_dataset("photocounts2", [0], broadcast=True)
-        self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
 
         self.set_dataset("optimizer_vars_dataset", [var.name for var in self.var_and_bounds_objects], broadcast=True)
         self.set_dataset("optimizer_bounds", [(var.min_bound, var.max_bound) for
@@ -243,12 +242,18 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.warm_up()
         self.initialize_hardware()
 
+        # params is ignored when checking the initial cost
+        cost = self.optimization_routine(params=[0.0]*self.n_params, check_initial_cost=True)
+
         self.mloop_controller.optimize()
 
         print('Best parameters found:')
         print(self.mloop_controller.best_params)
-        best_params = self.mloop_controller.best_params
-        self.set_experiment_variables_to_best_params(best_params)
+        # best_params = self.mloop_controller.best_params
+        # self.set_experiment_variables_to_best_params(best_params)
+
+        self.print_async("initial cost:", self.initial_cost)
+        self.print_async("best cost:", self.best_cost)
 
         # todo: set best params to dataset
 
@@ -291,7 +296,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         return self.cost_function()
 
     # todo should check if the cost has to be int
-    def optimization_routine(self, params: TArray(TFloat)) -> TInt32:
+    def optimization_routine(self, params: TArray(TFloat), check_initial_cost=False) -> TInt32:
         """
         the function that will be called by the optimizer.
 
@@ -299,6 +304,9 @@ class GeneralVariableOptimizer(EnvExperiment):
         method.
 
         params: array of float values which we are trying to optimize
+        check_initial_cost: boolean, default False. If true, evaluate the cost using the default values for the
+            experiment variables we're trying to optimize. this will allow us to see if the optimizer has made
+            any improvement.
         return:
             cost: the cost for the optimizer
         """
@@ -306,10 +314,13 @@ class GeneralVariableOptimizer(EnvExperiment):
         # todo: set the experiment variables from params. see GeneralVariableScan
 
         for i in range(self.n_params):
-            param_val = params[i]
-            setattr(self, self.var_and_bounds_objects[i].name, param_val)
-            # todo broadcast the values so we can see what's going on
-            self.append_to_dataset(self.optimizer_var_datasets[i], param_val)
+            if not check_initial_cost:
+                param_val = params[i]
+                setattr(self, self.var_and_bounds_objects[i].name, param_val)
+                self.append_to_dataset(self.optimizer_var_datasets[i], param_val)
+            else:
+                self.set_dataset(self.optimizer_var_datasets[i], [self.var_and_bounds_objects[i].default_value],
+                                 broadcast=True)
 
         self.initialize_hardware()
         self.reset_datasets()
@@ -321,7 +332,22 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.set_dataset("iteration", self.iteration, broadcast=True)
 
         cost = self.get_cost()
-        self.append_to_dataset(self.cost_dataset, cost)
+        if not check_initial_cost:
+            self.append_to_dataset(self.cost_dataset, cost)
+            if cost < self.best_cost:
+                self.best_cost = cost
+                self.print_async("new best cost:", self.best_cost)
+
+                for i in range(self.n_params):
+                    param_val = params[i]
+                    self.set_dataset(self.var_and_bounds_objects[i].name, float(param_val),
+                                     broadcast=True,
+                                     persist=True)
+                    self.print_async(self.var_and_bounds_objects[i].name, param_val)
+
+        else:
+            self.set_dataset(self.cost_dataset, [cost], broadcast=True)
+            self.initial_cost = cost
 
         # write the h5 file here in case we want to abort the experiment early
         self.write_results({'name': self.experiment_name[:-11] + "_optimized_for_" + self.cost_name[:-5]})
@@ -330,7 +356,7 @@ class GeneralVariableOptimizer(EnvExperiment):
 
     # this is fine for atom retention experiments, which is nearly
     # all experiments
-    def get_next_cost_dict_for_mloop(self,params_dict):
+    def get_next_cost_dict_for_mloop(self, params_dict):
 
         # Get parameters from the provided dictionary
         params = params_dict['params']
@@ -342,16 +368,20 @@ class GeneralVariableOptimizer(EnvExperiment):
         cost_dict = {'cost': cost, 'uncer': uncertainty}
         return cost_dict
 
-    @kernel # shouldn't need to run this on the kernel
+    @kernel  # shouldn't need to run this on the kernel
     def set_experiment_variables_to_best_params(self, best_params: TArray(TFloat)):
         self.core.reset()
         delay(1 * ms)
 
-        for i in range(self.n_params):
-            param_val = best_params[i]
-            self.set_dataset(self.var_and_bounds_objects[i].name, param_val,
-                             broadcast=True,
-                             persist=True)
+        if self.best_cost < self.initial_cost:
+            for i in range(self.n_params):
+                param_val = best_params[i]
+                self.set_dataset(self.var_and_bounds_objects[i].name, param_val,
+                                 broadcast=True,
+                                 persist=True)
+
+            self.print_async("initial cost:", self.initial_cost)
+            self.print_async("best cost:", self.best_cost)
 
     def analyze(self):
         mlv.show_all_default_visualizations(self.mloop_controller)

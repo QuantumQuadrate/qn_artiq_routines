@@ -151,7 +151,7 @@ class ExperimentVariables(EnvExperiment):
 
             # Microwaves
             # assumes the microwave source is set at 6.5 GHz
-            Variable("f_microwaves_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
+            Variable("f_microwaves_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
                      "Microwaves"),
             Variable("p_microwaves", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Microwaves"),
@@ -240,11 +240,13 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_depumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_microwave_pulse", 100 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_pi_microwave_pulse", 1.494 * us, NumberValue, {'type': 'float', 'unit': 'us', 'ndecimals': 3}, "Timing"),
             Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_photon_collection_delay", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_UV_pulse", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_OP_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_OP_chop_offset", 0.5 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_BA_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("duty_cycle_OP", 0.35, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                              'scale': 1, 'ndecimals': 2}, "Timing"),
@@ -268,7 +270,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("require_D1_lock_to_advance", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
-            Variable("single_atom_counts_per_s", 8000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_counts_per_s", 33000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
             Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
@@ -288,6 +290,8 @@ class ExperimentVariables(EnvExperiment):
                      "Plotting"),
             Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
                      'step': 1}, "Plotting"),
+            Variable("FORT_MM_monitor_sci_ref_volts", 0.25, NumberValue, {'type': 'float', 'ndecimals': 3, 'scale': 1,
+                                                                          'step': 0.05}, "Plotting"),
             Variable("second_shot_hist_color", 'r', StringValue, {}, "Plotting"),
 
             # Laser feedback
@@ -311,6 +315,31 @@ class ExperimentVariables(EnvExperiment):
                      "Rigol DG1022Z settings"),
             Variable("f_Rigol_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
+            # Thorlabs Devices
+            Variable("K10CR1_FORT_HWP_SN", 55000759, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
+                     "Thorlabs Devices"),
+            Variable("K10CR1_FORT_QWP_SN", 55000740, NumberValue,
+                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Thorlabs Devices"),
+            Variable("K10CR1_780_HWP_SN", 55422044, NumberValue,
+                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Thorlabs Devices"),
+            Variable("K10CR1_780_QWP_SN", 55420984, NumberValue,
+                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Thorlabs Devices"),
+            Variable("hwp_degrees_to_move_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("hwp_degrees_to_move_to", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("qwp_degrees_to_move_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("qwp_degrees_to_move_to", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices")
+
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so
