@@ -14,7 +14,7 @@ import numpy as np
 import PyQt5  # make sure pyqtgraph imports Qt5
 from PyQt5.QtCore import QTimer
 import pyqtgraph
-
+from skimage.filters import threshold_otsu
 from artiq.applets.simple import TitleApplet
 
 
@@ -32,8 +32,8 @@ class XYPlot(pyqtgraph.PlotWidget):
     def data_changed(self, data, mods, title):
 
         try: # not all of these are persistent
-            counts_shot1 = data[self.args.counts_shot1][1][1:]
-            counts_shot2 = data[self.args.counts_shot2][1][1:]
+            counts_shot1 = np.array(data[self.args.counts_shot1][1][1:])
+            counts_shot2 = np.array(data[self.args.counts_shot2][1][1:])
             measurements = data[self.args.measurements][1]
             threshold_cts_per_s = data[self.args.threshold_cts_per_s][1]
             t_exposure = data[self.args.t_exposure][1]
@@ -63,6 +63,15 @@ class XYPlot(pyqtgraph.PlotWidget):
                         shot2 = counts_shot2[i * measurements:(i + 1) * measurements]
                         atoms_loaded = [x > cutoff for x in shot1]
                         n_atoms_loaded = sum(atoms_loaded)
+                        loading_fraction = n_atoms_loaded / measurements
+                        print(loading_fraction > 0.1)
+
+                        if loading_fraction > 0.1:  # apparent very low rate loading might be wrongly classified background
+                            cutoff = threshold_otsu(shot1)
+                            atoms_loaded = [x > cutoff for x in shot1]
+                            n_atoms_loaded = sum(atoms_loaded)
+                            loading_fraction = n_atoms_loaded / measurements
+
                         n_atoms_loaded_array[i] = n_atoms_loaded
                         atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
                         loading_fraction = n_atoms_loaded / measurements
