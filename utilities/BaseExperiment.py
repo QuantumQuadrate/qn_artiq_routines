@@ -112,6 +112,8 @@ class BaseExperiment:
         self.experiment.counts2 = 0
         self.experiment.counts_FORT_science = 0
         self.experiment.measurement = 0
+        self.experiment.ro_dma_handle = (np.int32(0), np.int64(0), np.int32(0))
+        self.experiment.ro_dma_handle2 = (np.int32(0), np.int64(0), np.int32(0))
 
         if self.node == "alice":
             # devices without nicknames. core should come first

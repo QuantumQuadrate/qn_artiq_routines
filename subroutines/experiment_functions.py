@@ -238,6 +238,145 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.dds_cooling_DP.sw.off()
 
 @kernel
+def first_shot(self):
+    """
+    Fluorescence readout of the atom with an SPCM
+    :param self:
+    :return:
+    """
+
+    ro_dma_handle = self.core_dma.get_handle("chopped_readout")
+    delay(10*ms)
+
+    # todo set RO coils here
+
+    self.ttl_repump_switch.off()  # turns the RP AOM on
+    self.dds_cooling_DP.sw.off() # the chop sequence likes to turn the FORT off
+
+    delay(1*ms)
+    self.ttl7.pulse(100*us)
+    self.dds_FORT.sw.on() # the chop sequence likes to turn the FORT off
+
+    delay(0.1*ms)
+    if self.use_chopped_readout:
+
+        # we want to initiate the chop playback and read in detector clicks while the chop sequence is playing.
+        # the ttl.gate_rising(duration) function is equivalent to:
+        #     ttl._set_sensitivity(1)
+        #     delay(duration)
+        #     ttl._set_sensitivity(0)
+        #     return now_mu()
+        #
+        # we want the dma playback to happen during the gating, so we call the _set_sensitivity functions directly
+
+        self.ttl0._set_sensitivity(1)
+        self.core_dma.playback_handle(ro_dma_handle)
+        self.ttl0._set_sensitivity(0)
+        self.counts = self.ttl0.count(now_mu())
+
+    else:
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+        self.counts = self.ttl0.count(t_gate_end)
+
+    delay(1 * ms)
+    self.dds_cooling_DP.sw.off()
+
+    delay(100*us) # ensure the atoms are left in F=2, which is helpful for testing the blow-away
+    self.ttl_repump_switch.on()  # turns off the RP AOM
+
+
+
+@kernel
+def second_shot(self):
+    """
+    Fluorescence readout of the atom with an SPCM
+    :param self:
+    :return:
+    """
+
+    # todo: we should record a dedicated second readout which uses the second shot time
+    # ro_dma_handle = self.core_dma.get_handle("chopped_readout2")
+
+    # todo replace first shot with second shot variables
+
+    # todo set RO coils here
+
+    self.ttl_repump_switch.off()  # turns the RP AOM on
+    # self.dds_cooling_DP.sw.off()
+
+    # delay(1 * ms)
+    # self.ttl7.pulse(100 * us)
+    # self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
+
+    delay(0.1 * ms)
+    if self.use_chopped_readout:
+
+        # we want to initiate the chop playback and read in detector clicks while the chop sequence is playing.
+        # the ttl.gate_rising(duration) function is equivalent to:
+        #     ttl._set_sensitivity(1)
+        #     delay(duration)
+        #     ttl._set_sensitivity(0)
+        #     return now_mu()
+        #
+        # we want the dma playback to happen during the gating, so we call the _set_sensitivity functions directly
+        self.ttl0._set_sensitivity(1)
+        self.core_dma.playback_handle(self.ro_dma_handle2)
+        self.ttl0._set_sensitivity(0)
+        self.counts2 = self.ttl0.count(now_mu())
+        delay(1 * ms)
+        # self.dds_cooling_DP.sw.off()
+    else:
+        self.dds_cooling_DP.sw.on()
+        t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        self.counts2 = self.ttl0.count(t_gate_end)
+        delay(1 * ms)
+        self.dds_cooling_DP.sw.off()
+
+    # self.ttl_repump_switch.off()  # turns off the RP AOM
+
+@kernel
+def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
+    """
+
+    :param self:
+    :return:
+    """
+    # todo. copy OP chopping of the FORT but also chop the SPCM gate
+
+    n_chop_cycles = int(readout_duration / self.t_RO_chop_period + 0.5)
+    assert n_chop_cycles >= 1, "t_SPCM_first_shot should be > t_RO_chop_period"
+
+    RO_pulse = self.t_RO_chop_period * self.duty_cycle_RO
+    FORT_pulse = self.t_RO_chop_period * self.duty_cycle_FORT
+
+    self.core.reset()
+
+    with self.core_dma.record(label):
+
+        start = now_mu()
+        period_mu = self.core.seconds_to_mu(self.t_RO_chop_period)
+
+        RO_pulse_length_mu = self.core.seconds_to_mu(RO_pulse)
+        FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
+        FORT_on_mu = self.core.seconds_to_mu(0.0)
+        RO_on_mu = self.core.seconds_to_mu(0.5 * us)
+
+        for i in range(n_chop_cycles):
+            at_mu(start + i * period_mu + FORT_on_mu)
+            self.dds_FORT.sw.off()
+            delay_mu(RO_pulse_length_mu)
+            self.dds_FORT.sw.on()
+            at_mu(start + i * period_mu + RO_on_mu)
+            with parallel:
+                self.ttl_SPCM_gate.off() # unblocks the SPCM output
+                self.dds_cooling_DP.sw.on()
+            delay_mu(RO_pulse_length_mu)
+            with parallel:
+                self.dds_cooling_DP.sw.off()
+                self.ttl_SPCM_gate.on()  # blocks the SPCM output
+
+@kernel
 def record_chopped_blow_away(self):
     """
 
@@ -697,6 +836,78 @@ def atom_loading_experiment(self):
     self.dds_FORT.sw.off()
 
 @kernel
+def atom_loading_with_chopped_RO_experiment(self):
+    """
+    The most basic two-readout single atom experiment.
+
+    Load a MOT, load a single atom, readout, wait self.t_delay_between_shots, readout again.
+
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+
+    self.counts = 0
+    self.counts2 = 0
+
+    self.require_D1_lock_to_advance = False # override experiment variable
+
+    self.set_dataset(self.count_rate_dataset,
+                     [0.0],
+                     broadcast=True)
+
+    # record_chopped_readout(self, "chopped_readout")
+    record_chopped_readout(self, readout_duration=self.t_SPCM_second_shot,
+                           label="chopped_readout2")
+    self.ro_dma_handle2 = self.core_dma.get_handle("chopped_readout2")
+
+    delay(100 * ms)
+
+    self.measurement = 0
+    # while self.measurement < self.n_measurements:
+    for measurent in range(self.n_measurements):
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+        load_MOT_and_FORT(self)
+
+        delay(0.1*ms)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+
+        # set the cooling DP AOM to the readout settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
+
+        if not self.no_first_shot:
+            self.ttl_repump_switch.off()  # turns off the RP AOM
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
+            self.counts = self.ttl0.count(t_gate_end)
+            delay(1 * ms)
+            # self.dds_cooling_DP.sw.off()
+            # delay(100*us)
+            # self.ttl_repump_switch.on()  # turns the RP AOM off
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        delay(self.t_delay_between_shots)
+
+        # take the second shot
+        second_shot(self)
+        delay(10*ms)
+
+        end_measurement(self)
+
+    self.dds_FORT.sw.off()
+
+@kernel
 def trap_frequency_experiment(self):
     """
     For spectroscopy of the trap vibrational frequencies with the Rigol D11022Z function generator.
@@ -930,7 +1141,7 @@ def microwave_Rabi_experiment(self):
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
         delay(1 * ms)
-        self.ttl_repump_switch.off()  # turns the RP AOM off
+        self.ttl_repump_switch.on()  # turns the RP AOM off
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
