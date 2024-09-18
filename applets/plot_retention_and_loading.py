@@ -64,7 +64,6 @@ class XYPlot(pyqtgraph.PlotWidget):
                         atoms_loaded = [x > cutoff for x in shot1]
                         n_atoms_loaded = sum(atoms_loaded)
                         loading_fraction = n_atoms_loaded / measurements
-                        print(loading_fraction > 0.1)
 
                         if loading_fraction > 0.1:  # apparent very low rate loading might be wrongly classified background
                             cutoff = threshold_otsu(shot1)
