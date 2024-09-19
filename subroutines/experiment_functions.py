@@ -325,13 +325,13 @@ def second_shot(self):
         self.ttl0._set_sensitivity(0)
         self.counts2 = self.ttl0.count(now_mu())
         delay(1 * ms)
-        # self.dds_cooling_DP.sw.off()
     else:
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
-        self.counts2 = self.ttl0.count(t_gate_end)
+        # self.counts2 = self.ttl0.count(t_gate_end)
         delay(1 * ms)
-        self.dds_cooling_DP.sw.off()
+
+    self.dds_cooling_DP.sw.off()
 
     # self.ttl_repump_switch.off()  # turns off the RP AOM
 
@@ -360,20 +360,42 @@ def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
         RO_pulse_length_mu = self.core.seconds_to_mu(RO_pulse)
         FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
         FORT_on_mu = self.core.seconds_to_mu(0.0)
-        RO_on_mu = self.core.seconds_to_mu(0.5 * us)
+        RO_on_mu = self.core.seconds_to_mu(self.t_RO_chop_offset)
+        gate_on_mu = self.core.seconds_to_mu(self.t_RO_gate_offset)
 
-        for i in range(n_chop_cycles):
-            at_mu(start + i * period_mu + FORT_on_mu)
-            self.dds_FORT.sw.off()
-            delay_mu(RO_pulse_length_mu)
-            self.dds_FORT.sw.on()
-            at_mu(start + i * period_mu + RO_on_mu)
-            with parallel:
-                self.ttl_SPCM_gate.off() # unblocks the SPCM output
+        if not self.chopped_RO_light_off:
+            for i in range(n_chop_cycles):
+                at_mu(start + i * period_mu + FORT_on_mu)
+                self.dds_FORT.sw.off()
+                delay_mu(RO_pulse_length_mu)
+                self.dds_FORT.sw.on()
+
+                at_mu(start + i * period_mu + gate_on_mu)
+                self.ttl_SPCM_gate.off()  # unblocks the SPCM output
+                at_mu(start + i * period_mu + RO_on_mu)
                 self.dds_cooling_DP.sw.on()
-            delay_mu(RO_pulse_length_mu)
-            with parallel:
+                at_mu(start + i * period_mu + gate_on_mu + RO_pulse_length_mu)
+                self.ttl_SPCM_gate.on()  # blocks the SPCM output
+                at_mu(start + i * period_mu + RO_on_mu + RO_pulse_length_mu)
                 self.dds_cooling_DP.sw.off()
+
+                # cooling light doesn't seem synced up with SPCM gating based on photon count rate compared to RO_light_off case
+                # with parallel:
+                #     self.ttl_SPCM_gate.off() # unblocks the SPCM output
+                #     self.dds_cooling_DP.sw.on()
+                # delay_mu(RO_pulse_length_mu)
+                # with parallel:
+                #     self.dds_cooling_DP.sw.off()
+                #     self.ttl_SPCM_gate.on()  # blocks the SPCM output
+        else:
+            for i in range(n_chop_cycles):
+                at_mu(start + i * period_mu + FORT_on_mu)
+                self.dds_FORT.sw.off()
+                delay_mu(RO_pulse_length_mu)
+                self.dds_FORT.sw.on()
+                at_mu(start + i * period_mu + gate_on_mu)
+                self.ttl_SPCM_gate.off()  # unblocks the SPCM output
+                delay_mu(RO_pulse_length_mu)
                 self.ttl_SPCM_gate.on()  # blocks the SPCM output
 
 @kernel
@@ -384,11 +406,7 @@ def record_chopped_blow_away(self):
     :return:
     """
 
-    # todo: change OP -> BA
-
     n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
-    # self.print_async("blowaway cycles:", n_chop_cycles)
-
     assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
 
     BA_pulse = self.t_BA_chop_period * 0.35
@@ -888,9 +906,9 @@ def atom_loading_with_chopped_RO_experiment(self):
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
             self.counts = self.ttl0.count(t_gate_end)
             delay(1 * ms)
-            # self.dds_cooling_DP.sw.off()
-            # delay(100*us)
-            # self.ttl_repump_switch.on()  # turns the RP AOM off
+            self.dds_cooling_DP.sw.off()
+            delay(100*us)
+            self.ttl_repump_switch.on()  # turns the RP AOM off
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -901,7 +919,14 @@ def atom_loading_with_chopped_RO_experiment(self):
 
         # take the second shot
         second_shot(self)
-        delay(10*ms)
+
+        delay(1*ms)
+        # take the second shot
+        # self.dds_cooling_DP.sw.on()
+        # t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
+        # self.counts2 = self.ttl0.count(t_gate_end)
+        # delay(1 * ms)
+        # delay(10*ms)
 
         end_measurement(self)
 

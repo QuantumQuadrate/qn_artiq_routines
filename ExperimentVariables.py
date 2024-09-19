@@ -253,7 +253,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("duty_cycle_FORT", 0.65, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                           'scale': 1, 'ndecimals': 2}, "Timing"),
             Variable("t_RO_chop_period", 1.5 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
-            Variable("t_RO_chop_offset", 0.5 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_RO_chop_offset", -0.2 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_RO_gate_offset", -0.2 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("duty_cycle_RO", 0.2, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                           'scale': 1, 'ndecimals': 2}, "Timing"),
             Variable("t_excitation_pulse", 100 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
@@ -273,6 +274,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("D1_off_in_depump_phase", False, BooleanValue, {}, "Booleans"),
             Variable("require_D1_lock_to_advance", False, BooleanValue, {}, "Booleans"),
             Variable("use_chopped_readout", True, BooleanValue, {}, "Booleans"),
+            Variable("chopped_RO_light_off", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 33000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
