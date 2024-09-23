@@ -350,16 +350,17 @@ def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
 
     self.core.reset()
 
+    start = now_mu()
+    period_mu = self.core.seconds_to_mu(self.t_RO_chop_period)
+
+    # does this need to be set within the dma context manager?
+    RO_pulse_length_mu = self.core.seconds_to_mu(RO_pulse)
+    FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
+    FORT_on_mu = self.core.seconds_to_mu(0.0)
+    RO_on_mu = self.core.seconds_to_mu(self.t_RO_chop_offset)
+    gate_on_mu = self.core.seconds_to_mu(self.t_RO_gate_offset)
+
     with self.core_dma.record(label):
-
-        start = now_mu()
-        period_mu = self.core.seconds_to_mu(self.t_RO_chop_period)
-
-        RO_pulse_length_mu = self.core.seconds_to_mu(RO_pulse)
-        FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
-        FORT_on_mu = self.core.seconds_to_mu(0.0)
-        RO_on_mu = self.core.seconds_to_mu(self.t_RO_chop_offset)
-        gate_on_mu = self.core.seconds_to_mu(self.t_RO_gate_offset)
 
         # if not self.chopped_RO_light_off:
         for i in range(n_chop_cycles):
@@ -885,7 +886,7 @@ def atom_loading_with_chopped_RO_experiment(self):
     delay(100 * ms)
 
     self.measurement = 0
-    # while self.measurement < self.n_measurements:
+    # while self.measurement < self.n_measurements: # todo: restore
     for measurement in range(self.n_measurements):
 
         if self.enable_laser_feedback:
