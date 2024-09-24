@@ -129,6 +129,10 @@ class GeneralVariableScan(EnvExperiment):
         assert type(self.override_ExperimentVariables_dict) == dict, \
             "override_ExperimentVariables should be a python dictionary"
 
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
+                                                    ". Did you mistype it?")
+
         try:
             self.experiment_name = self.experiment_function
             self.experiment_function = lambda :eval(self.experiment_name)(self)
