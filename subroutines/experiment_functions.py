@@ -691,8 +691,6 @@ def end_measurement(self):
     :return measurement: TInt32, the measurement index
     """
 
-    pass
-
     # update the datasets
     if not self.no_first_shot:
         self.append_to_dataset('photocounts_current_iteration', self.counts)
