@@ -128,6 +128,7 @@ def atom_retention_and_loading_cost(self) -> TFloat:
         atoms_loaded = [x > threshold for x in shot1]
         n_atoms_loaded = sum(atoms_loaded)
         loading_fraction = n_atoms_loaded / len(shot1)
+        retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
         cost *= threshold/500
 
     # 0.6 is probably the best loading rate we can hope for.
@@ -149,6 +150,19 @@ def atom_retention_cost(self) -> TFloat:
     n_atoms_loaded = sum(atoms_loaded)
     atoms_retained = [x > self.single_atom_counts2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
+    loading_fraction = n_atoms_loaded/len(shot1)
+
+    # recompute the retention and loading with an Otsu threshold.
+    # this will typically give a more accurate cut-off in case the histogram cleanness or cut-off changes with the
+    # parameters we are varying. The reason we can not start with Otsu thresholding right away is that it would
+    # still return a cut-off even if we load no atoms, and the cut-off would just bisect the background mode. Put
+    # another way, it can not tell whether the data is bimodal or not.
+    if loading_fraction > 0.1:  # apparent very low rate loading might just be wrongly classified background
+        threshold = threshold_otsu(np.array(self.counts_list))
+        atoms_loaded = [x > threshold for x in shot1]
+        n_atoms_loaded = sum(atoms_loaded)
+        atoms_retained = [x > self.single_atom_counts2_threshold and y for x, y in zip(shot2, atoms_loaded)]
+        retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
     return -100 * retention_fraction
 
