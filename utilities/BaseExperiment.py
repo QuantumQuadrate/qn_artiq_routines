@@ -621,9 +621,12 @@ class BaseExperiment:
         self.experiment.set_dataset("excitation_counts", [0], broadcast=True)
 
     @kernel
-    def initialize_hardware(self):
+    def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):
         """
         hardware initialization and setting of ttl switches, and set datasets
+
+        'turn_off_dds_channels': will turn off all Urukul channel outputs if True (default).
+        'turn_off_zotinos': will set all Zotino channels to 0*V if True (default).
         :return:
         """
 
@@ -677,16 +680,17 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
-            # turn off all dds channels
-            for dds_ch in self.experiment.all_dds_channels:
-                dds_ch.sw.off()
-                delay(1*ms)
+            if turn_off_zotinos:
+                self.experiment.zotino0.init()
+                for zot_ch in range(32):
+                    self.experiment.zotino0.write_dac(zot_ch, 0.0)
+                    self.experiment.zotino0.load()
+                    delay(1 * ms)
 
-            self.experiment.zotino0.init()
-            for zot_ch in range(32):
-                self.experiment.zotino0.write_dac(zot_ch, 0.0)
-                self.experiment.zotino0.load()
-                delay(1*ms)
+            if turn_off_dds_channels:
+                for dds_ch in self.experiment.all_dds_channels:
+                    dds_ch.sw.off()
+                    delay(1*ms)
 
             self.experiment.zotino0.write_dac(5, 0.62)  # turn on the VCA for the FORT
             self.experiment.zotino0.load()
@@ -734,17 +738,17 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
-            # turn off all dds channels
-            for dds_ch in self.experiment.all_dds_channels:
-                dds_ch.sw.off()
-                delay(1*ms)
+            if turn_off_zotinos:
+                self.experiment.zotino0.init()
+                for zot_ch in range(32):
+                    self.experiment.zotino0.write_dac(zot_ch, 0.0)
+                    self.experiment.zotino0.load()
+                    delay(1 * ms)
 
-            # todo: turn off all Zotino channels?
-            self.experiment.zotino0.init()
-            for zot_ch in range(32):
-                self.experiment.zotino0.write_dac(zot_ch, 0.0)
-                self.experiment.zotino0.load()
-                delay(1*ms)
+            if turn_off_dds_channels:
+                for dds_ch in self.experiment.all_dds_channels:
+                    dds_ch.sw.off()
+                    delay(1 * ms)
 
             self.experiment.core.break_realtime()
         elif self.node == "two_nodes":
@@ -788,17 +792,17 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
-            # turn off all dds channels
-            for dds_ch in self.experiment.all_dds_channels:
-                dds_ch.sw.off()
-                delay(1*ms)
+            if turn_off_zotinos:
+                self.experiment.zotino0.init()
+                for zot_ch in range(32):
+                    self.experiment.zotino0.write_dac(zot_ch, 0.0)
+                    self.experiment.zotino0.load()
+                    delay(1 * ms)
 
-            # todo: turn off all Zotino channels?
-            self.experiment.zotino0.init()
-            for zot_ch in range(32):
-                self.experiment.zotino0.write_dac(zot_ch, 0.0)
-                self.experiment.zotino0.load()
-                delay(1*ms)
+            if turn_off_dds_channels:
+                for dds_ch in self.experiment.all_dds_channels:
+                    dds_ch.sw.off()
+                    delay(1 * ms)
 
             self.experiment.core.break_realtime()
         
