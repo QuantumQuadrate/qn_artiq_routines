@@ -1257,6 +1257,12 @@ def single_photon_experiment(self):
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
         delay(10*ms)
+
+        # turn on the dds, but block it with the switch. we'll pulse the RF with the switch, which is ~ 20 times faster
+        self.dds_excitation.sw.on()
+        self.ttl_excitation_switch.on()
+        delay(0.1*ms)
+
         load_MOT_and_FORT(self)
 
         delay(0.1 * ms)
@@ -1328,7 +1334,10 @@ def single_photon_experiment(self):
             for attempt in range(self.n_excitation_attempts):
                 at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
                       + self.gate_start_offset_mu)
-                self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+                # self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+                self.ttl_excitation_switch.off()
+                delay(self.t_excitation_pulse)
+                self.ttl_excitation_switch.on()
                 at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
                                                   0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
                 # fast switch to gate SPCM output

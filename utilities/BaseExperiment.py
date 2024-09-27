@@ -139,6 +139,7 @@ class BaseExperiment:
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
             self.experiment.FORT_mod_switch = self.experiment.ttl12
+            self.experiment.ttl_excitation_switch = self.experiment.ttl14
 
             # for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
