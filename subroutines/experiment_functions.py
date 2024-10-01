@@ -813,9 +813,10 @@ def atom_loading_experiment(self):
 
     self.measurement = 0
     # while self.measurement < self.n_measurements:
-    for measurent in range(self.n_measurements):
+    for measurement in range(self.n_measurements):
 
-        if self.enable_laser_feedback:
+        # if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
+        if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
@@ -887,7 +888,7 @@ def atom_loading_with_chopped_RO_experiment(self):
     # while self.measurement < self.n_measurements: # todo: restore
     for measurement in range(self.n_measurements):
 
-        if self.enable_laser_feedback:
+        if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
@@ -959,7 +960,7 @@ def trap_frequency_experiment(self):
 
         #TODO: just set the rigol frequency using pyvisa
 
-        if self.enable_laser_feedback:
+        if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
@@ -1029,7 +1030,7 @@ def optical_pumping_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        if self.enable_laser_feedback:
+        if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
@@ -1131,7 +1132,7 @@ def microwave_Rabi_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        if self.enable_laser_feedback:
+        if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
             # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
@@ -1254,7 +1255,7 @@ def single_photon_experiment(self):
 
         excitation_counts_array = [0] * self.n_excitation_cycles
 
-        if self.enable_laser_feedback:
+        if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
         delay(10*ms)
 
@@ -1279,7 +1280,7 @@ def single_photon_experiment(self):
                                 amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
 
         if not self.no_first_shot:
-            self.ttl_SPCM_gate.off()
+            # self.ttl_SPCM_gate.off()
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
             self.counts = self.ttl_SPCM0.count(t_gate_end)
@@ -1296,10 +1297,10 @@ def single_photon_experiment(self):
         self.ttl7.pulse(10 * us)  # in case we want to look at signals on an oscilloscope
 
         excitation_counts = 0
-        for excitaton_cycle in range(self.n_excitation_cycles):
+        for excitaton_cycle in range(1): #self.n_excitation_cycles):
 
-            delay(0.5*ms)
-            self.ttl_SPCM_gate.on() # blocks the SPCM output
+            # delay(0.5*ms)
+            # self.ttl_SPCM_gate.on() # blocks the SPCM output
 
             ############################
             # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -1311,52 +1312,56 @@ def single_photon_experiment(self):
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
 
-            now = now_mu()
+            # now = now_mu()
+            #
+            # at_mu(now+1)
+            # with parallel:
+            #     self.dds_FORT.sw.off()
+            #     self.dds_AOM_A1.sw.off()
+            #     self.dds_AOM_A2.sw.off()
+            #     self.dds_AOM_A3.sw.off()
+            #     self.dds_AOM_A4.sw.off()
+            #     self.dds_AOM_A5.sw.off()
+            #     self.dds_AOM_A6.sw.off()
+            # at_mu(now+10)
+            # self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            # mu_offset = 800 # accounts for various latencies
+            # at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
+            # at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
+            # t_collect = now_mu()
+            # t_gate_end = self.ttl_SPCM0.gate_rising(self.n_excitation_attempts * (self.t_excitation_pulse + 100 * ns))
+            # t_excite = now_mu()
+            # pulses_over_mu = 0
 
-            at_mu(now+1)
-            with parallel:
-                self.dds_FORT.sw.off()
-                self.dds_AOM_A1.sw.off()
-                self.dds_AOM_A2.sw.off()
-                self.dds_AOM_A3.sw.off()
-                self.dds_AOM_A4.sw.off()
-                self.dds_AOM_A5.sw.off()
-                self.dds_AOM_A6.sw.off()
-            at_mu(now+10)
-            self.ttl_repump_switch.off()  # repump AOM is on for excitation
-            mu_offset = 800 # accounts for various latencies
-            at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
-            at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
-            t_collect = now_mu()
-            t_gate_end = self.ttl_SPCM0.gate_rising(self.n_excitation_attempts * (self.t_excitation_pulse + 100 * ns))
-            t_excite = now_mu()
-            pulses_over_mu = 0
-            for attempt in range(self.n_excitation_attempts):
-                at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
-                      + self.gate_start_offset_mu)
-                # self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-                self.ttl_excitation_switch.off()
-                delay(self.t_excitation_pulse)
-                self.ttl_excitation_switch.on()
-                at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
-                                                  0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
-                # fast switch to gate SPCM output
-                self.ttl_SPCM_gate.off()
-                delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
-                self.ttl_SPCM_gate.on()
-
-                pulses_over_mu = now_mu()
-            self.ttl_repump_switch.on()
-            at_mu(pulses_over_mu - 200) # fudge factor
-            self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. signal blocked - todo: remove; unnecessary
-            self.dds_FORT.sw.on()
-            excitation_counts = self.ttl_SPCM0.count(
-                t_gate_end)  # this is the number of clicks we got over n_excitation attempts
-            excitation_counts_array[excitaton_cycle] = excitation_counts
-            delay(0.1*ms) # ttl count consumes all the RTIO slack.
+            # self.ttl_SPCM_gate.off()
+            # for attempt in range(self.n_excitation_attempts):
+            #     at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
+            #           + self.gate_start_offset_mu)
+            #     # self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+            #     self.ttl_excitation_switch.off()
+            #     delay(self.t_excitation_pulse)
+            #     self.ttl_excitation_switch.on()
+            #     at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
+            #                                       0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
+            #     # fast switch to gate SPCM output
+            #     # self.ttl_SPCM_gate.off()
+            #     # delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
+            #     # self.ttl_SPCM_gate.on()
+            # pulses_over_mu = now_mu()
+            #
+            # # self.ttl_SPCM_gate.on()
+            #
+            # self.ttl_repump_switch.on()
+            # at_mu(pulses_over_mu - 200) # fudge factor
+            # self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. signal blocked - todo: remove; unnecessary
+            # self.dds_FORT.sw.on()
+            # excitation_counts = self.ttl_SPCM0.count(
+            #     pulses_over_mu) #t_gate_end)  # this is the number of clicks we got over n_excitation attempts
+            # excitation_counts_array[excitaton_cycle] = excitation_counts
+            # delay(0.1*ms) # ttl count consumes all the RTIO slack.
 
         delay(1 * ms)
-        # self.ttl_SPCM_gate.on()  # enables the SPCM
+        # self.ttl_SPCM_gate.on()  # blocks the SPCM
 
         # turn AOMs back on
         self.dds_AOM_A1.sw.on()
@@ -1465,7 +1470,7 @@ def FORT_monitoring_with_Luca_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        if self.enable_laser_feedback:
+        if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
             self.laser_stabilizer.run(monitor_only=self.no_feedback)  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT_for_Luca_scattering_measurement(self)
@@ -1548,7 +1553,7 @@ def atom_loading_and_waveplate_rotation_experiment(self):
         self.FORT_QWP.move_by(self.qwp_degrees_to_move_by) # degrees
         delay(10*ms)
 
-        if self.enable_laser_feedback:
+        if self.enable_laser_feedback and self.measurement % self.aom_feedback_periodicity == 1:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)

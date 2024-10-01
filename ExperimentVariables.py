@@ -312,6 +312,8 @@ class ExperimentVariables(EnvExperiment):
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
+            Variable("aom_feedback_periodicity", 2, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Laser feedback"),
             Variable("Rigol_carrier_frequency", 40 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
             Variable("Rigol_FM_deviation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
