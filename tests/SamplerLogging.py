@@ -20,9 +20,18 @@ class SamplerLogging(EnvExperiment):
 
     def prepare(self):
         self.n_channels = 8
-        self.smp = np.zeros(self.n_channels, dtype=float)
-        self.avg = np.zeros(self.n_channels, dtype=float)
-        self.smpList = [self.avg]
+
+        self.smp0 = np.zeros(self.n_channels, dtype=float)
+        self.smp1 = np.zeros(self.n_channels, dtype=float)
+        self.smp2 = np.zeros(self.n_channels, dtype=float)
+
+        self.avg0 = np.zeros(self.n_channels, dtype=float)
+        self.avg1 = np.zeros(self.n_channels, dtype=float)
+        self.avg2 = np.zeros(self.n_channels, dtype=float)
+
+        self.smp0List = [self.avg0]
+        self.smp1List = [self.avg1]
+        self.smp2List = [self.avg2]
 
 
     @kernel
@@ -33,23 +42,39 @@ class SamplerLogging(EnvExperiment):
         self.sampler1.init()
         self.sampler2.init()
 
-        self.sampler0.sample(self.smp)  # runs sampler and saves to list
-        delay(1 * ms)
-        self.set_dataset("SamplerValues", self.smpList, broadcast=True, persist=True)
+        self.set_dataset("Sampler0Values", self.smp0List, broadcast=True, persist=True)
+        self.set_dataset("Sampler1Values", self.smp1List, broadcast=True, persist=True)
+        self.set_dataset("Sampler2Values", self.smp2List, broadcast=True, persist=True)
         self.set_dataset("t_step", self.t_step, broadcast=True, persist=True)
-        delay(1 * ms)
-
 
         for i in range(self.n_measure):
+            dummy0 = np.full(8, 0.0)
+            dummy1 = np.full(8, 0.0)
+            dummy2 = np.full(8, 0.0)
             delay(self.t_step * ms)
             for j in range(self.n_average):
-                self.sampler0.sample(self.smp)  # runs sampler and saves to list
-                self.avg += self.smp
+                self.sampler0.sample(self.smp0)  # runs sampler and saves to list
+                delay(0.1 * ms)
+                self.sampler1.sample(self.smp1)  # runs sampler and saves to list
+                delay(0.1 * ms)
+                self.sampler2.sample(self.smp2)  # runs sampler and saves to list
+                delay(0.1 * ms)
+                dummy0 += self.smp0
+                dummy1 += self.smp1
+                dummy2 += self.smp2
                 delay(self.t_step_in_average * ms)
-            self.avg /= self.n_average
 
-            self.append_to_dataset("SamplerValues", self.avg)
+            dummy0 /= self.n_average
+            dummy1 /= self.n_average
+            dummy2 /= self.n_average
 
+            self.avg0 = dummy0
+            self.avg1 = dummy1
+            self.avg2 = dummy2
+
+            self.append_to_dataset("Sampler0Values", self.avg0)
+            self.append_to_dataset("Sampler1Values", self.avg1)
+            self.append_to_dataset("Sampler2Values", self.avg2)
 
 
 
