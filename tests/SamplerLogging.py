@@ -13,11 +13,14 @@ class SamplerLogging(EnvExperiment):
         self.setattr_device("sampler1")
         self.setattr_device("sampler2")
 
-        self.setattr_argument("n_average", NumberValue(10, type='int', ndecimals=0, scale=1, step=1))  # averaging over n in each measurement
+        self.setattr_argument("n_average", NumberValue(5, type='int', ndecimals=0, scale=1, step=1))  # averaging over n in each measurement
+        self.setattr_argument("n_measure", NumberValue(10, type='int', ndecimals=0, scale=1, step=1))  # number of measurements
+        self.setattr_argument("t_step", NumberValue(10, type='float', unit='ms', ndecimals=0, scale=1, step=1))  # delay between measurements
 
     def prepare(self):
         self.n_channels = 8
         self.smp = [0.0] * self.n_channels
+        self.smpList = [self.smp]
 
 
     @kernel
@@ -28,10 +31,16 @@ class SamplerLogging(EnvExperiment):
         self.sampler2.init()
 
         self.sampler0.sample(self.smp)  # runs sampler and saves to list
-        self.set_dataset("SamplerValues", self.smp, broadcast=True)
+        self.set_dataset("SamplerValues", self.smpList, broadcast=True, persist=True)
+        self.set_dataset("t_step", self.t_step, broadcast=True, persist=True)
 
-        for i in range(len(self.smp)):  # loops over list of samples
-            print("ch", i, ":", self.smp[i])
-            delay(100 * ms)
+        for i in range(self.n_measure):
+            delay(self.t_step * ms)
+            self.sampler0.sample(self.smp)  # runs sampler and saves to list
+            self.append_to_dataset("SamplerValues", self.smp)
+
+
+
+
 
 
