@@ -718,8 +718,8 @@ device_db["urukul2_ch3"] = {
         "chip_select": 7,
         "cpld_device": "urukul2_cpld",
         "sw_device": "ttl_urukul2_sw3",
-        "sync_delay_seed": "eeprom_urukul2:76",
-        "io_update_delay": "eeprom_urukul2:76"
+        "sync_delay_seed": 15,
+        "io_update_delay": 0
     }
 }
 
