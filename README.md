@@ -59,7 +59,7 @@ You can do this by clicking Load HDF in your experiment's GUI and navigating to 
 ## 2. DeviceAliases
 The names of hardware channels, e.g. the Urukul DDS channels, are defined in the device database device_db.py. The names of the hardware channels by default are, e.g. urukul0_ch0, but if ~ 10 different urukul channels are in use it is useful to reference them in experiments by self-documenting names such as dds_cooling_AOM. On the other hand, it is occasionally desired to run low-level tests that unambiguously reference a particular channel rather than its function; urukul0_ch0 is more useful now. DeviceAliases give the best of both worlds.
 ### Defining device aliases
-A dictionary mapping aliases of the device channels is defined in DeviceAliases.py. Entries can be modified, added, or removed, and the new alias mapping will be used everywhere the aliases are used in your experiments. The alias map looks like this:
+A dictionary mapping aliases of the urukul channels and their defaults lives in utilities/config/your_node/. Entries can be modified, added, or removed, and the new alias mapping will be used everywhere the aliases are used in your experiments. The alias map looks like this:
 
     ALIAS_MAP = {
           "dds_FORT": "urukul0_ch0", # the key is the alias, and the value is the name given in device_db.py
@@ -69,7 +69,21 @@ A dictionary mapping aliases of the device channels is defined in DeviceAliases.
           "dds_AOM_A4": "urukul2_ch0",
           "dds_AOM_A5": "urukul2_ch1"
     }
-  
+
+and each channel that you define here must have a set of defined defaults which reference datasets (likely defined in ExperimentVariables), for example:
+
+    "DDS_DEFAULTS": {
+        "dds_FORT": {
+          "frequency": "f_FORT",
+          "power": "p_FORT_loading"
+        },
+        "dds_cooling_DP": {
+          "frequency": "f_cooling_DP_MOT",
+          "power": "p_cooling_DP_MOT"
+        }
+
+where p and f are shorthands for frequency (in Hz) and power (in dBm).
+    
 Note: you can technically do this with any of the hardware, but for now I have only used it for urukul channels, since other devices like the Sampler and Zotino are initialized by card but have many different functions for the channels on a given card. TTL channels are like urukul channels in this respect, and I plan to use aliases for them in the future: ttl_camera_trigger, ttl_debug, ttl_laser_unlocked, etc.
 
 ### Using the device aliases in experiments
@@ -146,7 +160,11 @@ Note in particular the method calls for base.build, base.prepare, base.set_datas
   5. initialize_hardware: takes care of the remaining setup of hardware, i.e. things that happen on the kernel. Urukul default settings are defined in a dictionary in DeviceAliases, and are grabbed the base experiment when the initialize_hardware method is run. Any other devices that need initialization such as Samplers or Zotinos, or setting TTL channels as input or output, must happen here.
   6. write_results: this is a method of the experiment itself, but is added in BaseExperiment for reasons. This is a redundant filesave, because sometimes ARTIQ corrupts the h5 file in the process of saving, and you lose all of your data. This is not anything to do with the data itself, but a timeout when ARTIQ is doing cleanup. To avoid running into this, you just call this, which will save the file before ARTIQ does cleanup.
   
-## IV. Subroutines
+## IV. Node specific behavior
+
+Node specific settings should be configured with the json files in utilities/config, e.g. for feedback settings and dds channel defaults. There are also several sections in BaseExperiment which are broken up into if-elif-else blocks to accomplish node-dependent setup where necessary. You should always strive to write your experiments so that node-dependent behavior is only apparent in the BaseExperiment class, rather than in the experiment itself. This helps ensure that behavior is the same between nodes and that we maximize the amount of code in common.
+
+## V. Subroutines
 The scripts in the main directory cannot be run as standalone experiments, but are
 intended to be used within a parent artiq experiment, where the experiment instance
 is passed by reference to each subroutine. These scripts are to serve the purpose of 

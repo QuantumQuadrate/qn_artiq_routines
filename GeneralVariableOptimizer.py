@@ -138,6 +138,10 @@ class GeneralVariableOptimizer(EnvExperiment):
         assert type(self.override_ExperimentVariables_dict) == dict, \
             "override_ExperimentVariables should be a python dictionary"
 
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
+                                             ". Did you mistype it?")
+
         self.variables_and_bounds = eval(self.variables_and_bounds)
 
         self.var_and_bounds_objects = []

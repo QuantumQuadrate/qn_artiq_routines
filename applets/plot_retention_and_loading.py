@@ -83,13 +83,13 @@ class XYPlot(pyqtgraph.PlotWidget):
                     self.clear()
                     if len(x) == len(retention_array) and len(x) == len(loading_rate_array):
                         self.plot(x, retention_array,
-                                  pen=(255, 0, 0),
+                                  pen=None,
                                   symbol='o',
                                   symbolBrush=(255, 0, 0),
                                   symbolPen='w',
                                   name='retention')
                         self.plot(x, loading_rate_array,
-                                  pen=(0, 100, 100),
+                                  pen=None,
                                   symbol='o',
                                   symbolBrush=(0, 100, 100),
                                   symbolPen='w',

@@ -1,17 +1,12 @@
 """
-This code allows for tuning the coils with the homemade potentiometer box
-by reading its output into the Sampler and outputting a voltage
-from a corresponding Zotino channel. In this way the MOT can be optimized
-manually and then the ARTIQ variables for the coil voltages can be updated
-automatically.
+This code allows for monitoring an SPCM whose output is connected to TTL0 ch0. The counts detected per s can be viewed
+ with the plot_xyline applet (nicknamed "SPCM count rate" in the Node 1 ARTIQ dashboard). Any Zotino channels and
+ Urukul channels that were on before running this code will be left on.
 """
 
 from artiq.experiment import *
-import numpy as np
 
 import sys, os
-# get the current working directory
-current_working_directory = os.getcwd()
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
@@ -28,12 +23,7 @@ class MonitorSPCMinApplet(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("run_time_minutes", NumberValue(1))
-        group = "SPCM settings"
-         # exposure time of the SPCM
-        self.setattr_argument("dt_exposure", NumberValue(300 * ms, unit='ms'), group)
-        # saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
-        self.setattr_argument("sat1s", NumberValue(1 * 10 ** 5), group)  # saturation limit in counts/dt.
-        self.setattr_argument("print_count_rate", BooleanValue(True), group)
+        self.setattr_argument("print_count_rate", BooleanValue(False))
 
         self.base.set_datasets_from_gui_args()
 
@@ -49,11 +39,9 @@ class MonitorSPCMinApplet(EnvExperiment):
 
         self.base.prepare()
 
-        print(self.dt_exposure)
-        self.n_steps = int(60*self.run_time_minutes/self.dt_exposure+0.5)
+        self.n_steps = int(60*self.run_time_minutes/self.t_SPCM_exposure+0.5)
         print(self.n_steps)
 
-        self.count_rate_dataset = 'photocounts_per_s'
         self.set_dataset(self.count_rate_dataset,
                              [0.0],
                              broadcast=True)
@@ -62,19 +50,19 @@ class MonitorSPCMinApplet(EnvExperiment):
 
     @kernel
     def run(self):
-        self.base.initialize_hardware()
+        self.base.initialize_hardware(turn_off_dds_channels=False, turn_off_zotinos=False)
 
         delay(10 * ms)
 
         for i in range(self.n_steps):
 
-            tend1 = self.ttl0.gate_rising(self.dt_exposure)
-            count1 = self.ttl0.count(tend1)
-            count_rate_Hz = count1 / self.dt_exposure
+            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
+            count1 = self.ttl0.count(t_gate_end)
+            count_rate_per_s = count1 / self.t_SPCM_exposure
             if self.print_count_rate:
-                print(round(count_rate_Hz))
+                print(round(count_rate_per_s))
             delay(10 * ms)
-            self.append_to_dataset(self.count_rate_dataset, count_rate_Hz)
+            self.append_to_dataset(self.count_rate_dataset, count_rate_per_s)
 
 
         print("Experiment finished.")
