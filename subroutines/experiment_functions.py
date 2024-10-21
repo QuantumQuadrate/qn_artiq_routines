@@ -301,6 +301,7 @@ def record_chopped_blow_away(self):
     BA_pulse = self.t_BA_chop_period * 0.35
     FORT_pulse = self.t_BA_chop_period - BA_pulse
 
+
     self.core.reset()
 
     with self.core_dma.record("chopped_blow_away"):
@@ -804,102 +805,16 @@ def trap_frequency_experiment(self):
     self.dds_FORT.sw.off()
 
 @kernel
-def optical_pumping_experiment(self):
-    """
-    self is the experiment instance to which ExperimentVariables are bound
-    """
-
-    self.counts = 0
-    self.counts2 = 0
-
-    self.set_dataset(self.count_rate_dataset,
-                     [0.0],
-                     broadcast=True)
-
-    if self.t_pumping > 0.0:
-        record_chopped_optical_pumping(self)
-        delay(100*ms)
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        if self.enable_laser_feedback:
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
-
-        load_MOT_and_FORT(self)
-
-        delay(0.1 * ms)
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-            channels=self.coil_channels)
-
-        # set the FORT AOM to the readout settings
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitudes[1])
-
-        # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                                amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
-
-        if not self.no_first_shot:
-            # take the first shot
-            self.dds_cooling_DP.sw.on()
-            t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-            self.counts = self.ttl_SPCM0.count(t_gate_end)
-            delay(1 * ms)
-            self.dds_cooling_DP.sw.off()
-        delay(1 * ms)
-        self.ttl_repump_switch.off()  # turns the RP AOM off
-
-        # # set the FORT to the holding setting, i.e. for doing nothing
-        # self.dds_FORT.set(frequency=self.f_FORT,
-        #                   amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_holding)
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-        if self.t_pumping > 0.0:
-            self.ttl7.pulse(10 * us)  # in case we want to look at signals on an oscilloscope
-            chopped_optical_pumping(self)
-
-        ############################
-        # blow-away phase - push out atoms in F=2 only
-        ############################
-
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-        # set the FORT AOM to the readout settings
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitudes[1])
-
-        # take the second shot
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-            channels=self.coil_channels)
-        delay(0.1 * ms)
-        self.ttl_repump_switch.off()  # turns the RP AOM on
-        self.dds_cooling_DP.sw.on()
-        t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
-        self.counts2 = self.ttl_SPCM0.count(t_gate_end)
-
-        delay(1 * ms)
-
-        end_measurement(self)
-
-    self.dds_FORT.sw.off()
-
-@kernel
 def microwave_Rabi_experiment(self):
     """
+    Microwave and optical pumping experiment.
+    This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
+    microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
+    - microwave Rabi oscillations to test the optical pumping fidelity
+    - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
+    transitions |F=1,m>->|F=2,m'>)
+    - depumping measurements (by using a non-zero depump time)
+    
     self is the experiment instance to which ExperimentVariables are bound
     """
 
@@ -1135,7 +1050,7 @@ def single_photon_experiment(self):
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
 
         delay(1 * ms)
-        # self.ttl_SPCM_gate.on()  # enables the SPCM
+        # self.ttl_SPCM_gate.on()  # blocks the SPCM
 
         # turn AOMs back on
         self.dds_AOM_A1.sw.on()
