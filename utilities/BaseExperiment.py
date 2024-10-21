@@ -125,14 +125,19 @@ class BaseExperiment:
                                 "sampler0",  # for measuring laser power PD
                                 "sampler1", # for reading in volts in the coil tune experiment
                                 "sampler2",
-                                *[f"ttl{i}" for i in range(16)]]
+                                *[f"ttl{i}" for i in range(16)],
+                                *[f"ttl{i}_counter" for i in range(4)],  # ttl card 0 edge counters
+                                *[f"ttl{i}_counter" for i in range(8, 12)]]  # ttl card 1 edge counters
+
             for dev in devices_no_alias:
                 self.experiment.setattr_device(dev)
 
             # devices can also be nicknamed here:
+            # todo: do this in the device_db
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
+            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_UV = self.experiment.ttl15
@@ -192,14 +197,16 @@ class BaseExperiment:
                                 "sampler0",  # for measuring laser power PD
                                 "sampler1", # for reading in volts in the coil tune experiment
                                 "sampler2",
-                                *[f"ttl{i}" for i in range(16)]]
+                                *[f"ttl{i}" for i in range(16)]] # todo: add edge_counters when gateware upgraded
             for dev in devices_no_alias:
                 self.experiment.setattr_device(dev)
 
             # devices can also be nicknamed here:
+            # todo: do this in the device_db
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
+            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_UV = self.experiment.ttl15
