@@ -1011,6 +1011,7 @@ def single_photon_experiment(self):
             channels=self.coil_channels)
         delay(0.4 * ms)  # coil relaxation time
 
+        self.ttl_SPCM0._set_sensitivity(1)
         for excitaton_cycle in range(2): #self.n_excitation_cycles):
 
             delay(0.5*ms)
@@ -1072,7 +1073,7 @@ def single_photon_experiment(self):
                 self.dds_excitation.sw.pulse(self.t_excitation_pulse)
                 at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
                                                   0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
-                # fast switch to gate SPCM output
+                # fast switch to gate SPCM output - why am I using a switch instead of the gate input on the SPCM?
                 self.ttl_SPCM_gate.off()
                 delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
                 self.ttl_SPCM_gate.on()
@@ -1091,9 +1092,12 @@ def single_photon_experiment(self):
             # delay(0.1*ms) # ttl count consumes all the RTIO slack.
         #     loop_over_mu = now_mu()
 
-            self.print_async("bottom of excitation loop",now_mu() - loop_start_mu)
+            # todo: delete
+            # self.print_async("bottom of excitation loop",now_mu() - loop_start_mu)
         # delay(1 * ms)
         # # self.ttl_SPCM_gate.on()  # blocks the SPCM
+        self.ttl_SPCM0._set_sensitivity(0)
+        excitation_counts = self.ttl_SPCM0.count(now_mu())
 
         delay(1*ms)
 
@@ -1105,14 +1109,15 @@ def single_photon_experiment(self):
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
 
+        # todo: delete
         # self.core.wait_until_mu(loop_over_mu+1000)
         # at_mu(loop_over_mu+1000)
-        self.print_async("out of the loop",now_mu() - loop_start_mu)
+        # self.print_async("out of the loop",now_mu() - loop_start_mu)
 
         delay(1*ms)
 
         rtio_log("2nd_shot_block",1)
-        self.print_async("second readout",now_mu() - loop_start_mu)
+        # self.print_async("second readout",now_mu() - loop_start_mu) # todo: delete
         with sequential:
 
             self.ttl_SPCM_gate.off() # enables the SPCM
