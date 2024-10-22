@@ -511,9 +511,6 @@ def chopped_optical_pumping(self):
 
     # reset MOT power
     self.dds_cooling_DP.sw.off()
-    self.dds_cooling_DP.set(
-        frequency=self.f_cooling_DP_RO,
-        amplitude=self.ampl_cooling_DP_MOT)
 
 @kernel
 def measure_FORT_MM_fiber(self):
@@ -964,6 +961,7 @@ def single_photon_experiment(self):
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
+    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -999,11 +997,21 @@ def single_photon_experiment(self):
             self.dds_FORT.sw.on()
 
         # self.ttl7.pulse(10 * us)  # in case we want to look at signals on an oscilloscope
-        #
+
+        ########################################################
+        # lower level optical pumping and excitation sequence to optimize for speed
+        ########################################################
+
         excitation_counts = 0
-        self.ttl_SPCM_gate.on() # blocks the SPCM output - this is related to the atom readouts undercounting
+        self.ttl_SPCM_gate.on()  # blocks the SPCM output - this is related to the atom readouts undercounting
         loop_start_mu = now_mu()
-        for excitaton_cycle in range(1): #self.n_excitation_cycles):
+
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+            channels=self.coil_channels)
+        delay(0.4 * ms)  # coil relaxation time
+
+        for excitaton_cycle in range(2): #self.n_excitation_cycles):
 
             delay(0.5*ms)
 
@@ -1011,55 +1019,79 @@ def single_photon_experiment(self):
             # optical pumping phase - pumps atoms into F=1,m_F=0
             ############################
 
-            chopped_optical_pumping(self)
+            if self.t_pumping > 0.0:
+
+                # make sure the fiber AOMs are on for delivery of the pumping repump
+                if not self.pumping_light_off:
+                    self.dds_pumping_repump.sw.on()
+
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
+
+                with sequential:
+
+                    delay(1 * us)
+
+                    self.core_dma.playback_handle(op_dma_handle)
+                    # delay(self.t_depumping)
+
+                    self.dds_D1_pumping_SP.sw.off()
+                    self.dds_pumping_repump.sw.off() # turn the repump back on
+
+                delay(2 * us)
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
 
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
 
-        #     now = now_mu()
-        #
-        #     at_mu(now+1)
-        #     with parallel:
-        #         self.dds_FORT.sw.off()
-        #         self.dds_AOM_A1.sw.off()
-        #         self.dds_AOM_A2.sw.off()
-        #         self.dds_AOM_A3.sw.off()
-        #         self.dds_AOM_A4.sw.off()
-        #         self.dds_AOM_A5.sw.off()
-        #         self.dds_AOM_A6.sw.off()
-        #     at_mu(now+10)
-        #     self.ttl_repump_switch.off()  # repump AOM is on for excitation
-        #     mu_offset = 800 # accounts for various latencies
-        #     at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
-        #     # self.ttl_repump_switch.off()  # repump AOM is on for excitation
-        #     at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
-        #     t_collect = now_mu()
-        #     t_gate_end = self.ttl_SPCM0.gate_rising(self.n_excitation_attempts * (self.t_excitation_pulse + 100 * ns))
-        #     t_excite = now_mu()
-        #     pulses_over_mu = 0
-        #     for attempt in range(self.n_excitation_attempts):
-        #         at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
-        #               + self.gate_start_offset_mu)
-        #         self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-        #         at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
-        #                                           0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
-        #         # fast switch to gate SPCM output
-        #         self.ttl_SPCM_gate.off()
-        #         delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
-        #         self.ttl_SPCM_gate.on()
-        #
-        #         pulses_over_mu = now_mu()
-        #     self.ttl_repump_switch.on()
-        #     at_mu(pulses_over_mu - 200) # fudge factor
-        #     self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. signal blocked
-        #     self.dds_FORT.sw.on()
-        #     excitation_counts = self.ttl_SPCM0.count(
-        #         t_gate_end)  # this is the number of clicks we got over n_excitation attempts
-        #     excitation_counts_array[excitaton_cycle] = excitation_counts
-        #     delay(0.1*ms) # ttl count consumes all the RTIO slack.
+            now = now_mu()
+
+            at_mu(now+10)
+            self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            mu_offset = 800 # accounts for various latencies
+            at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
+            # self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
+            t_collect = now_mu()
+            t_gate_end = self.ttl_SPCM0.gate_rising(self.n_excitation_attempts * (self.t_excitation_pulse + 100 * ns))
+            t_excite = now_mu()
+            pulses_over_mu = 0
+            for attempt in range(self.n_excitation_attempts):
+                at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
+                      + self.gate_start_offset_mu)
+                self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+                at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
+                                                  0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
+                # fast switch to gate SPCM output
+                self.ttl_SPCM_gate.off()
+                delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
+                self.ttl_SPCM_gate.on()
+
+                pulses_over_mu = now_mu()
+            self.ttl_repump_switch.on()
+            at_mu(pulses_over_mu - 200) # fudge factor
+            self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. signal blocked
+            self.dds_FORT.sw.on()
+
+            # todo: terrible way of doing this. set the sensitivity of the gate at the beginning of the loop.
+            #  it will only register events when the SPCM switch lets events through.
+            # excitation_counts = self.ttl_SPCM0.count(
+            #     t_gate_end)  # this is the number of clicks we got over n_excitation attempts
+            # excitation_counts_array[excitaton_cycle] = excitation_counts
+            # delay(0.1*ms) # ttl count consumes all the RTIO slack.
         #     loop_over_mu = now_mu()
-            self.print_async(now_mu() - loop_start_mu)
+
+            self.print_async("bottom of excitation loop",now_mu() - loop_start_mu)
         # delay(1 * ms)
         # # self.ttl_SPCM_gate.on()  # blocks the SPCM
 
