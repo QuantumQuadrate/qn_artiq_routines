@@ -89,7 +89,7 @@
         },
     "sampler1":
         {
-            "dds_D1_pumping_DP":
+            "dds_D1_pumping_SP":
                 {
                     "sampler_ch": 4,
                     "set_points": ["set_point_D1_SP"],
@@ -97,7 +97,7 @@
                     "i": 0.0,
                     "series": true,
                     "dataset":"D1_SP_monitor",
-                    "power_dataset":"p_D1_pumping_DP",
+                    "power_dataset":"p_D1_pumping_SP",
                     "t_measure_delay":0.00001,
                     "max_dB": -5
                 }

@@ -235,9 +235,9 @@ class BaseExperiment:
             # converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
+            self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
-            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
+            self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -308,9 +308,9 @@ class BaseExperiment:
             # converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
+            self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
-            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
+            self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -398,7 +398,7 @@ class BaseExperiment:
                 experiment=self.experiment,
                 device_aliases=[
                     'dds_FORT',
-                    'dds_D1_pumping_DP',
+                    'dds_D1_pumping_SP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
                     'dds_excitation',
@@ -468,7 +468,7 @@ class BaseExperiment:
                 experiment=self.experiment,
                 device_aliases=[
                     'dds_FORT',
-                    'dds_D1_pumping_DP',
+                    'dds_D1_pumping_SP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
                     'dds_excitation',
@@ -538,7 +538,7 @@ class BaseExperiment:
                 experiment=self.experiment,
                 device_aliases=[
                     'dds_FORT',
-                    'dds_D1_pumping_DP',
+                    'dds_D1_pumping_SP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
                     'dds_excitation',

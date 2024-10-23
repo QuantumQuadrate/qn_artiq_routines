@@ -79,7 +79,7 @@ class MOTDetuningAndGradBScan(EnvExperiment):
         self.set_dataset("FORT_TTI_volts", [0.0])
 
         # turn off AOMs we aren't using, in case they were on previously
-        self.dds_D1_pumping_DP.sw.off()
+        self.dds_D1_pumping_SP.sw.off()
         self.dds_excitation.sw.off()
 
         # turn on cooling MOT AOMs and warm up FORT AOM
