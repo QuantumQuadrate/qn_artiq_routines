@@ -425,9 +425,9 @@ def record_chopped_optical_pumping(self):
                 delay_mu(OP_pulse_length_mu)
                 self.dds_FORT.sw.on()
                 at_mu(start+i*period_mu+OP_on_mu)
-                self.dds_D1_pumping_SP.sw.on()
+                self.dds_D1_pumping_DP.sw.on()
                 delay_mu(OP_pulse_length_mu)
-                self.dds_D1_pumping_SP.sw.off()
+                self.dds_D1_pumping_DP.sw.off()
         else:
             for i in range(n_chop_cycles):
                 at_mu(start + i * period_mu + FORT_on_mu)
@@ -450,9 +450,9 @@ def record_chopped_optical_pumping(self):
                     delay_mu(OP_pulse_length_mu)
                     self.dds_FORT.sw.on()
                     at_mu(start + i * period_mu + OP_on_mu)
-                    self.dds_D1_pumping_SP.sw.on()
+                    self.dds_D1_pumping_DP.sw.on()
                     delay_mu(OP_pulse_length_mu)
-                    self.dds_D1_pumping_SP.sw.off()
+                    self.dds_D1_pumping_DP.sw.off()
             else:
                 for i in range(n_depump_chop_cycles):
                     at_mu(start + i * period_mu + FORT_on_mu)
@@ -498,7 +498,7 @@ def chopped_optical_pumping(self):
         self.core_dma.playback_handle(op_dma_handle)
         delay(self.t_depumping)
 
-        self.dds_D1_pumping_SP.sw.off()
+        self.dds_D1_pumping_DP.sw.off()
         self.dds_pumping_repump.sw.off()
 
     delay(2*us)

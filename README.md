@@ -64,7 +64,7 @@ A dictionary mapping aliases of the urukul channels and their defaults lives in 
     ALIAS_MAP = {
           "dds_FORT": "urukul0_ch0", # the key is the alias, and the value is the name given in device_db.py
           "dds_cooling_DP": "urukul0_ch1",
-          "dds_D1_pumping_SP": "urukul0_ch2",
+          "dds_D1_pumping_DP": "urukul0_ch2",
           ...
           "dds_AOM_A4": "urukul2_ch0",
           "dds_AOM_A5": "urukul2_ch1"
@@ -96,7 +96,7 @@ If you insist on importing the aliases "manually", use the block below to set th
             experiment=self.experiment,
             device_aliases=[ # the channels you want to use, which are already defined in ALIAS_MAP
                 'dds_FORT',
-                'dds_D1_pumping_SP',
+                'dds_D1_pumping_DP',
                 'dds_cooling_DP',
                 'dds_pumping_repump',
                 *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
