@@ -16,7 +16,7 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Repump_AOM_ON", BooleanValue(default=True))
-        self.setattr_argument("D1_pumping_SP_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("D1_pumping_DP_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("excitation_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "Fiber AOMs")
@@ -66,10 +66,10 @@ class AOMsCoils(EnvExperiment):
             self.ttl_repump_switch.on()
 
         delay(1 * ms)
-        if self.D1_pumping_SP_AOM_ON == True:
-            self.dds_D1_pumping_SP.sw.on()
+        if self.D1_pumping_DP_AOM_ON == True:
+            self.dds_D1_pumping_DP.sw.on()
         else:
-            self.dds_D1_pumping_SP.sw.off()
+            self.dds_D1_pumping_DP.sw.off()
 
         delay(1 * ms)
         if self.pumping_repump_AOM_ON == True:
