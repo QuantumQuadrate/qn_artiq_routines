@@ -1,7 +1,7 @@
 { "ALIAS_MAP": {
   "dds_FORT": "urukul0_ch0",
   "dds_cooling_DP": "urukul0_ch1",
-  "dds_D1_pumping_SP": "urukul2_ch2",
+  "dds_D1_pumping_DP": "urukul2_ch2",
   "dds_pumping_repump": "urukul0_ch2",
   "dds_AOM_A2": "urukul1_ch0",
   "dds_AOM_A3": "urukul1_ch1",
@@ -21,9 +21,9 @@
       "frequency": "f_cooling_DP_MOT",
       "power": "p_cooling_DP_MOT"
     },
-    "dds_D1_pumping_SP": {
-      "frequency": "f_D1_pumping_SP",
-      "power": "p_D1_pumping_SP"
+    "dds_D1_pumping_DP": {
+      "frequency": "f_D1_pumping_DP",
+      "power": "p_D1_pumping_DP"
     },
     "dds_pumping_repump": {
       "frequency": "f_pumping_repump",

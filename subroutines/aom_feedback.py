@@ -155,7 +155,7 @@ class FeedbackChannel:
         measured = buffer[self.buffer_index]
         err = self.set_points[setpoint_index] - measured
 
-        if self.name == 'dds_D1_pumping_SP':
+        if self.name == 'dds_D1_pumping_DP':
             self.stabilizer.exp.print_async(measured, self.buffer_index, self.stabilizer.measurement_array)
 
         # runs off the kernel, else the error array isn't correctly updated
