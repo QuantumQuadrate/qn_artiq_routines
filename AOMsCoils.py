@@ -27,10 +27,7 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("microwave_dds_ON", BooleanValue(default=False), "Microwaves")
         self.setattr_argument("yes_Im_sure_I_want_the_microwave_dds_ON", BooleanValue(default=False), "Microwaves")
-        self.setattr_argument("enable_laser_feedback_loop", BooleanValue(default=True),"Laser power stabilization")
-        self.setattr_argument("run_laser_feedback_once", BooleanValue(default=False),"Laser power stabilization")
-        self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
-                              "Laser power stabilization")
+        self.setattr_argument("run_laser_feedback", BooleanValue(default=False), "Laser power stabilization")
 
         self.base.set_datasets_from_gui_args()
 
@@ -135,19 +132,12 @@ class AOMsCoils(EnvExperiment):
     def run_feedback(self):
         self.core.reset()
 
+        # todo: if we redeclare the AOMPowerStabilizer instance in prepare with only the AOMs that we wish to turn on,
+        #  we can get rid of this if statement. this will be important for when we have more AOMs that we want to
+        #  feed back to, e.g. OP and excitation.
         if self.AOM_A1_ON and self.AOM_A2_ON and self.AOM_A3_ON and self.AOM_A4_ON and self.AOM_A5_ON and self.AOM_A6_ON and self.Cooling_DP_AOM_ON:
-            if self.enable_laser_feedback_loop:
-                print("Will now run feedback and monitor powers until forcibly stopped")
-                delay(100 * ms)
 
-                while True:
-                    self.laser_stabilizer.run()
-                    delay(1 * ms)
-                    self.turn_on_AOMs()
-                    delay(1 * ms)
-                    delay(self.t_feedback_period)
-
-            elif self.run_laser_feedback_once:
+            if self.run_laser_feedback:
                 self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
                 delay(1 * ms)
                 self.turn_on_AOMs()
