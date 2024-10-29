@@ -76,8 +76,10 @@ class AOMsCoils(EnvExperiment):
 
         delay(1 * ms)
         if self.excitation_AOM_ON == True:
+            self.ttl_excitation_switch.off()
             self.dds_excitation.sw.on()
         else:
+            self.ttl_excitation_switch.on()
             self.dds_excitation.sw.off()
 
         # MOT arm fiber AOMs, excitation AOM:

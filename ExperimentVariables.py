@@ -110,7 +110,7 @@ class ExperimentVariables(EnvExperiment):
                      "Cooling double pass AOM"),
 
             # D1 optical pumping, pumping repumper, and excitation
-            Variable("f_D1_pumping_DP", 368.325 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 1},
+            Variable("f_D1_pumping_DP", 368 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "OP and excitation AOMs"),
             Variable("p_D1_pumping_DP", -9.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
