@@ -1,10 +1,16 @@
 """
-Atom loading optimization which positions the MOT using M-LOOP
+Atom loading optimization which tunes the MOT coils and beam powers using M-LOOP
+
+For a given choice of parameters within the specified bounds, the MOT is loaded in steady-state
+with the FORT on the whole time, and we try to maximize the number of single atoms that come and
+go in the trap.
 """
 
 from artiq.experiment import *
 import numpy as np
 import scipy as sp
+from skimage.filters import threshold_otsu
+import logging
 
 #Imports for M-LOOP
 import mloop.interfaces as mli
@@ -28,7 +34,7 @@ class MLOOPInterface(mli.Interface):
         pass
 
 
-class AtomLoadingOptimizerMLOOP(EnvExperiment):
+class AtomLoadingOptimizer(EnvExperiment):
 
     def build(self):
         """
@@ -236,10 +242,9 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             q = x > self.atom_counts_threshold
             if q != q_last and q_last:
                 atoms_loaded += 1
-                # todo: replace with logging statement?
-                # self.print_async("optimizer found the single atom signal!")
             q_last = q
         atoms_loaded += q_last
+
         return -1 * atoms_loaded
 
     @kernel
