@@ -1,5 +1,5 @@
 """
-Atom loading optimization which positions the MOT using M-LOOP
+Atom loading optimization which tunes the MOT coils and beam powers using M-LOOP
 
 For a given choice of parameters within the specified bounds, the MOT is loaded in steady-state
 with the FORT on the whole time, and we try to maximize the number of single atoms that come and
@@ -10,6 +10,7 @@ from artiq.experiment import *
 import numpy as np
 import scipy as sp
 from skimage.filters import threshold_otsu
+import logging
 
 #Imports for M-LOOP
 import mloop.interfaces as mli
@@ -33,7 +34,7 @@ class MLOOPInterface(mli.Interface):
         pass
 
 
-class AtomLoadingOptimizerMLOOP(EnvExperiment):
+class AtomLoadingOptimizer(EnvExperiment):
 
     def build(self):
         """
@@ -241,8 +242,6 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             q = x > self.atom_counts_threshold
             if q != q_last and q_last:
                 atoms_loaded += 1
-                # todo: replace with logging statement?
-                # self.print_async("optimizer found the single atom signal!")
             q_last = q
         atoms_loaded += q_last
 
@@ -254,6 +253,8 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             # incorrectly counted as many atoms, so to guard against this, we recompute the threshold from the data
             # using the otsu method.
 
+            logging.debug(f'initially computed {atoms_loaded} atoms loaded')
+
             threshold = threshold_otsu(data)
             q_last = (data[0] > threshold)
             for x in data[1:]:
@@ -262,6 +263,8 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                     atoms_loaded += 1
                 q_last = q
             atoms_loaded += q_last
+
+            logging.debug(f'recomputed computed {atoms_loaded} atoms loaded')
 
         return -1 * atoms_loaded
 
