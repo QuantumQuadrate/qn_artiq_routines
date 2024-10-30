@@ -1,10 +1,15 @@
 """
 Atom loading optimization which positions the MOT using M-LOOP
+
+For a given choice of parameters within the specified bounds, the MOT is loaded in steady-state
+with the FORT on the whole time, and we try to maximize the number of single atoms that come and
+go in the trap.
 """
 
 from artiq.experiment import *
 import numpy as np
 import scipy as sp
+from skimage.filters import threshold_otsu
 
 #Imports for M-LOOP
 import mloop.interfaces as mli
@@ -39,7 +44,7 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
 
         # overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
-        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(70000))
+        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(40000))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
         self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
@@ -70,15 +75,15 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                               NumberValue(0.1), group)
 
         self.setattr_argument("max_set_point_percent_deviation_minus",
-                              NumberValue(0.3), group)
+                              NumberValue(0.1), group)
 
         # we can balance the z beams with confidence by measuring the powers outside the chamber,
         # so unless we are fine tuning loading, we may want trust our initial manual balancing
         self.setattr_argument("disable_z_beam_tuning",
-                              BooleanValue(True), group)
+                              BooleanValue(False), group)
 
         group1 = "optimizer settings"
-        self.setattr_argument("max_runs",NumberValue(70, type='int', scale=1, ndecimals=0, step=1),group1)
+        self.setattr_argument("max_runs",NumberValue(100, type='int', scale=1, ndecimals=0, step=1),group1)
 
         # this should be close to the mean signal from the atom
         self.base.set_datasets_from_gui_args()
@@ -240,6 +245,24 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
                 # self.print_async("optimizer found the single atom signal!")
             q_last = q
         atoms_loaded += q_last
+
+        # recompute if > n atoms. n is somewhat arbitrary but should be high enough to avoid one-off outliers
+        if atoms_loaded > 10:
+            # recompute the atoms_loaded using otsu thresholding. the optimizer will sometimes realize that it can
+            # improve the cost by simply lowering the beam power until the threshold cuts the noise of an atom signal,
+            # such that one atom trapped passes the threshold both ways several times before it leaves. This will be
+            # incorrectly counted as many atoms, so to guard against this, we recompute the threshold from the data
+            # using the otsu method.
+
+            threshold = threshold_otsu(data)
+            q_last = (data[0] > threshold)
+            for x in data[1:]:
+                q = x > threshold
+                if q != q_last and q_last:
+                    atoms_loaded += 1
+                q_last = q
+            atoms_loaded += q_last
+
         return -1 * atoms_loaded
 
     @kernel
