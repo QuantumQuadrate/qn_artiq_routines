@@ -11,7 +11,7 @@ class KinesisMotorWrapper:
     Where applicable, the methods here shadow the names of the methods belonging to Thorlabs.KinesisMotor
 
     For now, the hardware settings can be configured in the APT User program with 'persist to hardware' checked.
-    See ./setup
+    See K10CR1/setup
     """
 
     def __init__(self, *args, **kwargs):
