@@ -16,9 +16,9 @@ def main():
 
     try:
             simple_server_loop(
-                  {device_name: driver},
-                  host,
-                  port
+                {device_name: driver},
+                host,
+                port
             )
     except Exception as e:
         print("Insert Error handling here")

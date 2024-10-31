@@ -1,3 +1,10 @@
+"""
+open your artiq environment in the same directory as this
+script, and run
+
+    artiq_run ndsp_example.py --device-db=.\device_db.py
+"""
+
 # here's how you do ndsp stuff in your artiq scripts
 from artiq.experiment import *
 
