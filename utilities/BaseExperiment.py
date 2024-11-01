@@ -194,15 +194,21 @@ class BaseExperiment:
                 self.experiment.setattr_device(dev)
 
             # devices can also be nicknamed here:
+            self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
-            self.experiment.ttl_SPCM0 = self.experiment.ttl0
-            self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_UV = self.experiment.ttl15
-            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+            self.experiment.ttl_scope_trigger = self.experiment.ttl7
+
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
             self.experiment.FORT_mod_switch = self.experiment.ttl12
+            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+            self.experiment.ttl_UV = self.experiment.ttl15
+
+            # in experiment_functions.py, measure_FORT_MM_fiber() function uses sampler1
+            self.experiment.FORT_MM_sampler_ch = 7
+
+
 
             # for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -234,6 +240,8 @@ class BaseExperiment:
             # converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
+
+            # not in alice
             self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
             self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
@@ -747,6 +755,8 @@ class BaseExperiment:
                 delay(1*ms)
 
             self.experiment.core.break_realtime()
+
+
         elif self.node == "two_nodes":
             self.experiment.core.reset()
 

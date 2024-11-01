@@ -3,9 +3,9 @@
         {
             "dds_AOM_A1":
                 {
-                    "sampler_ch": 0,
+                    "sampler_ch": 7,
                     "set_points": ["set_point_PD1_AOM_A1"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.000,
                     "series": true,
                     "dataset": "MOT1_monitor",
@@ -17,7 +17,7 @@
                 {
                     "sampler_ch": 1,
                     "set_points": ["set_point_PD2_AOM_A2"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.00,
                     "series": true,
                     "dataset": "MOT2_monitor",
@@ -29,7 +29,7 @@
                 {
                     "sampler_ch": 2,
                     "set_points": ["set_point_PD3_AOM_A3"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.000,
                     "series": true,
                     "dataset": "MOT3_monitor",
@@ -41,7 +41,7 @@
                 {
                     "sampler_ch": 3,
                     "set_points": ["set_point_PD4_AOM_A4"],
-                    "p": 0.2,
+                    "p": 0.05,
                     "i": 0.0,
                     "series": true,
                     "dataset": "MOT4_monitor",
@@ -78,7 +78,7 @@
                 {
                     "sampler_ch": 6,
                     "set_points": ["set_point_FORT_MM_loading", "set_point_FORT_MM_science"],
-                    "p": 0.4,
+                    "p": 0.01,
                     "i": 0.0,
                     "series": true,
                     "dataset":"FORT_monitor",
@@ -89,7 +89,7 @@
 				
 			"dds_D1_pumping_SP":
                 {
-                    "sampler_ch": 7,
+                    "sampler_ch": 0,
                     "set_points": ["set_point_D1_SP"],
                     "p": 0.001,
                     "i": 0.0,
