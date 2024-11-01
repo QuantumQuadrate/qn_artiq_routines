@@ -705,8 +705,7 @@ def atom_loading_experiment(self):
                      broadcast=True)
 
     self.measurement = 0
-    # while self.measurement < self.n_measurements:
-    for measurent in range(self.n_measurements):
+    while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
