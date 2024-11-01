@@ -10,7 +10,7 @@ NDSP server for this test with
 3. In another terminal in this directory in the artiq environment,
 run this script with artiq:
 
-    artiq_run ndsp_k10cr1_example.py --device-db=.\device_db.py
+    artiq_run example_multi_k10cr1.py --device-db=.\device_db.py
 """
 
 # here's how you do ndsp stuff in your artiq scripts
