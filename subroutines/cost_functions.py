@@ -30,7 +30,7 @@ def template_cost(self) -> TFloat:
     return cost
 
 
-def atoms_loaded_in_continuous_MOT_cost(self) -> TInt32:
+def atoms_loaded_in_continuous_MOT_cost(self) -> TFloat:
     """
     the cost function for optimizing number of atoms in the dipole trap
     in a continuously loaded MOT
@@ -38,41 +38,15 @@ def atoms_loaded_in_continuous_MOT_cost(self) -> TInt32:
     :param photocounts: sequence containing photon count values for the measurement interval
     :return: -1 * atoms_loaded, the negated number of atoms loaded
     """
-    data = self.counts_list
+
     atoms_loaded = 0
-    q_last = (data[0] > self.atom_counts_threshold)
-    for x in data[1:]:
-        q = x > self.atom_counts_threshold
+    q_last = (self.photocounts[0] > self.single_atom_counts_threshold)
+    for x in self.photocounts[1:]:
+        q = x > self.single_atom_counts_threshold
         if q != q_last and q_last:
             atoms_loaded += 1
         q_last = q
     atoms_loaded += q_last
-
-    # recompute if a certain fraction of counts is above threshold.
-    # fraction is somewhat arbitrary should be high enough to mitigate false positives (i.e. if we have only one
-    # event above threshold, it might be an outlier in the noise, and if we recompute the threshold for this data i
-    # it will find a threshold in the middle of background. this would estimate atom loading near 50%, even if it
-    # was really 0%).
-    over_thresh_fraction = sum([x > self.atom_counts_threshold for x in data])/len(data)
-
-    if over_thresh_fraction > 0.3:
-        # recompute the atoms_loaded using otsu thresholding. the optimizer will sometimes realize that it can
-        # improve the cost by simply lowering the beam power until the threshold cuts the noise of an atom signal,
-        # such that one atom trapped passes the threshold both ways several times before it leaves. This will be
-        # incorrectly counted as many atoms, so to guard against this, we recompute the threshold from the data
-        # using the otsu method.
-
-        # logging.debug(f'initially computed {atoms_loaded} atoms loaded')
-        threshold = threshold_otsu(data)
-        q_last = (data[0] > threshold)
-        for x in data[1:]:
-            q = x > threshold
-            if q != q_last and q_last:
-                atoms_loaded += 1
-            q_last = q
-        atoms_loaded += q_last
-        # logging.debug(f'recomputed computed {atoms_loaded} atoms loaded')
-
     return -1 * atoms_loaded
 
 
