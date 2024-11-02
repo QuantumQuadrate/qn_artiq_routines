@@ -18,6 +18,7 @@ import mloop.controllers as mlc
 import mloop.visualizations as mlv
 
 from utilities.BaseExperiment import BaseExperiment
+from subroutines.cost_functions import atoms_loaded_in_continuous_MOT_cost
 
 
 # Declare your custom class that inherits from the Interface class
@@ -234,43 +235,6 @@ class AtomLoadingOptimizer(EnvExperiment):
         # self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         #                      channels=self.coil_channels)
 
-    def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
-        atoms_loaded = 0
-        q_last = (data[0] > self.atom_counts_threshold)
-        for x in data[1:]:
-            q = x > self.atom_counts_threshold
-            if q != q_last and q_last:
-                atoms_loaded += 1
-            q_last = q
-        atoms_loaded += q_last
-
-        # recompute if a certain fraction of counts is above threshold.
-        # fraction is somewhat arbitrary should be high enough to mitigate false positives (i.e. if we have only one
-        # event above threshold, it might be an outlier in the noise, and if we recompute the threshold for this data i
-        # it will find a threshold in the middle of background. this would estimate atom loading near 50%, even if it
-        # was really 0%).
-        over_thresh_fraction = sum([x > self.atom_counts_threshold for x in data])/len(data)
-
-        if over_thresh_fraction > 0.3:
-            # recompute the atoms_loaded using otsu thresholding. the optimizer will sometimes realize that it can
-            # improve the cost by simply lowering the beam power until the threshold cuts the noise of an atom signal,
-            # such that one atom trapped passes the threshold both ways several times before it leaves. This will be
-            # incorrectly counted as many atoms, so to guard against this, we recompute the threshold from the data
-            # using the otsu method.
-            logging.debug(f'initially computed {atoms_loaded} atoms loaded')
-
-            threshold = threshold_otsu(data)
-            q_last = (data[0] > threshold)
-            for x in data[1:]:
-                q = x > threshold
-                if q != q_last and q_last:
-                    atoms_loaded += 1
-                q_last = q
-            atoms_loaded += q_last
-
-            logging.debug(f'recomputed computed {atoms_loaded} atoms loaded')
-
-        return -1 * atoms_loaded
 
     @kernel
     def optimization_routine(self, params: TArray(TFloat)) -> TInt32:
@@ -332,7 +296,7 @@ class AtomLoadingOptimizer(EnvExperiment):
             self.append_to_dataset(self.count_rate_dataset, counts_per_s)
             self.counts_list[i] = counts_per_s * self.t_SPCM_exposure
 
-        cost = self.get_cost(self.counts_list)
+        cost = atoms_loaded_in_continuous_MOT_cost(self)
         self.append_to_dataset(self.cost_dataset, cost)
 
         param_idx = 0
