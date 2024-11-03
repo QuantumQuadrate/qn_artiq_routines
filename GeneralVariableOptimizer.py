@@ -299,7 +299,6 @@ class GeneralVariableOptimizer(EnvExperiment):
         """cost function wrapper"""
         return self.cost_function()
 
-    # todo should check if the cost has to be int
     def optimization_routine(self, params: TArray(TFloat), check_initial_cost=False) -> TInt32:
         """
         the function that will be called by the optimizer.
@@ -377,7 +376,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.core.reset()
         delay(1 * ms)
 
-        if self.best_cost < self.initial_cost:
+        if self.best_cost < self.initial_cost and self.set_best_parameters_at_finish:
             for i in range(self.n_params):
                 param_val = best_params[i]
                 self.set_dataset(self.var_and_bounds_objects[i].name, param_val,
