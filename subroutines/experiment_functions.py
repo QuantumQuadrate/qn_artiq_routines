@@ -484,6 +484,8 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A4.sw.on()
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
+    self.dds_excitation.sw.on()
+    self.ttl_excitation_switch.off()
 
     # set coils for pumping
     self.zotino0.set_dac(
@@ -508,6 +510,8 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A4.sw.off()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
+    self.dds_excitation.sw.off()
+    self.ttl_excitation_switch.on()
 
     # reset MOT power
     self.dds_cooling_DP.sw.off()
@@ -580,8 +584,6 @@ def end_measurement(self):
     :param self:
     :return measurement: TInt32, the measurement index
     """
-
-    pass
 
     # update the datasets
     if not self.no_first_shot:
