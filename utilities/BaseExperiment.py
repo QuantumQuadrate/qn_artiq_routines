@@ -654,11 +654,6 @@ class BaseExperiment:
             self.experiment.ttl6.output()  # for outputting a trigger
             self.experiment.ttl1.input()
 
-            # channel 3 is configured to read from 14, separated by a switch
-            self.experiment.ttl3.input()
-            self.experiment.ttl14.output()
-            self.experiment.ttl14.on()
-
             self.experiment.ttl_D1_lock_monitor.input()
 
             # for diagnostics including checking the performance of fast switches for SPCM gating
@@ -720,12 +715,6 @@ class BaseExperiment:
             self.experiment.ttl6.output()  # for outputting a trigger
             self.experiment.ttl1.input()
 
-            # channel 3 is configured to read from 14, separated by a switch
-            self.experiment.ttl3.input()
-            self.experiment.ttl14.output()
-            self.experiment.ttl14.on()
-
-
             # for diagnostics including checking the performance of fast switches for SPCM gating
             self.experiment.ttl9.output()
             delay(1 * ms)
@@ -773,12 +762,6 @@ class BaseExperiment:
             self.experiment.ttl_repump_switch.output()
             self.experiment.ttl6.output()  # for outputting a trigger
             self.experiment.ttl1.input()
-
-            # channel 3 is configured to read from 14, separated by a switch
-            self.experiment.ttl3.input()
-            self.experiment.ttl14.output()
-            self.experiment.ttl14.on()
-
 
             # for diagnostics including checking the performance of fast switches for SPCM gating
             self.experiment.ttl9.output()
