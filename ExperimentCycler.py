@@ -96,6 +96,13 @@ class ExperimentCycler(EnvExperiment):
         for ch in self.laser_stabilizer.all_channels:
             self.set_dataset(ch.dataset, [self.get_dataset(ch.dataset)[-1]], broadcast=True)
 
+    def rerun_base_methods(self):
+        # print("I'm done pausing?")
+        # self.base.build()
+        # self.base.prepare()
+        # print("just reran build methods")
+        pass
+
     def run(self):
         """
         Loop the experiment function, pausing only for higher-priority experiments
@@ -115,13 +122,18 @@ class ExperimentCycler(EnvExperiment):
             self.experiment_function()
             self.write_results({'name': self.experiment_name[:-11]})
 
-            if self.scheduler.check_pause():
-                self.core.comm.close()  # put the hardware in a safe state before checking pause
-                self.scheduler.pause()  # check if we need to run a new experiment*
+            needs_pause = self.scheduler.check_pause()
 
-                # after pause is done, we want to re-initialize variables in case they have changed
+            if needs_pause:
+                self.core.comm.close()  # put the hardware in a safe state before checking pause
+                self.scheduler.pause()  # check if we need to run a new experiment
+
+            if needs_pause:
+                print("ExperimentCycler resuming...")
+                print("Rerunning base methods...")
                 self.base.build()
                 self.base.prepare()
+                print("Just reran build methods")
 
             iteration += 1
             self.set_dataset("iteration", iteration, broadcast=True)
