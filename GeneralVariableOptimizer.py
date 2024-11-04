@@ -340,14 +340,16 @@ class GeneralVariableOptimizer(EnvExperiment):
             if cost < self.best_cost:
                 self.best_cost = cost
                 self.print_async("new best cost:", self.best_cost)
-
                 for i in range(self.n_params):
                     param_val = params[i]
-                    self.set_dataset(self.var_and_bounds_objects[i].name, float(param_val),
-                                     broadcast=True,
-                                     persist=True)
                     self.print_async(self.var_and_bounds_objects[i].name, param_val)
 
+                if self.set_best_parameters_at_finish:
+                    for i in range(self.n_params):
+                        param_val = params[i]
+                        self.set_dataset(self.var_and_bounds_objects[i].name, float(param_val),
+                                         broadcast=True,
+                                         persist=True)
         else:
             self.set_dataset(self.cost_dataset, [cost], broadcast=True)
             self.initial_cost = cost
