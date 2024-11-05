@@ -67,7 +67,12 @@ def atom_loading_cost(self) -> TFloat:
     atoms_loaded = [x > self.single_atom_counts_threshold for x in shot1]
     n_atoms_loaded = sum(atoms_loaded)
     loading_fraction = n_atoms_loaded/len(shot1)
-    return -100 * loading_fraction
+
+    cost = -100 * loading_fraction
+
+    # todo delete
+    print("inside cost function:", self.iteration, cost)
+    return cost
 
 
 def atom_loading_with_otsu_threshold_cost(self) -> TFloat:

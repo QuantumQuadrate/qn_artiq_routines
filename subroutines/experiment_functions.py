@@ -63,6 +63,9 @@ def load_MOT_and_FORT(self):
 
     delay(1*ms) # if this delay is not here, the following line setting the dac doesn't execute
 
+    # todo: delete
+    # self.print_async("in load MOT:",self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT)
+
     # Turn on the MOT coils and cooling light
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
@@ -699,6 +702,8 @@ def atom_loading_experiment(self):
     self.counts = 0
     self.counts2 = 0
     rtio_log("2nd_shot_block", 0)
+
+    self.print_async("in exp:",self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT)
 
     self.require_D1_lock_to_advance = False # override experiment variable
 

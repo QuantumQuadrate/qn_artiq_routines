@@ -325,16 +325,24 @@ class GeneralVariableOptimizer(EnvExperiment):
                 self.set_dataset(self.optimizer_var_datasets[i], [self.var_and_bounds_objects[i].default_value],
                                  broadcast=True)
 
+        # todo: delete
+        print("in opt. routine:", params)
+
         self.initialize_hardware()
         self.reset_datasets()
 
         # the measurement loop.
         self.experiment_function()
 
+        cost = self.get_cost()
+        # todo: delete
+        # if check_initial_cost:
+        #     print("this is the starting cost")
+        # print("inside optimization routine:", self.iteration, cost)
+
         self.iteration += 1
         self.set_dataset("iteration", self.iteration, broadcast=True)
 
-        cost = self.get_cost()
         if not check_initial_cost:
             self.append_to_dataset(self.cost_dataset, cost)
             if cost < self.best_cost:
