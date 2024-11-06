@@ -487,6 +487,8 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A4.sw.on()
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
+
+    delay(1*ms)
     self.dds_excitation.sw.on()
     self.ttl_excitation_switch.off()
 
@@ -513,6 +515,8 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A4.sw.off()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
+
+    delay(1*ms)
     self.dds_excitation.sw.off()
     self.ttl_excitation_switch.on()
 
