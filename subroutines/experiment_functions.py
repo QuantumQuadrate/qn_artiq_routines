@@ -256,6 +256,37 @@ def first_shot(self):
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
     else:
+
+        # if self.use_chopped_readout:
+        #     ro_dma_handle = self.core_dma.get_handle("first_chopped_readout")
+        #     delay(10 * ms)
+        #
+        #     # todo set RO coils here?
+        #
+        #     self.ttl_repump_switch.off()  # turns the RP AOM on
+        #     self.dds_cooling_DP.sw.off()  # the chop sequence likes to turn the FORT off
+        #
+        #     delay(1 * ms)
+        #     self.ttl7.pulse(100 * us)
+        #     self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
+        #
+        #     delay(0.1 * ms)
+        #
+        #     # we want to initiate the chop playback and read in detector clicks while the chop sequence is playing.
+        #     # the ttl.gate_rising(duration) function is equivalent to:
+        #     #     ttl._set_sensitivity(1)
+        #     #     delay(duration)
+        #     #     ttl._set_sensitivity(0)
+        #     #     return now_mu()
+        #     #
+        #     # we want the dma playback to happen during the gating, so we call the _set_sensitivity functions directly
+        #
+        #     self.ttl_SPCM0._set_sensitivity(1)
+        #     self.core_dma.playback_handle(ro_dma_handle)
+        #     self.ttl_SPCM0._set_sensitivity(0)
+        #     self.counts = self.ttl_SPCM0.count(now_mu())
+        #
+        # else:
         self.ttl_repump_switch.off()
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
@@ -278,13 +309,135 @@ def second_shot(self):
         self.counts2 = self.ttl_SPCM0.count(t_gate_end)
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
+
     else:
-        self.ttl_repump_switch.off()
-        self.dds_cooling_DP.sw.on()
-        t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
-        self.counts2 = self.ttl_SPCM0_counter.fetch_count()
-        delay(0.1 * ms)
-        self.dds_cooling_DP.sw.off()
+        if self.use_chopped_readout:
+            rtio_log("chop_RO_counter", 0)
+            rtio_log("chop_RO_dma", 0)
+            delay(10*ms)
+            ro_dma_handle = self.core_dma.get_handle("second_chopped_readout")
+            delay(10 * ms)
+
+            # todo set RO coils here?
+
+            self.ttl_repump_switch.off()  # turns the RP AOM on
+            self.dds_cooling_DP.sw.off()  # the chop sequence likes to turn the FORT off
+
+            delay(1 * ms)
+            self.ttl7.pulse(100 * us)  # todo delete
+            self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
+
+            delay(10 * ms)
+
+            # we want to initiate the chop playback and read in detector clicks while the chop sequence is playing.
+            # the edge_counter.gate_rising(duration) function is equivalent to:
+            #         edge_counter.set_config(
+            #             count_rising=count_rising,
+            #             count_falling=count_falling,
+            #             send_count_event=False,
+            #             reset_to_zero=True)
+            #         delay_mu(duration_mu)
+            #         edge_counter.set_config(
+            #             count_rising=False,
+            #             count_falling=False,
+            #             send_count_event=True,
+            #             reset_to_zero=False)
+            #
+            # we want the dma playback to happen during the gating, so we call the _set_sensitivity functions directly
+
+            now = now_mu()
+            rtio_log("chop_RO_counter", 1)
+            self.ttl_SPCM0_counter.set_config(
+                    count_rising=True,
+                    count_falling=False,
+                    send_count_event=False,
+                    reset_to_zero=True)
+            delay(1*us)
+            rtio_log("chop_RO_dma", 1)
+            self.core_dma.playback_handle(ro_dma_handle) # not sure if I need extra delay here
+            rtio_log("chop_RO_dma", 0)
+            at_mu(now + self.core.seconds_to_mu(self.t_SPCM_second_shot+10*us))
+            self.ttl_SPCM0_counter.set_config(
+                    count_rising=False,
+                    count_falling=False,
+                    send_count_event=True,
+                    reset_to_zero=False)
+            self.counts2 = self.ttl_SPCM0_counter.fetch_count()
+            rtio_log("chop_RO_counter", 0)
+            delay(10*ms)
+
+        else:
+            self.ttl_repump_switch.off()
+            self.dds_cooling_DP.sw.on()
+            t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
+            self.counts2 = self.ttl_SPCM0_counter.fetch_count()
+            delay(0.1 * ms)
+            self.dds_cooling_DP.sw.off()
+
+@kernel
+def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
+    """
+
+    :param self:
+    :return:
+    """
+    # todo. copy OP chopping of the FORT but also chop the SPCM gate
+
+    n_chop_cycles = int(readout_duration / self.t_RO_chop_period + 0.5)
+    assert n_chop_cycles >= 1, "t_SPCM_first_shot should be > t_RO_chop_period"
+
+    RO_pulse = self.t_RO_chop_period * self.duty_cycle_RO
+    FORT_pulse = self.t_RO_chop_period * self.duty_cycle_FORT
+
+    self.core.reset()
+
+    start = now_mu()
+    period_mu = self.core.seconds_to_mu(self.t_RO_chop_period)
+
+    # does this need to be set within the dma context manager?
+    RO_pulse_length_mu = self.core.seconds_to_mu(RO_pulse)
+    FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
+    FORT_on_mu = self.core.seconds_to_mu(0.0)
+    RO_on_mu = self.core.seconds_to_mu(self.t_RO_chop_offset)
+    gate_on_mu = self.core.seconds_to_mu(self.t_RO_gate_offset)
+
+    with self.core_dma.record(label):
+
+        # if not self.chopped_RO_light_off:
+        for i in range(n_chop_cycles):
+            at_mu(start + i * period_mu + FORT_on_mu)
+            self.dds_FORT.sw.off()
+            delay_mu(RO_pulse_length_mu)
+            self.dds_FORT.sw.on()
+            self.dds_cooling_DP.sw.on()
+
+            at_mu(start + i * period_mu + gate_on_mu)
+            self.ttl_SPCM_gate.off()  # unblocks the SPCM output
+            at_mu(start + i * period_mu + RO_on_mu)
+            self.dds_cooling_DP.sw.on()
+            at_mu(start + i * period_mu + gate_on_mu + RO_pulse_length_mu)
+            self.ttl_SPCM_gate.on()  # blocks the SPCM output
+            at_mu(start + i * period_mu + RO_on_mu + RO_pulse_length_mu)
+            self.dds_cooling_DP.sw.off()
+
+            # cooling light doesn't seem synced up with SPCM gating based on photon count rate compared to RO_light_off case
+            # with parallel:
+            #     self.ttl_SPCM_gate.off() # unblocks the SPCM output
+            #     self.dds_cooling_DP.sw.on()
+            # delay_mu(RO_pulse_length_mu)
+            # with parallel:
+            #     self.dds_cooling_DP.sw.off()
+            #     self.ttl_SPCM_gate.on()  # blocks the SPCM output
+        # else:
+        #     for i in range(n_chop_cycles):
+        #         at_mu(start + i * period_mu + FORT_on_mu)
+        #         self.dds_FORT.sw.off()
+        #         delay_mu(RO_pulse_length_mu)
+        #         self.dds_FORT.sw.on()
+        #         at_mu(start + i * period_mu + gate_on_mu)
+        #         self.ttl_SPCM_gate.off()  # unblocks the SPCM output
+        #         delay_mu(RO_pulse_length_mu)
+        #         self.ttl_SPCM_gate.on()  # blocks the SPCM output
 
 @kernel
 def record_chopped_blow_away(self):
@@ -706,6 +859,12 @@ def atom_loading_experiment(self):
     self.counts = 0
     self.counts2 = 0
     rtio_log("2nd_shot_block", 0)
+
+    if self.use_chopped_readout:
+        # record_chopped_readout(self, self.t_SPCM_first_shot, "first_chopped_readout")
+        # delay(100*ms)
+        record_chopped_readout(self, readout_duration=self.t_SPCM_second_shot, label="second_chopped_readout")
+        delay(100*ms)
 
     self.print_async("in exp:",self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT)
 
