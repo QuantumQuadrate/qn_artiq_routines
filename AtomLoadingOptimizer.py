@@ -1,10 +1,16 @@
 """
-Atom loading optimization which positions the MOT using M-LOOP
+Atom loading optimization which tunes the MOT coils and beam powers using M-LOOP
+
+For a given choice of parameters within the specified bounds, the MOT is loaded in steady-state
+with the FORT on the whole time, and we try to maximize the number of single atoms that come and
+go in the trap.
 """
 
 from artiq.experiment import *
 import numpy as np
 import scipy as sp
+from skimage.filters import threshold_otsu
+import logging
 
 #Imports for M-LOOP
 import mloop.interfaces as mli
@@ -28,7 +34,7 @@ class MLOOPInterface(mli.Interface):
         pass
 
 
-class AtomLoadingOptimizerMLOOP(EnvExperiment):
+class AtomLoadingOptimizer(EnvExperiment):
 
     def build(self):
         """
@@ -228,7 +234,6 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
         # self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         #                      channels=self.coil_channels)
 
-
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
         atoms_loaded = 0
         q_last = (data[0] > self.atom_counts_threshold)
@@ -236,10 +241,35 @@ class AtomLoadingOptimizerMLOOP(EnvExperiment):
             q = x > self.atom_counts_threshold
             if q != q_last and q_last:
                 atoms_loaded += 1
-                # todo: replace with logging statement?
-                # self.print_async("optimizer found the single atom signal!")
             q_last = q
         atoms_loaded += q_last
+
+        # recompute if a certain fraction of counts is above threshold.
+        # fraction is somewhat arbitrary should be high enough to mitigate false positives (i.e. if we have only one
+        # event above threshold, it might be an outlier in the noise, and if we recompute the threshold for this data i
+        # it will find a threshold in the middle of background. this would estimate atom loading near 50%, even if it
+        # was really 0%).
+        over_thresh_fraction = sum([x > self.atom_counts_threshold for x in data])/len(data)
+
+        if over_thresh_fraction > 0.3:
+            # recompute the atoms_loaded using otsu thresholding. the optimizer will sometimes realize that it can
+            # improve the cost by simply lowering the beam power until the threshold cuts the noise of an atom signal,
+            # such that one atom trapped passes the threshold both ways several times before it leaves. This will be
+            # incorrectly counted as many atoms, so to guard against this, we recompute the threshold from the data
+            # using the otsu method.
+            logging.debug(f'initially computed {atoms_loaded} atoms loaded')
+
+            threshold = threshold_otsu(data)
+            q_last = (data[0] > threshold)
+            for x in data[1:]:
+                q = x > threshold
+                if q != q_last and q_last:
+                    atoms_loaded += 1
+                q_last = q
+            atoms_loaded += q_last
+
+            logging.debug(f'recomputed computed {atoms_loaded} atoms loaded')
+
         return -1 * atoms_loaded
 
     @kernel
