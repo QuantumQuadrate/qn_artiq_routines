@@ -1,5 +1,7 @@
 """
-1. connect a thorlabs K10CR1 rotator to your machine with USB
+1a. connect two thorlabs K10CR1 rotators to your machine with USB
+1b. in .\device_db.py, in the k10cr1_ndsp entry, 
+    make sure serial numbers match those of your K10CR1 devices.
 
 2. open a terminal in the same directory as this script, 
 enter your artiq virtual environment, then run the 
@@ -33,27 +35,40 @@ class K10CR1MultiExample(EnvExperiment):
         self.degrees_list = [0]*len(self.rotors)
     
     @kernel
+    def experiment_function(self):
+        """some experiment that runs on the kernel"""
+
+        self.core.reset()
+
+        for i in range(10):
+            self.led0.pulse(0.5*s)
+            delay(0.1*s)
+        
     def run(self):
-        self.degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
-        print(self.rotors)
-        print(self.degrees_list)
+        """
+        Query the rotators to get their positions, move them by some amount,
+        then do an experiment on the kernel, and finally reset the rotator positions.
+        """
+
+        degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
+        print([f"{rotor} at {deg} deg." for rotor,deg in zip(self.rotors,degrees_list)])
 
         # move all of the rotors by some amount, with only one rpc call:
-        self.k10cr1_ndsp.move_by(self.rotors, [20,30])
-        self.led0.pulse(1*s)
+        self.k10cr1_ndsp.move_by(self.rotors, [90,80])
 
-        self.degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
-        print(self.rotors)
-        print(self.degrees_list)
+        # wait for the rotators to move. probably a more sophisticated way of doing this
+        sleep(2*s)
+        degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
+        print([f"{rotor} at {deg} deg." for rotor,deg in zip(self.rotors,degrees_list)])
 
-        # you don't have to move all of the rotors we connected;
-        # you can move only one by passing in only one name:
-        self.k10cr1_ndsp.move_by(['780_HWP'], [-20])
-        self.led0.pulse(1*s)
+        # run our experiment on the kernel
+        self.experiment_function()
+        print("kernel experiment done")
 
-        self.k10cr1_ndsp.move_by(['780_QWP'], [-30])
-        self.led0.pulse(1*s)
+        # move all of the rotors by some amount, with only one rpc call:
+        self.k10cr1_ndsp.move_by(self.rotors, [-90,-80])
 
-        self.degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
-        print(self.rotors)
-        print(self.degrees_list)
+        sleep(2*s)
+
+        degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
+        print([f"{rotor} at {deg} deg." for rotor,deg in zip(self.rotors,degrees_list)])

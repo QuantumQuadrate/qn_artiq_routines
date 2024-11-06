@@ -1,5 +1,7 @@
 """
-1. connect a thorlabs K10CR1 rotator to your machine with USB
+1a. connect two thorlabs K10CR1 rotators to your machine with USB
+1b. in .\device_db.py, in the k10cr1_ndsp entry, 
+    make sure serial numbers match those of your K10CR1 devices.
 
 2. open a terminal in the same directory as this script, 
 enter your artiq virtual environment, then run the 
