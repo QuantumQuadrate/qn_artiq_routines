@@ -1,6 +1,8 @@
 """
-open your artiq environment in the same directory as this
-script, and run
+1. in a terminal, run the ndsp launcher in this directory with
+    python launcher.py
+
+2. in another terminal opened in this directory, run your artiq environment then run
 
     artiq_run ndsp_example.py --device-db=.\device_db.py
 """
