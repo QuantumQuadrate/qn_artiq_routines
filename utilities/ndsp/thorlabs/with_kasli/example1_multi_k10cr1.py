@@ -1,4 +1,15 @@
 """
+Example 1 demonstrates how to control multiple Thorlabs rotators as NDSP devices
+when you DO NOT need to get values from them (e.g. position) from an experiment
+on the kernel. This could be relevant for a tomography experiment where the command
+to check the current positions of the rotators (e.g. to save them to a database) and
+then move them is done off the kernel before doing self.experiment_function() to run
+your experiment on the kernel. 
+
+For an example of how to query the device from a kernel function, see Example 2.
+
+Instructions:
+
 1a. connect two thorlabs K10CR1 rotators to your machine with USB
 1b. in .\device_db.py, in the k10cr1_ndsp entry, 
     make sure serial numbers match those of your K10CR1 devices.

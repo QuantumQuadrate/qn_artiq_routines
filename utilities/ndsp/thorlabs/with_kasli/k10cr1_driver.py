@@ -71,29 +71,22 @@ class K10CR1_Multi_NDSP_Driver():
         for name, kwargs in devices_kwargs:
             self.motor_list[name] = Thorlabs.KinesisMotor(**kwargs)
 
-    @rpc(flags={'async'})
-    def get_position(self, names: TList(TStr)) -> TList(TInt32):
-        positions = [0]*len(names)
+    def get_position(self, names: TList(TStr)) -> TList(TFloat):
+        positions = [0.0]*len(names)
         for i,name in enumerate(names):
             assert name in self.motor_list, f"{name} does not exist! did you mistype it?"
             positions[i] = self.motor_list[name].get_position()
         return positions
-    
-    # try this:
-    # @rpc
-    # def get_position(self, names: TList(TStr)) -> TArray(TInt32, 2):
-    #     return [np.int32(0),np.int32(0)]
 
-    @rpc
     def is_moving(self, names: TList(TStr)) -> TBool:
         """
         returns true if any motors are moving
         """
-        moving = 0
+        moving = False
         for name in names:
             assert name in self.motor_list, f"{name} does not exist! did you mistype it?"
             if self.motor_list[name].is_moving():
-                moving = 1
+                moving = True
                 print(f"K10CR1 {name} moving!")
         return moving
 
