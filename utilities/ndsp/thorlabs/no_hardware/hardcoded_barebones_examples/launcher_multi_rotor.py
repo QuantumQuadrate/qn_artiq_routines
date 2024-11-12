@@ -23,7 +23,7 @@ def main():
     sn, name = Thorlabs.list_kinesis_devices()[0]
 
     # instantiate driver object
-    driver = k10cr1_driver.K10CR1_NDSP_Driver(**{'conn':sn, 'scale':'K10CR1'})
+    driver = k10cr1_driver.K10CR1_NDSP_Driver()
 
     try:
         simple_server_loop(

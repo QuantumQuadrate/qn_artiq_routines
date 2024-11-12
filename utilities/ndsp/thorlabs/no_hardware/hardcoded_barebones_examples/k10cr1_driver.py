@@ -1,13 +1,17 @@
+"""control two K10CR1 units with only one NDSP server"""
+
 from time import time, sleep
 from pylablib.devices import Thorlabs  # for Kinesis instrument control
 from artiq.experiment import *
 
 
 class K10CR1_NDSP_Driver():
+    """control two K10CR1 units with only one NDSP server"""
 
-    def __init__(self, **kwargs):
+    def __init__(self):
         self.motor = {}
-        self.motor['780_QWP'] = Thorlabs.KinesisMotor(**kwargs)
+        self.motor['780_QWP'] = Thorlabs.KinesisMotor(conn=55000741, scale='K10CR1')
+        self.motor['780_HWP'] = Thorlabs.KinesisMotor(conn=55105674, scale='K10CR1')
 
     @rpc
     def get_position(self, name) -> TFloat:

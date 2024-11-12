@@ -24,8 +24,8 @@ device_db = { # for running a test locally, i.e. with no hardware
 
 device_db["k10cr1_ndsp"] = {
     "type": "controller",  # this tells artiq it's an ndsp
-    "sn_list": [55000741], #,55105674],
-    "nickname_list": ["780_QWP"], #, "780_HWP"],
+    "sn_list": [55000741,55105674],
+    "nickname_list": ["780_QWP","780_HWP"],
     "host": "localhost",
     "port": 8080
 }
