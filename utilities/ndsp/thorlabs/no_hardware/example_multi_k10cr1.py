@@ -30,38 +30,42 @@ class K10CR1MultiExample(EnvExperiment):
         except Exception as e:
             print(f"Error connecting to device {e}")
 
-        self.rotors = ["780_QWP","780_HWP"]
+        self.rotors = ["780_QWP"] #,"780_HWP"]
     
     def run(self):
         degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
         print([f"{rotor} at {deg} deg." for rotor,deg in zip(self.rotors,degrees_list)])
 
+        sleep(1)
+
         # move all of the rotors by some amount, with only one rpc call:
-        self.k10cr1_ndsp.move_by(self.rotors, [90,80])
+        self.k10cr1_ndsp.move_by(self.rotors, [20]) #,30])
 
         # wait until all rotors are done
-        i = 0
-        while self.k10cr1_ndsp.is_moving(self.rotors):
-            sleep(0.1)  
-            i += 1
-        print(i)
+        # i = 0
+        # while self.k10cr1_ndsp.is_moving(self.rotors):
+        #     sleep(0.1)  
+        #     i += 1
+        # print(i)
 
-        degrees = self.k10cr1_ndsp.get_position(self.rotors)
-        print(f"Rotator angles = {degrees} deg.")
+        # sleep(1)
 
-        # you don't have to move all of the rotors we connected;
-        # you can move only one by passing in only one name:
-        self.k10cr1_ndsp.move_by(['780_HWP'], [-90])
+        # degrees = self.k10cr1_ndsp.get_position(self.rotors)
+        # print(f"Rotator angles = {degrees} deg.")
 
-        # we can wait until the previous rotor is done moving
-        # (this isn't necessary, I'm just showing it as an example)
-        while self.k10cr1_ndsp.is_moving(['780_HWP']):
-            sleep(0.1)
+        # # you don't have to move all of the rotors we connected;
+        # # you can move only one by passing in only one name:
+        # self.k10cr1_ndsp.move_by(['780_HWP'], [-90])
 
-        self.k10cr1_ndsp.move_by(['780_QWP'], [-80])
+        # # we can wait until the previous rotor is done moving
+        # # (this isn't necessary, I'm just showing it as an example)
+        # while self.k10cr1_ndsp.is_moving(['780_HWP']):
+        #     sleep(0.1)
 
-        while self.k10cr1_ndsp.is_moving(self.rotors):
-            sleep(0.1)
+        # self.k10cr1_ndsp.move_by(['780_QWP'], [-80])
 
-        degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
-        print([f"{rotor} at {deg} deg." for rotor,deg in zip(self.rotors,degrees_list)])
+        # while self.k10cr1_ndsp.is_moving(self.rotors):
+        #     sleep(0.1)
+
+        # degrees_list = self.k10cr1_ndsp.get_position(self.rotors)
+        # print([f"{rotor} at {deg} deg." for rotor,deg in zip(self.rotors,degrees_list)])

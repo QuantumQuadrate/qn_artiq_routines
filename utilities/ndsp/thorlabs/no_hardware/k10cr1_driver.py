@@ -68,6 +68,7 @@ class K10CR1_Multi_NDSP_Driver():
 
         for name, kwargs in devices_kwargs:
             self.motor_list[name] = Thorlabs.KinesisMotor(**kwargs)
+            print(f"initialized {name} with {kwargs}")
 
     @rpc
     def get_position(self, names) -> TArray(TFloat):
@@ -93,12 +94,16 @@ class K10CR1_Multi_NDSP_Driver():
     @rpc(flags={'async'})
     def move_by(self, names, degrees):
         for name,deg in zip(names, degrees):
-            assert name in self.motor_list, f"{name} does not exist! did you mistype it?"
+            # assert name in self.motor_list, f"{name} does not exist! did you mistype it?"
             self.motor_list[name].move_by(deg)
-            print(f"K10CR1 {name} moving!")
+            print(self.motor_list[name])
+            print(f"K10CR1 {name} moving by {deg} degrees")
+            # sleep(10)
+            # break
 
     @rpc(flags={'async'})
     def move_to(self, names, degrees):
+        print(degrees)
         for name,deg in zip(names, degrees):
             assert name in self.motor_list, f"{name} does not exist! did you mistype it?"
             self.motor_list[name].move_by(deg)

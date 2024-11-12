@@ -75,29 +75,29 @@ class K10CR1MultiExample(EnvExperiment):
         print("positions (deg.):",self.positions)
         delay(10*ms)
 
-        # do something, e.g. measure a photodetector after the rotators
-        for i in range(10):
-            self.led0.pulse(0.2*s)
-            delay(0.2*s)
+        # # do something, e.g. measure a photodetector after the rotators
+        # for i in range(10):
+        #     self.led0.pulse(0.2*s)
+        #     delay(0.2*s)
 
         # move all of the rotors by some amount, with only one rpc call:
         self.k10cr1_ndsp.move_by(self.rotors, [90,80])
 
-        delay(2*s)
+        # delay(2*s)
 
-         # do something, e.g. measure a photodetector after the rotators
-        for i in range(10):
-            self.led0.pulse(0.2*s)
-            delay(0.2*s)
+        #  # do something, e.g. measure a photodetector after the rotators
+        # for i in range(10):
+        #     self.led0.pulse(0.2*s)
+        #     delay(0.2*s)
 
-        # get the position of only one rotator, then move it
-        self.positions = self.get_rotator_positions(["780_QWP"])
-        print("rotators:","780_QWP")
-        print("positions (deg.):",self.positions)
-        delay(10*ms)
-        self.k10cr1_ndsp.move_by(["780_QWP"], [30])
+        # # get the position of only one rotator, then move it
+        # self.positions = self.get_rotator_positions(["780_QWP"])
+        # print("rotators:","780_QWP")
+        # print("positions (deg.):",self.positions)
+        # delay(10*ms)
+        # self.k10cr1_ndsp.move_by(["780_QWP"], [30])
 
-        # finally, the rest of your experiment
-        for i in range(10):
-            self.led0.pulse(0.2*s)
-            delay(0.2*s)
+        # # finally, the rest of your experiment
+        # for i in range(10):
+        #     self.led0.pulse(0.2*s)
+        #     delay(0.2*s)

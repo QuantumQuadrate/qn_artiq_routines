@@ -35,21 +35,21 @@ class K10CR1Example(EnvExperiment):
             print(f"Error connecting to device {e}")
     
     def run(self):
-        degrees = self.k10cr1_ndsp.get_position()
+        degrees = self.k10cr1_ndsp.get_position('780_QWP')
         print(f"Rotator angle = {degrees:.2f} deg.")
 
-        self.k10cr1_ndsp.move_by(20)
+        self.k10cr1_ndsp.move_by(20, '780_QWP')
 
-        while self.k10cr1_ndsp.is_moving():
+        while self.k10cr1_ndsp.is_moving('780_QWP'):
             sleep(0.1)
 
-        degrees = self.k10cr1_ndsp.get_position()
+        degrees = self.k10cr1_ndsp.get_position('780_QWP')
         print(f"Rotator angle = {degrees:.2f} deg.")
 
-        self.k10cr1_ndsp.move_by(-20)
+        self.k10cr1_ndsp.move_by(-20, '780_QWP')
 
-        while self.k10cr1_ndsp.is_moving():
+        while self.k10cr1_ndsp.is_moving('780_QWP'):
             sleep(0.1)
 
-        degrees = self.k10cr1_ndsp.get_position()
+        degrees = self.k10cr1_ndsp.get_position('780_QWP')
         print(f"Rotator angle = {degrees:.2f} deg.")

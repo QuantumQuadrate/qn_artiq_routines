@@ -56,8 +56,6 @@ class K10CR1_Multi_NDSP_Driver():
     def move_by(self, names, degrees):
         for name,deg in zip(names, degrees):
             self.rotors[name].move_by(deg)
-
-    can I generalize this? don't try to be too clever
     """
     def __init__(self, devices_kwargs):
         """
@@ -76,6 +74,7 @@ class K10CR1_Multi_NDSP_Driver():
         for i,name in enumerate(names):
             assert name in self.motor_list, f"{name} does not exist! did you mistype it?"
             positions[i] = self.motor_list[name].get_position()
+            sleep(0.1)
         return positions
 
     def is_moving(self, names: TList(TStr)) -> TBool:
@@ -92,10 +91,18 @@ class K10CR1_Multi_NDSP_Driver():
 
     @rpc(flags={'async'})
     def move_by(self, names: TList(TStr), degrees: TList(TFloat)):
-        for name,deg in zip(names, degrees):
-            assert name in self.motor_list, f"{name} does not exist! did you mistype it?"
-            self.motor_list[name].move_by(deg)
-            print(f"K10CR1 {name} moving!")
+        # for name,deg in zip(names, degrees):
+            # assert name in self.motor_list, f"{name} does not exist! did you mistype it?"
+            # self.motor_list[name].move_by(deg)
+            # print(f"K10CR1 {name} moving!")
+            
+            # while self.motor_list[name].is_moving():
+            #     sleep(0.1)
+            # sleep(5)
+
+        self.motor_list["780_HWP"].move_by(20)
+
+
 
     @rpc(flags={'async'})
     def move_to(self, names: TList(TStr), degrees: TList(TFloat)):
