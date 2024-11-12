@@ -64,10 +64,23 @@ class K10CR1Example(EnvExperiment):
 
         self.core.reset()
 
-        # get position and move the 780 QWP
-        print('780_QWP at', self.get_rotator_position('780_QWP'))
-        print('780_HWP at', self.get_rotator_position('780_HWP'))
+        # get position and move the 780 QWP.
+        qwp780_pos = self.get_rotator_position('780_QWP')
+        hwp780_pos = self.get_rotator_position('780_HWP')
+
+        print('780_QWP at', qwp780_pos)
+        print('780_HWP at', hwp780_pos)
         delay(100*ms)
+
+        # we can do things conditional on the position. this could also involve the
+        # sinara hardware if we wanted
+        if qwp780_pos != 0:
+            self.k10cr1_ndsp.move_to(0, '780_QWP')
+
+            # wait for it to move
+            while self.is_rotator_moving('780_QWP'):
+                self.led0.pulse(0.2*s)
+                delay(0.1*s)
 
         self.k10cr1_ndsp.move_by(20, '780_QWP')
         self.k10cr1_ndsp.move_by(15, '780_HWP')
@@ -79,8 +92,7 @@ class K10CR1Example(EnvExperiment):
             i += 1
         print(i)
         delay(10*ms)
-            
-
+        
         # do some stuff with the Sinara hardware
         # for measurement in range(self.n_measurements):
         #     your tomography experiment goes here...
