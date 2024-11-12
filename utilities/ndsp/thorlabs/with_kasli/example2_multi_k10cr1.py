@@ -80,17 +80,10 @@ class K10CR1MultiExample(EnvExperiment):
             self.led0.pulse(0.2*s)
             delay(0.2*s)
 
-        with sequential:
-            # move all of the rotors by some amount, with only one rpc call:
-            self.k10cr1_ndsp.move_by(self.rotors, [90,80])
+        # move all of the rotors by some amount, with only one rpc call:
+        self.k10cr1_ndsp.move_by(self.rotors, [90,80])
 
-            # wait for the rotators to move
-            now = now_mu()
-            t = 0
-            while self.rotators_are_moving(self.rotors):
-                delay(0.1*ms)
-                t += now_mu() - now
-            at_mu(now + t + 100)
+        delay(2*s)
 
          # do something, e.g. measure a photodetector after the rotators
         for i in range(10):
