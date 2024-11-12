@@ -17,12 +17,15 @@ def main():
     port = device_db[device_name]["port"]
 
     # could get the serial number of a device this way:
+    # sn = device_db[device_name]["sn_list"][0]
+
     sn_list = device_db[device_name]["sn_list"]
     nicknames = device_db[device_name]["nickname_list"]
     devices = [(name, {'conn':sn}) for name,sn in zip(nicknames,sn_list)]
 
+
     # instantiate driver object
-    driver = k10cr1_driver.K10CR1_Multi_NDSP_Driver(devices)
+    driver = k10cr1_driver.K10CR1_NDSP_Driver(devices)
 
     try:
         simple_server_loop(

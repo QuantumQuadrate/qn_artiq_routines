@@ -1,11 +1,14 @@
 """
-1. connect a thorlabs K10CR1 rotator to your machine with USB
+Control two K10CR1 units with only one NDSP server.
+
+1. connect thorlabs K10CR1 rotators to your machine with USB, and make sure
+the serial numbers in the device_db match the rotators you connected.
 
 2. open a terminal in the same directory as this script, 
 enter your artiq virtual environment, then run the 
 NDSP server for this test with
 
-    python launcher_single_rotor.py
+    python launcher_multi_rotor.py
 
 3. In another terminal in this directory in the artiq environment,
 run this script with artiq:
