@@ -49,6 +49,11 @@ class K10CR1Example(EnvExperiment):
         """wrapper function"""
         positions = self.k10cr1_ndsp.get_position(name)
         return positions
+        
+    def is_rotator_moving(self, name: TStr) -> TBool:
+        """wrapper function"""
+        is_moving = self.k10cr1_ndsp.is_moving(name)
+        return is_moving
 
     @kernel
     def experiment_function(self):
@@ -67,12 +72,18 @@ class K10CR1Example(EnvExperiment):
         self.k10cr1_ndsp.move_by(20, '780_QWP')
         self.k10cr1_ndsp.move_by(15, '780_HWP')
 
-        delay(5*s)  # todo: wait in a more sophisticated way 
+        # wait for the rotators to stop moving before proceeding with your experiment
+        i = 0
+        while self.is_rotator_moving('780_QWP') and self.is_rotator_moving('780_HWP'):
+            delay(0.1*s)
+            i += 1
+        print(i)
+        delay(10*ms)
+            
 
         # do some stuff with the Sinara hardware
         # for measurement in range(self.n_measurements):
         #     your tomography experiment goes here...
-        #
 
         for i in range(100):
             self.led0.pulse(0.1*s)
