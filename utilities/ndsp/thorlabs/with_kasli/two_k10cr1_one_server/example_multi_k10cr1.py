@@ -38,6 +38,8 @@ class K10CR1Example(EnvExperiment):
             self.setattr_device("k10cr1_ndsp")
         except Exception as e:
             print(f"Error connecting to device {e}")
+
+        self.rotators_are_moving = True
     
     # if you want to call NDSP functions from the kernel and return things,
     # you need to define wrapper functions. if you call the NDSP functions
@@ -50,6 +52,10 @@ class K10CR1Example(EnvExperiment):
 
     @kernel
     def experiment_function(self):
+        """
+        In a real use case, this would be an experiment that lives
+        in experiment_functions.py
+        """
 
         self.core.reset()
 
@@ -61,7 +67,7 @@ class K10CR1Example(EnvExperiment):
         self.k10cr1_ndsp.move_by(20, '780_QWP')
         self.k10cr1_ndsp.move_by(15, '780_HWP')
 
-        delay(2*s)  # todo: wait in a more sophisticated way 
+        delay(5*s)  # todo: wait in a more sophisticated way 
 
         # do some stuff with the Sinara hardware
         # for measurement in range(self.n_measurements):
@@ -89,4 +95,3 @@ class K10CR1Example(EnvExperiment):
 
         # our experiment on the kernel
         self.experiment_function()
-

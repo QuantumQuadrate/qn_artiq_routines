@@ -13,31 +13,21 @@ class K10CR1_NDSP_Driver():
         self.motor['780_QWP'] = Thorlabs.KinesisMotor(conn=55000741, scale='K10CR1')
         self.motor['780_HWP'] = Thorlabs.KinesisMotor(conn=55105674, scale='K10CR1')
 
-    @rpc
-    def get_position(self, name) -> TFloat:
+    def get_position(self, name: str) -> float:
         position = self.motor[name].get_position()
         return position
 
-    @rpc
-    def is_moving(self, name) -> TBool:
+    def is_moving(self, name: str) -> bool:
         moving = self.motor[name].is_moving()
         return moving
 
-    @rpc(flags={'async'})
-    def move_by(self, degrees, name):
+    def move_by(self, degrees, name: str):
         self.motor[name].move_by(degrees)
         print("K10CR1 moving!")
 
-    @rpc(flags={'async'})
-    def move_to(self, degrees):
-        self.motor.move_to(degrees)
+    def move_to(self, degrees, name: str):
+        self.motor[name].move_to(degrees)
 
-    @rpc(flags={'async'})
+    # todo: what does this do again? block until movement is done?
     def wait_move(self):
         self.motor.wait_move()
-
-    # additional functions for diagnostics
-    @rpc
-    def get_position_query_time(self) -> TFloat:
-        _ = self.motor.get_position()
-        return time()
