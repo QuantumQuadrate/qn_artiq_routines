@@ -736,11 +736,12 @@ def measure_REPUMP(self):
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
 
+    delay(0.1 * ms)
 
     # Repump 1
     for i in range(avgs):
-        delay(0.1 * ms)
         self.sampler0.sample(measurement_buf)
+        delay(0.1 * ms)
         measurement1 += measurement_buf[7] # Repump 1
         delay(0.1 * ms)
         measurement2 += measurement_buf[5] # Repump 2
@@ -753,7 +754,6 @@ def measure_REPUMP(self):
     self.append_to_dataset("REPUMP2_monitor", measurement2)
 
     self.ttl_repump_switch.on()  # turns the RP AOM off
-    self.dds_cooling_DP.sw.on()
     self.dds_AOM_A1.sw.off()
     self.dds_AOM_A2.sw.off()
 
