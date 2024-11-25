@@ -138,6 +138,8 @@ class BaseExperiment:
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
+            self.experiment.ttl_SPCM1 = self.experiment.ttl1
+            self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_UV = self.experiment.ttl15
@@ -160,6 +162,7 @@ class BaseExperiment:
                                              self.experiment.AY_Zotino_channel]
 
             self.experiment.FORT_MM_sampler_ch = 7
+            self.experiment.GRIN1_sampler_ch = 4  # Sampler1; function "measure_GRIN1" in experiment functions.py
 
             # dataset names
             self.experiment.measurements_progress = 'measurements_progress'
@@ -627,6 +630,10 @@ class BaseExperiment:
         self.experiment.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
         self.experiment.set_dataset("excitation_counts", [0], broadcast=True)
+
+        self.experiment.set_dataset("GRIN1_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("REPUMP1_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("REPUMP2_monitor", [0.0], broadcast=True)
 
     @kernel
     def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):
