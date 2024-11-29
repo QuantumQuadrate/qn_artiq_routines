@@ -1236,7 +1236,7 @@ def microwave_Rabi_experiment(self):
         if not self.no_first_shot:
             first_shot(self)
         delay(1 * ms) # leave the repump on so atoms are left in F=2
-        self.ttl_repump_switch.off()  # turns the RP AOM off
+        self.ttl_repump_switch.on()  # turns the RP AOM off
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
