@@ -101,10 +101,10 @@ def load_MOT_and_FORT(self):
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
     self.counts_FORT_science = self.ttl_SPCM0.count(t_gate_end)
     delay(1*ms)
-    self.dds_cooling_DP.sw.on()
+
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
-
+        self.dds_cooling_DP.sw.on()
         self.dds_FORT.set(frequency=self.f_FORT,
                           amplitude=self.stabilizer_FORT.amplitudes[1])
 
@@ -114,8 +114,8 @@ def load_MOT_and_FORT(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC,
                                 amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_PGC)
         delay(self.t_PGC_in_MOT)
+        self.dds_cooling_DP.sw.off()
 
-    self.dds_cooling_DP.sw.off()
 
 @kernel
 def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
@@ -641,6 +641,15 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
+    delay(100*us)
+
+    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
+
     delay(1*ms)
     self.dds_excitation.sw.on()
     self.ttl_excitation_switch.off()
@@ -669,7 +678,15 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
-    measure_GRIN1(self)
+    delay(100 * us)
+
+    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
+    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
+    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
+    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
 
     delay(1*ms)
     self.dds_excitation.sw.off()
@@ -690,7 +707,6 @@ def measure_FORT_MM_fiber(self):
     measurement /= avgs
     self.append_to_dataset("FORT_MM_science_volts", measurement)
 
-# todo: add "GRIN1_monitor" to dataset
 @kernel
 def measure_GRIN1(self):
     """
@@ -705,6 +721,10 @@ def measure_GRIN1(self):
     measurement_buf = np.array([0.0]*8)
     measurement = 0.0
     avgs = 50
+
+    # todo: turn off dds and measure
+    delay(0.1*ms)
+
     for i in range(avgs):
         self.sampler1.sample(measurement_buf)
         measurement += measurement_buf[self.GRIN1_sampler_ch]
@@ -760,6 +780,147 @@ def measure_REPUMP(self):
     delay(0.1 * ms)
 
 @kernel
+def measure_MOT_end(self):
+    """
+    used for monitring MOT power
+    MOT_end_monitor1 defined
+
+    This is in end_measurement
+
+    AOM1: Sampler0, 7
+    AOM2: Sampler0, 5
+    AOM3: Sampler0, 3
+    AOM4: Sampler0, 4
+    AOM5: Sampler0, 1
+    AOM6: Sampler0, 2
+
+    """
+    ao_s1 = 7
+    ao_s2 = 5
+    ao_s3 = 3
+    ao_s4 = 4
+    ao_s5 = 1
+    ao_s6 = 2
+
+    avgs = 50
+
+
+    delay(0.1 * ms)
+
+    self.dds_FORT.sw.off()
+    self.ttl_repump_switch.on()  # turns the RP AOM on
+    self.dds_cooling_DP.sw.on()
+
+    # self.dds_AOM_A1.sw.off()
+    # self.dds_AOM_A2.sw.off()
+    # self.dds_AOM_A3.sw.off()
+    # self.dds_AOM_A4.sw.off()
+    # self.dds_AOM_A5.sw.off()
+    # self.dds_AOM_A6.sw.off()
+
+    ### MOT1 & MOT2
+    measurement_buf = np.array([0.0] * 8)
+    measurement1 = 0.0  # MOT1
+    measurement2 = 0.0  # MOT2
+    measurement3 = 0.0  # MOT5
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A5.sw.on()
+
+    delay(0.1 * ms)
+
+    for i in range(avgs):
+        self.sampler0.sample(measurement_buf)
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[ao_s1]  # MOT1
+        delay(0.1 * ms)
+        measurement2 += measurement_buf[ao_s2]  # MOT2
+        measurement3 += measurement_buf[ao_s5]  # MOT5
+
+    measurement1 /= avgs
+    measurement2 /= avgs
+    measurement3 /= avgs
+
+    self.append_to_dataset("MOT1_end_monitor", measurement1)
+    self.append_to_dataset("MOT2_end_monitor", measurement2)
+    self.append_to_dataset("MOT5_end_monitor", measurement3)
+
+    self.dds_AOM_A1.sw.off()
+    self.dds_AOM_A2.sw.off()
+    self.dds_AOM_A5.sw.off()
+
+    delay(0.1 * ms)
+
+
+    ### MOT3 & MOT4
+
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    measurement_buf = np.array([0.0] * 8)
+    measurement1 = 0.0
+    measurement2 = 0.0
+    measurement3 = 0.0
+
+    delay(0.1 * ms)
+
+    for i in range(avgs):
+        self.sampler0.sample(measurement_buf)
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[ao_s3]
+        delay(0.1 * ms)
+        measurement2 += measurement_buf[ao_s4]
+        measurement3 += measurement_buf[ao_s6]
+
+    measurement1 /= avgs
+    measurement2 /= avgs
+    measurement3 /= avgs
+
+    self.append_to_dataset("MOT3_end_monitor", measurement1)
+    self.append_to_dataset("MOT4_end_monitor", measurement2)
+    self.append_to_dataset("MOT6_end_monitor", measurement3)
+
+    self.dds_AOM_A3.sw.off()
+    self.dds_AOM_A4.sw.off()
+    self.dds_AOM_A6.sw.off()
+
+    delay(0.1 * ms)
+
+
+    ### MOT5 & MOT6
+
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    measurement_buf = np.array([0.0] * 8)
+    measurement1 = 0.0
+    measurement2 = 0.0
+
+    delay(0.1 * ms)
+
+    for i in range(avgs):
+        self.sampler0.sample(measurement_buf)
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[ao_s5]
+        delay(0.1 * ms)
+        measurement2 += measurement_buf[ao_s6]
+
+    measurement1 /= avgs
+    measurement2 /= avgs
+
+    self.append_to_dataset("MOT5_end_monitor", measurement1)
+    self.append_to_dataset("MOT6_end_monitor", measurement2)
+
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+
+    delay(0.1 * ms)
+
+
+
+@kernel
 def end_measurement(self):
     """
     End the measurement by setting datasets and deciding whether to increment the measuement index
@@ -776,11 +937,11 @@ def end_measurement(self):
     self.set_dataset(self.measurements_progress, 100*self.measurement/self.n_measurements, broadcast=True)
     self.append_to_dataset('photocounts2_current_iteration', self.counts2)
     self.counts2_list[self.measurement] = self.counts2
-
     self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
-    measure_FORT_MM_fiber(self)
 
+    measure_FORT_MM_fiber(self)
     measure_REPUMP(self)
+    measure_MOT_end(self)
 
     advance = 1
     if self.__class__.__name__ != 'ExperimentCycler':
@@ -930,6 +1091,13 @@ def atom_loading_experiment(self):
         rtio_log("2nd_shot_block",1)
         second_shot(self)
         rtio_log("2nd_shot_block", 0)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
 
@@ -1129,6 +1297,7 @@ def microwave_Rabi_experiment(self):
         second_shot(self)
 
         end_measurement(self)
+        delay(0.1 * ms)
 
     self.dds_FORT.sw.off()
     self.dds_microwaves.sw.off()

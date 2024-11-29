@@ -1,5 +1,5 @@
 """
-For plotting up to 10 numeric sequences, for example, the DDS RF power history
+Plots the RF powers averaged over measurements by iteration
 
 Example usage:
 python "C:\..\qn_artiq_routines\applets\plot_xy_multichannel.py"
@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 
 from artiq.applets.simple import TitleApplet
 
+# todo: append averaged data to a different dataset to reduce computational overload.
 
 class XYPlot(pyqtgraph.PlotWidget):
     def __init__(self, args):

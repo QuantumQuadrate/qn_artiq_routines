@@ -2,9 +2,6 @@
 for a dataset 'counts' which is updated every experiment measurement compute the iteration-wise mean
  and scale it by 't_exposure'. 'measurements' is the number of measurements per iteration.
 
-Example: if you record the amount of counts on the SPCM from the FORT on each measurement in a GeneralVariableScan,
-then after each iteration (one scan step, say, 100 measurements), this will update with the computed mean for that
-iteration.
 
 applet command:
 
@@ -42,14 +39,17 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
+            zoom = 100
+            offset = 0.02
+
             if iteration > 0:
 
                 mean1_by_iteration = [
-                    np.mean(counts1[i * measurements:(i + 1) * measurements]) /.18
+                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset)*zoom)
                     for i in range(iteration)]
 
                 mean2_by_iteration = [
-                    np.mean(counts2[i * measurements:(i + 1) * measurements]) /.4
+                    np.mean((counts2[i * measurements:(i + 1) * measurements])*zoom)
                     for i in range(iteration)]
 
                 self.clear()

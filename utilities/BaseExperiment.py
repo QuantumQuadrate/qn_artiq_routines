@@ -635,6 +635,13 @@ class BaseExperiment:
         self.experiment.set_dataset("REPUMP1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("REPUMP2_monitor", [0.0], broadcast=True)
 
+        self.experiment.set_dataset("MOT1_end_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("MOT2_end_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("MOT3_end_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("MOT4_end_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("MOT5_end_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("MOT6_end_monitor", [0.0], broadcast=True)
+
     @kernel
     def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):
         """
