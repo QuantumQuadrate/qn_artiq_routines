@@ -152,6 +152,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         saturated_coils = [False] * 4
         control_volts = [0.0] * 4
+        volts = 0.0
 
         ampl1_factor = 1.0
         ampl2_factor = 1.0
@@ -341,8 +342,11 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
                 if self.what_to_tune == self.both_mode or self.what_to_tune == self.coil_mode:
                     print("setting current coil values")
-                    print(control_volts)
                     for i in range(4):
-                        self.set_dataset(self.volt_datasets[i], control_volts[i], broadcast=True, persist=True)
+                        volts = control_volts[i]
+                        if (volts**2)**(1/2) > 10.0:
+                            sign = volts / (volts ** 2) ** (1 / 2)
+                            volts = sign * 9.9
+                        self.set_dataset(self.volt_datasets[i], volts, broadcast=True, persist=True)
 
         print("Experiment finished.")

@@ -634,6 +634,13 @@ def chopped_optical_pumping(self):
     if not self.pumping_light_off:
         self.dds_pumping_repump.sw.on()
 
+    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
+
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
@@ -641,14 +648,9 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
-    delay(100*us)
+    # delay(100*us)
 
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
+
 
     delay(1*ms)
     self.dds_excitation.sw.on()
