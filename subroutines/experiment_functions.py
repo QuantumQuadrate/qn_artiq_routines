@@ -650,9 +650,9 @@ def chopped_optical_pumping(self):
 
     # delay(100*us)
 
-
-
     delay(1*ms)
+
+
     self.dds_excitation.sw.on()
     self.ttl_excitation_switch.off()
 
@@ -1297,6 +1297,13 @@ def microwave_Rabi_experiment(self):
         delay(0.1 * ms)
 
         second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
         delay(0.1 * ms)
