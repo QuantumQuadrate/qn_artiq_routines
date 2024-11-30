@@ -13,6 +13,8 @@ sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.BaseExperiment import BaseExperiment
 
+import numpy as np
+
 class MonitorSPCMinApplet(EnvExperiment):
 
     def build(self):
@@ -45,6 +47,9 @@ class MonitorSPCMinApplet(EnvExperiment):
         self.set_dataset(self.count_rate_dataset,
                              [0.0],
                              broadcast=True)
+        #
+        # # testing GRIN1_monitor
+        # self.set_dataset("GRIN1_monitor", [0.0], broadcast=True)
 
         print("prepare - done")
 
@@ -63,6 +68,17 @@ class MonitorSPCMinApplet(EnvExperiment):
                 print(round(count_rate_per_s))
             delay(10 * ms)
             self.append_to_dataset(self.count_rate_dataset, count_rate_per_s)
+
+            # # measure_GRIN1(self)
+            # measurement_buf = np.array([0.0] * 8)
+            # measurement = 0.0
+            # avgs = 50
+            # for i in range(avgs):
+            #     self.sampler1.sample(measurement_buf)
+            #     measurement += measurement_buf[self.GRIN1_sampler_ch]
+            #     delay(0.1 * ms)
+            # measurement /= avgs
+            # self.append_to_dataset("GRIN1_monitor", measurement)
 
 
         print("Experiment finished.")
