@@ -942,8 +942,11 @@ def end_measurement(self):
     self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
 
     measure_FORT_MM_fiber(self)
+    delay(1*ms)
     measure_REPUMP(self)
+    delay(1*ms)
     measure_MOT_end(self)
+    delay(1*ms)
 
     advance = 1
     if self.__class__.__name__ != 'ExperimentCycler':
@@ -1306,9 +1309,11 @@ def microwave_Rabi_experiment(self):
         self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
-        delay(0.1 * ms)
+        delay(5 * ms) ### hopefully to avoid underflow.
 
+    delay(10*ms)
     self.dds_FORT.sw.off()
+    delay(1*ms)
     self.dds_microwaves.sw.off()
 
 @kernel
