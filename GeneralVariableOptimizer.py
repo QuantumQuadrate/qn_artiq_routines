@@ -253,7 +253,8 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         print('Best parameters found:')
         print(self.mloop_controller.best_params)
-        # best_params = self.mloop_controller.best_params
+        best_params = self.mloop_controller.best_params
+        print(best_params)
         # self.set_experiment_variables_to_best_params(best_params)
 
         self.print_async("initial cost:", self.initial_cost)
