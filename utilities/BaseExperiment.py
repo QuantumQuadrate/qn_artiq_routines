@@ -631,9 +631,14 @@ class BaseExperiment:
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
         self.experiment.set_dataset("excitation_counts", [0], broadcast=True)
 
-        self.experiment.set_dataset("GRIN1_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("GRIN1_EXC_monitor", [0.0], broadcast=True)
+
         self.experiment.set_dataset("REPUMP1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("REPUMP2_monitor", [0.0], broadcast=True)
+
+        self.experiment.set_dataset("PUMPING_REPUMP1_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("PUMPING_REPUMP2_monitor", [0.0], broadcast=True)
 
         self.experiment.set_dataset("MOT1_end_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("MOT2_end_monitor", [0.0], broadcast=True)

@@ -713,18 +713,26 @@ def measure_FORT_MM_fiber(self):
 def measure_GRIN1(self):
     """
     used for monitring GRIN1
-    GRIN1_sampler_ch defined at "BaseExperiment.py"
+    GRIN1_sampler_ch = 4 defined at "BaseExperiment.py"
 
     this is used in chopped_optical_pumping
 
-    can be used in monitoring exitation power
+    can be used for monitoring exitation power
 
     """
     measurement_buf = np.array([0.0]*8)
     measurement = 0.0
     avgs = 50
 
-    # todo: turn off dds and measure
+    self.dds_FORT.sw.off()
+    self.ttl_repump_switch.on()  # turns the RP AOM off
+    self.dds_cooling_DP.sw.off()
+
+    #turning D1 on
+    self.dds_D1_pumping_DP.sw.on()
+    self.dds_excitation.sw.on()
+    self.ttl_excitation_switch.off()
+
     delay(0.1*ms)
 
     for i in range(avgs):
@@ -732,13 +740,31 @@ def measure_GRIN1(self):
         measurement += measurement_buf[self.GRIN1_sampler_ch]
         delay(0.1*ms)
     measurement /= avgs
-    self.append_to_dataset("GRIN1_monitor", measurement)
+    self.append_to_dataset("GRIN1_D1_monitor", measurement)
+
+    # turning D1 off
+    self.dds_D1_pumping_DP.sw.off()
+
+    delay(0.1*ms)
+
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        measurement += measurement_buf[self.GRIN1_sampler_ch]
+        delay(0.1*ms)
+    measurement /= avgs
+    self.append_to_dataset("GRIN1_EXC_monitor", measurement)
+
+
+    # turning EXC OFF
+    self.dds_excitation.sw.off()
+    self.ttl_excitation_switch.on()
+
+    delay(0.1 * ms)
 
 @kernel
 def measure_REPUMP(self):
     """
-    used for monitring REPUMP power
-    REPUMP1_monitor defined
+    used for monitring PUMPING REPUMP power
 
     This is in end_measurement
 
@@ -776,6 +802,64 @@ def measure_REPUMP(self):
     self.append_to_dataset("REPUMP2_monitor", measurement2)
 
     self.ttl_repump_switch.on()  # turns the RP AOM off
+    self.dds_AOM_A1.sw.off()
+    self.dds_AOM_A2.sw.off()
+
+    delay(0.1 * ms)
+
+@kernel
+def measure_PUMPING_REPUMP(self):
+    """
+    used for monitring REPUMP power
+    REPUMP1_monitor defined
+
+    This is in end_measurement
+
+    AOM1: Sampler0, 7
+    AOM2: Sampler0, 5
+
+    """
+    measurement_buf = np.array([0.0]*8)
+    measurement1 = 0.0 # Repump 1
+    measurement2 = 0.0 # Repump 2
+
+    avgs = 50
+
+    self.dds_FORT.sw.off()
+    self.ttl_repump_switch.on()  # turns the RP AOM off
+    self.dds_cooling_DP.sw.off()
+
+    self.dds_pumping_repump.sw.on() # turns of PR AOM
+
+    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-8.0))
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+
+    delay(0.1 * ms)
+
+    # Repump 1
+    for i in range(avgs):
+        self.sampler0.sample(measurement_buf)
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[7] # Repump 1
+        delay(0.1 * ms)
+        measurement2 += measurement_buf[5] # Repump 2
+
+
+    measurement1 /= avgs
+    measurement2 /= avgs
+
+    self.append_to_dataset("PUMPING_REPUMP1_monitor", measurement1)
+    self.append_to_dataset("PUMPING_REPUMP2_monitor", measurement2)
+
+    self.dds_pumping_repump.sw.off()  # turns the PR AOM off
+
+    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
+    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
+
+
     self.dds_AOM_A1.sw.off()
     self.dds_AOM_A2.sw.off()
 
@@ -944,6 +1028,10 @@ def end_measurement(self):
     measure_FORT_MM_fiber(self)
     delay(1*ms)
     measure_REPUMP(self)
+    delay(1*ms)
+    measure_GRIN1(self)
+    delay(1*ms)
+    measure_PUMPING_REPUMP(self)
     delay(1*ms)
     measure_MOT_end(self)
     delay(1*ms)

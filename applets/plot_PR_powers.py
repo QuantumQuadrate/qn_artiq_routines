@@ -8,7 +8,6 @@ applet command:
 This is from plot_iteration_wise_variable.py
 
 """
-
 # todo: make this code universal for REPUMP, GRIN1, PR...?
 
 #!/usr/bin/env python3
@@ -41,8 +40,8 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
-            zoom = 100
-            offset = 0.02
+            zoom = 1
+            offset = 0.0
 
             if iteration > 0:
 
@@ -61,14 +60,14 @@ class XYPlot(pyqtgraph.PlotWidget):
                           symbol='o',
                           symbolBrush=(0, 0, 255),
                           symbolPen='w',
-                          name='REPUMP1_PD')
+                          name='Pumping_Repump_AO1')
 
                 self.plot(range(iteration), mean2_by_iteration,
                           pen=(255, 0, 0),
                           symbol='o',
                           symbolBrush=(255, 0, 0),
                           symbolPen='w',
-                          name='REPUMP2_PD')
+                          name='Pumping_Repump_AO2')
 
                 self.addLegend()
             else:
@@ -79,8 +78,8 @@ class XYPlot(pyqtgraph.PlotWidget):
 
 def main():
     applet = TitleApplet(XYPlot)
-    applet.add_dataset("counts1", "repump1 power")
-    applet.add_dataset("counts2", "repump2 power")
+    applet.add_dataset("counts1", "Pumping_Repump_AO1 power")
+    applet.add_dataset("counts2", "Pumping_Repump_AO2 power")
     applet.add_dataset("measurements", "how many measurements per data point")
 
     applet.run()
