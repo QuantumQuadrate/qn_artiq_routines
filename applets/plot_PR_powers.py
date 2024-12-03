@@ -40,8 +40,8 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
-            zoom = 1
-            offset = 0.0
+            zoom = 100
+            offset = 0.00
 
             if iteration > 0:
 
@@ -60,14 +60,14 @@ class XYPlot(pyqtgraph.PlotWidget):
                           symbol='o',
                           symbolBrush=(0, 0, 255),
                           symbolPen='w',
-                          name='Pumping_Repump_AO1')
+                          name='Pumping_Repump_AO5')
 
                 self.plot(range(iteration), mean2_by_iteration,
                           pen=(255, 0, 0),
                           symbol='o',
                           symbolBrush=(255, 0, 0),
                           symbolPen='w',
-                          name='Pumping_Repump_AO2')
+                          name='Pumping_Repump_AO6')
 
                 self.addLegend()
             else:
@@ -78,8 +78,8 @@ class XYPlot(pyqtgraph.PlotWidget):
 
 def main():
     applet = TitleApplet(XYPlot)
-    applet.add_dataset("counts1", "Pumping_Repump_AO1 power")
-    applet.add_dataset("counts2", "Pumping_Repump_AO2 power")
+    applet.add_dataset("counts1", "Pumping_Repump_AO5 power")
+    applet.add_dataset("counts2", "Pumping_Repump_AO6 power")
     applet.add_dataset("measurements", "how many measurements per data point")
 
     applet.run()

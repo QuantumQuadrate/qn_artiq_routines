@@ -41,7 +41,7 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
-            zoom = 100
+            zoom = 160
             offset = 0.02
 
             if iteration > 0:
