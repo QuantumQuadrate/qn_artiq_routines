@@ -1019,6 +1019,7 @@ def end_measurement(self):
     self.counts2_list[self.measurement] = self.counts2
     self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
 
+    delay(1*ms)
     measure_FORT_MM_fiber(self)
     delay(1*ms)
     measure_REPUMP(self)
@@ -1476,11 +1477,17 @@ def single_photon_experiment(self):
             channels=self.coil_channels)
         delay(0.4 * ms)  # coil relaxation time
 
+        # don't use gate_rising. set the sensitivity, do the pumping and excitation sequence, and count the photons
+        # after excitation attempts. we'll block the counter channel with an external switch so we don't get any clicks
+        # during the OP phases.
         self.ttl_SPCM0._set_sensitivity(1)
-        for excitaton_cycle in range(2): #self.n_excitation_cycles):
+        self.ttl_SPCM1._set_sensitivity(1)
+        for excitaton_cycle in range(2): #self.n_excitation_cycles): # todo: revert later
 
             delay(0.5*ms)
 
+            # low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
+            # todo: make sure this is consistent with any updates in chopped_optical_pumping function
             ############################
             # optical pumping phase - pumps atoms into F=1,m_F=0
             ############################
@@ -1529,7 +1536,6 @@ def single_photon_experiment(self):
             # self.ttl_repump_switch.off()  # repump AOM is on for excitation
             at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
             t_collect = now_mu()
-            t_gate_end = self.ttl_SPCM0.gate_rising(self.n_excitation_attempts * (self.t_excitation_pulse + 100 * ns))
             t_excite = now_mu()
             pulses_over_mu = 0
             for attempt in range(self.n_excitation_attempts):
@@ -1538,24 +1544,26 @@ def single_photon_experiment(self):
                 self.dds_excitation.sw.pulse(self.t_excitation_pulse)
                 at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
                                                   0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
-                # fast switch to gate SPCM output - why am I using a switch instead of the gate input on the SPCM?
+
+                # fast switch to gate SPCM output - why am I using an external switch
+                # instead of the gate input on the SPCM?
                 self.ttl_SPCM_gate.off()
                 delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
                 self.ttl_SPCM_gate.on()
 
-                pulses_over_mu = now_mu()
-            self.ttl_repump_switch.on()
+                pulses_over_mu = now_mu() # overwrite each loop iteration
+            self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
             at_mu(pulses_over_mu - 200) # fudge factor
-            self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. signal blocked
+            self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. SPCM signal blocked
             self.dds_FORT.sw.on()
 
             # todo: terrible way of doing this. set the sensitivity of the gate at the beginning of the loop.
             #  it will only register events when the SPCM switch lets events through.
-            # excitation_counts = self.ttl_SPCM0.count(
-            #     t_gate_end)  # this is the number of clicks we got over n_excitation attempts
-            # excitation_counts_array[excitaton_cycle] = excitation_counts
-            # delay(0.1*ms) # ttl count consumes all the RTIO slack.
-        #     loop_over_mu = now_mu()
+            excitation_counts = self.ttl_SPCM0.count(
+                t_gate_end)  # this is the number of clicks we got over n_excitation attempts
+            excitation_counts_array[excitaton_cycle] = excitation_counts
+            delay(0.1*ms) # ttl count consumes all the RTIO slack.
+            # loop_over_mu = now_mu()
 
             # todo: delete
             # self.print_async("bottom of excitation loop",now_mu() - loop_start_mu)
@@ -1754,11 +1762,12 @@ def g2_experiment(self):
             self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. signal blocked
             self.dds_FORT.sw.on()
 
-            # todo: terrible way of doing this. set the sensitivity of the gate at the beginning of the loop.
-            #  it will only register events when the SPCM switch lets events through.
-            # excitation_counts = self.ttl_SPCM0.count(
-            #     t_gate_end)  # this is the number of clicks we got over n_excitation attempts
-            # excitation_counts_array[excitaton_cycle] = excitation_counts
+            # count the number of clicks we got over n_excitation attempts. eventually n_excitation attempts should be
+            # set to 1 when we have tuned the pulse area to be pi. The number of clicks should be zero or one almost all
+            # of the time if the experiment is working correctly, and we should only get a click when there is an atom.
+            excitation_counts = self.ttl_SPCM0.count(
+                t_gate_end)
+            excitation_counts_array[excitaton_cycle] = excitation_counts
             # delay(0.1*ms) # ttl count consumes all the RTIO slack.
         #     loop_over_mu = now_mu()
 
