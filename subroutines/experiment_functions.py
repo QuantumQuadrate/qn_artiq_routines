@@ -495,6 +495,8 @@ def chopped_blow_away(self):
 
     self.ttl_repump_switch.on()  # turns off the RP AOM
 
+    delay(10*us)
+
     # set coils for blowaway
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_blowaway, self.AZ_top_volts_blowaway,
@@ -1427,15 +1429,31 @@ def single_photon_experiment(self):
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
+
+    if self.verify_OP_in_photon_experiment:
+        if self.t_blowaway > 0.0:
+            record_chopped_blow_away(self)
+            delay(100*ms)
+
+        self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+        delay(10 * ms)
+        self.dds_microwaves.sw.on()
+        delay(100 * ms)
+
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
         excitation_counts_array = [0] * self.n_excitation_cycles
+        excitation_counts_array1 = [0] * self.n_excitation_cycles
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+            # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
+            self.dds_microwaves.sw.on()
+            
         delay(10*ms)
         load_MOT_and_FORT(self)
 
@@ -1469,6 +1487,8 @@ def single_photon_experiment(self):
         ########################################################
 
         excitation_counts = 0
+        excitation_counts1 = 0
+
         self.ttl_SPCM_gate.on()  # blocks the SPCM output - this is related to the atom readouts undercounting
         loop_start_mu = now_mu()
 
@@ -1482,7 +1502,7 @@ def single_photon_experiment(self):
         # during the OP phases.
         self.ttl_SPCM0._set_sensitivity(1)
         self.ttl_SPCM1._set_sensitivity(1)
-        for excitaton_cycle in range(2): #self.n_excitation_cycles): # todo: revert later
+        for excitaton_cycle in range(self.n_excitation_cycles): # todo: revert later
 
             delay(0.5*ms)
 
@@ -1494,34 +1514,48 @@ def single_photon_experiment(self):
 
             if self.t_pumping > 0.0:
 
-                # make sure the fiber AOMs are on for delivery of the pumping repump
+                self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+
                 if not self.pumping_light_off:
                     self.dds_pumping_repump.sw.on()
 
-                self.dds_AOM_A1.sw.on()
-                self.dds_AOM_A2.sw.on()
-                self.dds_AOM_A3.sw.on()
-                self.dds_AOM_A4.sw.on()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
+
+                delay(.1 * ms) # maybe this can be even shorter
+
+                self.dds_excitation.sw.on()
+                self.ttl_excitation_switch.off()
 
                 with sequential:
 
                     delay(1 * us)
 
                     self.core_dma.playback_handle(op_dma_handle)
-                    # delay(self.t_depumping)
+                    delay(self.t_depumping)
 
                     self.dds_D1_pumping_DP.sw.off()
                     self.dds_pumping_repump.sw.off() # turn the repump back on
 
                 delay(2 * us)
-                self.dds_AOM_A1.sw.off()
-                self.dds_AOM_A2.sw.off()
-                self.dds_AOM_A3.sw.off()
-                self.dds_AOM_A4.sw.off()
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
+
+                ############################
+                # microwave phase - ONLY USED FOR VERIFYING OP.
+                ############################
+
+                if self.t_microwave_pulse > 0.0 and self.verify_OP_in_photon_experiment:
+                    self.ttl_microwave_switch.off()
+                    delay(self.t_microwave_pulse)
+                    self.ttl_microwave_switch.on()
+
+                ############################
+                # blow-away phase - push out atoms in F=2 only
+                ############################
+
+                if self.t_blowaway > 0.0 and self.verify_OP_in_photon_experiment:
+                    chopped_blow_away(self)
 
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
@@ -1560,8 +1594,11 @@ def single_photon_experiment(self):
             # todo: terrible way of doing this. set the sensitivity of the gate at the beginning of the loop.
             #  it will only register events when the SPCM switch lets events through.
             excitation_counts = self.ttl_SPCM0.count(
-                t_gate_end)  # this is the number of clicks we got over n_excitation attempts
+                pulses_over_mu)  # this is the number of clicks we got over n_excitation attempts
+            excitation_counts1 = self.ttl_SPCM1.count(
+                pulses_over_mu)  # this is the number of clicks we got over n_excitation attempts
             excitation_counts_array[excitaton_cycle] = excitation_counts
+            excitation_counts_array1[excitaton_cycle] = excitation_counts1
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
             # loop_over_mu = now_mu()
 
