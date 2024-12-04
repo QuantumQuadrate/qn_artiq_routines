@@ -634,17 +634,9 @@ def chopped_optical_pumping(self):
     if not self.pumping_light_off:
         self.dds_pumping_repump.sw.on()
 
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
+    # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
+    # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
 
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
@@ -673,21 +665,14 @@ def chopped_optical_pumping(self):
         self.dds_pumping_repump.sw.off()
 
     delay(2*us)
-    self.dds_AOM_A1.sw.off()
-    self.dds_AOM_A2.sw.off()
-    self.dds_AOM_A3.sw.off()
-    self.dds_AOM_A4.sw.off()
+
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
     delay(100 * us)
 
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+    # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 
     delay(1*ms)
@@ -742,8 +727,9 @@ def measure_GRIN1(self):
     measurement /= avgs
     self.append_to_dataset("GRIN1_D1_monitor", measurement)
 
-    # turning D1 off
+    # turning D1 off & repump on
     self.dds_D1_pumping_DP.sw.off()
+    self.ttl_repump_switch.off()  # turns the RP AOM on
 
     delay(0.1*ms)
 
@@ -778,9 +764,15 @@ def measure_REPUMP(self):
 
     avgs = 50
 
+    # ttl7 - trigger
+
     self.dds_FORT.sw.off()
     self.ttl_repump_switch.off()  # turns the RP AOM on
+    self.dds_pumping_repump.sw.off()
     self.dds_cooling_DP.sw.off()
+
+    delay(0.1 * ms)
+
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
 
@@ -811,17 +803,19 @@ def measure_REPUMP(self):
 def measure_PUMPING_REPUMP(self):
     """
     used for monitring REPUMP power
-    REPUMP1_monitor defined
+    PUMPING_REPUMP1_monitor, PUMPING_REPUMP2_monitor defined
 
     This is in end_measurement
 
-    AOM1: Sampler0, 7
-    AOM2: Sampler0, 5
+    Pumping Repumper is sent to AOM5 & 6
+
+    AOM5: Sampler0, 1
+    AOM6: Sampler0, 2
 
     """
     measurement_buf = np.array([0.0]*8)
-    measurement1 = 0.0 # Repump 1
-    measurement2 = 0.0 # Repump 2
+    measurement1 = 0.0 # Repump 5
+    measurement2 = 0.0 # Repump 6
 
     avgs = 50
 
@@ -831,11 +825,11 @@ def measure_PUMPING_REPUMP(self):
 
     self.dds_pumping_repump.sw.on() # turns of PR AOM
 
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
 
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
 
     delay(0.1 * ms)
 
@@ -843,9 +837,9 @@ def measure_PUMPING_REPUMP(self):
     for i in range(avgs):
         self.sampler0.sample(measurement_buf)
         delay(0.1 * ms)
-        measurement1 += measurement_buf[7] # Repump 1
+        measurement1 += measurement_buf[1] # Repump 5
         delay(0.1 * ms)
-        measurement2 += measurement_buf[5] # Repump 2
+        measurement2 += measurement_buf[2] # Repump 6
 
 
     measurement1 /= avgs
@@ -856,12 +850,12 @@ def measure_PUMPING_REPUMP(self):
 
     self.dds_pumping_repump.sw.off()  # turns the PR AOM off
 
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 
-    self.dds_AOM_A1.sw.off()
-    self.dds_AOM_A2.sw.off()
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
 
     delay(0.1 * ms)
 
