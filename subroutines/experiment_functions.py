@@ -698,6 +698,7 @@ def measure_FORT_MM_fiber(self):
 
 @kernel
 def measure_GRIN1(self):
+
     """
     used for monitring GRIN1
     GRIN1_sampler_ch = 4 defined at "BaseExperiment.py"
@@ -716,6 +717,9 @@ def measure_GRIN1(self):
     self.dds_cooling_DP.sw.off()
 
     #turning D1 on
+    # todo: erase this line if doing feedback for D1
+    self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
+
     self.dds_D1_pumping_DP.sw.on()
     self.dds_excitation.sw.on()
     self.ttl_excitation_switch.off()
@@ -730,6 +734,7 @@ def measure_GRIN1(self):
     self.append_to_dataset("GRIN1_D1_monitor", measurement)
 
     # turning D1 off & repump on
+    self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     self.dds_D1_pumping_DP.sw.off()
     self.ttl_repump_switch.off()  # turns the RP AOM on
 
@@ -1512,8 +1517,9 @@ def single_photon_experiment(self):
             # optical pumping phase - pumps atoms into F=1,m_F=0
             ############################
 
-            if self.t_pumping > 0.0:
 
+            if self.t_pumping > 0.0:
+                self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
                 self.ttl_repump_switch.on()  # turns off the MOT RP AOM
 
                 if not self.pumping_light_off:
@@ -1560,6 +1566,7 @@ def single_photon_experiment(self):
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
+            self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
 
             now = now_mu()
 

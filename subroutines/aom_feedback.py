@@ -155,8 +155,8 @@ class FeedbackChannel:
         measured = buffer[self.buffer_index]
         err = self.set_points[setpoint_index] - measured
 
-        if self.name == 'dds_D1_pumping_DP':
-            self.stabilizer.exp.print_async(measured, self.buffer_index, self.stabilizer.measurement_array)
+        if self.name == 'dds_excitation':
+            self.stabilizer.exp.print_async("in feedback method:", measured, self.stabilizer.measurement_array[self.buffer_index])
 
         # runs off the kernel, else the error array isn't correctly updated
         self.update_error_history(err)
@@ -242,7 +242,8 @@ class FeedbackChannel:
         # self.stabilizer.measure_background()
         # delay(1*ms)
 
-        self.dds_obj.sw.on()
+        # todo: should this be off?
+        self.dds_obj.sw.on()  # off?
 
         # update the datasets with the last values if we have not already done so
         if not record_all_measurements:
@@ -398,6 +399,8 @@ class AOMPowerStabilizer:
             i += 1
         dummy /= self.averages
         self.measurement_array = dummy
+
+        self.exp.print_async("in measure:",self.measurement_array)
 
         # doesn't properly read sampler1
         # dummy = np.full(8 * self.num_samplers, 0.0)
@@ -564,23 +567,32 @@ class AOMPowerStabilizer:
             self.exp.dds_cooling_DP.sw.on() # todo: only turn this on if the one of the FeedbackChannels depends on it
             delay(1 * ms)
 
-            # self.measure_background()
+            # self.measure_background() # todo: doesn't work
             # delay(1*ms)
 
             # do feedback on the series channels
             with sequential:
                 for ch in self.series_channels:
+
+                    if ch.name == 'dds_excitation':
+                        self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
+                        delay(1*ms)
+                        self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
+                        delay(1*ms)
+
                     ch.dds_obj.sw.on()
 
                     delay(ch.t_measure_delay) # allows for detector rise time
                     for i in range(self.iterations):
                         self.measure()
                         delay(0.1 * ms)
+                        if ch.name == 'dds_excitation':
+                            self.exp.print_async("in feedback loop:",self.measurement_array[ch.buffer_index])
 
                         if not (self.dry_run or monitor_only):
-                            in_tol = ch.feedback(self.measurement_array - self.background_array)
+                            in_tol = ch.feedback(self.measurement_array)
                         else:
-                            ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
+                            ch.set_value((self.measurement_array)[ch.buffer_index])
                         if record_all_measurements:
                             self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
                         if in_tol:
@@ -591,6 +603,13 @@ class AOMPowerStabilizer:
                         self.exp.ttl6.pulse(5 * ms)
                         delay(60*ms)
                     delay(1*ms)
+
+                    if ch.name == 'dds_excitation':
+                        self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
+                        delay(1 * ms)
+                        self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
+                        delay(1 * ms)
+
                     ch.dds_obj.sw.off()
 
             # update the datasets with the last values if we have not already done so

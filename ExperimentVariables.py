@@ -292,6 +292,7 @@ class ExperimentVariables(EnvExperiment):
             Variable('set_point_FORT_MM_loading', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable('set_point_FORT_MM_science', 0.2, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
             Variable('set_point_D1_SP', 0.175, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
+            Variable('set_point_excitation', 1.0, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
 
             # Plotting
             Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
@@ -312,8 +313,6 @@ class ExperimentVariables(EnvExperiment):
             Variable("aom_feedback_averages", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
-                     "Laser feedback"),
-            Variable("aom_feedback_periodicity", 2, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
                      "Laser feedback"),
             Variable("Rigol_carrier_frequency", 40 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
