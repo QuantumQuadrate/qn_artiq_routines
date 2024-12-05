@@ -40,32 +40,35 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
-            zoom = 100
-            offset = 0.00
+            norm_factor1 = 0.002676 # Pumping Repump 1 normalizing factor
+            norm_factor2 = 0.000851 # Pumping Repump 2 normalizing factor
+
+            offset1 = 0.00412  # PD5 background @ 0 power
+            offset2 = 0.00348 # PD6 background @ 0 power
 
             if iteration > 0:
 
                 mean1_by_iteration = [
-                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset)*zoom)
+                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset1)/norm_factor1)
                     for i in range(iteration)]
 
                 mean2_by_iteration = [
-                    np.mean((counts2[i * measurements:(i + 1) * measurements])*zoom)
+                    np.mean((counts2[i * measurements:(i + 1) * measurements]+offset2)/norm_factor2)
                     for i in range(iteration)]
 
                 self.clear()
 
                 self.plot(range(iteration), mean1_by_iteration,
-                          pen=(0, 0, 255),
+                          pen='g',
                           symbol='o',
-                          symbolBrush=(0, 0, 255),
+                          symbolBrush='g', #(0, 0, 255)
                           symbolPen='w',
                           name='Pumping_Repump_AO5')
 
                 self.plot(range(iteration), mean2_by_iteration,
-                          pen=(255, 0, 0),
+                          pen='orange',
                           symbol='o',
-                          symbolBrush=(255, 0, 0),
+                          symbolBrush='orange',
                           symbolPen='w',
                           name='Pumping_Repump_AO6')
 

@@ -41,34 +41,36 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
-            zoom = 160
-            offset = 0.02
+            norm_factor1 = 0.0003 # Repump 1 normalizing factor
+            norm_factor2 = 0.00036 # Repump 2 normalizing factor
+            offset1 = 0.014603 # PD1 background @ 0 power
+            offset2 = -0.0053 # PD2 background @ 0 power
 
             if iteration > 0:
 
                 mean1_by_iteration = [
-                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset)*zoom)
+                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset1)/norm_factor1)
                     for i in range(iteration)]
 
                 mean2_by_iteration = [
-                    np.mean((counts2[i * measurements:(i + 1) * measurements])*zoom)
+                    np.mean((counts2[i * measurements:(i + 1) * measurements]+offset2)/norm_factor2)
                     for i in range(iteration)]
 
                 self.clear()
 
                 self.plot(range(iteration), mean1_by_iteration,
-                          pen=(0, 0, 255),
+                          pen='aquamarine',
                           symbol='o',
-                          symbolBrush=(0, 0, 255),
+                          symbolBrush='aquamarine',
                           symbolPen='w',
-                          name='REPUMP1_PD')
+                          name='REPUMP_AO1')
 
                 self.plot(range(iteration), mean2_by_iteration,
-                          pen=(255, 0, 0),
+                          pen='salmon',
                           symbol='o',
-                          symbolBrush=(255, 0, 0),
+                          symbolBrush='salmon',
                           symbolPen='w',
-                          name='REPUMP2_PD')
+                          name='REPUMP_AO2')
 
                 self.addLegend()
             else:

@@ -40,32 +40,34 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
-            zoom = 1
-            offset = 0.0
+            norm_factor1 = 3.048    # D1
+            norm_factor2 = 5.2915  # Exc
+            offset1 = 0.00776
+            offset2 = 0.00761
 
             if iteration > 0:
 
                 mean1_by_iteration = [
-                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset)*zoom)
+                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset1)/norm_factor1)
                     for i in range(iteration)]
 
                 mean2_by_iteration = [
-                    np.mean((counts2[i * measurements:(i + 1) * measurements])*zoom)
+                    np.mean((counts2[i * measurements:(i + 1) * measurements]+offset2)/norm_factor2)
                     for i in range(iteration)]
 
                 self.clear()
 
                 self.plot(range(iteration), mean1_by_iteration,
-                          pen=(0, 0, 255),
+                          pen='tomato',
                           symbol='o',
-                          symbolBrush=(0, 0, 255),
+                          symbolBrush='tomato',
                           symbolPen='w',
                           name='GRIN1_D1')
 
                 self.plot(range(iteration), mean2_by_iteration,
-                          pen=(255, 0, 0),
+                          pen='dodgerblue',
                           symbol='o',
-                          symbolBrush=(255, 0, 0),
+                          symbolBrush='dodgerblue',
                           symbolPen='w',
                           name='GRIN1_EXC')
 
