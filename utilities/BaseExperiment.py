@@ -630,6 +630,7 @@ class BaseExperiment:
         self.experiment.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
         self.experiment.set_dataset("excitation_counts", [0], broadcast=True)
+        self.experiment.set_dataset("excitation_counts1", [0], broadcast=True)
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("GRIN1_EXC_monitor", [0.0], broadcast=True)

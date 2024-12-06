@@ -1653,6 +1653,8 @@ def single_photon_experiment(self):
         end_measurement(self)
         for val in excitation_counts_array:
             self.append_to_dataset('excitation_counts', val)
+        for val in excitation_counts_array1:
+            self.append_to_dataset('excitation_counts1', val)
 
         delay(10*ms)
 
