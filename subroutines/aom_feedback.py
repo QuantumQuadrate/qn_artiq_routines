@@ -155,8 +155,8 @@ class FeedbackChannel:
         measured = buffer[self.buffer_index]
         err = self.set_points[setpoint_index] - measured
 
-        if self.name == 'dds_excitation':
-            self.stabilizer.exp.print_async("in feedback method:", measured, self.stabilizer.measurement_array[self.buffer_index])
+        # if self.name == 'dds_excitation':
+        #     self.stabilizer.exp.print_async("in feedback method:", measured, self.stabilizer.measurement_array[self.buffer_index])
 
         # runs off the kernel, else the error array isn't correctly updated
         self.update_error_history(err)
@@ -400,7 +400,7 @@ class AOMPowerStabilizer:
         dummy /= self.averages
         self.measurement_array = dummy
 
-        self.exp.print_async("in measure:",self.measurement_array)
+        # self.exp.print_async("in measure:",self.measurement_array)
 
         # doesn't properly read sampler1
         # dummy = np.full(8 * self.num_samplers, 0.0)
@@ -462,8 +462,8 @@ class AOMPowerStabilizer:
         dummy_background /= self.averages
         self.background_array = dummy_background
 
-        print_async("self.background_array:")
-        print_async(self.background_array)
+        # print_async("self.background_array:")
+        # print_async(self.background_array)
 
     @kernel
     def open_loop_monitor(self):
@@ -586,8 +586,8 @@ class AOMPowerStabilizer:
                     for i in range(self.iterations):
                         self.measure()
                         delay(0.1 * ms)
-                        if ch.name == 'dds_excitation':
-                            self.exp.print_async("in feedback loop:",self.measurement_array[ch.buffer_index])
+                        # if ch.name == 'dds_excitation':
+                        #     self.exp.print_async("in feedback loop:",self.measurement_array[ch.buffer_index])
 
                         if not (self.dry_run or monitor_only):
                             in_tol = ch.feedback(self.measurement_array)
