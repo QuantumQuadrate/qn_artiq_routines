@@ -106,7 +106,7 @@
                 {
                     "sampler_ch": 4,
                     "set_points": ["set_point_excitation"],
-                    "p": 0.01,
+                    "p": 0.2,
                     "i": 0.0,
                     "series": true,
                     "dataset":"GRIN1_EXC_feedback_monitor",
