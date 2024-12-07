@@ -455,6 +455,15 @@ class BaseExperiment:
                                                                   leave_AOMs_on=False,
                                                                   leave_MOT_AOMs_on=True)
 
+            # todo: make OP feedback list in ExperimentVariables, so we can feedback to this separately.
+            #  this allows us to feedback to D1, pumping repump, etc every iteration instead of every measurement.
+            # self.experiment.OP_laser_stabilizer = AOMPowerStabilizer(experiment=self.experiment,
+            #                                                       dds_names=OP_feedback_dds_list,
+            #                                                       iterations=self.experiment.aom_feedback_iterations,
+            #                                                       averages=self.experiment.aom_feedback_averages,
+            #                                                       leave_AOMs_on=False,
+            #                                                       leave_MOT_AOMs_on=True)
+
             self.experiment.set_dataset("feedbackchannels",
                              [ch.dB_dataset for ch in self.experiment.laser_stabilizer.all_channels],
                              broadcast=True, persist=True)

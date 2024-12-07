@@ -636,13 +636,11 @@ def chopped_optical_pumping(self):
     if not self.pumping_light_off:
         self.dds_pumping_repump.sw.on()
 
-    # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
-    # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
+    # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(self.p_pumping_repump_A5))
+    # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(self.p_pumping_repump_A6))
 
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
-
-    # delay(100*us)
 
     delay(1*ms)
 
@@ -832,8 +830,8 @@ def measure_PUMPING_REPUMP(self):
 
     self.dds_pumping_repump.sw.on() # turns of PR AOM
 
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
+    # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
+    # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
 
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
@@ -857,8 +855,8 @@ def measure_PUMPING_REPUMP(self):
 
     self.dds_pumping_repump.sw.off()  # turns the PR AOM off
 
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+    # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 
     self.dds_AOM_A5.sw.off()
@@ -1611,10 +1609,37 @@ def single_photon_experiment(self):
 
             # todo: delete
             # self.print_async("bottom of excitation loop",now_mu() - loop_start_mu)
-        # delay(1 * ms)
-        # # self.ttl_SPCM_gate.on()  # blocks the SPCM
-        self.ttl_SPCM0._set_sensitivity(0)
-        excitation_counts = self.ttl_SPCM0.count(now_mu())
+
+            ############################
+            # recooling phase
+            ############################
+
+            # # todo: use a specific detuning for this stage?
+            delay(1*ms)
+            if self.t_recooling > 0:
+                self.dds_cooling_DP.sw.on()
+                self.ttl_repump_switch.off()
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
+
+                delay(self.t_recooling)
+
+                self.dds_cooling_DP.sw.off()
+                self.ttl_repump_switch.on()
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+                delay(1*ms)
+
+
+        self.ttl_SPCM0._set_sensitivity(0) # close the gating window on the TTL channel
 
         delay(1*ms)
 

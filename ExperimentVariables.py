@@ -149,6 +149,13 @@ class ExperimentVariables(EnvExperiment):
             Variable("p_AOM_A6", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
 
+            # # Pumping Repump
+            # Variable("p_pumping_repump_A5", -20.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            #          "Fiber AOMs"),
+            # Variable("p_pumping_repump_A6", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            #          "Fiber AOMs"),
+
+
             # Microwaves
             # assumes the microwave source is set at 6.5 GHz
             Variable("f_microwaves_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
@@ -263,6 +270,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("gate_switch_offset", 0*ns, NumberValue, {'type': 'int', 'unit':'ns',
                                                             'ndecimals': 0, 'scale': 1, 'step': 1},
                      "Timing"),
+            Variable("t_recooling", 1 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
