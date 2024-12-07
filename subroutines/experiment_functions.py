@@ -1553,6 +1553,7 @@ def single_photon_experiment(self):
                     self.ttl_microwave_switch.off()
                     delay(self.t_microwave_pulse)
                     self.ttl_microwave_switch.on()
+                    delay(0.1*ms)
 
                 ############################
                 # blow-away phase - push out atoms in F=2 only
