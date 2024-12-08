@@ -1500,6 +1500,9 @@ def single_photon_experiment(self):
             channels=self.coil_channels)
         delay(0.4 * ms)  # coil relaxation time
 
+        # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
+        self.dds_excitation.sw.on()
+
         # don't use gate_rising. set the sensitivity, do the pumping and excitation sequence, and count the photons
         # after excitation attempts. we'll block the counter channel with an external switch so we don't get any clicks
         # during the OP phases.
@@ -1528,7 +1531,6 @@ def single_photon_experiment(self):
 
                 delay(.1 * ms) # maybe this can be even shorter
 
-                self.dds_excitation.sw.on()
                 self.ttl_excitation_switch.off()
 
                 with sequential:
@@ -1544,6 +1546,8 @@ def single_photon_experiment(self):
                 delay(2 * us)
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
+
+                self.ttl_excitation_switch.on()
 
                 ############################
                 # microwave phase - ONLY USED FOR VERIFYING OP.
@@ -1566,36 +1570,49 @@ def single_photon_experiment(self):
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
             self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.ttl_repump_switch.off()  # repump AOM is on for excitation
 
             now = now_mu()
 
-            at_mu(now+10)
-            self.ttl_repump_switch.off()  # repump AOM is on for excitation
-            mu_offset = 800 # accounts for various latencies
-            at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
+            # messy and confusing. todo: try to improve this
+            # at_mu(now+10)
             # self.ttl_repump_switch.off()  # repump AOM is on for excitation
-            at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
-            t_collect = now_mu()
-            t_excite = now_mu()
-            pulses_over_mu = 0
-            for attempt in range(self.n_excitation_attempts):
-                at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
-                      + self.gate_start_offset_mu)
-                self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-                at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
-                                                  0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
+            # mu_offset = 800 # accounts for various latencies
+            # at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
+            # at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
+            # t_collect = now_mu()
+            # t_excite = now_mu()
+            # pulses_over_mu = 0
+            # for attempt in range(self.n_excitation_attempts):
+            #     at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
+            #           + self.gate_start_offset_mu)
+            #     self.dds_excitation.sw.pulse(self.t_excitation_pulse)
+            #     at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
+            #                                       0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
+            #
+            #     # fast switch to gate SPCM output - why am I using an external switch
+            #     # instead of the gate input on the SPCM?
+            #     self.ttl_SPCM_gate.off()
+            #     delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
+            #     self.ttl_SPCM_gate.on()
+            #
+            #     pulses_over_mu = now_mu() # overwrite each loop iteration
 
-                # fast switch to gate SPCM output - why am I using an external switch
-                # instead of the gate input on the SPCM?
-                self.ttl_SPCM_gate.off()
-                delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
-                self.ttl_SPCM_gate.on()
-
-                pulses_over_mu = now_mu() # overwrite each loop iteration
-            self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
-            at_mu(pulses_over_mu - 200) # fudge factor
-            self.ttl_SPCM_gate.on() # TTL high turns switch off, i.e. SPCM signal blocked
+            self.dds_FORT.sw.off()
+            at_mu(now+150)
+            self.ttl_excitation_switch.off()
+            self.ttl_SPCM_gate.off()
+            delay(self.t_excitation_pulse)
+            self.ttl_excitation_switch.on()
+            delay(self.t_photon_collection_time - self.t_excitation_pulse)
+            self.ttl_SPCM_gate.on()
             self.dds_FORT.sw.on()
+            pulses_over_mu = now_mu()
+
+            delay(1*us)
+            self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
+
+
 
             # todo: terrible way of doing this. set the sensitivity of the gate at the beginning of the loop.
             #  it will only register events when the SPCM switch lets events through.
@@ -1641,6 +1658,7 @@ def single_photon_experiment(self):
 
 
         self.ttl_SPCM0._set_sensitivity(0) # close the gating window on the TTL channel
+        self.dds_excitation.sw.off()
 
         delay(1*ms)
 
