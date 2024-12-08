@@ -1601,11 +1601,15 @@ def single_photon_experiment(self):
             self.dds_FORT.sw.off()
             at_mu(now+150)
             self.ttl_excitation_switch.off()
+            at_mu(now + 150 + self.gate_start_offset_mu)
             self.ttl_SPCM_gate.off()
-            delay(self.t_excitation_pulse)
+            at_mu(now + 150 + int(self.t_excitation_pulse/ns))
             self.ttl_excitation_switch.on()
-            delay(self.t_photon_collection_time - self.t_excitation_pulse)
+            # delay(self.t_photon_collection_time - self.t_excitation_pulse)
+            at_mu(now + 150 + int(self.t_excitation_pulse / ns) + int((self.t_photon_collection_time - self.t_excitation_pulse)/ns) + self.gate_start_offset_mu)
             self.ttl_SPCM_gate.on()
+
+            at_mu(now + 150 + int(self.t_excitation_pulse / ns) + int((self.t_photon_collection_time - self.t_excitation_pulse)/ns))
             self.dds_FORT.sw.on()
             pulses_over_mu = now_mu()
 
