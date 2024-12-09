@@ -41,8 +41,11 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
-            norm_factor1 = 0.0003 # Repump 1 normalizing factor
-            norm_factor2 = 0.00036 # Repump 2 normalizing factor
+            norm_factor1 = 1.0 # Repump 1 normalizing factor
+            norm_factor2 = 1.0 # Repump 2 normalizing factor
+
+            # norm_factor1 = 0.0003 # Repump 1 normalizing factor
+            # norm_factor2 = 0.00036 # Repump 2 normalizing factor
             offset1 = 0.014603 # PD1 background @ 0 power
             offset2 = -0.0053 # PD2 background @ 0 power
 

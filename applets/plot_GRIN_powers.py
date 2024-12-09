@@ -40,10 +40,14 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             iteration = len(counts1)//measurements
 
-            norm_factor1 = 3.048    # D1
-            norm_factor2 = 5.2915  # Exc
-            offset1 = 0.00776
-            offset2 = 0.00761
+            norm_factor1 = 0.03    # D1
+            norm_factor2 = 0.1  # Exc
+
+            # norm_factor1 = 1.0  # D1
+            # norm_factor2 = 1.0  # Exc
+
+            offset1 = 0.0
+            offset2 = 0.0
 
             if iteration > 0:
 
