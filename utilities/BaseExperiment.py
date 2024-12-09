@@ -646,6 +646,10 @@ class BaseExperiment:
 
         self.experiment.set_dataset("REPUMP1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("REPUMP2_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("REPUMP3_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("REPUMP4_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("REPUMP5_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("REPUMP6_monitor", [0.0], broadcast=True)
 
         self.experiment.set_dataset("PUMPING_REPUMP1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("PUMPING_REPUMP2_monitor", [0.0], broadcast=True)

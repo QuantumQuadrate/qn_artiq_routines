@@ -890,20 +890,13 @@ def measure_MOT_end(self):
     avgs = 50
 
 
-    delay(0.1 * ms)
-
     self.dds_FORT.sw.off()
     self.ttl_repump_switch.on()  # turns the RP AOM on
     self.dds_cooling_DP.sw.on()
 
-    # self.dds_AOM_A1.sw.off()
-    # self.dds_AOM_A2.sw.off()
-    # self.dds_AOM_A3.sw.off()
-    # self.dds_AOM_A4.sw.off()
-    # self.dds_AOM_A5.sw.off()
-    # self.dds_AOM_A6.sw.off()
+    delay(0.1 * ms)
 
-    ### MOT1 & MOT2
+    ### MOT1 & MOT2 & MOT5
     measurement_buf = np.array([0.0] * 8)
     measurement1 = 0.0  # MOT1
     measurement2 = 0.0  # MOT2
@@ -931,18 +924,54 @@ def measure_MOT_end(self):
     self.append_to_dataset("MOT2_end_monitor", measurement2)
     self.append_to_dataset("MOT5_end_monitor", measurement3)
 
-    self.dds_AOM_A1.sw.off()
-    self.dds_AOM_A2.sw.off()
-    self.dds_AOM_A5.sw.off()
-
     delay(0.1 * ms)
 
+    # # Repump
+    #
+    # self.ttl_repump_switch.off()  # turns the RP AOM on
+    # self.dds_cooling_DP.sw.off()
+    #
+    # delay(0.1 * ms)
+    #
+    # measurement_buf = np.array([0.0] * 8)
+    # measurement1 = 0.0  # MOT1
+    # measurement2 = 0.0  # MOT2
+    # measurement3 = 0.0  # MOT5
+    #
+    # for i in range(avgs):
+    #     self.sampler0.sample(measurement_buf)
+    #     delay(0.1 * ms)
+    #     measurement1 += measurement_buf[ao_s1]  # MOT1
+    #     delay(0.1 * ms)
+    #     measurement2 += measurement_buf[ao_s2]  # MOT2
+    #     measurement3 += measurement_buf[ao_s5]  # MOT5
+    #
+    # measurement1 /= avgs
+    # measurement2 /= avgs
+    # measurement3 /= avgs
+    #
+    #
+    # self.append_to_dataset("REPUMP1_monitor", measurement1)
+    # self.append_to_dataset("REPUMP2_monitor", measurement2)
+    # self.append_to_dataset("REPUMP5_monitor", measurement3)
+    #
+    # self.dds_AOM_A1.sw.off()
+    # self.dds_AOM_A2.sw.off()
+    # self.dds_AOM_A5.sw.off()
+    #
+    # delay(0.1 * ms)
 
-    ### MOT3 & MOT4
+
+    ### MOT3 & MOT4 & MOT6
+
+    self.ttl_repump_switch.on()  # turns the RP AOM off
+    self.dds_cooling_DP.sw.on()
 
     self.dds_AOM_A3.sw.on()
     self.dds_AOM_A4.sw.on()
     self.dds_AOM_A6.sw.on()
+
+    delay(0.1 * ms)
 
     measurement_buf = np.array([0.0] * 8)
     measurement1 = 0.0
@@ -967,39 +996,42 @@ def measure_MOT_end(self):
     self.append_to_dataset("MOT4_end_monitor", measurement2)
     self.append_to_dataset("MOT6_end_monitor", measurement3)
 
-    self.dds_AOM_A3.sw.off()
-    self.dds_AOM_A4.sw.off()
-    self.dds_AOM_A6.sw.off()
 
-    delay(0.1 * ms)
+    # # repump
+    #
+    # self.ttl_repump_switch.off()  # turns the RP AOM on
+    # self.dds_cooling_DP.sw.off()
+    #
+    # measurement_buf = np.array([0.0] * 8)
+    # measurement1 = 0.0
+    # measurement2 = 0.0
+    # measurement3 = 0.0
+    #
+    # delay(0.1 * ms)
+    #
+    # for i in range(avgs):
+    #     self.sampler0.sample(measurement_buf)
+    #     delay(0.1 * ms)
+    #     measurement1 += measurement_buf[ao_s3]
+    #     delay(0.1 * ms)
+    #     measurement2 += measurement_buf[ao_s4]
+    #     measurement3 += measurement_buf[ao_s6]
+    #
+    # measurement1 /= avgs
+    # measurement2 /= avgs
+    # measurement3 /= avgs
+    #
+    # self.append_to_dataset("REPUMP3_monitor", measurement1)
+    # self.append_to_dataset("REPUMP4_monitor", measurement2)
+    # self.append_to_dataset("REPUMP6_monitor", measurement3)
+    #
+    #
+    # self.dds_AOM_A3.sw.off()
+    # self.dds_AOM_A4.sw.off()
+    # self.dds_AOM_A6.sw.off()
+    #
+    # self.ttl_repump_switch.on()  # turns the RP AOM off
 
-
-    ### MOT5 & MOT6
-
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-
-    measurement_buf = np.array([0.0] * 8)
-    measurement1 = 0.0
-    measurement2 = 0.0
-
-    delay(0.1 * ms)
-
-    for i in range(avgs):
-        self.sampler0.sample(measurement_buf)
-        delay(0.1 * ms)
-        measurement1 += measurement_buf[ao_s5]
-        delay(0.1 * ms)
-        measurement2 += measurement_buf[ao_s6]
-
-    measurement1 /= avgs
-    measurement2 /= avgs
-
-    self.append_to_dataset("MOT5_end_monitor", measurement1)
-    self.append_to_dataset("MOT6_end_monitor", measurement2)
-
-    self.dds_AOM_A5.sw.off()
-    self.dds_AOM_A6.sw.off()
 
     delay(0.1 * ms)
 
@@ -1032,8 +1064,8 @@ def end_measurement(self):
     measure_GRIN1(self)
     delay(1*ms)
     measure_PUMPING_REPUMP(self)
-    delay(1*ms)
-    measure_MOT_end(self)
+    # delay(1*ms)
+    # measure_MOT_end(self)
     delay(1*ms)
 
     advance = 1
@@ -1606,10 +1638,15 @@ def single_photon_experiment(self):
             at_mu(now + 150 + int(self.t_excitation_pulse/ns))
             self.ttl_excitation_switch.on()
             # delay(self.t_photon_collection_time - self.t_excitation_pulse)
+
             at_mu(now + 150 + int(self.t_excitation_pulse / ns) + int((self.t_photon_collection_time - self.t_excitation_pulse)/ns) + self.gate_start_offset_mu)
+            # at_mu(now + 150 + int(self.t_photon_collection_time / ns + self.gate_start_offset_mu))  # same as above
+
             self.ttl_SPCM_gate.on()
 
             at_mu(now + 150 + int(self.t_excitation_pulse / ns) + int((self.t_photon_collection_time - self.t_excitation_pulse)/ns))
+            # at_mu(now + 150 + int(self.t_photon_collection_time / ns)) # same as above
+
             self.dds_FORT.sw.on()
             pulses_over_mu = now_mu()
 
