@@ -1452,9 +1452,10 @@ def single_photon_experiment(self):
     self.core.reset()
 
     # overwritten below but initialized here so they are always initialized
-    self.counts = 0
+    self.counts = 0  # not used in this function
     self.counts2 = 0
     excitation_counts = 0
+    excitation_counts1 = 0
     excitation_counts_array = [0]
     rtio_log("2nd_shot_block", 0) # todo: delete. for debugging.
 
@@ -1487,7 +1488,8 @@ def single_photon_experiment(self):
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
             # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
-            self.dds_microwaves.sw.on()
+            if self.verify_OP_in_photon_experiment:
+                self.dds_microwaves.sw.on()
 
         delay(10*ms)
         load_MOT_and_FORT(self)
@@ -1521,8 +1523,6 @@ def single_photon_experiment(self):
         # lower level optical pumping and excitation sequence to optimize for speed
         ########################################################
 
-        excitation_counts = 0
-        excitation_counts1 = 0
 
         self.ttl_SPCM_gate.on()  # blocks the SPCM output - this is related to the atom readouts undercounting
         loop_start_mu = now_mu()
