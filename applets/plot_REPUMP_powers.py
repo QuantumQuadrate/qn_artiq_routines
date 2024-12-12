@@ -41,13 +41,23 @@ class XYPlot(pyqtgraph.PlotWidget):
             # counts4 = np.array(data[self.args.counts4][1][1:])
             # counts5 = np.array(data[self.args.counts5][1][1:])
             # counts6 = np.array(data[self.args.counts6][1][1:])
-
+            setpoint1 = data[self.args.setpoint1][1]
+            setpoint2 = data[self.args.setpoint2][1]
             measurements = data[self.args.measurements][1]
 
             iteration = len(counts1)//measurements
 
-            norm_factor1 = 1.0 # Repump 1 normalizing factor
-            norm_factor2 = 1.0 # Repump 2 normalizing factor
+
+            offset1 = 0.014603 # PD1 background @ 0 power
+            offset2 = -0.0053 # PD2 background @ 0 power
+            offset3 = 0.0 # PD1 background @ 0 power
+            offset4 = 0.0 # PD2 background @ 0 power
+            offset5 = 0.0 # PD1 background @ 0 power
+            offset6 = 0.0 # PD2 background @ 0 power
+
+
+            norm_factor1 = setpoint1 + offset1 # Repump 1 normalizing factor
+            norm_factor2 = setpoint2 + offset2 # Repump 2 normalizing factor
             norm_factor3 = 1.0 # Repump 1 normalizing factor
             norm_factor4 = 1.0 # Repump 2 normalizing factor
             norm_factor5 = 1.0 # Repump 1 normalizing factor
@@ -55,12 +65,6 @@ class XYPlot(pyqtgraph.PlotWidget):
 
             # norm_factor1 = 0.0003 # Repump 1 normalizing factor
             # norm_factor2 = 0.00036 # Repump 2 normalizing factor
-            offset1 = 0.014603 # PD1 background @ 0 power
-            offset2 = -0.0053 # PD2 background @ 0 power
-            offset3 = 0.0 # PD1 background @ 0 power
-            offset4 = 0.0 # PD2 background @ 0 power
-            offset5 = 0.0 # PD1 background @ 0 power
-            offset6 = 0.0 # PD2 background @ 0 power
 
             if iteration > 0:
 
@@ -138,6 +142,8 @@ def main():
     applet = TitleApplet(XYPlot)
     applet.add_dataset("counts1", "repump1 power")
     applet.add_dataset("counts2", "repump2 power")
+    applet.add_dataset("setpoint1", "cooling AO1 setpoint")
+    applet.add_dataset("setpoint2", "cooling AO2 setpoint")
     # applet.add_dataset("counts3", "repump3 power")
     # applet.add_dataset("counts4", "repump4 power")
     # applet.add_dataset("counts5", "repump5 power")

@@ -1059,13 +1059,14 @@ def end_measurement(self):
     delay(1*ms)
     measure_FORT_MM_fiber(self)
     delay(1*ms)
-    measure_REPUMP(self)
-    delay(1*ms)
     measure_GRIN1(self)
     delay(1*ms)
     measure_PUMPING_REPUMP(self)
-    # delay(1*ms)
+    delay(1*ms)
+
     # measure_MOT_end(self)
+    # delay(1*ms)
+    measure_REPUMP(self)
     delay(1*ms)
 
     advance = 1

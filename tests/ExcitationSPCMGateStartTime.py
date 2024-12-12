@@ -2,6 +2,9 @@
 
 SPCM Counts vs. Gate Window time
 
+Problems:
+* set_datasets_from_gui_args() does now work
+
 
 """
 
@@ -21,7 +24,7 @@ import subroutines.experiment_functions as exp_functions
 from subroutines.experiment_functions import load_MOT_and_FORT
 
 
-class SPCMGateTimeVsCounts(EnvExperiment):
+class ExcitationSPCMGateStartTime(EnvExperiment):
 
     def build(self):
         self.base = BaseExperiment(experiment=self)
@@ -172,8 +175,3 @@ class SPCMGateTimeVsCounts(EnvExperiment):
         self.initialize_datasets()
         self.turn_off_everything()
         self.experiment_fun()
-
-
-
-
-
