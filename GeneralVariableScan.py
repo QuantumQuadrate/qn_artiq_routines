@@ -256,7 +256,7 @@ class GeneralVariableScan(EnvExperiment):
         for variable, value in self.override_ExperimentVariables_dict.items():
             setattr(self, variable, value)
 
-        self.warm_up()
+        # self.warm_up()
 
         for variable1_value in self.scan_sequence1:
             # update the variable. setattr can't be called on the kernel, and this is what
@@ -281,6 +281,8 @@ class GeneralVariableScan(EnvExperiment):
 
                 # the measurement loop.
                 self.experiment_function()
+
+
                 # write and overwrite the file here so we can quit the experiment early without losing data
                 self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 

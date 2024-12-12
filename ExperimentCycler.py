@@ -115,7 +115,7 @@ class ExperimentCycler(EnvExperiment):
 
         while True:
 
-            self.hardware_init()
+            self.hardware_init()  # same as initialize hardware
             self.reset_datasets()
 
             # the measurement loop.
