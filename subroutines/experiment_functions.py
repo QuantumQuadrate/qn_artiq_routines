@@ -1524,6 +1524,14 @@ def single_photon_experiment(self):
         # lower level optical pumping and excitation sequence to optimize for speed
         ########################################################
 
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        delay(1*us)
 
         self.ttl_SPCM_gate.on()  # blocks the SPCM output - this is related to the atom readouts undercounting
         loop_start_mu = now_mu()
@@ -1677,6 +1685,13 @@ def single_photon_experiment(self):
             # # todo: use a specific detuning for this stage?
             delay(1*ms)
             if self.t_recooling > 0:
+
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                    channels=self.coil_channels)
+
+                delay(0.4*ms)
+
                 self.dds_cooling_DP.sw.on()
                 self.ttl_repump_switch.off()
                 self.dds_AOM_A1.sw.on()
@@ -1697,6 +1712,11 @@ def single_photon_experiment(self):
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
                 delay(1*ms)
+
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                    channels=self.coil_channels)
+                delay(0.4 * ms)  # coil relaxation time
 
 
         self.ttl_SPCM0._set_sensitivity(0) # close the gating window on the TTL channel

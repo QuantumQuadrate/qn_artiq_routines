@@ -39,6 +39,8 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
         self.setattr_argument("t_pulse_mu_list", StringValue('[100,200,300,400,500, 600]'))
 
+        self.setattr_argument("test_with_specific_ao_setting", BooleanValue(False))
+
         self.base.set_datasets_from_gui_args()
         print("build - done")
 
@@ -92,6 +94,37 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
         delay(10*ms)
 
+    @kernel
+    def specific_ao_setting(self):
+
+        delay(1*s)
+        self.ttl_repump_switch.off()
+        self.dds_cooling_DP.sw.off()
+        delay(1 * ms)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        delay(1*ms)
+
+        self.dds_cooling_DP.sw.off()
+        self.ttl_repump_switch.off()
+        self.dds_pumping_repump.sw.off()
+
+        delay(1 * ms)
+
+        self.dds_FORT.sw.off()
+
+        self.ttl_excitation_switch.on()
+        self.dds_excitation.sw.off()
+        self.dds_D1_pumping_DP.sw.off()
+
+        delay(10*ms)
+
 
     @kernel
     def experiment_fun(self):
@@ -103,6 +136,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
         # setting excitation aom to 1dBm
         self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(exc_RF_in_dBm))
+        # don't have to set it back; any code that runs feedback will do
 
         #turning on excitation; ttl switch still blocked
         self.ttl_repump_switch.off()
@@ -186,6 +220,9 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.initialize_hardware()
         self.initialize_datasets()
 
-        self.turn_off_everything()
+        if self.test_with_specific_ao_setting:
+            self.specific_ao_setting()
+        else:
+            self.turn_off_everything()
 
         self.experiment_fun()
