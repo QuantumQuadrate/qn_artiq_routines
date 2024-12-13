@@ -31,8 +31,12 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.base.build()
         # sets ttls
 
-        self.setattr_argument("n_measurements", NumberValue(1000, ndecimals=0, step=1))
-        # self.setattr_argument("t_pulse_mu_list", StringValue('[10,100,1000,10000,100000, 1000000, 10000000]'))
+        self.setattr_argument("n_measurements", NumberValue(10000000, ndecimals=0, step=1))
+        self.setattr_argument("exc_RF_in_dBm", NumberValue(1, ndecimals=0, step=1))
+        self.setattr_argument("exc_pulse_length_mu", NumberValue(20, ndecimals=0, step=1))
+        self.setattr_argument("gate_pulse_length_mu", NumberValue(100, ndecimals=0, step=1))
+
+
         self.setattr_argument("t_pulse_mu_list", StringValue('[100,200,300,400,500, 600]'))
 
         self.base.set_datasets_from_gui_args()
@@ -42,7 +46,6 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.base.prepare()
 
         self.t_pulse_mu_list = eval(self.t_pulse_mu_list)
-        print(self.t_pulse_mu_list)
 
     @kernel
     def initialize_hardware(self):      # hardware initialization and setting of ttl switches, and set datasets
@@ -62,6 +65,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
     def turn_off_everything(self):
 
         delay(1*s)
+
         self.dds_cooling_DP.sw.off()
         delay(1 * ms)
 
@@ -72,18 +76,18 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.dds_AOM_A5.sw.off()
         self.dds_AOM_A6.sw.off()
 
-        # delay(10*ms)
+        delay(1*ms)
 
-        # self.dds_cooling_DP.sw.off()
-        # self.ttl_repump_switch.on()
-        # self.dds_pumping_repump.sw.off()
+        self.dds_cooling_DP.sw.off()
+        self.ttl_repump_switch.on()
+        self.dds_pumping_repump.sw.off()
 
-        delay(10 * ms)
+        delay(1 * ms)
 
         self.dds_FORT.sw.off()
 
-        self.ttl_excitation_switch.off()
-        self.dds_excitation.sw.on()
+        self.ttl_excitation_switch.on()
+        self.dds_excitation.sw.off()
         self.dds_D1_pumping_DP.sw.off()
 
         delay(10*ms)
@@ -91,20 +95,20 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
     @kernel
     def experiment_fun(self):
-        delay(10 * ms)
-        # print(self.t_pulse_mu_list)
 
-        n_cycles = len(self.t_pulse_mu_list)
-
-        SPCM_counts_array = [0.0] * n_cycles
-        SPCM_counts1_array = [0.0] * n_cycles
-
+        #turning SPCM gate OFF & Sensitivity ON
         self.ttl_SPCM_gate.on()
-
         self.ttl_SPCM0._set_sensitivity(1)
         self.ttl_SPCM1._set_sensitivity(1)
 
-        n_step = 0
+        # setting excitation aom to 1dBm
+        self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(exc_RF_in_dBm))
+
+        #turning on excitation; ttl switch still blocked
+        self.ttl_repump_switch.off()
+        self.dds_excitation.sw.on()
+
+        delay(10*ms)
 
         for t_pulse_mu in self.t_pulse_mu_list:
 
@@ -115,17 +119,27 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
             SPCM_counts_sum = 0.0
             SPCM_counts1_sum = 0.0
 
+            t_exc_on_mu = 500 # 500ns delay before turning excitation on.
+
             for i in range(self.n_measurements):
 
                 now = now_mu()
 
-                at_mu(now)
+                # excitation on
+                at_mu(now + t_exc_on_mu)
+                self.ttl_excitation_switch.off()
+
+                # gate on
+                at_mu(now + t_exc_on_mu + t_pulse_mu)
                 self.ttl_SPCM_gate.off()  # turn on
 
-                at_mu(now + t_pulse_mu)
-                self.ttl_SPCM_gate.on()  # turn off
+                # excitation off
+                at_mu(now + t_exc_on_mu + self.exc_pulse_length_mu)
+                self.ttl_excitation_switch.on()
 
-                delay(1 * us)
+                # gate off
+                at_mu(now + t_exc_on_mu + t_pulse_mu + self.gate_pulse_length_mu)
+                self.ttl_SPCM_gate.on()  # turn off
 
                 count_now = now_mu()
 
@@ -135,24 +149,22 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
                 SPCM_counts_sum += SPCM_counts
                 SPCM_counts1_sum += SPCM_counts1
 
-                delay(1*ms)
+                delay(10 * us)
 
-            SPCM_counts_array[n_step] = SPCM_counts_sum / self.n_measurements
-            SPCM_counts1_array[n_step] = SPCM_counts1_sum / self.n_measurements
+            self.append_to_dataset('SPCM_counts_array', SPCM_counts_sum)
+            self.append_to_dataset('SPCM_counts1_array', SPCM_counts_sum)
 
-            delay(10 * ms)
+            delay(1 * ms)
 
-            n_step += 1
 
         self.ttl_SPCM0._set_sensitivity(0)
         self.ttl_SPCM1._set_sensitivity(0)
 
-        for val in SPCM_counts_array:
-            self.append_to_dataset('SPCM_counts_array', val)
-            print(val)
-
-        for val in SPCM_counts1_array:
-            self.append_to_dataset('SPCM_counts1_array', val)
+        # for val in SPCM_counts_array:
+        #     self.append_to_dataset('SPCM_counts_array', val)
+        #
+        # for val in SPCM_counts1_array:
+        #     self.append_to_dataset('SPCM_counts1_array', val)
 
         delay(10*ms)
 
@@ -173,5 +185,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
         self.initialize_hardware()
         self.initialize_datasets()
+
         self.turn_off_everything()
+
         self.experiment_fun()

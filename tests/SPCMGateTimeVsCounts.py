@@ -79,8 +79,8 @@ class SPCMGateTimeVsCounts(EnvExperiment):
 
         self.dds_FORT.sw.off()
 
-        self.ttl_excitation_switch.off()
-        self.dds_excitation.sw.on()
+        self.ttl_excitation_switch.on()
+        self.dds_excitation.sw.off()
         self.dds_D1_pumping_DP.sw.off()
 
         delay(10*ms)
