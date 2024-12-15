@@ -66,13 +66,15 @@ class XYPlot(pyqtgraph.PlotWidget):
             # norm_factor1 = 0.0003 # Repump 1 normalizing factor
             # norm_factor2 = 0.00036 # Repump 2 normalizing factor
 
+            zoom = 100
+
             if iteration > 0:
 
                 mean1_by_iteration = [
-                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset1)/norm_factor1)
+                    np.mean((counts1[i * measurements:(i + 1) * measurements]+offset1)/norm_factor1 * zoom)
                     for i in range(iteration)]
                 mean2_by_iteration = [
-                    np.mean((counts2[i * measurements:(i + 1) * measurements]+offset2)/norm_factor2)
+                    np.mean((counts2[i * measurements:(i + 1) * measurements]+offset2)/norm_factor2 * zoom)
                     for i in range(iteration)]
                 # mean3_by_iteration = [
                 #     np.mean((counts3[i * measurements:(i + 1) * measurements]+offset3)/norm_factor3)
