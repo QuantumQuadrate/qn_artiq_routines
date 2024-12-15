@@ -25,6 +25,56 @@ Table of contents:
 # Consequently, note that the name should not end in "experiment"
 ###############################################################################
 
+
+@kernel
+def zotino_stability_test(self):
+    '''
+    Zotino Stability test function to verify Zotino Voltage Output Drift.
+
+    used in end_measurement
+
+    * for testing purposes,
+    1) AZ_bottom_volts_MOT
+        zotino_test_1_Zotino_channel:
+        zotino_test_1_Sampler_channel:
+
+    '''
+
+    # Defined in BaseExperiment.py
+    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+
+    # Defined in BaseExperiment.py
+    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+
+    zotino_test1_Sampler_channel = 5 # Sampler 1 - ch5
+    zotino_test2_Sampler_channel = 6  # Sampler 1 - ch6
+
+    measurement_buf = np.array([0.0]*8)
+    measurement1 = 0.0 #  1
+    measurement2 = 0.0 #  2
+
+    avgs = 50
+
+    # Repump 1
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[zotino_test1_Sampler_channel]
+        delay(0.1 * ms)
+        measurement2 += measurement_buf[zotino_test2_Sampler_channel]
+
+
+    measurement1 /= avgs
+    measurement2 /= avgs
+
+    self.append_to_dataset("zotino_test1_monitor", measurement1)
+    self.append_to_dataset("zotino_test2_monitor", measurement2)
+
+    delay(0.1 * ms)
+
+
 @kernel
 def load_MOT_and_FORT(self):
     """
@@ -75,6 +125,9 @@ def load_MOT_and_FORT(self):
 
     # wait for the MOT to load
     delay(self.t_MOT_loading - self.t_MOT_phase2)
+
+    zotino_stability_test(self)
+
 
     if self.t_MOT_phase2 > 0:
 

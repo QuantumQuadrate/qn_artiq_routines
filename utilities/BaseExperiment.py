@@ -164,6 +164,12 @@ class BaseExperiment:
             self.experiment.FORT_MM_sampler_ch = 7
             self.experiment.GRIN1_sampler_ch = 4  # Sampler1; function "measure_GRIN1" in experiment functions.py
 
+            # for zotino stability test
+            # self.zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+            # self.zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+            # self.experiment.zotino_test_channels = [self.zotino_test_1_Zotino_channel, self.zotino_test_2_Zotino_channel]
+
+
             # dataset names
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.count_rate_dataset = 'photocounts_per_s'
@@ -660,6 +666,9 @@ class BaseExperiment:
         self.experiment.set_dataset("MOT4_end_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("MOT5_end_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("MOT6_end_monitor", [0.0], broadcast=True)
+
+        self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
 
     @kernel
     def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):
