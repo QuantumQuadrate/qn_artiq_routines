@@ -3,8 +3,6 @@
 SPCM Counts vs. Gate Window time
 
 Problems:
-* set_datasets_from_gui_args() does now work
-
 
 """
 
@@ -98,8 +96,25 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
     def specific_ao_setting(self):
 
         delay(1*s)
+        # Repump
         self.ttl_repump_switch.off()
+
+        # Cooling
         self.dds_cooling_DP.sw.off()
+
+        # Pumping Repump
+        self.dds_pumping_repump.sw.off()
+
+        # FORT
+        self.dds_FORT.sw.off()
+
+        # Excitation
+        self.ttl_excitation_switch.on()
+        self.dds_excitation.sw.off()
+
+        # D1
+        self.dds_D1_pumping_DP.sw.off()
+
         delay(1 * ms)
 
         self.dds_AOM_A1.sw.off()
@@ -108,20 +123,6 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.dds_AOM_A4.sw.off()
         self.dds_AOM_A5.sw.off()
         self.dds_AOM_A6.sw.off()
-
-        delay(1*ms)
-
-        self.dds_cooling_DP.sw.off()
-        self.ttl_repump_switch.off()
-        self.dds_pumping_repump.sw.off()
-
-        delay(1 * ms)
-
-        self.dds_FORT.sw.off()
-
-        self.ttl_excitation_switch.on()
-        self.dds_excitation.sw.off()
-        self.dds_D1_pumping_DP.sw.off()
 
         delay(10*ms)
 
