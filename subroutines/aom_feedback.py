@@ -579,6 +579,12 @@ class AOMPowerStabilizer:
                         delay(1*ms)
                         self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
                         delay(1*ms)
+                    #
+                    # todo: D1 feedback
+                    # if ch.name == 'dds_D1_pumping_DP':
+                    #     self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+                    #     self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
+                    #     delay(1*ms)
 
                     ch.dds_obj.sw.on()
 
@@ -609,6 +615,11 @@ class AOMPowerStabilizer:
                         delay(1 * ms)
                         self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
                         delay(1 * ms)
+
+                    # todo: d1 feedback
+                    # if ch.name == 'dds_D1_pumping_DP':
+                    #     self.exp.ttl_excitation_switch.on()
+                    #     delay(1 * ms)
 
                     ch.dds_obj.sw.off()
 

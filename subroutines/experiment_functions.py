@@ -768,9 +768,9 @@ def measure_GRIN1(self):
     self.dds_cooling_DP.sw.off()
 
     #turning D1 on
-    # todo: erase this line if doing feedback for D1
+    # todo: D1 feedback
+    # self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
     self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
-
     self.dds_D1_pumping_DP.sw.on()
     self.dds_excitation.sw.on()
     self.ttl_excitation_switch.off()
@@ -1511,7 +1511,7 @@ def single_photon_experiment(self):
     excitation_counts = 0
     excitation_counts1 = 0
     excitation_counts_array = [0]
-    rtio_log("2nd_shot_block", 0) # todo: delete. for debugging.
+    #rtio_log("2nd_shot_block", 0) # todo: delete. for debugging.
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
@@ -1595,6 +1595,7 @@ def single_photon_experiment(self):
         delay(0.4 * ms)  # coil relaxation time
 
         # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
+        # use ttl_excitation to swith on/off D1 or Exc light
         self.dds_excitation.sw.on()
 
         # don't use gate_rising. set the sensitivity, do the pumping and excitation sequence, and count the photons
@@ -1612,9 +1613,10 @@ def single_photon_experiment(self):
             # optical pumping phase - pumps atoms into F=1,m_F=0
             ############################
 
-
+            # todo: D1 feedback
             if self.t_pumping > 0.0:
                 self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
+                # self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
                 self.ttl_repump_switch.on()  # turns off the MOT RP AOM
 
                 if not self.pumping_light_off:
@@ -1792,7 +1794,7 @@ def single_photon_experiment(self):
 
         delay(1*ms)
 
-        rtio_log("2nd_shot_block",1)
+        #rtio_log("2nd_shot_block",1)
         # self.print_async("second readout",now_mu() - loop_start_mu) # todo: delete
         with sequential:
 
@@ -1807,7 +1809,7 @@ def single_photon_experiment(self):
 
 
             second_shot(self)
-        rtio_log("2nd_shot_block",0)
+        #rtio_log("2nd_shot_block",0)
 
         end_measurement(self)
         for val in excitation_counts_array:
