@@ -65,6 +65,7 @@ class ExperimentVariables(EnvExperiment):
                      "general"),
             Variable("n_excitation_cycles", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
                      "general"),
+            Variable("record_every_shot", False, BooleanValue, {}, "Booleans"),
 
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
