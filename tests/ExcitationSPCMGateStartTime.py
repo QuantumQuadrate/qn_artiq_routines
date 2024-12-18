@@ -21,6 +21,8 @@ from utilities.BaseExperiment import BaseExperiment
 import subroutines.experiment_functions as exp_functions
 from subroutines.experiment_functions import load_MOT_and_FORT
 
+from utilities.conversions import dB_to_V_kernel as dB_to_V
+
 
 class ExcitationSPCMGateStartTime(EnvExperiment):
 
@@ -30,7 +32,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         # sets ttls
 
         self.setattr_argument("n_measurements", NumberValue(10000000, ndecimals=0, step=1))
-        self.setattr_argument("exc_RF_in_dBm", NumberValue(1, ndecimals=0, step=1))
+        # self.setattr_argument("exc_RF_in_dBm", NumberValue(1., ndecimals=0, step=1))
         self.setattr_argument("exc_pulse_length_mu", NumberValue(20, ndecimals=0, step=1))
         self.setattr_argument("gate_pulse_length_mu", NumberValue(100, ndecimals=0, step=1))
 
@@ -130,13 +132,18 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
     @kernel
     def experiment_fun(self):
 
+        self.core.reset()
+
+        delay(10 * ms)
+
         #turning SPCM gate OFF & Sensitivity ON
         self.ttl_SPCM_gate.on()
         self.ttl_SPCM0._set_sensitivity(1)
         self.ttl_SPCM1._set_sensitivity(1)
 
         # setting excitation aom to 1dBm
-        self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(exc_RF_in_dBm))
+        # self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
+        self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
         # don't have to set it back; any code that runs feedback will do
 
         #turning on excitation; ttl switch still blocked
@@ -148,7 +155,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         for t_pulse_mu in self.t_pulse_mu_list:
 
             delay(10 * ms)
-            print(t_pulse_mu)
+            # print(t_pulse_mu)
             delay(10 * ms)
 
             SPCM_counts_sum = 0.0
