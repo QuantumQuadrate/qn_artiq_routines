@@ -110,6 +110,10 @@ class BaseExperiment:
 
         self.experiment.counts = 0
         self.experiment.counts2 = 0
+
+        self.experiment.counts_by_cycle = 0
+        self.experiment.counts_by_measurement = 0
+
         self.experiment.counts_FORT_science = 0
         self.experiment.measurement = 0
         self.experiment.ro_dma_handle = (np.int32(0), np.int64(0), np.int32(0))
@@ -437,6 +441,10 @@ class BaseExperiment:
             try:
                 self.experiment.counts_list = [0] * self.experiment.n_measurements
                 self.experiment.counts2_list = [0] * self.experiment.n_measurements
+
+                # self.experiment.counts_by_cycle = [0] * (self.experiment.n_excitation_cycles + 2)
+                # self.experiment.counts_by_measurement = [0] * self.experiment.n_measurements
+
             except:
                 # if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
@@ -646,6 +654,8 @@ class BaseExperiment:
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
         self.experiment.set_dataset("excitation_counts", [0], broadcast=True)
         self.experiment.set_dataset("excitation_counts1", [0], broadcast=True)
+        self.experiment.set_dataset("counts_by_iteration", [0], broadcast=True)
+
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("GRIN1_EXC_monitor", [0.0], broadcast=True)
