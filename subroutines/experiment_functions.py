@@ -1877,6 +1877,8 @@ def single_photon_experiment_atom_loading_advance(self):
 
     self.measurement = 0  # advanced in end_measurement
     tries = 0
+    # n_no_atom = int(self.n_measurements * 0.1)
+    count_no_atom = 0
 
     while self.measurement < self.n_measurements:
 
@@ -1910,16 +1912,19 @@ def single_photon_experiment_atom_loading_advance(self):
         if not self.no_first_shot:
             first_shot(self)
             if self.require_atom_loading_to_advance_in_single_photon_exp:
+                # if no atoms!!
                 if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
-                    tries += 1
-                    if tries >= 20: # limit: 5% atom loading
-                        self.print_async("ERROR: atom loading is below 5%. Stuck at measurement : ", self.measurement, "/ ", self.n_measurements)
-                        # todo: pause and resume the experiment? pause => schedule another experiment with higher priority => solve issue => override dataset;
-                        # if laser lock is the issue, pause is not necessary.
-                    continue
-                else:
-                    # if atom loaded, initialize tries = 0 so that it
-                    # self.print_async("ERROR: atom is loaded after : ", tries, " in ", self.measurement)
+                    # to get background photon clicks, do the experiment "self.n_no_atom" times with no atom loaded
+                    if self.collect_no_atom_bg_in_single_photon_exp and count_no_atom < self.n_no_atom:
+                        count_no_atom += 1
+                    else:
+                        tries += 1
+                        if tries >= 20: # limit: 5% atom loading
+                            self.print_async("ERROR: atom loading is below 5%. Stuck at measurement : ", self.measurement, "/ ", self.n_measurements)
+                            # todo: pause and resume the experiment? pause => schedule another experiment with higher priority => solve issue => override dataset;
+                            # if laser lock is the issue, pause is not necessary.
+                        continue
+                else:       # if atom loaded, initialize tries = 0
                     tries = 0
 
         delay(1 * ms)
@@ -1960,8 +1965,13 @@ def single_photon_experiment_atom_loading_advance(self):
         # don't use gate_rising. set the sensitivity, do the pumping and excitation sequence, and count the photons
         # after excitation attempts. we'll block the counter channel with an external switch so we don't get any clicks
         # during the OP phases.
+
+        ### sensitivity of the gate set at the beginning of the loop.
+        ### it will only register events when the SPCM switch lets events through.
+
         self.ttl_SPCM0._set_sensitivity(1)
         self.ttl_SPCM1._set_sensitivity(1)
+
         for excitaton_cycle in range(self.n_excitation_cycles): # todo: revert later
 
             delay(0.5*ms)
@@ -2029,30 +2039,6 @@ def single_photon_experiment_atom_loading_advance(self):
 
             now = now_mu()
 
-            # messy and confusing. todo: try to improve this
-            # at_mu(now+10)
-            # self.ttl_repump_switch.off()  # repump AOM is on for excitation
-            # mu_offset = 800 # accounts for various latencies
-            # at_mu(now + mu_offset - 200) # make sure stuff is off, no more Raman photons from FORT
-            # at_mu(now + mu_offset+100+self.gate_start_offset_mu) # allow for repump rise time and FORT after-pulsing
-            # t_collect = now_mu()
-            # t_excite = now_mu()
-            # pulses_over_mu = 0
-            # for attempt in range(self.n_excitation_attempts):
-            #     at_mu(now + mu_offset + 201 + int(attempt * (self.t_excitation_pulse / ns + 100))
-            #           + self.gate_start_offset_mu)
-            #     self.dds_excitation.sw.pulse(self.t_excitation_pulse)
-            #     at_mu(now + mu_offset + 741 + int(attempt * (self.t_excitation_pulse / ns + 100) -
-            #                                       0.1*self.t_excitation_pulse / ns) +self.gate_start_offset_mu)
-            #
-            #     # fast switch to gate SPCM output - why am I using an external switch
-            #     # instead of the gate input on the SPCM?
-            #     self.ttl_SPCM_gate.off()
-            #     delay(0.2*self.t_excitation_pulse+100*ns + self.gate_switch_offset)
-            #     self.ttl_SPCM_gate.on()
-            #
-            #     pulses_over_mu = now_mu() # overwrite each loop iteration
-
             self.dds_FORT.sw.off()
             at_mu(now+150)
             self.ttl_excitation_switch.off()
@@ -2062,11 +2048,9 @@ def single_photon_experiment_atom_loading_advance(self):
             self.ttl_excitation_switch.on()
 
             at_mu(now + 150 + int(self.t_photon_collection_time / ns + self.gate_start_offset_mu))
-
             self.ttl_SPCM_gate.on()
 
             at_mu(now + 150 + int(self.t_photon_collection_time / ns))
-
             self.dds_FORT.sw.on()
             pulses_over_mu = now_mu()
 
@@ -2074,9 +2058,6 @@ def single_photon_experiment_atom_loading_advance(self):
             self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
 
 
-
-            # todo: terrible way of doing this. set the sensitivity of the gate at the beginning of the loop.
-            #  it will only register events when the SPCM switch lets events through.
             excitation_counts = self.ttl_SPCM0.count(
                 pulses_over_mu)  # this is the number of clicks we got over n_excitation attempts
             excitation_counts1 = self.ttl_SPCM1.count(
@@ -2086,8 +2067,6 @@ def single_photon_experiment_atom_loading_advance(self):
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
             # loop_over_mu = now_mu()
 
-            # todo: delete
-            # self.print_async("bottom of excitation loop",now_mu() - loop_start_mu)
 
             ############################
             # recooling phase
