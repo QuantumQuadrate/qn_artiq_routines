@@ -21,9 +21,9 @@
       "frequency": "f_cooling_DP_MOT",
       "power": "p_cooling_DP_MOT"
     },
-    "dds_D1_pumping_SP": {
-      "frequency": "f_D1_pumping_SP",
-      "power": "p_D1_pumping_SP"
+    "dds_D1_pumping_DP": {
+      "frequency": "f_D1_pumping_DP",
+      "power": "p_D1_pumping_DP"
     },
     "dds_pumping_repump": {
       "frequency": "f_pumping_repump",

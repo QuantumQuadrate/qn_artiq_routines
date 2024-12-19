@@ -65,7 +65,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                         n_atoms_loaded = sum(atoms_loaded)
                         loading_fraction = n_atoms_loaded / measurements
 
-                        if loading_fraction > 0.1:  # apparent very low rate loading might be wrongly classified background
+                        if loading_fraction > 0.3:  # apparent very low rate loading might be wrongly classified background
                             cutoff = threshold_otsu(shot1)
                             atoms_loaded = [x > cutoff for x in shot1]
                             n_atoms_loaded = sum(atoms_loaded)
@@ -83,13 +83,13 @@ class XYPlot(pyqtgraph.PlotWidget):
                     self.clear()
                     if len(x) == len(retention_array) and len(x) == len(loading_rate_array):
                         self.plot(x, retention_array,
-                                  pen=(255, 0, 0),
+                                  pen=None,
                                   symbol='o',
                                   symbolBrush=(255, 0, 0),
                                   symbolPen='w',
                                   name='retention')
                         self.plot(x, loading_rate_array,
-                                  pen=(0, 100, 100),
+                                  pen=None,
                                   symbol='o',
                                   symbolBrush=(0, 100, 100),
                                   symbolPen='w',

@@ -138,6 +138,10 @@ class GeneralVariableOptimizer(EnvExperiment):
         assert type(self.override_ExperimentVariables_dict) == dict, \
             "override_ExperimentVariables should be a python dictionary"
 
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
+                                             ". Did you mistype it?")
+
         self.variables_and_bounds = eval(self.variables_and_bounds)
 
         self.var_and_bounds_objects = []
@@ -295,7 +299,6 @@ class GeneralVariableOptimizer(EnvExperiment):
         """cost function wrapper"""
         return self.cost_function()
 
-    # todo should check if the cost has to be int
     def optimization_routine(self, params: TArray(TFloat), check_initial_cost=False) -> TInt32:
         """
         the function that will be called by the optimizer.
@@ -337,14 +340,16 @@ class GeneralVariableOptimizer(EnvExperiment):
             if cost < self.best_cost:
                 self.best_cost = cost
                 self.print_async("new best cost:", self.best_cost)
-
                 for i in range(self.n_params):
                     param_val = params[i]
-                    self.set_dataset(self.var_and_bounds_objects[i].name, float(param_val),
-                                     broadcast=True,
-                                     persist=True)
                     self.print_async(self.var_and_bounds_objects[i].name, param_val)
 
+                if self.set_best_parameters_at_finish:
+                    for i in range(self.n_params):
+                        param_val = params[i]
+                        self.set_dataset(self.var_and_bounds_objects[i].name, float(param_val),
+                                         broadcast=True,
+                                         persist=True)
         else:
             self.set_dataset(self.cost_dataset, [cost], broadcast=True)
             self.initial_cost = cost
@@ -373,7 +378,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.core.reset()
         delay(1 * ms)
 
-        if self.best_cost < self.initial_cost:
+        if self.best_cost < self.initial_cost and self.set_best_parameters_at_finish:
             for i in range(self.n_params):
                 param_val = best_params[i]
                 self.set_dataset(self.var_and_bounds_objects[i].name, param_val,

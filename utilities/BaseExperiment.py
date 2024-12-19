@@ -112,6 +112,8 @@ class BaseExperiment:
         self.experiment.counts2 = 0
         self.experiment.counts_FORT_science = 0
         self.experiment.measurement = 0
+        self.experiment.ro_dma_handle = (np.int32(0), np.int64(0), np.int32(0))
+        self.experiment.ro_dma_handle2 = (np.int32(0), np.int64(0), np.int32(0))
 
         if self.node == "alice":
             # devices without nicknames. core should come first
@@ -123,20 +125,26 @@ class BaseExperiment:
                                 "sampler0",  # for measuring laser power PD
                                 "sampler1", # for reading in volts in the coil tune experiment
                                 "sampler2",
-                                *[f"ttl{i}" for i in range(16)]]
+                                *[f"ttl{i}" for i in range(16)],
+                                *[f"ttl{i}_counter" for i in range(4)],  # ttl card 0 edge counters
+                                *[f"ttl{i}_counter" for i in range(8, 12)]]  # ttl card 1 edge counters
+
             for dev in devices_no_alias:
                 self.experiment.setattr_device(dev)
 
             # devices can also be nicknamed here:
+            # todo: do this in the device_db
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
+            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_UV = self.experiment.ttl15
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
             self.experiment.FORT_mod_switch = self.experiment.ttl12
+            self.experiment.ttl_excitation_switch = self.experiment.ttl14
 
             # for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -189,17 +197,20 @@ class BaseExperiment:
                                 "sampler0",  # for measuring laser power PD
                                 "sampler1", # for reading in volts in the coil tune experiment
                                 "sampler2",
-                                *[f"ttl{i}" for i in range(16)]]
+                                *[f"ttl{i}" for i in range(16)]] # todo: add edge_counters when gateware upgraded
             for dev in devices_no_alias:
                 self.experiment.setattr_device(dev)
 
             # devices can also be nicknamed here:
+            # todo: do this in the device_db
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
+            self.experiment.ttl_SPCM0 = self.experiment.ttl0
+            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
+            self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
-
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
@@ -242,9 +253,8 @@ class BaseExperiment:
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
 
             # not in alice
-            self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
+            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
-            self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -315,9 +325,8 @@ class BaseExperiment:
             # converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-            self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
-            self.experiment.ampl_D1_pumping_SP = dB_to_V(self.experiment.p_D1_pumping_SP)
+            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -405,7 +414,7 @@ class BaseExperiment:
                 experiment=self.experiment,
                 device_aliases=[
                     'dds_FORT',
-                    'dds_D1_pumping_SP',
+                    'dds_D1_pumping_DP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
                     'dds_excitation',
@@ -475,7 +484,7 @@ class BaseExperiment:
                 experiment=self.experiment,
                 device_aliases=[
                     'dds_FORT',
-                    'dds_D1_pumping_SP',
+                    'dds_D1_pumping_DP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
                     'dds_excitation',
@@ -545,7 +554,7 @@ class BaseExperiment:
                 experiment=self.experiment,
                 device_aliases=[
                     'dds_FORT',
-                    'dds_D1_pumping_SP',
+                    'dds_D1_pumping_DP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
                     'dds_excitation',
@@ -629,9 +638,12 @@ class BaseExperiment:
         self.experiment.set_dataset("excitation_counts", [0], broadcast=True)
 
     @kernel
-    def initialize_hardware(self):
+    def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):
         """
         hardware initialization and setting of ttl switches, and set datasets
+
+        'turn_off_dds_channels': will turn off all Urukul channel outputs if True (default).
+        'turn_off_zotinos': will set all Zotino channels to 0*V if True (default).
         :return:
         """
 
@@ -650,11 +662,6 @@ class BaseExperiment:
             self.experiment.ttl_scope_trigger.output()
             self.experiment.ttl6.output()  # for outputting a trigger
             self.experiment.ttl1.input()
-
-            # channel 3 is configured to read from 14, separated by a switch
-            self.experiment.ttl3.input()
-            self.experiment.ttl14.output()
-            self.experiment.ttl14.on()
 
             self.experiment.ttl_D1_lock_monitor.input()
 
@@ -685,16 +692,17 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
-            # turn off all dds channels
-            for dds_ch in self.experiment.all_dds_channels:
-                dds_ch.sw.off()
-                delay(1*ms)
+            if turn_off_zotinos:
+                self.experiment.zotino0.init()
+                for zot_ch in range(32):
+                    self.experiment.zotino0.write_dac(zot_ch, 0.0)
+                    self.experiment.zotino0.load()
+                    delay(1 * ms)
 
-            self.experiment.zotino0.init()
-            for zot_ch in range(32):
-                self.experiment.zotino0.write_dac(zot_ch, 0.0)
-                self.experiment.zotino0.load()
-                delay(1*ms)
+            if turn_off_dds_channels:
+                for dds_ch in self.experiment.all_dds_channels:
+                    dds_ch.sw.off()
+                    delay(1*ms)
 
             self.experiment.zotino0.write_dac(5, 0.62)  # turn on the VCA for the FORT
             self.experiment.zotino0.load()
@@ -742,17 +750,17 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
-            # turn off all dds channels
-            for dds_ch in self.experiment.all_dds_channels:
-                dds_ch.sw.off()
-                delay(1*ms)
+            if turn_off_zotinos:
+                self.experiment.zotino0.init()
+                for zot_ch in range(32):
+                    self.experiment.zotino0.write_dac(zot_ch, 0.0)
+                    self.experiment.zotino0.load()
+                    delay(1 * ms)
 
-            # todo: turn off all Zotino channels?
-            self.experiment.zotino0.init()
-            for zot_ch in range(32):
-                self.experiment.zotino0.write_dac(zot_ch, 0.0)
-                self.experiment.zotino0.load()
-                delay(1*ms)
+            if turn_off_dds_channels:
+                for dds_ch in self.experiment.all_dds_channels:
+                    dds_ch.sw.off()
+                    delay(1 * ms)
 
             self.experiment.core.break_realtime()
 
@@ -771,12 +779,6 @@ class BaseExperiment:
             self.experiment.ttl_repump_switch.output()
             self.experiment.ttl6.output()  # for outputting a trigger
             self.experiment.ttl1.input()
-
-            # channel 3 is configured to read from 14, separated by a switch
-            self.experiment.ttl3.input()
-            self.experiment.ttl14.output()
-            self.experiment.ttl14.on()
-
 
             # for diagnostics including checking the performance of fast switches for SPCM gating
             self.experiment.ttl9.output()
@@ -798,17 +800,17 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
-            # turn off all dds channels
-            for dds_ch in self.experiment.all_dds_channels:
-                dds_ch.sw.off()
-                delay(1*ms)
+            if turn_off_zotinos:
+                self.experiment.zotino0.init()
+                for zot_ch in range(32):
+                    self.experiment.zotino0.write_dac(zot_ch, 0.0)
+                    self.experiment.zotino0.load()
+                    delay(1 * ms)
 
-            # todo: turn off all Zotino channels?
-            self.experiment.zotino0.init()
-            for zot_ch in range(32):
-                self.experiment.zotino0.write_dac(zot_ch, 0.0)
-                self.experiment.zotino0.load()
-                delay(1*ms)
+            if turn_off_dds_channels:
+                for dds_ch in self.experiment.all_dds_channels:
+                    dds_ch.sw.off()
+                    delay(1 * ms)
 
             self.experiment.core.break_realtime()
         

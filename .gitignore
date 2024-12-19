@@ -25,7 +25,6 @@ analysis/physics_scratchpad.ipynb
 tests/Card_Test.py
 third_party/thorlabs/images
 run_artiq.bat
-device_db.py
 repository
 .idea
 .ipynb_checkpoints

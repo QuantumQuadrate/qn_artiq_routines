@@ -110,9 +110,9 @@ class ExperimentVariables(EnvExperiment):
                      "Cooling double pass AOM"),
 
             # D1 optical pumping, pumping repumper, and excitation
-            Variable("f_D1_pumping_SP", 90 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+            Variable("f_D1_pumping_DP", 368 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "OP and excitation AOMs"),
-            Variable("p_D1_pumping_SP", -9.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            Variable("p_D1_pumping_DP", -9.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
             Variable("f_pumping_repump", 345.10 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "OP and excitation AOMs"),
@@ -252,6 +252,11 @@ class ExperimentVariables(EnvExperiment):
                                                              'scale': 1, 'ndecimals': 2}, "Timing"),
             Variable("duty_cycle_FORT", 0.65, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                           'scale': 1, 'ndecimals': 2}, "Timing"),
+            Variable("t_RO_chop_period", 1.5 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_RO_chop_offset", -0.2 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_RO_gate_offset", -0.2 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("duty_cycle_RO", 0.2, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
+                                                          'scale': 1, 'ndecimals': 2}, "Timing"),
             Variable("t_excitation_pulse", 100 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("gate_start_offset_mu", 0, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Timing"),
@@ -268,6 +273,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("D1_off_in_OP_phase", False, BooleanValue, {}, "Booleans"),
             Variable("D1_off_in_depump_phase", False, BooleanValue, {}, "Booleans"),
             Variable("require_D1_lock_to_advance", False, BooleanValue, {}, "Booleans"),
+            Variable("use_chopped_readout", True, BooleanValue, {}, "Booleans"),
+            Variable("chopped_RO_light_off", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_counts_per_s", 33000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
@@ -304,6 +311,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("aom_feedback_averages", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
+                     "Laser feedback"),
+            Variable("aom_feedback_periodicity", 2, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
                      "Laser feedback"),
             Variable("Rigol_carrier_frequency", 40 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),

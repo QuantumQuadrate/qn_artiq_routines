@@ -3,7 +3,7 @@
         {
             "dds_AOM_A1":
                 {
-                    "sampler_ch": 0,
+                    "sampler_ch": 7,
                     "set_points": ["set_point_PD1_AOM_A1"],
                     "p": 0.1,
                     "i": 0.000,
@@ -90,7 +90,7 @@
         },
     "sampler1":
         {
-            "dds_D1_pumping_SP":
+            "dds_D1_pumping_DP":
                 {
                     "sampler_ch": 4,
                     "set_points": ["set_point_D1_SP"],
@@ -98,7 +98,7 @@
                     "i": 0.0,
                     "series": true,
                     "dataset":"D1_SP_monitor",
-                    "power_dataset":"p_D1_pumping_SP",
+                    "power_dataset":"p_D1_pumping_DP",
                     "t_measure_delay":0.00001,
                     "max_dB": -5
                 }
