@@ -1845,6 +1845,8 @@ def single_photon_experiment_atom_loading_advance(self):
     self is the experiment instance to which ExperimentVariables are bound
     """
 
+    # todo: Note that ttl_SPCM_gate.off() at initialize_hardware() in BaseExperiment
+
     self.core.reset()
 
     # overwritten below but initialized here so they are always initialized
@@ -1856,9 +1858,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
     readout_counts_array = [0]
 
-    self.set_dataset(self.count_rate_dataset,
-                     [0.0],
-                     broadcast=True)
+    self.set_dataset(self.count_rate_dataset,[0.0],broadcast=True)
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
@@ -2123,7 +2123,7 @@ def single_photon_experiment_atom_loading_advance(self):
                     self.ttl_SPCM_gate.on()         # gate turned off
 
                     after_shot = now_mu()
-                    delay(1*us)
+                    delay(.1*ms)
 
                     every_shot_count = self.ttl_SPCM0.count(after_shot)
                     self.ttl_SPCM1._set_sensitivity(1)  # opening the gating window for SPCM1
@@ -2176,6 +2176,7 @@ def single_photon_experiment_atom_loading_advance(self):
         #rtio_log("2nd_shot_block",1)
         # self.print_async("second readout",now_mu() - loop_start_mu) # todo: delete
         with sequential:
+            # todo: why do you have to do this in sequential?
 
             self.ttl_SPCM_gate.off() # enables the SPCM
             self.ttl_repump_switch.off()  # turns the RP AOM on
