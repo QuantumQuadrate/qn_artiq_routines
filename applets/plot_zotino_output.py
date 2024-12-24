@@ -83,14 +83,14 @@ class XYPlot(pyqtgraph.PlotWidget):
                           symbol='o',
                           symbolBrush='aquamarine',
                           symbolPen='w',
-                          name='AZ BOT')
+                          name='test1')
 
                 self.plot(range(iteration), mean2_by_iteration,
                           pen='salmon',
                           symbol='o',
                           symbolBrush='salmon',
                           symbolPen='w',
-                          name='AZ TOP')
+                          name='test2')
 
                 # self.plot(range(iteration), mean3_by_iteration,
                 #           pen='tomato',
