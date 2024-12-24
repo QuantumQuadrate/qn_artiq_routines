@@ -300,6 +300,21 @@ def first_shot(self):
     warning: assumes the fiber AOMs are already on, which is usually the case
     :return:
     """
+    # todo: include the following in here to simplify the experiment functions
+    # self.zotino0.set_dac(
+    #     [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+    #     channels=self.coil_channels)
+    #
+    # # set the FORT AOM to the readout settings
+    # self.dds_FORT.set(frequency=self.f_FORT,
+    #                   amplitude=self.stabilizer_FORT.amplitudes[1])
+    #
+    # # set the cooling DP AOM to the readout settings
+    # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+    #                         amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+    # todo: get rid of no_first_shot Boolean
+
     if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
         self.ttl_repump_switch.off()
         self.dds_cooling_DP.sw.on()
@@ -364,8 +379,8 @@ def second_shot(self):
 
     else:
         if self.use_chopped_readout:
-            rtio_log("chop_RO_counter", 0)
-            rtio_log("chop_RO_dma", 0)
+            # rtio_log("chop_RO_counter", 0)
+            # rtio_log("chop_RO_dma", 0)
             delay(10*ms)
             ro_dma_handle = self.core_dma.get_handle("second_chopped_readout")
             delay(10 * ms)
@@ -425,22 +440,6 @@ def second_shot(self):
             self.counts2 = self.ttl_SPCM0_counter.fetch_count()
             delay(0.1 * ms)
             self.dds_cooling_DP.sw.off()
-#
-# @kernel
-# def recool_and_shot(self):
-#     """
-#
-#     This function is used in single_photon_experiment, when we want to readout every excitation cycle
-#
-#     * does not conflict with first_shot / second_shot
-#     """
-#     if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
-#         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_recool_and_shot)
-#         count_by_cycle = self.ttl_SPCM0.count(t_gate_end)
-#         # self.dds_cooling_DP.sw.off()
-#     else:
-#         t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
-#         count_by_cycle = self.ttl_SPCM0_counter.fetch_count()
 
 @kernel
 def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
@@ -1849,12 +1848,13 @@ def single_photon_experiment_atom_loading_advance(self):
     self.core.reset()
 
     # overwritten below but initialized here so they are always initialized
-    self.counts = 0  # not used in this function
+    self.counts = 0
     self.counts2 = 0
     excitation_counts = 0
     excitation_counts1 = 0
     excitation_counts_array = [0]
-    #rtio_log("2nd_shot_block", 0) # todo: delete. for debugging.
+
+    readout_counts_array = [0]
 
     self.set_dataset(self.count_rate_dataset,
                      [0.0],
@@ -1878,64 +1878,58 @@ def single_photon_experiment_atom_loading_advance(self):
     self.measurement = 0  # advanced in end_measurement
     tries = 0
     # n_no_atom = int(self.n_measurements * 0.1)
-    count_no_atom = 0
+    # count_no_atom = 0
 
     while self.measurement < self.n_measurements:
-
 
         excitation_counts_array = [0] * self.n_excitation_cycles
         excitation_counts_array1 = [0] * self.n_excitation_cycles
 
-        if self.enable_laser_feedback:
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+        readout_counts_array = [0] * self.n_excitation_cycles
 
-            # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
-            if self.verify_OP_in_photon_experiment:
-                self.dds_microwaves.sw.on()
+        self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
-        delay(10*ms)
-        load_MOT_and_FORT(self)
+        atom_loaded = False
+        while not atom_loaded:
+            # todo: change the delay?
+            delay(10*ms)
+            load_MOT_and_FORT(self)
 
-        delay(0.1 * ms)
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-            channels=self.coil_channels)
+            delay(0.1 * ms)
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                channels=self.coil_channels)
 
-        # set the FORT AOM to the readout settings
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitudes[1])
+            # set the FORT AOM to the readout settings
+            self.dds_FORT.set(frequency=self.f_FORT,
+                              amplitude=self.stabilizer_FORT.amplitudes[1])
 
-        # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                                amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
-        # todo: is feedback necessary every time you try loading?
-        if not self.no_first_shot:
+            # set the cooling DP AOM to the readout settings
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                    amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+
             first_shot(self)
+
+            # tries to load an atom 20 times before running laser feedback again.
             if self.require_atom_loading_to_advance_in_single_photon_exp:
                 # if no atoms!!
                 if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
-                    # to get background photon clicks, do the experiment "self.n_no_atom" times with no atom loaded
-                    if self.collect_no_atom_bg_in_single_photon_exp and count_no_atom < self.n_no_atom:
-                        count_no_atom += 1
-                    else:
+                    if tries < 20:
                         tries += 1
-                        if tries >= 20: # limit: 5% atom loading
-                            self.print_async("ERROR: atom loading is below 5%. Stuck at measurement : ", self.measurement, "/ ", self.n_measurements)
-                            # todo: pause and resume the experiment? pause => schedule another experiment with higher priority => solve issue => override dataset;
-                            # if laser lock is the issue, pause is not necessary.
-                        continue
-                else:       # if atom loaded, initialize tries = 0
+                    else:               # limit: 5% atom loading
+                        self.print_async("ERROR: atom loading is below 5%. Stuck at measurement : ", self.measurement, "/ ", self.n_measurements, " --Running feedback--")
+                        self.laser_stabilizer.run()
+                        tries = 0
+                        # todo: pause and resume the experiment? pause => schedule another experiment with higher priority => solve issue => override dataset;
+                else:
+                    # if atom loaded, initialize tries = 0
                     tries = 0
+                    atom_loaded = True
 
         delay(1 * ms)
         self.ttl_repump_switch.on()  # turns the RP AOM off
 
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-        # self.ttl7.pulse(10 * us)  # in case we want to look at signals on an oscilloscope
 
         ########################################################
         # lower level optical pumping and excitation sequence to optimize for speed
@@ -1974,7 +1968,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
         for excitaton_cycle in range(self.n_excitation_cycles): # todo: revert later
 
-            delay(0.5*ms)
+            delay(1*ms)
 
             # low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
             # todo: make sure this is consistent with any updates in chopped_optical_pumping function
@@ -1985,16 +1979,13 @@ def single_photon_experiment_atom_loading_advance(self):
             # todo: D1 feedback
             if self.t_pumping > 0.0:
                 self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
-                # self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
                 self.ttl_repump_switch.on()  # turns off the MOT RP AOM
 
-                if not self.pumping_light_off:
-                    self.dds_pumping_repump.sw.on()
-
+                self.dds_pumping_repump.sw.on()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
-                delay(.1 * ms) # maybe this can be even shorter
+                delay(1 * ms) # maybe this can be even shorter
 
                 self.ttl_excitation_switch.off()
 
@@ -2067,14 +2058,15 @@ def single_photon_experiment_atom_loading_advance(self):
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
             # loop_over_mu = now_mu()
 
-
             ############################
             # recooling phase
             ############################
 
+            t_SPCM_recool_and_shot_mu = 20000000  # is this too long for this method to handle?
+
             # # todo: use a specific detuning for this stage?
             delay(1*ms)
-            if self.t_recooling > 0:
+            if self.t_recooling > 0 or self.record_every_shot:
 
                 self.zotino0.set_dac(
                     [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
@@ -2091,7 +2083,58 @@ def single_photon_experiment_atom_loading_advance(self):
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
-                delay(self.t_recooling)
+                delay(0.4 * ms)
+
+                if self.record_every_shot:
+
+                    # self.experiment.ttl_SPCM0 = self.experiment.ttl0
+                    # self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
+                    # self.experiment.ttl_SPCM1 = self.experiment.ttl1
+                    # self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
+                    # self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+
+                    # ###### Method1: same as first_shot()
+                    # # self.ttl_SPCM0._set_sensitivity(0)
+                    # # self.ttl_SPCM_gate.off()    # this causes overflow error
+                    # # delay(10*ms)
+                    # t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    # every_shot_count = self.ttl_SPCM0_counter.fetch_count()
+                    # # self.ttl_SPCM_gate.on()    # cause underflow now??? :(
+                    #
+                    #
+                    # delay(10 * ms)  # to avoid underflow error
+                    # readout_counts_array[excitaton_cycle] = every_shot_count
+                    #
+                    # # self.ttl_SPCM0._set_sensitivity(1)
+
+                    ##### Method2: same as how excitation counts are recorded
+
+                    # overflow error if used this method?
+                    # this works once and then, gets overflow error at then next cycle
+                    # I think I should not use this method. If ttl_SPCM_gate.off(), SPCM1 will start counting also.
+                    # I think this is why overflow error occurs.
+
+                    delay(1*ms)
+                    now = now_mu()
+                    self.ttl_SPCM1._set_sensitivity(0)      # closing the gating window for SPCM1
+                    self.ttl_SPCM_gate.off()        # gate turned on
+
+                    at_mu(now + t_SPCM_recool_and_shot_mu)
+                    self.ttl_SPCM_gate.on()         # gate turned off
+
+                    after_shot = now_mu()
+                    delay(1*us)
+
+                    every_shot_count = self.ttl_SPCM0.count(after_shot)
+                    self.ttl_SPCM1._set_sensitivity(1)  # opening the gating window for SPCM1
+
+                    readout_counts_array[excitaton_cycle] = every_shot_count
+
+                    delay(10*ms)
+                    # self.print_async("readout_counts_array[excitaton_cycle] = ", readout_counts_array[excitaton_cycle])
+
+                else:
+                    delay(self.t_recooling)
 
                 self.dds_cooling_DP.sw.off()
                 self.ttl_repump_switch.on()
@@ -2110,6 +2153,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
 
         self.ttl_SPCM0._set_sensitivity(0) # close the gating window on the TTL channel
+        self.ttl_SPCM1._set_sensitivity(0)  # close the gating window on the TTL channel
         self.dds_excitation.sw.off()
 
         delay(1*ms)
@@ -2147,10 +2191,13 @@ def single_photon_experiment_atom_loading_advance(self):
         #rtio_log("2nd_shot_block",0)
 
         end_measurement(self)
+
         for val in excitation_counts_array:
             self.append_to_dataset('excitation_counts', val)
         for val in excitation_counts_array1:
             self.append_to_dataset('excitation_counts1', val)
+        for val in readout_counts_array:
+            self.append_to_dataset('readout_counts',val)
 
         delay(10*ms)
 
