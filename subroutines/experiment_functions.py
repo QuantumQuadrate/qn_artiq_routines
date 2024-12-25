@@ -1385,9 +1385,7 @@ def microwave_Rabi_experiment(self):
     self.counts = 0
     self.counts2 = 0
 
-    self.set_dataset(self.count_rate_dataset,
-                     [0.0],
-                     broadcast=True)
+    self.set_dataset(self.count_rate_dataset, [0.0], broadcast=True)
 
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
@@ -1858,7 +1856,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
     readout_counts_array = [0]
 
-    self.set_dataset(self.count_rate_dataset,[0.0],broadcast=True)
+    self.set_dataset(self.count_rate_dataset, [0.0], broadcast=True)
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
@@ -2048,13 +2046,13 @@ def single_photon_experiment_atom_loading_advance(self):
             delay(1*us)
             self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
 
+            # this is the number of clicks we got over n_excitation attempts
+            excitation_counts = self.ttl_SPCM0.count(pulses_over_mu)
+            excitation_counts1 = self.ttl_SPCM1.count(pulses_over_mu)
 
-            excitation_counts = self.ttl_SPCM0.count(
-                pulses_over_mu)  # this is the number of clicks we got over n_excitation attempts
-            excitation_counts1 = self.ttl_SPCM1.count(
-                pulses_over_mu)  # this is the number of clicks we got over n_excitation attempts
             excitation_counts_array[excitaton_cycle] = excitation_counts
             excitation_counts_array1[excitaton_cycle] = excitation_counts1
+
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
             # loop_over_mu = now_mu()
 
@@ -2062,7 +2060,7 @@ def single_photon_experiment_atom_loading_advance(self):
             # recooling phase
             ############################
 
-            t_SPCM_recool_and_shot_mu = 20000000  # is this too long for this method to handle?
+            t_SPCM_recool_and_shot_mu = int(self.t_SPCM_recool_and_shot / ns)
 
             # # todo: use a specific detuning for this stage?
             delay(1*ms)
@@ -2087,51 +2085,27 @@ def single_photon_experiment_atom_loading_advance(self):
 
                 if self.record_every_shot:
 
-                    # self.experiment.ttl_SPCM0 = self.experiment.ttl0
-                    # self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
-                    # self.experiment.ttl_SPCM1 = self.experiment.ttl1
-                    # self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
-                    # self.experiment.ttl_SPCM_gate = self.experiment.ttl13
-
-                    # ###### Method1: same as first_shot()
-                    # # self.ttl_SPCM0._set_sensitivity(0)
-                    # # self.ttl_SPCM_gate.off()    # this causes overflow error
-                    # # delay(10*ms)
-                    # t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
-                    # every_shot_count = self.ttl_SPCM0_counter.fetch_count()
-                    # # self.ttl_SPCM_gate.on()    # cause underflow now??? :(
-                    #
-                    #
-                    # delay(10 * ms)  # to avoid underflow error
-                    # readout_counts_array[excitaton_cycle] = every_shot_count
-                    #
-                    # # self.ttl_SPCM0._set_sensitivity(1)
-
+                    ##### Method1: same as first_shot()
                     ##### Method2: same as how excitation counts are recorded
-
-                    # overflow error if used this method?
-                    # this works once and then, gets overflow error at then next cycle
-                    # I think I should not use this method. If ttl_SPCM_gate.off(), SPCM1 will start counting also.
-                    # I think this is why overflow error occurs.
+                    # If ttl_SPCM_gate.off(), SPCM1 will start counting also. => overflow at next excitation cycle
 
                     delay(1*ms)
                     now = now_mu()
                     self.ttl_SPCM1._set_sensitivity(0)      # closing the gating window for SPCM1
-                    self.ttl_SPCM_gate.off()        # gate turned on
+                    self.ttl_SPCM_gate.off()                # gate turned on
 
                     at_mu(now + t_SPCM_recool_and_shot_mu)
-                    self.ttl_SPCM_gate.on()         # gate turned off
+                    self.ttl_SPCM_gate.on()                 # gate turned off
 
                     after_shot = now_mu()
                     delay(.1*ms)
 
                     every_shot_count = self.ttl_SPCM0.count(after_shot)
-                    self.ttl_SPCM1._set_sensitivity(1)  # opening the gating window for SPCM1
+                    self.ttl_SPCM1._set_sensitivity(1)      # opening the gating window for SPCM1
 
                     readout_counts_array[excitaton_cycle] = every_shot_count
 
-                    delay(10*ms)
-                    # self.print_async("readout_counts_array[excitaton_cycle] = ", readout_counts_array[excitaton_cycle])
+                    delay(10*ms)  # todo: this is very long. try reducing until underflow error happens.
 
                 else:
                     delay(self.t_recooling)
@@ -2173,10 +2147,8 @@ def single_photon_experiment_atom_loading_advance(self):
 
         delay(1*ms)
 
-        #rtio_log("2nd_shot_block",1)
-        # self.print_async("second readout",now_mu() - loop_start_mu) # todo: delete
         with sequential:
-            # todo: why do you have to do this in sequential?
+            # todo: why do this in sequential?
 
             self.ttl_SPCM_gate.off() # enables the SPCM
             self.ttl_repump_switch.off()  # turns the RP AOM on
@@ -2186,7 +2158,6 @@ def single_photon_experiment_atom_loading_advance(self):
                 [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
                 channels=self.coil_channels)
             delay(0.1 * ms)
-
 
             second_shot(self)
         #rtio_log("2nd_shot_block",0)
@@ -2198,7 +2169,7 @@ def single_photon_experiment_atom_loading_advance(self):
         for val in excitation_counts_array1:
             self.append_to_dataset('excitation_counts1', val)
         for val in readout_counts_array:
-            self.append_to_dataset('readout_counts',val)
+            self.append_to_dataset('readout_counts', val)
 
         delay(10*ms)
 

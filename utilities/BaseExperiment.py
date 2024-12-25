@@ -439,9 +439,6 @@ class BaseExperiment:
                 self.experiment.counts_list = [0] * self.experiment.n_measurements
                 self.experiment.counts2_list = [0] * self.experiment.n_measurements
 
-                # self.experiment.counts_by_cycle = [0] * (self.experiment.n_excitation_cycles + 2)
-                # self.experiment.counts_by_measurement = [0] * self.experiment.n_measurements
-
             except:
                 # if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
