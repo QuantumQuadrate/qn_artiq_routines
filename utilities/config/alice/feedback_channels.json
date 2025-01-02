@@ -49,6 +49,18 @@
                     "t_measure_delay":0.0005,
                     "max_dB": -3
                 },
+            "dds_AOM_A5":
+                {
+                    "sampler_ch": 1,
+                    "set_points": ["set_point_PD5_AOM_A5"],
+                    "p": 0.1,
+                    "i": 0.00,
+                    "series": true,
+                    "dataset":"MOT5_monitor",
+                    "power_dataset":"p_AOM_A5",
+                    "t_measure_delay":0.0005,
+                    "max_dB": -3
+                },
 
             "dds_AOM_A6":
                 {
@@ -104,23 +116,9 @@
                     "max_dB": 3,
                     "comment": ""
                 }
-        },
-
-    "sampler2":
-        {
-            "dds_AOM_A5":
-                {
-                    "sampler_ch": 1,
-                    "set_points": ["set_point_PD5_AOM_A5"],
-                    "p": 0.1,
-                    "i": 0.00,
-                    "series": true,
-                    "dataset":"MOT5_monitor",
-                    "power_dataset":"p_AOM_A5",
-                    "t_measure_delay":0.0005,
-                    "max_dB": -3
-                }
         }
+
+
 
 
 
