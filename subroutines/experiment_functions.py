@@ -714,7 +714,8 @@ def chopped_optical_pumping(self):
 
     # so that D1 can pass
     self.dds_excitation.sw.on()
-    self.ttl_excitation_switch.off()
+    # self.ttl_excitation_switch.off()
+    self.ttl_GRIN1_switch.off()
 
     # set coils for pumping
     self.zotino0.set_dac(
@@ -745,7 +746,8 @@ def chopped_optical_pumping(self):
 
     delay(1*ms)
     self.dds_excitation.sw.off()
-    self.ttl_excitation_switch.on()
+    # self.ttl_excitation_switch.on()
+    self.ttl_GRIN1_switch.on()
 
     # reset MOT power
     self.dds_cooling_DP.sw.off()
@@ -788,7 +790,8 @@ def measure_GRIN1(self):
     self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
     self.dds_D1_pumping_DP.sw.on()
     self.dds_excitation.sw.on()
-    self.ttl_excitation_switch.off()
+    # self.ttl_excitation_switch.off()
+    self.ttl_GRIN1_switch.off()
 
     delay(0.1*ms)
 
@@ -817,7 +820,8 @@ def measure_GRIN1(self):
 
     # turning EXC OFF
     self.dds_excitation.sw.off()
-    self.ttl_excitation_switch.on()
+    # self.ttl_excitation_switch.on()
+    self.ttl_GRIN1_switch.on()
     self.ttl_exc0_switch.on()
 
     delay(0.1 * ms)
@@ -1643,7 +1647,8 @@ def single_photon_experiment(self):
                 delay(.1 * ms) # maybe this can be even shorter
 
                 # GRIN1 on
-                self.ttl_excitation_switch.off()
+                # self.ttl_excitation_switch.off()
+                self.ttl_GRIN1_switch.off()
 
                 with sequential:
 
@@ -1659,7 +1664,8 @@ def single_photon_experiment(self):
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
 
-                self.ttl_excitation_switch.on()
+                # self.ttl_excitation_switch.on()
+                self.ttl_GRIN1_switch.on()
 
                 ############################
                 # microwave phase - ONLY USED FOR VERIFYING OP.
@@ -1713,11 +1719,13 @@ def single_photon_experiment(self):
 
             self.dds_FORT.sw.off()
             at_mu(now+150)
-            self.ttl_excitation_switch.off()
+            # self.ttl_excitation_switch.off()
+            self.ttl_GRIN1_switch.off()
             at_mu(now + 150 + self.gate_start_offset_mu)
             self.ttl_SPCM_gate.off()
             at_mu(now + 150 + int(self.t_excitation_pulse/ns))
-            self.ttl_excitation_switch.on()
+            # self.ttl_excitation_switch.on()
+            self.ttl_GRIN1_switch.on()
 
             at_mu(now + 150 + int(self.t_photon_collection_time / ns + self.gate_start_offset_mu))
 
@@ -1991,7 +1999,8 @@ def single_photon_experiment_atom_loading_advance(self):
 
                 delay(1 * ms) # maybe this can be even shorter
 
-                self.ttl_excitation_switch.off()
+                # self.ttl_excitation_switch.off()
+                self.ttl_GRIN1_switch.off()
 
                 with sequential:
 
@@ -2007,7 +2016,8 @@ def single_photon_experiment_atom_loading_advance(self):
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
 
-                self.ttl_excitation_switch.on()
+                # self.ttl_excitation_switch.on()
+                self.ttl_GRIN1_switch.on()
 
                 ############################
                 # microwave phase - ONLY USED FOR VERIFYING OP.
@@ -2037,11 +2047,13 @@ def single_photon_experiment_atom_loading_advance(self):
 
             self.dds_FORT.sw.off()
             at_mu(now+150)
-            self.ttl_excitation_switch.off()
+            # self.ttl_excitation_switch.off()
+            self.ttl_GRIN1_switch.off()
             at_mu(now + 150 + self.gate_start_offset_mu)
             self.ttl_SPCM_gate.off()
             at_mu(now + 150 + int(self.t_excitation_pulse/ns))
-            self.ttl_excitation_switch.on()
+            # self.ttl_excitation_switch.on()
+            self.ttl_GRIN1_switch.on()
 
             at_mu(now + 150 + int(self.t_photon_collection_time / ns + self.gate_start_offset_mu))
             self.ttl_SPCM_gate.on()

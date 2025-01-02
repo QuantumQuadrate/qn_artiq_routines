@@ -148,7 +148,8 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             # self.experiment.ttl_Luca_trigger = self.experiment.ttl6 # Luca no longer used.
             self.experiment.ttl_exc0_switch = self.experiment.ttl6
-            self.experiment.ttl_excitation_switch = self.experiment.ttl14
+            # self.experiment.ttl_excitation_switch = self.experiment.ttl14
+            self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
 
             # for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
