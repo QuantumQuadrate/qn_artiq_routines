@@ -697,6 +697,7 @@ def chopped_optical_pumping(self):
     if self.t_depumping + self.t_pumping > 3*ms:
         delay(2000 * us)  # we need extra slack
     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+    self.ttl_exc0_switch.on() # turns off the excitation
     self.dds_cooling_DP.sw.off()  # no cooling light
 
     # make sure the fiber AOMs are on for delivery of the pumping repump
@@ -711,7 +712,7 @@ def chopped_optical_pumping(self):
 
     delay(1*ms)
 
-
+    # so that D1 can pass
     self.dds_excitation.sw.on()
     self.ttl_excitation_switch.off()
 
@@ -801,7 +802,8 @@ def measure_GRIN1(self):
     # turning D1 off & repump on
     self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     self.dds_D1_pumping_DP.sw.off()
-    self.ttl_repump_switch.off()  # turns the RP AOM on
+    # self.ttl_repump_switch.off()  # turns the RP AOM on
+    self.ttl_exc0_switch.off() # turns EXC0 AOM on
 
     delay(0.1*ms)
 
@@ -816,6 +818,7 @@ def measure_GRIN1(self):
     # turning EXC OFF
     self.dds_excitation.sw.off()
     self.ttl_excitation_switch.on()
+    self.ttl_exc0_switch.on()
 
     delay(0.1 * ms)
 
@@ -1629,7 +1632,7 @@ def single_photon_experiment(self):
             if self.t_pumping > 0.0:
                 self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
                 # self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
-                self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+                # self.ttl_repump_switch.on()  # turns off the MOT RP AOM
 
                 if not self.pumping_light_off:
                     self.dds_pumping_repump.sw.on()
@@ -1639,6 +1642,7 @@ def single_photon_experiment(self):
 
                 delay(.1 * ms) # maybe this can be even shorter
 
+                # GRIN1 on
                 self.ttl_excitation_switch.off()
 
                 with sequential:
@@ -1678,7 +1682,8 @@ def single_photon_experiment(self):
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
             self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            # self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            self.ttl_exc0_switch.off()  # excitation is on
 
             now = now_mu()
 
@@ -1724,7 +1729,8 @@ def single_photon_experiment(self):
             pulses_over_mu = now_mu()
 
             delay(1*us)
-            self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
+            # self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
+            self.ttl_exc0_switch.on()   # block Excitation
 
 
 
@@ -1977,7 +1983,7 @@ def single_photon_experiment_atom_loading_advance(self):
             # todo: D1 feedback
             if self.t_pumping > 0.0:
                 self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
-                self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+                # self.ttl_repump_switch.on()  # turns off the MOT RP AOM
 
                 self.dds_pumping_repump.sw.on()
                 self.dds_AOM_A5.sw.on()
@@ -2024,7 +2030,8 @@ def single_photon_experiment_atom_loading_advance(self):
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
             self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            # self.ttl_repump_switch.off()  # repump AOM is on for excitation
+            self.ttl_exc0_switch.off() # turns on the excitation
 
             now = now_mu()
 
@@ -2044,7 +2051,8 @@ def single_photon_experiment_atom_loading_advance(self):
             pulses_over_mu = now_mu()
 
             delay(1*us)
-            self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
+            # self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
+            self.ttl_exc0_switch.on()  # turns off the excitation
 
             # this is the number of clicks we got over n_excitation attempts
             excitation_counts = self.ttl_SPCM0.count(pulses_over_mu)

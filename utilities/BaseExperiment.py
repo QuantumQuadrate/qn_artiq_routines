@@ -142,11 +142,12 @@ class BaseExperiment:
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
             self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
-            self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_UV = self.experiment.ttl15
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
             self.experiment.FORT_mod_switch = self.experiment.ttl12
+            # self.experiment.ttl_Luca_trigger = self.experiment.ttl6 # Luca no longer used.
+            self.experiment.ttl_exc0_switch = self.experiment.ttl6
             self.experiment.ttl_excitation_switch = self.experiment.ttl14
 
             # for debugging/logging purposes in experiments
