@@ -242,8 +242,7 @@ class FeedbackChannel:
         # self.stabilizer.measure_background()
         # delay(1*ms)
 
-        # todo: should this be off?
-        self.dds_obj.sw.on()  # off?
+        self.dds_obj.sw.on()
 
         # update the datasets with the last values if we have not already done so
         if not record_all_measurements:
@@ -576,6 +575,7 @@ class AOMPowerStabilizer:
 
                     if ch.name == 'dds_excitation':
                         # self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
+                        self.exp.dds_excitation.sw.on()
                         delay(1*ms)
                         # self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
                         self.exp.ttl_exc0_switch.off()
@@ -614,6 +614,7 @@ class AOMPowerStabilizer:
 
                     if ch.name == 'dds_excitation':
                         # self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
+                        self.exp.dds_excitation.sw.off()
                         delay(1 * ms)
                         # self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
                         self.exp.ttl_exc0_switch.on()

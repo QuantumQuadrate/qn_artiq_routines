@@ -784,14 +784,17 @@ def measure_GRIN1(self):
     self.ttl_repump_switch.on()  # turns the RP AOM off
     self.dds_cooling_DP.sw.off()
 
-    #turning D1 on
     # todo: D1 feedback
     # self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+
+    # UNBLOCKING GRIN1
+    self.ttl_GRIN1_switch.off()
     self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
-    self.dds_D1_pumping_DP.sw.on()
     self.dds_excitation.sw.on()
     # self.ttl_excitation_switch.off()
-    self.ttl_GRIN1_switch.off()
+
+    #turning D1 ON
+    self.dds_D1_pumping_DP.sw.on()
 
     delay(0.1*ms)
 
@@ -809,6 +812,7 @@ def measure_GRIN1(self):
     self.ttl_exc0_switch.off() # turns EXC0 AOM on
 
     delay(0.1*ms)
+    measurement = 0.0
 
     for i in range(avgs):
         self.sampler1.sample(measurement_buf)
