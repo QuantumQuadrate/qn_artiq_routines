@@ -64,9 +64,11 @@ class AOMsCoils(EnvExperiment):
 
         delay(1 * ms)
         if self.D1_pumping_DP_AOM_ON == True:
+            self.ttl_GRIN1_switch.off()
             self.dds_D1_pumping_DP.sw.on()
         else:
             self.dds_D1_pumping_DP.sw.off()
+            self.ttl_GRIN1_switch.on()
 
         delay(1 * ms)
         if self.pumping_repump_AOM_ON == True:
@@ -76,11 +78,17 @@ class AOMsCoils(EnvExperiment):
 
         delay(1 * ms)
         if self.excitation_AOM_ON == True:
-            self.ttl_excitation_switch.off()
+            # self.ttl_excitation_switch.off()
             self.dds_excitation.sw.on()
+
+            self.ttl_exc0_switch.off()
+            self.ttl_GRIN1_switch.off()
         else:
-            self.ttl_excitation_switch.on()
+            # self.ttl_excitation_switch.on()
             self.dds_excitation.sw.off()
+
+            self.ttl_exc0_switch.on()
+            self.ttl_GRIN1_switch.on()
 
         # MOT arm fiber AOMs, excitation AOM:
         delay(1 * ms)

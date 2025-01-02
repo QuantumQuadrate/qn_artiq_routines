@@ -575,9 +575,11 @@ class AOMPowerStabilizer:
                 for ch in self.series_channels:
 
                     if ch.name == 'dds_excitation':
-                        self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
+                        # self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
                         delay(1*ms)
-                        self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
+                        # self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
+                        self.exp.ttl_exc0_switch.off()
+                        self.exp.ttl_GRIN1_switch.off()
                         delay(1*ms)
                     #
                     # todo: D1 feedback
@@ -611,9 +613,12 @@ class AOMPowerStabilizer:
                     delay(1*ms)
 
                     if ch.name == 'dds_excitation':
-                        self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
+                        # self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
                         delay(1 * ms)
-                        self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
+                        # self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
+                        self.exp.ttl_exc0_switch.on()
+                        self.exp.ttl_GRIN1_switch.on()
+
                         delay(1 * ms)
 
                     # todo: d1 feedback
