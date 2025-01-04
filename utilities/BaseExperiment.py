@@ -699,7 +699,8 @@ class BaseExperiment:
             self.experiment.ttl_microwave_switch.output()
             self.experiment.ttl_repump_switch.output()
             self.experiment.ttl_scope_trigger.output()
-            self.experiment.ttl6.output()  # for outputting a trigger
+            # self.experiment.ttl6.output()  # for outputting a trigger
+            self.experiment.ttl_exc0_switch.output()
             self.experiment.ttl1.input()
 
             self.experiment.ttl_D1_lock_monitor.input()
@@ -725,6 +726,8 @@ class BaseExperiment:
 
             # turn on/off any switches. this ensures that switches always start in a default state,
             # which might not happen if we abort an experiment in the middle and don't reset it
+            self.experiment.ttl_exc0_switch.on()   # blocks excitation
+            delay(1*ms)
             self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer

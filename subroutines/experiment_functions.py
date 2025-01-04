@@ -717,6 +717,9 @@ def chopped_optical_pumping(self):
     # self.ttl_excitation_switch.off()
     self.ttl_GRIN1_switch.off()
 
+
+    self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
+
     # set coils for pumping
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
@@ -743,7 +746,7 @@ def chopped_optical_pumping(self):
     # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
-
+    self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     delay(1*ms)
     self.dds_excitation.sw.off()
     # self.ttl_excitation_switch.on()
