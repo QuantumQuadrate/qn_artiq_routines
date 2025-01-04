@@ -37,11 +37,12 @@ class XYPlot(pyqtgraph.PlotWidget):
             counts1 = np.array(data[self.args.counts1][1][1:])
             counts2 = np.array(data[self.args.counts2][1][1:])
             measurements = data[self.args.measurements][1]
+            GRIN1_EXC_setpoint = data[self.args.GRIN1_EXC_setpoint][1]
 
             iteration = len(counts1)//measurements
 
             norm_factor1 = 0.03    # D1
-            norm_factor2 = 0.1  # Exc
+            norm_factor2 = GRIN1_EXC_setpoint # Exc
 
             # norm_factor1 = 1.0  # D1
             # norm_factor2 = 1.0  # Exc
@@ -86,6 +87,7 @@ def main():
     applet = TitleApplet(XYPlot)
     applet.add_dataset("counts1", "GRIN1_D1 power")
     applet.add_dataset("counts2", "GRIN1_EXC power")
+    applet.add_dataset("GRIN1_EXC_setpoint", "GRIN1_EXC_setpoint")
     applet.add_dataset("measurements", "how many measurements per data point")
 
     applet.run()
