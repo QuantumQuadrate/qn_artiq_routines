@@ -1905,8 +1905,6 @@ def single_photon_experiment_atom_loading_advance(self):
 
     self.measurement = 0  # advanced in end_measurement
     tries = 0
-    # n_no_atom = int(self.n_measurements * 0.1)
-    # count_no_atom = 0
 
     while self.measurement < self.n_measurements:
 
@@ -2384,7 +2382,7 @@ def excitation_pi_time_experiment(self):
             self.ttl_GRIN1_switch.on()
 
             ############################
-            # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
+            # excitation phase - excite F=1,m=0 -> F'=0,m'=0,
             ############################
             self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.ttl_exc0_switch.off()  # turns on the excitation
@@ -2406,9 +2404,9 @@ def excitation_pi_time_experiment(self):
             delay(1 * us)
             self.ttl_exc0_switch.on()  # turns off the excitation
 
-            ############################
-            # microwave phase - ONLY USED FOR VERIFYING OP.
-            ############################
+            ###########################
+            ## microwave phase - ONLY USED FOR VERIFYING OP.
+            ###########################
 
             if self.t_microwave_pulse > 0.0:
                 self.ttl_microwave_switch.off()
@@ -2418,6 +2416,8 @@ def excitation_pi_time_experiment(self):
 
             ############################
             # blow-away phase - push out atoms in F=2 only
+            # AOMs1~6 sw ON
+            # repump sw ON
             ############################
 
             if self.t_blowaway > 0.0:
@@ -2433,7 +2433,7 @@ def excitation_pi_time_experiment(self):
         with sequential:
             # todo: why do this in sequential?
 
-            self.ttl_repump_switch.off()  # turns the RP AOM on
+            # self.ttl_repump_switch.off()  # this is done in second_shot
 
             # take the second shot
             self.zotino0.set_dac(
@@ -2459,7 +2459,202 @@ def excitation_pi_time_experiment(self):
     delay(1 * ms)
     self.dds_microwaves.sw.off()
 
+@kernel
+def test_exc_microwave_Rabi_experiment(self):
+    """
+    Purpose: To verify the excitation power equivalent to pi time.
 
+    This experiment pumps the atom into F=1,m=0 then excites it to F=0,0.
+    Then, microwave pi pulse is appled followed by a blow away pulse.
+
+    This experiment requires atom to proceed the measurement.
+    Then, takes a 2nd shot in the very end.
+
+    If excitation @ pi pulse:
+    With 1/3 probability, atom will decay down to F=1,0. In this case,
+    microwave pi pulse will transfer the atom to F=2,0 which will be blowed away
+    by a blow away pulse.
+
+    With 2/3 probability, atom will decay down to F=1,-1 or F=1,+1. In this case,
+    atom will survive the blow away.
+
+
+    self is the experiment instance to which ExperimentVariables are bound
+    """
+
+    self.core.reset()
+
+    self.counts = 0
+    self.counts2 = 0
+
+    self.set_dataset(self.count_rate_dataset, [0.0], broadcast=True)
+
+    if self.t_pumping > 0.0:
+        record_chopped_optical_pumping(self)
+        delay(100*ms)
+    if self.t_blowaway > 0.0:
+        record_chopped_blow_away(self)
+        delay(100*ms)
+
+    delay(10 * ms)
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(10 * ms)
+    self.dds_microwaves.sw.on()
+    delay(1 * s)
+
+    self.measurement = 0
+
+    tries = 0
+    while self.measurement < self.n_measurements:
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+            # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
+            self.dds_microwaves.sw.on()
+
+        atom_loaded = False
+        while not atom_loaded:
+            # todo: change the delay?
+            delay(10*ms)
+            load_MOT_and_FORT(self)
+
+            delay(0.1 * ms)
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                channels=self.coil_channels)
+
+            # set the FORT AOM to the readout settings
+            self.dds_FORT.set(frequency=self.f_FORT,
+                              amplitude=self.stabilizer_FORT.amplitudes[1])
+
+            # set the cooling DP AOM to the readout settings
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                                    amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+
+            first_shot(self)
+
+            # tries to load an atom 20 times before running laser feedback again.
+            if self.require_atom_loading_to_advance_in_single_photon_exp:
+                # if no atoms!!
+                if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+                    if tries < 20:
+                        tries += 1
+                    else:               # limit: 5% atom loading
+                        self.print_async("ERROR: atom loading is below 5%. Stuck at measurement : ", self.measurement, "/ ", self.n_measurements, " --Running feedback--")
+                        self.laser_stabilizer.run()
+                        tries = 0
+                        # todo: pause and resume the experiment? pause => schedule another experiment with higher priority => solve issue => override dataset;
+                else:
+                    # if atom loaded, initialize tries = 0
+                    tries = 0
+                    atom_loaded = True
+
+
+        delay(1 * ms) # leave the repump on so atoms are left in F=2
+        self.ttl_repump_switch.on()  # turns the RP AOM off
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        ############################
+        # optical pumping phase - pumps atoms into F=1,m_F=0
+        ############################
+        if self.t_pumping > 0.0:
+            chopped_optical_pumping(self)
+            delay(1*ms)
+
+
+        ############################
+        # excitation phase - pumps atoms into F'=0,m_F=0
+        ############################
+        self.ttl_GRIN1_switch.on()
+
+        self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+        self.ttl_exc0_switch.off()  # turns on the excitation
+        delay(1*us)
+
+        now = now_mu()
+
+        self.dds_FORT.sw.off()
+        at_mu(now + 150)
+        self.ttl_GRIN1_switch.off()
+        at_mu(now + 150 + int(self.t_excitation_pulse / ns))
+        self.ttl_GRIN1_switch.on()
+
+        at_mu(now + 150 + int(self.t_excitation_pulse / ns * 2))
+
+        self.dds_FORT.sw.on()
+
+        delay(1 * us)
+        self.ttl_exc0_switch.on()  # turns off the excitation
+
+
+
+
+        ############################
+        # microwave phase
+        ############################
+
+        if self.t_microwave_pulse > 0.0:
+            # self.ttl_repump_switch.on()  # turns off the RP AOM
+
+            # todo: set coils for microwaves. good for diagnostics-- we can use this phase to zero the B-field
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP,
+                 self.AX_volts_OP, self.AY_volts_OP],
+                channels=self.coil_channels)
+            delay(0.1*ms)
+            # self.zotino0.set_dac(
+            #     [self.AZ_bottom_volts_microwave, self.AZ_top_volts_microwave,
+            #      self.AX_volts_microwave, self.AY_volts_microwave],
+            #     channels=self.coil_channels)
+            # delay(0.1*ms)
+
+            self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+
+            self.ttl_microwave_switch.off()
+
+            delay(self.t_microwave_pulse)
+
+            self.ttl_microwave_switch.on()
+
+        ############################
+        # blow-away phase - push out atoms in F=2 only
+        ############################
+
+        if self.t_blowaway > 0.0:
+            chopped_blow_away(self)
+
+        # set the FORT AOM to the readout settings
+        self.dds_FORT.set(frequency=self.f_FORT,
+                          amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        # take the second shot
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            channels=self.coil_channels)
+        delay(0.1 * ms)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(5 * ms) ### hopefully to avoid underflow.
+
+    delay(10*ms)
+    self.dds_FORT.sw.off()
+    delay(1*ms)
+    self.dds_microwaves.sw.off()
 
 
 #
