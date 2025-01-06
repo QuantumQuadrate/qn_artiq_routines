@@ -2231,10 +2231,12 @@ def excitation_pi_time_experiment(self):
     If excitation @ pi pulse:
     With 1/3 probability, atom will decay down to F=1,0. In this case,
     microwave pi pulse will transfer the atom to F=2,0 which will be blowed away
-    by a blow away pulse.
+    by a blow away pulse. With 2/3 probability, atom will decay down to F=1,-1 or F=1,+1. In this case,
+    atom will survive the blow away. So, retention will be 2/3 if excitation pulse area is pi.
 
-    With 2/3 probability, atom will decay down to F=1,-1 or F=1,+1. In this case,
-    atom will survive the blow away.
+    If excitation @ 0 or 2pi:
+    atom remain in F=1,m=0 after excitation which will be transfered to F=2,m=0 by microwave pi pulse and
+    blown away. So, retention will be zero with excitation pulse area = 0 or 2pi.
 
 
     self is the experiment instance to which ExperimentVariables are bound
@@ -2473,10 +2475,12 @@ def test_exc_microwave_Rabi_experiment(self):
     If excitation @ pi pulse:
     With 1/3 probability, atom will decay down to F=1,0. In this case,
     microwave pi pulse will transfer the atom to F=2,0 which will be blowed away
-    by a blow away pulse.
+    by a blow away pulse. With 2/3 probability, atom will decay down to F=1,-1 or F=1,+1. In this case,
+    atom will survive the blow away. So, retention will be 2/3 if excitation pulse area is pi.
 
-    With 2/3 probability, atom will decay down to F=1,-1 or F=1,+1. In this case,
-    atom will survive the blow away.
+    If excitation @ 0 or 2pi:
+    atom remain in F=1,m=0 after excitation which will be transfered to F=2,m=0 by microwave pi pulse and
+    blown away. So, retention will be zero with excitation pulse area = 0 or 2pi.
 
 
     self is the experiment instance to which ExperimentVariables are bound
@@ -2550,6 +2554,9 @@ def test_exc_microwave_Rabi_experiment(self):
                     # if atom loaded, initialize tries = 0
                     tries = 0
                     atom_loaded = True
+            else:
+                # break out from the loop
+                atom_loaded = True
 
 
         delay(1 * ms) # leave the repump on so atoms are left in F=2
@@ -2571,26 +2578,49 @@ def test_exc_microwave_Rabi_experiment(self):
         ############################
         # excitation phase - pumps atoms into F'=0,m_F=0
         ############################
-        self.ttl_GRIN1_switch.on()
 
-        self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-        self.ttl_exc0_switch.off()  # turns on the excitation
-        delay(1*us)
+        excitation = True
+        # self.t_excitation_pulse = 100 * ns
+        self.dds_excitation.sw.on()
 
-        now = now_mu()
+        if excitation:
 
-        self.dds_FORT.sw.off()
-        at_mu(now + 150)
-        self.ttl_GRIN1_switch.off()
-        at_mu(now + 150 + int(self.t_excitation_pulse / ns))
-        self.ttl_GRIN1_switch.on()
+            self.ttl_GRIN1_switch.on()
 
-        at_mu(now + 150 + int(self.t_excitation_pulse / ns * 2))
+            self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.ttl_exc0_switch.off()  # turns on the excitation
+            delay(1*us)
 
-        self.dds_FORT.sw.on()
+            now = now_mu()
 
-        delay(1 * us)
-        self.ttl_exc0_switch.on()  # turns off the excitation
+            self.dds_FORT.sw.off()
+            at_mu(now + 150)
+            self.ttl_GRIN1_switch.off()
+            at_mu(now + 150 + int(self.t_excitation_pulse / ns))
+            self.ttl_GRIN1_switch.on()
+
+            at_mu(now + 150 + int(self.t_excitation_pulse / ns * 2))
+
+            self.dds_FORT.sw.on()
+
+            delay(1 * us)
+            self.ttl_exc0_switch.on()  # turns off the excitation
+
+        else:
+
+            self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+
+            delay(1 * us)
+
+            now = now_mu()
+
+            self.dds_FORT.sw.off()
+
+            at_mu(now + 150 + int(self.t_excitation_pulse / ns * 2))
+
+            self.dds_FORT.sw.on()
+
+            delay(1 * us)
 
 
 
@@ -2599,35 +2629,85 @@ def test_exc_microwave_Rabi_experiment(self):
         # microwave phase
         ############################
 
-        if self.t_microwave_pulse > 0.0:
-            # self.ttl_repump_switch.on()  # turns off the RP AOM
+        microwave = True
 
-            # todo: set coils for microwaves. good for diagnostics-- we can use this phase to zero the B-field
+        if microwave:
             self.zotino0.set_dac(
                 [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP,
                  self.AX_volts_OP, self.AY_volts_OP],
                 channels=self.coil_channels)
             delay(0.1*ms)
-            # self.zotino0.set_dac(
-            #     [self.AZ_bottom_volts_microwave, self.AZ_top_volts_microwave,
-            #      self.AX_volts_microwave, self.AY_volts_microwave],
-            #     channels=self.coil_channels)
-            # delay(0.1*ms)
 
-            self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            self.ttl7.pulse(self.t_microwave_pulse)  # in case we want to look at signals on an oscilloscope
 
             self.ttl_microwave_switch.off()
 
             delay(self.t_microwave_pulse)
 
             self.ttl_microwave_switch.on()
+        else:
+            delay(0.1*ms + self.t_microwave_pulse)
+
+
 
         ############################
         # blow-away phase - push out atoms in F=2 only
         ############################
 
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+        blowaway = True
+
+        if blowaway:
+            # chopped_blow_away(self)
+            ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+
+            self.ttl_repump_switch.on()  # turns off the RP AOM
+
+            # set coils for blowaway
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_blowaway, self.AZ_top_volts_blowaway,
+                 self.AX_volts_blowaway, self.AY_volts_blowaway],
+                channels=self.coil_channels)
+            delay(0.1 * ms)
+
+            with sequential:
+
+                self.dds_cooling_DP.set(
+                    frequency=self.f_cooling_DP_blowaway,
+                    amplitude=self.ampl_cooling_DP_MOT)
+
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+
+
+                # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
+                # always give the same optical power
+                self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
+                                    amplitude=dB_to_V(-7.0))
+                self.dds_AOM_A6.sw.on()
+                self.dds_cooling_DP.sw.on()
+
+            self.core_dma.playback_handle(ba_dma_handle)
+
+        # reset AOM RF powers
+        self.dds_cooling_DP.sw.off()
+        self.dds_cooling_DP.set(
+            frequency=self.f_cooling_DP_RO,
+            amplitude=self.ampl_cooling_DP_MOT)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
+                            amplitude=self.stabilizer_AOM_A6.amplitude)
+        delay(0.1 * ms)
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+        self.ttl_repump_switch.off()  # turns on the RP AOM
+
 
         # set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
