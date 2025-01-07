@@ -2218,7 +2218,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
 
 @kernel
-def excitation_pi_time_experiment(self):
+def test_exc_singe_photon_experiment(self):
     """
     Purpose: To verify the excitation power equivalent to pi time.
 
