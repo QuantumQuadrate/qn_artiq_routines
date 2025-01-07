@@ -194,7 +194,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
                 delay(10 * us)
 
             self.append_to_dataset('SPCM_counts_array', SPCM_counts_sum)
-            self.append_to_dataset('SPCM_counts1_array', SPCM_counts_sum)
+            self.append_to_dataset('SPCM_counts1_array', SPCM_counts1_sum)
 
             delay(1 * ms)
 
