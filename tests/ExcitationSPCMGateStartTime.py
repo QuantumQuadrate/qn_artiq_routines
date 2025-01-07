@@ -81,14 +81,14 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(1*ms)
 
         self.dds_cooling_DP.sw.off()
-        self.ttl_repump_switch.on()
+        self.ttl_exc0_switch.on()
         self.dds_pumping_repump.sw.off()
 
         delay(1 * ms)
 
         self.dds_FORT.sw.off()
 
-        self.ttl_excitation_switch.on()
+        self.ttl_GRIN1_switch.on()
         self.dds_excitation.sw.off()
         self.dds_D1_pumping_DP.sw.off()
 
@@ -111,7 +111,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.dds_FORT.sw.off()
 
         # Excitation
-        self.ttl_excitation_switch.on()
+        self.ttl_GRIN1_switch.on()
         self.dds_excitation.sw.off()
 
         # D1
@@ -147,7 +147,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         # don't have to set it back; any code that runs feedback will do
 
         #turning on excitation; ttl switch still blocked
-        self.ttl_repump_switch.off()
+        self.ttl_exc0_switch.off()
         self.dds_excitation.sw.on()
 
         delay(10*ms)
@@ -169,7 +169,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
                 # excitation on
                 at_mu(now + t_exc_on_mu)
-                self.ttl_excitation_switch.off()
+                self.ttl_GRIN1_switch.off()
 
                 # gate on
                 at_mu(now + t_exc_on_mu + t_pulse_mu)
@@ -177,7 +177,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
                 # excitation off
                 at_mu(now + t_exc_on_mu + self.exc_pulse_length_mu)
-                self.ttl_excitation_switch.on()
+                self.ttl_GRIN1_switch.on()
 
                 # gate off
                 at_mu(now + t_exc_on_mu + t_pulse_mu + self.gate_pulse_length_mu)
