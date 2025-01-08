@@ -60,14 +60,14 @@ class ExperimentVariables(EnvExperiment):
 
             Variable("n_measurements", 50, NumberValue, {'type': 'int', 'ndecimals':0, 'step':1, 'scale':1}, "general"),
             Variable("require_atom_loading_to_advance", False, BooleanValue, {}, "general"),
-            Variable("require_atom_loading_to_advance_in_single_photon_exp", True, BooleanValue, {}, "general"),
+            Variable("require_atom_loading_to_advance_in_single_photon_exp", True, BooleanValue, {}, "single photon experiment"),
 
             Variable("n_excitation_attempts", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
-                     "general"),
+                     "single photon experiment"),
             Variable("n_excitation_cycles", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
-                     "general"),
+                     "single photon experiment"),
 
-            Variable("record_every_shot", True, BooleanValue, {}, "Booleans"),
+            Variable("record_every_shot", True, BooleanValue, {}, "single photon experiment"),
 
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
