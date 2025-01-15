@@ -84,6 +84,17 @@ def load_MOT_and_FORT(self):
     to load an atom. Optionally, the FORT can be turned on right away if
     FORT_on_at_start is True.
 
+    Turns ON the following at the beginning:
+        FORT AOM
+        Cooling DP
+        All fiber AOMs
+        MOT RP
+
+    Leaves the following OFF at the end:
+        Cooling DP
+        MOT RP
+
+
     :param self: the experiment instance
     :return:
     """
@@ -108,6 +119,7 @@ def load_MOT_and_FORT(self):
     # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
     self.dds_cooling_DP.sw.on()
+    self.ttl_repump_switch.off()
 
     delay(1*ms)
 
@@ -148,6 +160,7 @@ def load_MOT_and_FORT(self):
     self.stabilizer_FORT.run(setpoint_index=1) # the science setpoint
 
     self.dds_cooling_DP.sw.off()
+    self.ttl_repump_switch.on()
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
     self.ttl_SPCM_gate.off()
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
@@ -360,6 +373,8 @@ def first_shot(self):
         self.counts = self.ttl_SPCM0_counter.fetch_count()
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
+        self.ttl_repump_switch.on()
+        delay(10 * us)
 
 @kernel
 def second_shot(self):
@@ -1587,6 +1602,8 @@ def single_photon_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                                 amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
 
+        delay(0.2 * ms) ### for coil relaxation
+
         if not self.no_first_shot:
             first_shot(self)
         delay(1 * ms)
@@ -1915,10 +1932,11 @@ def single_photon_experiment_atom_loading_advance(self):
 
         self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
+        self.ttl_exc0_switch.on()  # turns off the excitation
+
         atom_loaded = False
         while not atom_loaded:
-            # todo: change the delay?
-            delay(10*ms)
+            delay(1*ms)
             load_MOT_and_FORT(self)
 
             delay(0.1 * ms)
@@ -1933,6 +1951,8 @@ def single_photon_experiment_atom_loading_advance(self):
             # set the cooling DP AOM to the readout settings
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                                     amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+            delay(0.4 * ms) ### coil relaxation time
 
 
             first_shot(self)
@@ -1954,7 +1974,7 @@ def single_photon_experiment_atom_loading_advance(self):
                     atom_loaded = True
 
         delay(1 * ms)
-        self.ttl_repump_switch.on()  # turns the RP AOM off
+        # self.ttl_repump_switch.on()  # turns the RP AOM off
 
 
         ########################################################
@@ -2062,12 +2082,12 @@ def single_photon_experiment_atom_loading_advance(self):
             self.dds_FORT.sw.off()
             at_mu(now+150)
             # self.ttl_excitation_switch.off()
-            self.ttl_GRIN1_switch.off()
+            self.ttl_GRIN1_switch.off() # turns on excitation
             at_mu(now + 150 + self.gate_start_offset_mu)
             self.ttl_SPCM_gate.off()
             at_mu(now + 150 + int(self.t_excitation_pulse/ns))
             # self.ttl_excitation_switch.on()
-            self.ttl_GRIN1_switch.on()
+            self.ttl_GRIN1_switch.on() # turns off excitation
 
             at_mu(now + 150 + int(self.t_photon_collection_time / ns + self.gate_start_offset_mu))
             self.ttl_SPCM_gate.on()
@@ -2078,9 +2098,8 @@ def single_photon_experiment_atom_loading_advance(self):
 
             delay(1*us)
             # self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
-            self.ttl_exc0_switch.on()  # turns off the excitation
+            self.ttl_exc0_switch.on()  # turns off the excitation 0 AOM
 
-            # this is the number of clicks we got over n_excitation attempts
             excitation_counts = self.ttl_SPCM0.count(pulses_over_mu)
             excitation_counts1 = self.ttl_SPCM1.count(pulses_over_mu)
 
@@ -2139,7 +2158,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
                     readout_counts_array[excitaton_cycle] = every_shot_count
 
-                    delay(10*ms)  # todo: this is very long. try reducing until underflow error happens.
+                    delay(2*ms)  # todo: 10ms is very long. try reducing until underflow error happens.
 
                 else:
                     delay(self.t_recooling)
