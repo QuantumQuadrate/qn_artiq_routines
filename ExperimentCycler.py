@@ -63,6 +63,8 @@ class ExperimentCycler(EnvExperiment):
         self.measurement = 0
         self.SPCM0_RO1 = 0
         self.SPCM0_RO2 = 0
+        self.SPCM1_RO1 = 0
+        self.SPCM1_RO2 = 0
 
     @kernel
     def hardware_init(self):
@@ -91,6 +93,8 @@ class ExperimentCycler(EnvExperiment):
         # different amount of atom loss.
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
 
         # no reason to let these datasets grow to huge lengths
         for ch in self.laser_stabilizer.all_channels:

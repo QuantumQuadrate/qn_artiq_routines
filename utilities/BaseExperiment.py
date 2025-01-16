@@ -110,6 +110,8 @@ class BaseExperiment:
 
         self.experiment.SPCM0_RO1 = 0
         self.experiment.SPCM0_RO2 = 0
+        self.experiment.SPCM1_RO1 = 0
+        self.experiment.SPCM1_RO2 = 0
 
         self.experiment.SPCM0_FORT_science = 0
         self.experiment.measurement = 0
@@ -176,6 +178,7 @@ class BaseExperiment:
             # dataset names
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
+            self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -240,6 +243,7 @@ class BaseExperiment:
             # dataset names
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
+            self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -313,6 +317,7 @@ class BaseExperiment:
             # dataset names
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
+            self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -440,6 +445,8 @@ class BaseExperiment:
             try:
                 self.experiment.SPCM0_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
 
             except:
                 # if this fails, your experiment probably didn't need it
@@ -520,6 +527,8 @@ class BaseExperiment:
             try:
                 self.experiment.SPCM0_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
             except:
                 # if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
@@ -590,6 +599,8 @@ class BaseExperiment:
             try:
                 self.experiment.SPCM0_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
             except:
                 # if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
@@ -645,6 +656,8 @@ class BaseExperiment:
         self.experiment.set_dataset("n_measurements", self.experiment.n_measurements, broadcast=True)
         self.experiment.set_dataset("SPCM0_RO1", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_RO2", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_RO1", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_RO2", [0], broadcast=True)
         self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)

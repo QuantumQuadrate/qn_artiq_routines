@@ -369,8 +369,13 @@ def first_shot(self):
         # else:
         self.ttl_repump_switch.off()
         self.dds_cooling_DP.sw.on()
-        t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
+
+        with parallel:
+            self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
+            self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_first_shot)
+
         self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
+        self.SPCM1_RO1 = self.ttl_SPCM1_counter.fetch_count()
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
         self.ttl_repump_switch.on()
@@ -451,8 +456,13 @@ def second_shot(self):
         else:
             self.ttl_repump_switch.off()
             self.dds_cooling_DP.sw.on()
-            t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
+            with parallel:
+                self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
+                self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
+
             self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
+            self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
+
             delay(0.1 * ms)
             self.dds_cooling_DP.sw.off()
 
@@ -1146,10 +1156,18 @@ def end_measurement(self):
         self.append_to_dataset('SPCM0_RO1_current_iteration', self.SPCM0_RO1)
         self.SPCM0_RO1_list[self.measurement] = self.SPCM0_RO1
 
+        self.append_to_dataset('SPCM1_RO1_current_iteration', self.SPCM1_RO1)
+        self.SPCM1_RO1_list[self.measurement] = self.SPCM1_RO1
+
     # update the datasets
     self.set_dataset(self.measurements_progress, 100*self.measurement/self.n_measurements, broadcast=True)
+
     self.append_to_dataset('SPCM0_RO2_current_iteration', self.SPCM0_RO2)
     self.SPCM0_RO2_list[self.measurement] = self.SPCM0_RO2
+
+    self.append_to_dataset('SPCM1_RO2_current_iteration', self.SPCM1_RO2)
+    self.SPCM1_RO2_list[self.measurement] = self.SPCM1_RO2
+
     self.append_to_dataset("SPCM0_FORT_science", self.SPCM0_FORT_science)
 
     delay(1*ms)
@@ -1182,7 +1200,9 @@ def end_measurement(self):
         self.measurement += 1
         if not self.no_first_shot:
             self.append_to_dataset('SPCM0_RO1', self.SPCM0_RO1)
+            self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
         self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
+        self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
 
 @rpc(flags={"async"})
 def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
@@ -1265,6 +1285,8 @@ def atom_loading_experiment(self):
 
     self.SPCM0_RO1 = 0
     self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
     rtio_log("2nd_shot_block", 0)
 
     if self.use_chopped_readout:
@@ -1413,6 +1435,8 @@ def microwave_Rabi_experiment(self):
 
     self.SPCM0_RO1 = 0
     self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
 
     # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
 
@@ -1893,6 +1917,8 @@ def single_photon_experiment_atom_loading_advance(self):
     # overwritten below but initialized here so they are always initialized
     self.SPCM0_RO1 = 0
     self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
     SPCM0_SinglePhoton = 0
     SPCM1_SinglePhoton = 0
     # SPCM0_SinglePhoton_array = [0]
