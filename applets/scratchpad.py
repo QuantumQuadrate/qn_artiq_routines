@@ -42,11 +42,11 @@ def excitation_phase_in_loop(self):
     pulses_over_mu = now_mu()
 
     # this is the number of clicks we got over n_excitation attempts
-    excitation_counts = self.ttl_SPCM0.count(pulses_over_mu)
-    excitation_counts1 = self.ttl_SPCM1.count(pulses_over_mu)
+    SPCM0_SinglePhoton = self.ttl_SPCM0.count(pulses_over_mu)
+    SPCM1_SinglePhoton = self.ttl_SPCM1.count(pulses_over_mu)
 
-    excitation_counts_array[excitaton_cycle] = excitation_counts
-    excitation_counts_array1[excitaton_cycle] = excitation_counts1
+    SPCM0_SinglePhoton_array[excitaton_cycle] = SPCM0_SinglePhoton
+    SPCM1_SinglePhoton_array[excitaton_cycle] = SPCM1_SinglePhoton
 
 # todo:     After Excitation phase_in loop, Recooling & Readout starts
 

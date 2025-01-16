@@ -5,7 +5,7 @@ with a fit
 
 applet command:
 python "C:\..\qn_artiq_routines\applets\plot_retention_and_loading.py"
-photocounts photocounts2 n_measurements iteration single_atom_counts_per_s t_SPCM_first_shot
+SPCM0_RO1 SPCM0_RO2 n_measurements iteration single_atom_counts_per_s t_SPCM_first_shot
 """
 
 #!/usr/bin/env python3

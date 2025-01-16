@@ -131,8 +131,8 @@ class GeneralVariableOptimizer(EnvExperiment):
     def prepare(self):
         self.base.prepare()
 
-        self.single_atom_counts_threshold = self.single_atom_counts_per_s*self.t_SPCM_first_shot
-        self.single_atom_counts2_threshold = self.single_atom_counts_per_s*self.t_SPCM_second_shot
+        self.single_atom_SPCM0_RO1_threshold = self.single_atom_counts_per_s*self.t_SPCM_first_shot
+        self.single_atom_SPCM0_RO2_threshold = self.single_atom_counts_per_s*self.t_SPCM_second_shot
 
         self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
         assert type(self.override_ExperimentVariables_dict) == dict, \
@@ -179,8 +179,8 @@ class GeneralVariableOptimizer(EnvExperiment):
                                                       max_boundary=max_bounds)
 
         self.measurement = 0
-        self.counts = 0
-        self.counts2 = 0
+        self.SPCM0_RO1 = 0
+        self.SPCM0_RO2 = 0
 
         # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
         # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
@@ -223,13 +223,13 @@ class GeneralVariableOptimizer(EnvExperiment):
         """
         set datasets that are redefined each iteration.
 
-        typically these datasets are used for plotting which would be meaningless if we continued to append to the photocounts,
+        typically these datasets are used for plotting which would be meaningless if we continued to append to the SPCM0_RO1,
         e.g. for the second readout histogram which we expect in general will change as experiment parameters induce
         different amount of atom loss.
         :return:
         """
-        self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
-        self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
 
     def run(self):
 

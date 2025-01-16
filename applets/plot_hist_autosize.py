@@ -5,7 +5,7 @@ better than the stock ARTIQ histogram which expects you to send it pre-binned da
 the dataset should not be pre-binned here. just send it in and add an optional
 binning argument
 
-python "C:\..\qn_artiq_routines\applets\plot_hist_autosize.py" photocounts_current_iteration
+python "C:\..\qn_artiq_routines\applets\plot_hist_autosize.py" SPCM0_RO1_current_iteration
 --x photocount_bins --iteration iteration --t_exposure t_SPCM_first_shot
 """
 

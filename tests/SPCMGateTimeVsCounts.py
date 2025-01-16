@@ -48,11 +48,11 @@ class SPCMGateTimeVsCounts(EnvExperiment):
     def initialize_datasets(self):
         self.base.initialize_datasets()
 
-        # self.set_dataset(self.count_rate_dataset, [0.0], broadcast=True)
+        # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
 
         self.set_dataset("iteration", 0, broadcast=True)
-        self.set_dataset("SPCM_counts_array", [0.0], broadcast=True)
-        self.set_dataset("SPCM_counts1_array", [0.0], broadcast=True)
+        self.set_dataset("SPCM0_counts_array", [0.0], broadcast=True)
+        self.set_dataset("SPCM1_counts_array", [0.0], broadcast=True)
 
 
     @kernel
@@ -93,8 +93,8 @@ class SPCMGateTimeVsCounts(EnvExperiment):
 
         n_cycles = len(self.t_pulse_mu_list)
 
-        SPCM_counts_array = [0.0] * n_cycles
-        SPCM_counts1_array = [0.0] * n_cycles
+        SPCM0_counts_array = [0.0] * n_cycles
+        SPCM1_counts_array = [0.0] * n_cycles
 
         self.ttl_SPCM_gate.on()
 
@@ -109,8 +109,8 @@ class SPCMGateTimeVsCounts(EnvExperiment):
             print(t_pulse_mu)
             delay(10 * ms)
 
-            SPCM_counts_sum = 0.0
-            SPCM_counts1_sum = 0.0
+            SPCM0_counts_sum = 0.0
+            SPCM1_counts_sum = 0.0
 
             for i in range(self.n_measurements):
 
@@ -126,16 +126,16 @@ class SPCMGateTimeVsCounts(EnvExperiment):
 
                 count_now = now_mu()
 
-                SPCM_counts = self.ttl_SPCM0.count(count_now)
-                SPCM_counts1 = self.ttl_SPCM1.count(count_now)  # the number of clicks
+                SPCM0_counts = self.ttl_SPCM0.count(count_now)
+                SPCM1_counts = self.ttl_SPCM1.count(count_now)  # the number of clicks
 
-                SPCM_counts_sum += SPCM_counts
-                SPCM_counts1_sum += SPCM_counts1
+                SPCM0_counts_sum += SPCM0_counts
+                SPCM1_counts_sum += SPCM1_counts
 
                 delay(1*ms)
 
-            SPCM_counts_array[n_step] = SPCM_counts_sum / self.n_measurements
-            SPCM_counts1_array[n_step] = SPCM_counts1_sum / self.n_measurements
+            SPCM0_counts_array[n_step] = SPCM0_counts_sum / self.n_measurements
+            SPCM1_counts_array[n_step] = SPCM1_counts_sum / self.n_measurements
 
             delay(10 * ms)
 
@@ -144,12 +144,12 @@ class SPCMGateTimeVsCounts(EnvExperiment):
         self.ttl_SPCM0._set_sensitivity(0)
         self.ttl_SPCM1._set_sensitivity(0)
 
-        for val in SPCM_counts_array:
-            self.append_to_dataset('SPCM_counts_array', val)
+        for val in SPCM0_counts_array:
+            self.append_to_dataset('SPCM0_counts_array', val)
             print(val)
 
-        for val in SPCM_counts1_array:
-            self.append_to_dataset('SPCM_counts1_array', val)
+        for val in SPCM1_counts_array:
+            self.append_to_dataset('SPCM1_counts_array', val)
 
         delay(10*ms)
 
@@ -163,7 +163,7 @@ class SPCMGateTimeVsCounts(EnvExperiment):
         # gate_rising
         # self.ttl_SPCM_gate.off()
         # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
-        # self.counts2 = self.ttl_SPCM0.count(t_gate_end)
+        # self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
 
 
     def run(self):

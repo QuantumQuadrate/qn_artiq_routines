@@ -164,7 +164,7 @@ def load_MOT_and_FORT(self):
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
     self.ttl_SPCM_gate.off()
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-    self.counts_FORT_science = self.ttl_SPCM0.count(t_gate_end)
+    self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
     delay(1*ms)
 
 
@@ -201,7 +201,7 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 
     self.dds_FORT.sw.on()
 
-    if self.MOT_repump_off or self.MOT_light_off: # this is useful so that the photocounts dataset is all background
+    if self.MOT_repump_off or self.MOT_light_off: # this is useful so that the SPCM0_RO1 dataset is all background
         self.ttl_repump_switch.on()  # turns the RP AOM off
     if self.MOT_light_off:
         self.dds_cooling_DP.sw.off()
@@ -215,7 +215,7 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.ttl_Luca_trigger.pulse(5 * ms) # FORT loading scattering shot
     self.ttl_SPCM_gate.off()
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-    self.counts_FORT_loading = self.ttl_SPCM0.count(t_gate_end)
+    self.SPCM0_FORT_loading = self.ttl_SPCM0.count(t_gate_end)
     delay(10*us)
 
     self.APD_FORT_volts_loading = 0.0
@@ -256,7 +256,7 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.ttl_Luca_trigger.pulse(5 * ms) # total scattering shot
     self.ttl_SPCM_gate.off()
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-    self.counts_FORT_and_MOT = self.ttl_SPCM0.count(t_gate_end)
+    self.SPCM0_FORT_and_MOT = self.ttl_SPCM0.count(t_gate_end)
     delay(1 * ms)
     delay(self.t_MOT_loading/2)
 
@@ -275,7 +275,7 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.ttl_Luca_trigger.pulse(5 * ms)  # FORT loading scattering shot
     self.ttl_SPCM_gate.off()
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-    self.counts_FORT_science = self.ttl_SPCM0.count(t_gate_end)
+    self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
     delay(10*us)
 
     self.APD_FORT_volts_science = 0.0
@@ -332,7 +332,7 @@ def first_shot(self):
         self.ttl_repump_switch.off()
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-        self.counts = self.ttl_SPCM0.count(t_gate_end)
+        self.SPCM0_RO1 = self.ttl_SPCM0.count(t_gate_end)
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
     else:
@@ -364,13 +364,13 @@ def first_shot(self):
         #     self.ttl_SPCM0._set_sensitivity(1)
         #     self.core_dma.playback_handle(ro_dma_handle)
         #     self.ttl_SPCM0._set_sensitivity(0)
-        #     self.counts = self.ttl_SPCM0.count(now_mu())
+        #     self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
         #
         # else:
         self.ttl_repump_switch.off()
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
-        self.counts = self.ttl_SPCM0_counter.fetch_count()
+        self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
         self.ttl_repump_switch.on()
@@ -388,7 +388,7 @@ def second_shot(self):
         self.ttl_repump_switch.off()
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
-        self.counts2 = self.ttl_SPCM0.count(t_gate_end)
+        self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
 
@@ -444,7 +444,7 @@ def second_shot(self):
                     count_falling=False,
                     send_count_event=True,
                     reset_to_zero=False)
-            self.counts2 = self.ttl_SPCM0_counter.fetch_count()
+            self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
             rtio_log("chop_RO_counter", 0)
             delay(10*ms)
 
@@ -452,7 +452,7 @@ def second_shot(self):
             self.ttl_repump_switch.off()
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
-            self.counts2 = self.ttl_SPCM0_counter.fetch_count()
+            self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
             delay(0.1 * ms)
             self.dds_cooling_DP.sw.off()
 
@@ -1143,14 +1143,14 @@ def end_measurement(self):
 
     # update the datasets
     if not self.no_first_shot:
-        self.append_to_dataset('photocounts_current_iteration', self.counts)
-        self.counts_list[self.measurement] = self.counts
+        self.append_to_dataset('SPCM0_RO1_current_iteration', self.SPCM0_RO1)
+        self.SPCM0_RO1_list[self.measurement] = self.SPCM0_RO1
 
     # update the datasets
     self.set_dataset(self.measurements_progress, 100*self.measurement/self.n_measurements, broadcast=True)
-    self.append_to_dataset('photocounts2_current_iteration', self.counts2)
-    self.counts2_list[self.measurement] = self.counts2
-    self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
+    self.append_to_dataset('SPCM0_RO2_current_iteration', self.SPCM0_RO2)
+    self.SPCM0_RO2_list[self.measurement] = self.SPCM0_RO2
+    self.append_to_dataset("SPCM0_FORT_science", self.SPCM0_FORT_science)
 
     delay(1*ms)
     measure_FORT_MM_fiber(self)
@@ -1168,7 +1168,7 @@ def end_measurement(self):
     advance = 1
     if self.__class__.__name__ != 'ExperimentCycler':
         if self.require_atom_loading_to_advance:
-            if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+            if not self.SPCM0_RO1/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
                 advance *= 0
         if self.require_D1_lock_to_advance:
             self.ttl_D1_lock_monitor.sample_input()
@@ -1181,8 +1181,8 @@ def end_measurement(self):
     if advance:
         self.measurement += 1
         if not self.no_first_shot:
-            self.append_to_dataset('photocounts', self.counts)
-        self.append_to_dataset('photocounts2', self.counts2)
+            self.append_to_dataset('SPCM0_RO1', self.SPCM0_RO1)
+        self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
 
 @rpc(flags={"async"})
 def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
@@ -1263,8 +1263,8 @@ def atom_loading_experiment(self):
 
     self.core.reset()
 
-    self.counts = 0
-    self.counts2 = 0
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
     rtio_log("2nd_shot_block", 0)
 
     if self.use_chopped_readout:
@@ -1277,9 +1277,9 @@ def atom_loading_experiment(self):
 
     self.require_D1_lock_to_advance = False # override experiment variable
 
-    self.set_dataset(self.count_rate_dataset,
-                     [0.0],
-                     broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset,
+    #                  [0.0],
+    #                  broadcast=True)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -1344,14 +1344,14 @@ def trap_frequency_experiment(self):
 
     self.core.reset()
 
-    self.counts = 0
-    self.counts2 = 0
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
 
     self.require_D1_lock_to_advance = False # override experiment variable
 
-    self.set_dataset(self.count_rate_dataset,
-                     [0.0],
-                     broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset,
+    #                  [0.0],
+    #                  broadcast=True)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -1411,10 +1411,10 @@ def microwave_Rabi_experiment(self):
 
     self.core.reset()
 
-    self.counts = 0
-    self.counts2 = 0
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
 
-    self.set_dataset(self.count_rate_dataset, [0.0], broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
 
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
@@ -1547,16 +1547,16 @@ def single_photon_experiment(self):
     self.core.reset()
 
     # overwritten below but initialized here so they are always initialized
-    self.counts = 0  # not used in this function
-    self.counts2 = 0
-    excitation_counts = 0
-    excitation_counts1 = 0
-    excitation_counts_array = [0]
+    self.SPCM0_RO1 = 0  # not used in this function
+    self.SPCM0_RO2 = 0
+    SPCM0_SinglePhoton = 0
+    SPCM1_SinglePhoton = 0
+    # SPCM0_SinglePhoton_array = [0]
     #rtio_log("2nd_shot_block", 0) # todo: delete. for debugging.
 
-    self.set_dataset(self.count_rate_dataset,
-                     [0.0],
-                     broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset,
+    #                  [0.0],
+    #                  broadcast=True)
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
@@ -1576,8 +1576,8 @@ def single_photon_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        excitation_counts_array = [0] * self.n_excitation_cycles
-        excitation_counts_array1 = [0] * self.n_excitation_cycles
+        SPCM0_SinglePhoton_array = [0] * self.n_excitation_cycles
+        SPCM1_SinglePhoton_array = [0] * self.n_excitation_cycles
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
@@ -1768,12 +1768,12 @@ def single_photon_experiment(self):
 
             # todo: terrible way of doing this. set the sensitivity of the gate at the beginning of the loop.
             #  it will only register events when the SPCM switch lets events through.
-            excitation_counts = self.ttl_SPCM0.count(
+            SPCM0_SinglePhoton = self.ttl_SPCM0.count(
                 pulses_over_mu)  # this is the number of clicks we got over n_excitation attempts
-            excitation_counts1 = self.ttl_SPCM1.count(
+            SPCM1_SinglePhoton = self.ttl_SPCM1.count(
                 pulses_over_mu)  # this is the number of clicks we got over n_excitation attempts
-            excitation_counts_array[excitaton_cycle] = excitation_counts
-            excitation_counts_array1[excitaton_cycle] = excitation_counts1
+            SPCM0_SinglePhoton_array[excitaton_cycle] = SPCM0_SinglePhoton
+            SPCM1_SinglePhoton_array[excitaton_cycle] = SPCM1_SinglePhoton
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
             # loop_over_mu = now_mu()
 
@@ -1868,10 +1868,10 @@ def single_photon_experiment(self):
         #rtio_log("2nd_shot_block",0)
 
         end_measurement(self)
-        for val in excitation_counts_array:
-            self.append_to_dataset('excitation_counts', val)
-        for val in excitation_counts_array1:
-            self.append_to_dataset('excitation_counts1', val)
+        for val in SPCM0_SinglePhoton_array:
+            self.append_to_dataset('SPCM0_SinglePhoton', val)
+        for val in SPCM1_SinglePhoton_array:
+            self.append_to_dataset('SPCM1_SinglePhoton', val)
 
         delay(10*ms)
 
@@ -1881,11 +1881,7 @@ def single_photon_experiment(self):
 def single_photon_experiment_atom_loading_advance(self):
     """
     This experiment pumps the atom into F=1,m=0 then excites it to F=0,0.
-    This sequence is repeated multiple times, but only one SPCM is monitored,
-    so we can not use this result to verify single photons. We can use it to
-    make sure we are only getting one or zero clicks after each excitation
-    attempt, and that the one click events only occur when there is an atom
-    loaded.
+    This sequence is repeated multiple times. We do an atom readout after each pumping/excitation attempt.
 
     self is the experiment instance to which ExperimentVariables are bound
     """
@@ -1895,15 +1891,15 @@ def single_photon_experiment_atom_loading_advance(self):
     self.core.reset()
 
     # overwritten below but initialized here so they are always initialized
-    self.counts = 0
-    self.counts2 = 0
-    excitation_counts = 0
-    excitation_counts1 = 0
-    excitation_counts_array = [0]
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
+    SPCM0_SinglePhoton = 0
+    SPCM1_SinglePhoton = 0
+    # SPCM0_SinglePhoton_array = [0]
 
-    readout_counts_array = [0]
+    SPCM0_every_exc_RO_array = [0]
 
-    self.set_dataset(self.count_rate_dataset, [0.0], broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
@@ -1925,10 +1921,10 @@ def single_photon_experiment_atom_loading_advance(self):
 
     while self.measurement < self.n_measurements:
 
-        excitation_counts_array = [0] * self.n_excitation_cycles
-        excitation_counts_array1 = [0] * self.n_excitation_cycles
+        SPCM0_SinglePhoton_array = [0] * self.n_excitation_cycles
+        SPCM1_SinglePhoton_array = [0] * self.n_excitation_cycles
 
-        readout_counts_array = [0] * self.n_excitation_cycles
+        SPCM0_every_exc_RO_array = [0] * self.n_excitation_cycles
 
         self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
@@ -1960,7 +1956,7 @@ def single_photon_experiment_atom_loading_advance(self):
             # tries to load an atom 20 times before running laser feedback again.
             if self.require_atom_loading_to_advance_in_single_photon_exp:
                 # if no atoms!!
-                if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+                if not self.SPCM0_RO1/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
                     if tries < 20:
                         tries += 1
                     else:               # limit: 5% atom loading
@@ -2100,11 +2096,11 @@ def single_photon_experiment_atom_loading_advance(self):
             # self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
             self.ttl_exc0_switch.on()  # turns off the excitation 0 AOM
 
-            excitation_counts = self.ttl_SPCM0.count(pulses_over_mu)
-            excitation_counts1 = self.ttl_SPCM1.count(pulses_over_mu)
+            SPCM0_SinglePhoton = self.ttl_SPCM0.count(pulses_over_mu)
+            SPCM1_SinglePhoton = self.ttl_SPCM1.count(pulses_over_mu)
 
-            excitation_counts_array[excitaton_cycle] = excitation_counts
-            excitation_counts_array1[excitaton_cycle] = excitation_counts1
+            SPCM0_SinglePhoton_array[excitaton_cycle] = SPCM0_SinglePhoton
+            SPCM1_SinglePhoton_array[excitaton_cycle] = SPCM1_SinglePhoton
 
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
             # loop_over_mu = now_mu()
@@ -2153,10 +2149,10 @@ def single_photon_experiment_atom_loading_advance(self):
                     after_shot = now_mu()
                     delay(.1*ms)
 
-                    every_shot_count = self.ttl_SPCM0.count(after_shot)
+                    SPCM0_every_exc_RO = self.ttl_SPCM0.count(after_shot)
                     self.ttl_SPCM1._set_sensitivity(1)      # opening the gating window for SPCM1
 
-                    readout_counts_array[excitaton_cycle] = every_shot_count
+                    SPCM0_every_exc_RO_array[excitaton_cycle] = SPCM0_every_exc_RO
 
                     delay(2*ms)  # todo: 10ms is very long. try reducing until underflow error happens.
 
@@ -2224,12 +2220,12 @@ def single_photon_experiment_atom_loading_advance(self):
             end_measurement(self)
 
 
-        for val in excitation_counts_array:
-            self.append_to_dataset('excitation_counts', val)
-        for val in excitation_counts_array1:
-            self.append_to_dataset('excitation_counts1', val)
-        for val in readout_counts_array:
-            self.append_to_dataset('readout_counts', val)
+        for val in SPCM0_SinglePhoton_array:
+            self.append_to_dataset('SPCM0_SinglePhoton', val)
+        for val in SPCM1_SinglePhoton_array:
+            self.append_to_dataset('SPCM1_SinglePhoton', val)
+        for val in SPCM0_every_exc_RO_array:
+            self.append_to_dataset('SPCM0_every_exc_RO', val)
 
         delay(10*ms)
 
@@ -2264,10 +2260,10 @@ def test_exc_singe_photon_experiment(self):
     self.core.reset()
 
     # overwritten below but initialized here so they are always initialized
-    self.counts = 0
-    self.counts2 = 0
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
 
-    self.set_dataset(self.count_rate_dataset, [0.0], broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
@@ -2319,7 +2315,7 @@ def test_exc_singe_photon_experiment(self):
             # tries to load an atom 20 times before running laser feedback again.
             if self.require_atom_loading_to_advance_in_single_photon_exp:
                 # if no atoms!!
-                if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+                if not self.SPCM0_RO1/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
                     if tries < 20:
                         tries += 1
                     else:               # limit: 5% atom loading
@@ -2507,10 +2503,10 @@ def test_exc_microwave_Rabi_experiment(self):
 
     self.core.reset()
 
-    self.counts = 0
-    self.counts2 = 0
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
 
-    self.set_dataset(self.count_rate_dataset, [0.0], broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
 
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
@@ -2561,7 +2557,7 @@ def test_exc_microwave_Rabi_experiment(self):
             # tries to load an atom 20 times before running laser feedback again.
             if self.require_atom_loading_to_advance_in_single_photon_exp:
                 # if no atoms!!
-                if not self.counts/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
+                if not self.SPCM0_RO1/self.t_SPCM_first_shot > self.single_atom_counts_per_s:
                     if tries < 20:
                         tries += 1
                     else:               # limit: 5% atom loading
@@ -2802,21 +2798,21 @@ def FORT_monitoring_with_Luca_experiment(self):
 
     self.core.reset()
 
-    self.set_dataset("photocounts_FORT_loading", [0.0], broadcast=True)
-    self.set_dataset("photocounts_FORT_and_MOT", [0.0], broadcast=True)
-    self.set_dataset("photocounts_FORT_science", [0.0], broadcast=True)
+    self.set_dataset("SPCM0_FORT_loading", [0.0], broadcast=True)
+    self.set_dataset("SPCM0_FORT_and_MOT", [0.0], broadcast=True)
+    self.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
     self.set_dataset("APD_FORT_volts_loading", [0.0], broadcast=True)
     self.set_dataset("APD_FORT_volts_science", [0.0], broadcast=True)
 
-    self.counts = 0
-    self.counts2 = 0
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
 
     self.require_D1_lock_to_advance = False # override experiment variable
     self.require_atom_loading_to_advance = False # override experiment variable
 
-    self.set_dataset(self.count_rate_dataset,
-                     [0.0],
-                     broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset,
+    #                  [0.0],
+    #                  broadcast=True)
 
     delay(100*ms)
     now = now_mu()
@@ -2856,7 +2852,7 @@ def FORT_monitoring_with_Luca_experiment(self):
         with parallel:
             self.ttl_Luca_trigger.pulse(5 * ms)
             t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-        self.counts = self.ttl_SPCM0.count(t_gate_end)
+        self.SPCM0_RO1 = self.ttl_SPCM0.count(t_gate_end)
         delay(1 * ms)
         self.dds_cooling_DP.sw.off()
 
@@ -2868,16 +2864,16 @@ def FORT_monitoring_with_Luca_experiment(self):
         # with parallel:
             # self.ttl_Luca_trigger.pulse(5 * ms)
         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
-        self.counts2 = self.ttl_SPCM0.count(t_gate_end)
+        self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
 
         delay(1 * ms)
 
         end_measurement(self)
 
         # update experiment-specific datasets:
-        self.append_to_dataset("photocounts_FORT_loading", self.counts_FORT_loading)
-        self.append_to_dataset("photocounts_FORT_and_MOT", self.counts_FORT_and_MOT)
-        self.append_to_dataset("photocounts_FORT_science", self.counts_FORT_science)
+        self.append_to_dataset("SPCM0_FORT_loading", self.SPCM0_FORT_loading)
+        self.append_to_dataset("SPCM0_FORT_and_MOT", self.SPCM0_FORT_and_MOT)
+        self.append_to_dataset("SPCM0_FORT_science", self.SPCM0_FORT_science)
         self.append_to_dataset("APD_FORT_volts_loading", self.APD_FORT_volts_loading)
         self.append_to_dataset("APD_FORT_volts_science", self.APD_FORT_volts_science)
 
@@ -2896,15 +2892,15 @@ def atom_loading_and_waveplate_rotation_experiment(self):
 
     self.core.reset()
 
-    self.counts = 0
-    self.counts2 = 0
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
 
     self.require_D1_lock_to_advance = False # override experiment variable
     self.require_atom_loading_to_advance = False # override experiment variable
 
-    self.set_dataset(self.count_rate_dataset,
-                     [0.0],
-                     broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset,
+    #                  [0.0],
+    #                  broadcast=True)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -2937,7 +2933,7 @@ def atom_loading_and_waveplate_rotation_experiment(self):
             # take the first shot
             self.dds_cooling_DP.sw.on()
             t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-            self.counts = self.ttl_SPCM0.count(t_gate_end)
+            self.SPCM0_RO1 = self.ttl_SPCM0.count(t_gate_end)
             delay(1 * ms)
             self.dds_cooling_DP.sw.off()
 
@@ -2951,7 +2947,7 @@ def atom_loading_and_waveplate_rotation_experiment(self):
         # take the second shot
         self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
-        self.counts2 = self.ttl_SPCM0.count(t_gate_end)
+        self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
 
         delay(1 * ms)
 

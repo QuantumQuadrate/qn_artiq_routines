@@ -69,8 +69,8 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
                              channels=self.coil_channels)
 
         self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("photocounts", [0])
-        self.set_dataset("photocounts_current_iteration", [0], broadcast=True, archive=False)
+        self.set_dataset("SPCM0_RO1", [0])
+        self.set_dataset("SPCM0_RO1_current_iteration", [0], broadcast=True, archive=False)
         self.set_dataset("FORT_TTI_volts", [0.0])
 
         # turn off AOMs we aren't using, in case they were on previously
@@ -201,11 +201,11 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
             # update the datasets
-            self.append_to_dataset('photocounts', counts)
-            self.append_to_dataset('photocounts_current_iteration', counts)
+            self.append_to_dataset('SPCM0_RO1', counts)
+            self.append_to_dataset('SPCM0_RO1_current_iteration', counts)
 
             # so we don't store too much data in artiq-master
             if measurement % self.last_photocounts_to_plot == 0:
-                self.set_dataset("photocounts_current_iteration", [0], broadcast=True, archive=False)
+                self.set_dataset("SPCM0_RO1_current_iteration", [0], broadcast=True, archive=False)
 
         print("Experiment finished")

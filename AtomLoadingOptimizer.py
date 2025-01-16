@@ -120,8 +120,8 @@ class AtomLoadingOptimizer(EnvExperiment):
                                   "set_point_PD4_AOM_A4", "set_point_PD5_AOM_A5", "set_point_PD6_AOM_A6"]
         self.default_setpoints = np.array([getattr(self, dataset) for dataset in self.setpoint_datasets])
 
-        self.counts_list = np.zeros(self.n_measurements)
-        self.set_dataset(self.count_rate_dataset,
+        self.SPCM0_counts_list = np.zeros(self.n_measurements)
+        self.set_dataset(self.SPCM0_rate_dataset,
                          [0.0],
                          broadcast=True)
 
@@ -323,16 +323,16 @@ class AtomLoadingOptimizer(EnvExperiment):
         delay(self.t_MOT_loading)
 
         # reset the counts dataset each run so we don't overwhelm the dashboard when plotting
-        self.set_dataset(self.count_rate_dataset,[0.0],broadcast=True)
+        self.set_dataset(self.SPCM0_rate_dataset,[0.0],broadcast=True)
 
         for i in range(self.n_measurements):
             t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-            counts_per_s = self.ttl0.count(t_end) / self.t_SPCM_exposure
+            SPCM0_counts_per_s = self.ttl0.count(t_end) / self.t_SPCM_exposure
             delay(1 * ms)
-            self.append_to_dataset(self.count_rate_dataset, counts_per_s)
-            self.counts_list[i] = counts_per_s * self.t_SPCM_exposure
+            self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts_per_s)
+            self.SPCM0_counts_list[i] = SPCM0_counts_per_s * self.t_SPCM_exposure
 
-        cost = self.get_cost(self.counts_list)
+        cost = self.get_cost(self.SPCM0_counts_list)
         self.append_to_dataset(self.cost_dataset, cost)
 
         param_idx = 0

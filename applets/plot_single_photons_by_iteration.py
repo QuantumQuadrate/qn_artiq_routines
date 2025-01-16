@@ -21,9 +21,9 @@ class XYPlot(pyqtgraph.PlotWidget):
 
     def data_changed(self, data, mods, title):
         try:
-            counts0 = np.array(data[self.args.exc0_counts][1][1:])
-            counts1 = np.array(data[self.args.exc0_counts][1][1:])
-            readout_counts = np.array(data[self.args.readout_counts][1][1:])
+            counts0 = np.array(data[self.args.SPCM0_counts][1][1:])
+            counts1 = np.array(data[self.args.SPCM0_counts][1][1:])
+            SPCM0_every_exc_RO = np.array(data[self.args.SPCM0_every_exc_RO][1][1:])
 
 
             measurements = data[self.args.measurements][1]
@@ -55,14 +55,14 @@ class XYPlot(pyqtgraph.PlotWidget):
                 for i in range(iteration):
                     counts0_i = counts0[i * count_len : (i+1) * count_len]
                     counts1_i = counts0[i * count_len: (i + 1) * count_len]
-                    readout_counts_i = readout_counts[i * count_len: (i + 1) * count_len]
+                    SPCM0_every_exc_RO_i = SPCM0_every_exc_RO[i * count_len: (i + 1) * count_len]
 
 
                     counting_no_atom = 0
                     counting_with_atom = 0
 
 
-                    for a, b, c in zip(counts0_i, counts1_i, readout_counts_i):
+                    for a, b, c in zip(counts0_i, counts1_i, SPCM0_every_exc_RO_i):
                         if (a > 0 or b > 0) and c > cutoff:
                             counting_with_atom += 1
                         elif (a > 0 or b > 0) and c <= cutoff:
@@ -109,9 +109,9 @@ class XYPlot(pyqtgraph.PlotWidget):
 def main():
     applet = TitleApplet(XYPlot)
 
-    applet.add_dataset("exc0_counts", "excitation counts from SPCM0")
-    applet.add_dataset("exc1_counts", "excitation counts from SPCM1")
-    applet.add_dataset("readout_counts", "readout counts from SPCM0")
+    applet.add_dataset("SPCM0_counts", "excitation counts from SPCM0")
+    applet.add_dataset("SPCM1_counts", "excitation counts from SPCM1")
+    applet.add_dataset("SPCM0_every_exc_RO", "readout counts from SPCM0")
     applet.add_dataset("n_exc_cycles", "how many excitation cycles per measurement")
 
     applet.add_dataset("measurements", "how many measurements per data point")
