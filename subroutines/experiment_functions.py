@@ -2013,7 +2013,7 @@ def single_photon_experiment_atom_loading_advance(self):
         delay(1*us)
 
         self.ttl_SPCM_gate.on()  # blocks the SPCM output - this is related to the atom readouts undercounting
-        loop_start_mu = now_mu()
+        # loop_start_mu = now_mu()
 
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
@@ -2096,37 +2096,37 @@ def single_photon_experiment_atom_loading_advance(self):
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
             self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            # self.ttl_repump_switch.off()  # repump AOM is on for excitation
-            self.ttl_exc0_switch.off() # turns on the excitation
+            self.ttl_exc0_switch.off() # turns on the excitation0 AOM
 
-            now = now_mu()
+            t1 = now_mu()
 
             self.dds_FORT.sw.off()
-            at_mu(now+150)
-            # self.ttl_excitation_switch.off()
+
+            at_mu(t1+150)
             self.ttl_GRIN1_switch.off() # turns on excitation
-            at_mu(now + 150 + self.gate_start_offset_mu)
-            self.ttl_SPCM_gate.off()
-            at_mu(now + 150 + int(self.t_excitation_pulse/ns))
-            # self.ttl_excitation_switch.on()
-            self.ttl_GRIN1_switch.on() # turns off excitation
 
-            at_mu(now + 150 + int(self.t_photon_collection_time / ns + self.gate_start_offset_mu))
-            self.ttl_SPCM_gate.on()
+            at_mu(t1 + 150 + int(self.t_excitation_pulse / ns))
+            self.ttl_GRIN1_switch.on()  # turns off excitation
 
-            at_mu(now + 150 + int(self.t_photon_collection_time / ns))
+            at_mu(t1 + 150 + self.gate_start_offset_mu)
+            self.ttl_SPCM_gate.off() ## turns on the SPCM switch to let TTL pulses go through
+
+            at_mu(t1 + 150 + int(self.t_photon_collection_time / ns + self.gate_start_offset_mu))
+            self.ttl_SPCM_gate.on() ## turns off the SPCM switch
+
+            at_mu(t1 + 150 + int(self.t_photon_collection_time / ns) + 100)
             self.dds_FORT.sw.on()
-            pulses_over_mu = now_mu()
 
-            delay(1*us)
-            # self.ttl_repump_switch.on() # block MOT repump (and therefore also the excitation light)
-            self.ttl_exc0_switch.on()  # turns off the excitation 0 AOM
+            t2 = now_mu()
 
-            SPCM0_SinglePhoton = self.ttl_SPCM0.count(pulses_over_mu)
-            SPCM1_SinglePhoton = self.ttl_SPCM1.count(pulses_over_mu)
+            SPCM0_SinglePhoton = self.ttl_SPCM0.count(t2)
+            SPCM1_SinglePhoton = self.ttl_SPCM1.count(t2)
 
             SPCM0_SinglePhoton_array[excitaton_cycle] = SPCM0_SinglePhoton
             SPCM1_SinglePhoton_array[excitaton_cycle] = SPCM1_SinglePhoton
+
+            delay(10 * us)
+            self.ttl_exc0_switch.on()  # turns off the excitation 0 AOM
 
             delay(0.1*ms) # ttl count consumes all the RTIO slack.
             # loop_over_mu = now_mu()
@@ -2165,11 +2165,11 @@ def single_photon_experiment_atom_loading_advance(self):
                     # If ttl_SPCM_gate.off(), SPCM1 will start counting also. => overflow at next excitation cycle
 
                     delay(1*ms)
-                    now = now_mu()
+                    t1 = now_mu()
                     self.ttl_SPCM1._set_sensitivity(0)      # closing the gating window for SPCM1
                     self.ttl_SPCM_gate.off()                # gate turned on
 
-                    at_mu(now + t_SPCM_recool_and_shot_mu)
+                    at_mu(t1 + t_SPCM_recool_and_shot_mu)
                     self.ttl_SPCM_gate.on()                 # gate turned off
 
                     after_shot = now_mu()

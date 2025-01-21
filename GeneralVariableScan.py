@@ -143,6 +143,8 @@ class GeneralVariableScan(EnvExperiment):
         self.measurement = 0
         self.SPCM0_RO1 = 0
         self.SPCM0_RO2 = 0
+        self.SPCM1_RO1 = 0
+        self.SPCM1_RO2 = 0
 
         # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
         # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
@@ -186,6 +188,8 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset("test_dataset", [0], broadcast=True)
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
 
         # these are set here because running BaseExperiment.initialize_hardware resets these to be empty
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)

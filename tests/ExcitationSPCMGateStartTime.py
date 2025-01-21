@@ -69,6 +69,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(1*s)
 
         self.dds_cooling_DP.sw.off()
+        self.ttl_repump_switch.off()
         delay(1 * ms)
 
         self.dds_AOM_A1.sw.off()
@@ -80,7 +81,6 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
         delay(1*ms)
 
-        self.dds_cooling_DP.sw.off()
         self.ttl_exc0_switch.on()
         self.dds_pumping_repump.sw.off()
 
@@ -131,7 +131,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
     @kernel
     def experiment_fun(self):
-
+        ### This uses external switch to gate the SPCMs
         self.core.reset()
 
         delay(10 * ms)
@@ -155,7 +155,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         for t_pulse_mu in self.t_pulse_mu_list:
 
             delay(10 * ms)
-            # print(t_pulse_mu)
+            print("Running t_pulse_mu = ",t_pulse_mu)
             delay(10 * ms)
 
             SPCM0_counts_sum = 0.0
@@ -165,28 +165,28 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
             for i in range(self.n_measurements):
 
-                now = now_mu()
+                t1 = now_mu()
 
                 # excitation on
-                at_mu(now + t_exc_on_mu)
+                at_mu(t1 + t_exc_on_mu)
                 self.ttl_GRIN1_switch.off()
 
-                # gate on
-                at_mu(now + t_exc_on_mu + t_pulse_mu)
-                self.ttl_SPCM_gate.off()  # turn on
-
                 # excitation off
-                at_mu(now + t_exc_on_mu + self.exc_pulse_length_mu)
+                at_mu(t1 + t_exc_on_mu + self.exc_pulse_length_mu)
                 self.ttl_GRIN1_switch.on()
 
+                # gate on
+                at_mu(t1 + t_exc_on_mu + t_pulse_mu)
+                self.ttl_SPCM_gate.off()  ## turns on the SPCM switch to let TTL pulses go through
+
                 # gate off
-                at_mu(now + t_exc_on_mu + t_pulse_mu + self.gate_pulse_length_mu)
-                self.ttl_SPCM_gate.on()  # turn off
+                at_mu(t1 + t_exc_on_mu + t_pulse_mu + self.gate_pulse_length_mu)
+                self.ttl_SPCM_gate.on()  ## turns off the SPCM switch
 
-                count_now = now_mu()
+                t2 = now_mu()
 
-                SPCM0_counts = self.ttl_SPCM0.count(count_now)
-                SPCM1_counts = self.ttl_SPCM1.count(count_now)  # the number of clicks
+                SPCM0_counts = self.ttl_SPCM0.count(t2)
+                SPCM1_counts = self.ttl_SPCM1.count(t2)  # the number of clicks
 
                 SPCM0_counts_sum += SPCM0_counts
                 SPCM1_counts_sum += SPCM1_counts
@@ -222,6 +222,83 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
         # self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
 
+    @kernel
+    def experiment_run_WO_SPCMswitch(self):
+        ### This uses the normal count commands without external switch to gate count the SPCM events.
+        self.core.reset()
+
+        delay(10 * ms)
+
+
+        # setting excitation aom to 1dBm
+        # self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
+        self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+        # don't have to set it back; any code that runs feedback will do
+
+        # turning on excitation DDS and switch
+        self.ttl_exc0_switch.off()
+        self.dds_excitation.sw.on()
+        self.ttl_SPCM_gate.off()
+
+        delay(10 * ms)
+
+        for t_pulse_mu in self.t_pulse_mu_list:
+
+            delay(10 * ms)
+            print("Running t_pulse_mu = ", t_pulse_mu)
+            delay(10 * ms)
+
+            SPCM0_counts_sum = 0.0
+            SPCM1_counts_sum = 0.0
+
+            t_exc_on_mu = 500  # 500ns delay before turning excitation on.
+
+            for i in range(self.n_measurements):
+                t1 = now_mu()
+
+                ### excitation pulse. This pulses the TTL for a few ns, which turns OFF the beam for a few ns.
+                ### This is not what we want.
+                # at_mu(t1 + t_exc_on_mu)
+                # # self.ttl_GRIN1_switch.pulse(self.exc_pulse_length_mu)
+                # self.ttl_GRIN1_switch.pulse(50 * ns)
+
+                # excitation on
+                at_mu(t1 + t_exc_on_mu)
+                self.ttl_GRIN1_switch.off()
+
+                # excitation off
+                at_mu(t1 + t_exc_on_mu + self.exc_pulse_length_mu)
+                self.ttl_GRIN1_switch.on()
+
+                at_mu(t1 + t_exc_on_mu + t_pulse_mu)
+                with parallel:
+                    # t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.gate_pulse_length_mu)
+                    # t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.gate_pulse_length_mu)
+                    t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.gate_pulse_length_mu * ns)
+                    t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.gate_pulse_length_mu * ns)
+
+                SPCM0_counts = self.ttl_SPCM0.count(t_end_SPCM0)
+                SPCM1_counts = self.ttl_SPCM1.count(t_end_SPCM1)  # the number of clicks
+
+                SPCM0_counts_sum += SPCM0_counts
+                SPCM1_counts_sum += SPCM1_counts
+
+                delay(10 * us)
+
+            self.append_to_dataset('SPCM0_counts_array', SPCM0_counts_sum)
+            self.append_to_dataset('SPCM1_counts_array', SPCM1_counts_sum)
+
+            delay(1 * ms)
+
+
+        delay(10 * ms)
+
+        #     # the ttl.gate_rising(duration) function is equivalent to:
+        #     #     ttl._set_sensitivity(1)
+        #     #     delay(duration)
+        #     #     ttl._set_sensitivity(0)
+        #     #     return now_mu()
+
 
     def run(self):
 
@@ -233,4 +310,5 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         else:
             self.turn_off_everything()
 
-        self.experiment_fun()
+        # self.experiment_fun()
+        self.experiment_run_WO_SPCMswitch()
