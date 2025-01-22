@@ -31,10 +31,10 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.base.build()
         # sets ttls
 
-        self.setattr_argument("n_measurements", NumberValue(10000000, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(1000000, ndecimals=0, step=1))
         # self.setattr_argument("exc_RF_in_dBm", NumberValue(1., ndecimals=0, step=1))
-        self.setattr_argument("exc_pulse_length_mu", NumberValue(20, ndecimals=0, step=1))
-        self.setattr_argument("gate_pulse_length_mu", NumberValue(100, ndecimals=0, step=1))
+        self.setattr_argument("exc_pulse_length_mu", NumberValue(50, ndecimals=0, step=1))
+        self.setattr_argument("t_photon_collection_mu", NumberValue(100, ndecimals=0, step=1))
 
 
         self.setattr_argument("t_pulse_mu_list", StringValue('[100,200,300,400,500, 600]'))
@@ -180,7 +180,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
                 self.ttl_SPCM_gate.off()  ## turns on the SPCM switch to let TTL pulses go through
 
                 # gate off
-                at_mu(t1 + t_exc_on_mu + t_pulse_mu + self.gate_pulse_length_mu)
+                at_mu(t1 + t_exc_on_mu + t_pulse_mu + self.t_photon_collection_mu)
                 self.ttl_SPCM_gate.on()  ## turns off the SPCM switch
 
                 t2 = now_mu()
@@ -224,7 +224,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
     @kernel
     def experiment_run_WO_SPCMswitch(self):
-        ### This uses the normal count commands without external switch to gate count the SPCM events.
+        ### This uses the normal ttl.count commands without external switch to gate and count the SPCM events.
         self.core.reset()
 
         delay(10 * ms)
@@ -272,10 +272,8 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
                 at_mu(t1 + t_exc_on_mu + t_pulse_mu)
                 with parallel:
-                    # t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.gate_pulse_length_mu)
-                    # t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.gate_pulse_length_mu)
-                    t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.gate_pulse_length_mu * ns)
-                    t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.gate_pulse_length_mu * ns)
+                    t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_mu * ns)
+                    t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_mu * ns)
 
                 SPCM0_counts = self.ttl_SPCM0.count(t_end_SPCM0)
                 SPCM1_counts = self.ttl_SPCM1.count(t_end_SPCM1)  # the number of clicks
@@ -299,6 +297,73 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         #     #     ttl._set_sensitivity(0)
         #     #     return now_mu()
 
+    @kernel
+    def experiment_run_WO_SPCMswitch_edge_counter(self):
+        ### This uses the edge counter without external switch to gate and count the SPCM events.
+        self.core.reset()
+
+        delay(10 * ms)
+
+        # setting excitation aom to 1dBm
+        # self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
+        self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+        # don't have to set it back; any code that runs feedback will do
+
+        # turning on excitation DDS and switch
+        self.ttl_exc0_switch.off()
+        self.dds_excitation.sw.on()
+
+        delay(10 * ms)
+
+        for t_pulse_mu in self.t_pulse_mu_list:
+
+            delay(10 * ms)
+            print("Running t_pulse_mu = ", t_pulse_mu)
+            delay(10 * ms)
+
+            SPCM0_counts_sum = 0.0
+            SPCM1_counts_sum = 0.0
+
+            t_exc_on_mu = 500  # 500ns delay before turning excitation on.
+
+            for i in range(self.n_measurements):
+                t1 = now_mu()
+
+                ### excitation pulse. This pulses the TTL for a few ns, which turns OFF the beam for a few ns.
+                ### This is not what we want.
+                # at_mu(t1 + t_exc_on_mu)
+                # # self.ttl_GRIN1_switch.pulse(self.exc_pulse_length_mu)
+                # self.ttl_GRIN1_switch.pulse(50 * ns)
+
+                # excitation on
+                at_mu(t1 + t_exc_on_mu)
+                self.ttl_GRIN1_switch.off()
+
+                # excitation off
+                at_mu(t1 + t_exc_on_mu + self.exc_pulse_length_mu)
+                self.ttl_GRIN1_switch.on()
+
+                at_mu(t1 + t_exc_on_mu + t_pulse_mu)
+
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_mu * ns)
+                    self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_mu * ns)
+
+                SPCM0_counts = self.ttl_SPCM0_counter.fetch_count()
+                SPCM1_counts = self.ttl_SPCM1_counter.fetch_count()
+
+                SPCM0_counts_sum += SPCM0_counts
+                SPCM1_counts_sum += SPCM1_counts
+
+                delay(10 * us)
+
+            self.append_to_dataset('SPCM0_counts_array', SPCM0_counts_sum)
+            self.append_to_dataset('SPCM1_counts_array', SPCM1_counts_sum)
+
+            delay(1 * ms)
+
+        delay(10 * ms)
+
 
     def run(self):
 
@@ -311,4 +376,5 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
             self.turn_off_everything()
 
         # self.experiment_fun()
-        self.experiment_run_WO_SPCMswitch()
+        # self.experiment_run_WO_SPCMswitch()
+        self.experiment_run_WO_SPCMswitch_edge_counter()
