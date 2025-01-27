@@ -150,7 +150,6 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             # self.experiment.ttl_Luca_trigger = self.experiment.ttl6 # Luca no longer used.
             self.experiment.ttl_exc0_switch = self.experiment.ttl6
-            # self.experiment.ttl_excitation_switch = self.experiment.ttl14
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
 
             # for debugging/logging purposes in experiments
@@ -260,7 +259,6 @@ class BaseExperiment:
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
             self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
-            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -334,7 +332,6 @@ class BaseExperiment:
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
             self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
-            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)

@@ -308,29 +308,47 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 @kernel
 def first_shot(self):
     """
-    non-chopped first atom readout
+    non-chopped first atom readout.
+
+    Turns on:
+        Cooling DP
+        MOT RP
+        All 6 fiber AOMs
+
+    Turns off at the end:
+        Cooling DP
+        MOT RP
 
     warning: assumes the fiber AOMs are already on, which is usually the case
     :return:
     """
-    # todo: include the following in here to simplify the experiment functions
-    # self.zotino0.set_dac(
-    #     [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-    #     channels=self.coil_channels)
-    #
-    # # set the FORT AOM to the readout settings
-    # self.dds_FORT.set(frequency=self.f_FORT,
-    #                   amplitude=self.stabilizer_FORT.amplitudes[1])
-    #
-    # # set the cooling DP AOM to the readout settings
-    # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-    #                         amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+    ### set the coils to the readout settings
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        channels=self.coil_channels)
+    delay(0.4 * ms) ## coils relaxation time
 
-    # todo: get rid of no_first_shot Boolean
+    ### set the FORT AOM to the readout settings
+    self.dds_FORT.set(frequency=self.f_FORT,
+                      amplitude=self.stabilizer_FORT.amplitudes[1])
+
+    ### set the cooling DP AOM to the readout settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                            amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+    self.ttl_repump_switch.off() ### turn on MOT RP
+    self.dds_cooling_DP.sw.on() ### Turn on cooling
+    delay(0.1 * ms)
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+    delay(0.1 * ms)
 
     if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
-        self.ttl_repump_switch.off()
-        self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
         self.SPCM0_RO1 = self.ttl_SPCM0.count(t_gate_end)
         delay(0.1 * ms)
@@ -367,8 +385,6 @@ def first_shot(self):
         #     self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
         #
         # else:
-        self.ttl_repump_switch.off()
-        self.dds_cooling_DP.sw.on()
 
         with parallel:
             self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
@@ -377,21 +393,54 @@ def first_shot(self):
         self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
         self.SPCM1_RO1 = self.ttl_SPCM1_counter.fetch_count()
         delay(0.1 * ms)
-        self.dds_cooling_DP.sw.off()
-        self.ttl_repump_switch.on()
+        self.dds_cooling_DP.sw.off() ### turn off cooling
+        self.ttl_repump_switch.on() ### turn off MOT RP
         delay(10 * us)
 
 @kernel
 def second_shot(self):
     """
-    non-chopped second atom readout
+    non-chopped second atom readout.
+
+    Turns on:
+        Cooling DP
+        MOT RP
+        All 6 fiber AOMs
+
+    Turns off at the end:
+        Cooling DP
+        MOT RP
 
     warning: assumes the fiber AOMs are already on, which is usually the case
     :return:
     """
+    ### set the coils to the readout settings
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        channels=self.coil_channels)
+    delay(0.4 * ms)  ## coils relaxation time
+
+    ### set the FORT AOM to the readout settings
+    self.dds_FORT.set(frequency=self.f_FORT,
+                      amplitude=self.stabilizer_FORT.amplitudes[1])
+
+    ### set the cooling DP AOM to the readout settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                            amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+    self.ttl_repump_switch.off()  ### turn on MOT RP
+    self.dds_cooling_DP.sw.on()  ### Turn on cooling
+    delay(0.1 * ms)
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+    delay(0.1 * ms)
+
     if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
-        self.ttl_repump_switch.off()
-        self.dds_cooling_DP.sw.on()
         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
         self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
         delay(0.1 * ms)
@@ -454,8 +503,6 @@ def second_shot(self):
             delay(10*ms)
 
         else:
-            self.ttl_repump_switch.off()
-            self.dds_cooling_DP.sw.on()
             with parallel:
                 self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
                 self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
@@ -464,7 +511,9 @@ def second_shot(self):
             self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
 
             delay(0.1 * ms)
-            self.dds_cooling_DP.sw.off()
+            self.dds_cooling_DP.sw.off() ### turn off cooling
+            self.ttl_repump_switch.on()  ### turn off MOT RP
+            delay(10 * us)
 
 @kernel
 def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
@@ -599,9 +648,7 @@ def chopped_blow_away(self):
 
     with sequential:
 
-        self.dds_cooling_DP.set(
-            frequency=self.f_cooling_DP_blowaway,
-            amplitude=self.ampl_cooling_DP_MOT)
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_blowaway, amplitude=self.ampl_cooling_DP_MOT)
 
         self.dds_AOM_A1.sw.off()
         self.dds_AOM_A2.sw.off()
@@ -615,28 +662,24 @@ def chopped_blow_away(self):
         else:
             # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
             # always give the same optical power
-            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
-                                amplitude=dB_to_V(-7.0))
+            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-7.0))
             self.dds_AOM_A6.sw.on()
             self.dds_cooling_DP.sw.on()
 
     self.core_dma.playback_handle(ba_dma_handle)
 
-    # reset AOM RF powers
-    self.dds_cooling_DP.sw.off()
-    self.dds_cooling_DP.set(
-        frequency=self.f_cooling_DP_RO,
-        amplitude=self.ampl_cooling_DP_MOT)
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,
-                        amplitude=self.stabilizer_AOM_A6.amplitude)
+
+    self.dds_cooling_DP.sw.off() ### Turns off cooling DP
+    self.ttl_repump_switch.on() ### turns off MOT RP
+    self.dds_AOM_A6.sw.off() ### turns off fiber AOM6
+
+    delay(0.1 * ms)
+
+    ### reset AOM RF powers
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
     delay(0.1*ms)
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-    self.ttl_repump_switch.off()  # turns on the RP AOM
 
 @kernel
 def record_chopped_optical_pumping(self):
@@ -714,6 +757,20 @@ def record_chopped_optical_pumping(self):
 @kernel
 def chopped_optical_pumping(self):
     """
+    Optical pumping with FORT chopped.
+
+    Turns on:
+        Fiber AOMs 5 and 6
+        GRIN1and2 DDS
+        GRIN1 AOM
+
+    Turns off at the end:
+        D1 DP
+        Pumping Repumper
+        Fiber AOMs 5 and 6
+        GRIN1and2 DDS
+        GRIN1 AOM
+        cooling DP
 
     :param self:
     :return:
@@ -738,13 +795,12 @@ def chopped_optical_pumping(self):
 
     delay(1*ms)
 
-    # so that D1 can pass
+    ### so that D1 can pass
     self.dds_excitation.sw.on()
-    # self.ttl_excitation_switch.off()
     self.ttl_GRIN1_switch.off()
 
 
-    self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
+    self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
 
     # set coils for pumping
     self.zotino0.set_dac(
@@ -775,11 +831,69 @@ def chopped_optical_pumping(self):
     self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     delay(1*ms)
     self.dds_excitation.sw.off()
-    # self.ttl_excitation_switch.on()
     self.ttl_GRIN1_switch.on()
 
     # reset MOT power
     self.dds_cooling_DP.sw.off()
+
+@kernel
+def optical_pumping(self):
+    """
+    optical pumping without chopping the FORT
+
+    :param self:
+    :return:
+    """
+
+    self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+    self.ttl_exc0_switch.on() # turns off the excitation
+    self.dds_cooling_DP.sw.off()  # no cooling light
+
+    ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
+    # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(self.p_pumping_repump_A5))
+    # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(self.p_pumping_repump_A6))
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    delay(1*ms)
+
+    ### so that D1 can pass
+    self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+    self.dds_excitation.sw.on()
+    self.ttl_GRIN1_switch.off()
+
+    ### set coils for pumping
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        channels=self.coil_channels)
+    delay(0.4 * ms)  # coil relaxation time
+
+    ### Optical pumping phase
+    self.dds_D1_pumping_DP.set(frequency=self.f_D1_pumping_DP, amplitude=dB_to_V(self.p_D1_pumping_DP))
+    delay (10 * us)
+    self.dds_D1_pumping_DP.sw.on()
+    self.dds_pumping_repump.sw.on()
+    delay(self.t_pumping)
+    self.dds_D1_pumping_DP.sw.off()
+    delay(self.t_depumping)
+    self.dds_pumping_repump.sw.off()
+
+
+    delay(2*us)
+
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+
+    delay(100 * us)
+
+    # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
+    self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+    delay(1*ms)
+    self.dds_excitation.sw.off()
+    self.ttl_GRIN1_switch.on()
+
 
 @kernel
 def measure_FORT_MM_fiber(self):
@@ -1150,15 +1264,13 @@ def end_measurement(self):
     :return measurement: TInt32, the measurement index
     """
 
-    # update the datasets
-    if not self.no_first_shot:
-        self.append_to_dataset('SPCM0_RO1_current_iteration', self.SPCM0_RO1)
-        self.SPCM0_RO1_list[self.measurement] = self.SPCM0_RO1
+    ### update the datasets
+    self.append_to_dataset('SPCM0_RO1_current_iteration', self.SPCM0_RO1)
+    self.SPCM0_RO1_list[self.measurement] = self.SPCM0_RO1
 
-        self.append_to_dataset('SPCM1_RO1_current_iteration', self.SPCM1_RO1)
-        self.SPCM1_RO1_list[self.measurement] = self.SPCM1_RO1
+    self.append_to_dataset('SPCM1_RO1_current_iteration', self.SPCM1_RO1)
+    self.SPCM1_RO1_list[self.measurement] = self.SPCM1_RO1
 
-    # update the datasets
     self.set_dataset(self.measurements_progress, 100*self.measurement/self.n_measurements, broadcast=True)
 
     self.append_to_dataset('SPCM0_RO2_current_iteration', self.SPCM0_RO2)
@@ -1197,9 +1309,8 @@ def end_measurement(self):
 
     if advance:
         self.measurement += 1
-        if not self.no_first_shot:
-            self.append_to_dataset('SPCM0_RO1', self.SPCM0_RO1)
-            self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
+        self.append_to_dataset('SPCM0_RO1', self.SPCM0_RO1)
+        self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
         self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
         self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
 
@@ -1294,7 +1405,7 @@ def atom_loading_experiment(self):
         record_chopped_readout(self, readout_duration=self.t_SPCM_second_shot, label="second_chopped_readout")
         delay(100*ms)
 
-    self.print_async("in exp:",self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT)
+    # self.print_async("in exp:",self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT)
 
     self.require_D1_lock_to_advance = False # override experiment variable
 
@@ -1315,8 +1426,11 @@ def atom_loading_experiment(self):
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
             channels=self.coil_channels)
-
         delay(0.2 * ms) ### Coils relaxation time
+
+        ### set the FORT AOM to the readout settings
+        self.dds_FORT.set(frequency=self.f_FORT,
+                          amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ### set the cooling DP AOM to the readout settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -1441,50 +1555,39 @@ def microwave_Rabi_experiment(self):
     self.SPCM1_RO1 = 0
     self.SPCM1_RO2 = 0
 
-    # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
-
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
         delay(100*ms)
+
     if self.t_blowaway > 0.0:
         record_chopped_blow_away(self)
         delay(100*ms)
 
-    delay(10 * ms)
+    # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(10 * ms)
+    delay(1 * ms)
     self.dds_microwaves.sw.on()
-    delay(100 * ms)
+    delay(1 * ms)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
-
             # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
             self.dds_microwaves.sw.on()
 
         load_MOT_and_FORT(self)
 
         delay(0.1 * ms)
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-            channels=self.coil_channels)
-        delay(0.2 * ms) ## coils relaxation time
 
-        # set the FORT AOM to the readout settings
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitudes[1])
+        first_shot(self)
 
-        # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                                amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
-
-        if not self.no_first_shot:
-            first_shot(self)
-        delay(1 * ms) # leave the repump on so atoms are left in F=2
-        self.ttl_repump_switch.on()  # turns the RP AOM off
+        # todo: do we need to pump into F=2? Remove see what happens.
+        # self.ttl_repump_switch.off()  # turns the MOT RP AOM on
+        # delay(1 * ms) # leave the repump on so atoms are left in F=2
+        # self.ttl_repump_switch.on()  # turns the MOT RP AOM off
+        delay (1 * ms)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -1494,9 +1597,16 @@ def microwave_Rabi_experiment(self):
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
+        ### With chopped pumping:
         if self.t_pumping > 0.0:
             chopped_optical_pumping(self)
             delay(1*ms)
+
+        # ### with cw pumping:
+        # if self.t_pumping > 0.0:
+        #     delay (10 * us)
+        #     optical_pumping(self)
+        #     delay(1*ms)
 
         ############################
         # microwave phase
@@ -1510,18 +1620,14 @@ def microwave_Rabi_experiment(self):
                 [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP,
                  self.AX_volts_OP, self.AY_volts_OP],
                 channels=self.coil_channels)
-            delay(0.1*ms)
-            # self.zotino0.set_dac(
-            #     [self.AZ_bottom_volts_microwave, self.AZ_top_volts_microwave,
-            #      self.AX_volts_microwave, self.AY_volts_microwave],
-            #     channels=self.coil_channels)
-            # delay(0.1*ms)
+            delay(0.3*ms)
 
             self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
+            delay(0.1 * ms)
 
         ############################
         # blow-away phase - push out atoms in F=2 only
@@ -1530,15 +1636,15 @@ def microwave_Rabi_experiment(self):
         if self.t_blowaway > 0.0:
             chopped_blow_away(self)
 
-        # set the FORT AOM to the readout settings
+        ### set the FORT AOM to the readout settings
         self.dds_FORT.set(frequency=self.f_FORT,
                           amplitude=self.stabilizer_FORT.amplitudes[1])
 
-        # take the second shot
+        ### take the second shot
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
             channels=self.coil_channels)
-        delay(0.1 * ms)
+        delay(2 * ms)
 
         second_shot(self)
 

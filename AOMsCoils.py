@@ -18,9 +18,9 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("Repump_AOM_switch_ON", BooleanValue(default=True))
         self.setattr_argument("D1_pumping_DP_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False))
-        # self.setattr_argument("excitation_AOM_ON", BooleanValue(default=False))
-        self.setattr_argument("Excitation_AOM_switch_ON", BooleanValue(default=False))
-        self.setattr_argument("GRIN1_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("Excitation0_AOM_switch_ON", BooleanValue(default=False))
+        self.setattr_argument("GRIN1and2_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("GRIN1_AOM_switch_ON", BooleanValue(default=False))
         self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "Fiber AOMs")
@@ -79,32 +79,23 @@ class AOMsCoils(EnvExperiment):
             self.dds_pumping_repump.sw.off()
 
         delay(1 * ms)
-        if self.Excitation_AOM_switch_ON == True:
+        if self.Excitation0_AOM_switch_ON == True:
             self.ttl_exc0_switch.off()
         else:
             self.ttl_exc0_switch.on()
 
         delay(1 * ms)
-        if self.GRIN1_AOM_ON == True:
+        if self.GRIN1and2_AOM_ON == True:
             self.dds_excitation.sw.on()
-            self.ttl_GRIN1_switch.off()
         else:
             self.dds_excitation.sw.off()
+
+        delay(1 * ms)
+        if self.GRIN1_AOM_switch_ON == True:
+            self.ttl_GRIN1_switch.off()
+        else:
             self.ttl_GRIN1_switch.on()
 
-        # delay(1 * ms)
-        # if self.excitation_AOM_ON == True:
-        #     # self.ttl_excitation_switch.off()
-        #     self.dds_excitation.sw.on()
-        #
-        #     self.ttl_exc0_switch.off()
-        #     self.ttl_GRIN1_switch.off()
-        # else:
-        #     # self.ttl_excitation_switch.on()
-        #     self.dds_excitation.sw.off()
-        #
-        #     self.ttl_exc0_switch.on()
-        #     self.ttl_GRIN1_switch.on()
 
         # MOT arm fiber AOMs, excitation AOM:
         delay(1 * ms)
