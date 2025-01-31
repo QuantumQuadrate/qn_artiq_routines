@@ -131,8 +131,8 @@ class GeneralVariableOptimizer(EnvExperiment):
     def prepare(self):
         self.base.prepare()
 
-        self.single_atom_SPCM0_RO1_threshold = self.single_atom_counts_per_s*self.t_SPCM_first_shot
-        self.single_atom_SPCM0_RO2_threshold = self.single_atom_counts_per_s*self.t_SPCM_second_shot
+        self.single_atom_SPCM0_RO1_threshold = self.single_atom_threshold*self.t_SPCM_first_shot
+        self.single_atom_SPCM0_RO2_threshold = self.single_atom_threshold*self.t_SPCM_second_shot
 
         self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
         assert type(self.override_ExperimentVariables_dict) == dict, \

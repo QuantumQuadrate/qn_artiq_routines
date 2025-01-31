@@ -5,7 +5,7 @@ with a fit
 
 applet command:
 ppython "C:\...\artiq-master\repository\qn_artiq_routines\applets\plot_loading_background.py"
-SPCM0_RO1 SPCM0_RO2 n_measurements single_atom_counts_per_s t_SPCM_first_shot
+SPCM0_RO1 SPCM0_RO2 n_measurements single_atom_threshold t_SPCM_first_shot
 """
 
 #!/usr/bin/env python3

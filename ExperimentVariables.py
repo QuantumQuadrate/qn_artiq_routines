@@ -290,7 +290,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("verify_OP_in_photon_experiment", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
-            Variable("single_atom_counts_per_s", 33000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_threshold", 45000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
             Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
