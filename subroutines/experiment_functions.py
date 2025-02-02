@@ -2840,21 +2840,33 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
 
             at_mu(t1 + 150 + int(self.t_photon_collection_time / ns) + 150)
             self.dds_FORT.sw.on()  ### turns FORT on
-
-            at_mu(t1+150)
-            self.ttl_GRIN1_switch.off() # turns on excitation
-
-            at_mu(t1 + 150 + int(self.t_excitation_pulse / ns))
-            self.ttl_GRIN1_switch.on()  # turns off excitation
+            #
+            # at_mu(t1+150)
+            # self.ttl_GRIN1_switch.off() # turns on excitation
+            #
+            # at_mu(t1 + 150 + int(self.t_excitation_pulse / ns))
+            # self.ttl_GRIN1_switch.on()  # turns off excitation
 
             at_mu(t1 + 150 + int(self.gate_start_offset_mu))
 
+
+            ######### Using the edge_counter:
+            # with parallel:
+            #     self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_time)
+            #     self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_time)
+            # # delay(15 * us)
+            # SPCM0_SinglePhoton = self.ttl_SPCM0_counter.fetch_count()
+            # SPCM1_SinglePhoton = self.ttl_SPCM1_counter.fetch_count()
+
+            ######### Using ttl.count (works well):
             with parallel:
-                self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_time)
-                self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_time)
-            delay(15 * us)
-            SPCM0_SinglePhoton = self.ttl_SPCM0_counter.fetch_count()
-            SPCM1_SinglePhoton = self.ttl_SPCM1_counter.fetch_count()
+                t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
+                t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
+            SPCM0_SinglePhoton = self.ttl_SPCM0.count(t_end_SPCM0)
+            SPCM1_SinglePhoton = self.ttl_SPCM1.count(t_end_SPCM1)
+
+            SPCM0_timestamps = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
+            SPCM1_timestamps = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
 
 
             delay(15 * us)
@@ -2947,6 +2959,7 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
 
         end_measurement(self)
 
+        delay(10 * ms)
 
         for val in SPCM0_SinglePhoton_array:
             self.append_to_dataset('SPCM0_SinglePhoton', val)
@@ -2957,6 +2970,7 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
 
         delay(10*ms)
 
+    delay(1 * ms)
     self.dds_FORT.sw.off()
 
 @kernel
