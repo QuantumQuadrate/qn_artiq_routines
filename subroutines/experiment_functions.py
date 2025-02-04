@@ -706,7 +706,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
     ### First check if there is already an atom in the FORT based on RO2
     delay(100 * us)
     if self.measurement > 0:
-        if self.BothSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold_for_loading:
+        if self.BothSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold:
             atom_loaded = True
 
             ###########  PGC on the trapped atom  #############
@@ -841,7 +841,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         self.dds_cooling_DP.sw.off()  ### turn off cooling
 
         delay(1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        # self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
         ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
@@ -1059,17 +1059,17 @@ def first_shot(self):
 
     :return:
     """
-    ### set the coils to the readout settings
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-        channels=self.coil_channels)
-    delay(0.4 * ms) ## coils relaxation time
-
     ### set the FORT AOM to the readout settings
     if self.which_node == 'alice':
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
     elif self.which_node == 'bob':
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+
+    ### set the coils to the readout settings
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        channels=self.coil_channels)
+    delay(0.4 * ms) ## coils relaxation time
 
     ### set the cooling DP AOM to the readout settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -1660,7 +1660,7 @@ def measure_GRIN1(self):
     """
     measurement_buf = np.array([0.0]*8)
     measurement = 0.0
-    avgs = 50
+    avgs = 10
 
     # self.dds_FORT.sw.off() ### Why turnning off FORT?
     self.ttl_repump_switch.on()  # turns the RP AOM off
@@ -1727,7 +1727,7 @@ def measure_REPUMP(self):
     measurement1 = 0.0 # Repump 1
     measurement2 = 0.0 # Repump 2
 
-    avgs = 50
+    avgs = 10
 
     # self.dds_FORT.sw.off() ### Why turnning of FORT?
     self.ttl_repump_switch.off()  # turns the RP AOM on
@@ -1780,7 +1780,7 @@ def measure_PUMPING_REPUMP(self):
     measurement1 = 0.0 # Repump 5
     measurement2 = 0.0 # Repump 6
 
-    avgs = 50
+    avgs = 10
 
     # self.dds_FORT.sw.off() ### Why tunning of FORT?
     self.ttl_repump_switch.on()  # turns the RP AOM off
@@ -1801,7 +1801,7 @@ def measure_PUMPING_REPUMP(self):
         self.sampler0.sample(measurement_buf)
         delay(0.1 * ms)
         measurement1 += measurement_buf[1] # Repump 5
-        delay(0.1 * ms)
+        # delay(0.1 * ms)
         measurement2 += measurement_buf[2] # Repump 6
 
 
@@ -2177,18 +2177,20 @@ def end_measurement(self):
 
     self.append_to_dataset("SPCM0_FORT_science", self.SPCM0_FORT_science)
 
-    # now done at the beginning of the experiment for FORT POL stabilization
+    ### now done at the beginning of the experiment for FORT POL stabilization
     # delay(1*ms)
     # measure_FORT_MM_fiber(self)
+
     delay(1*ms)
     measure_GRIN1(self)
     delay(1*ms)
     measure_PUMPING_REPUMP(self)
     delay(1*ms)
-    if self.which_node == "alice":
-        measure_Magnetometer(self)
-        delay(1*ms)
-        Sampler0_test(self)
+
+    # if self.which_node == "alice":
+    #     measure_Magnetometer(self)
+    #     delay(1*ms)
+    #     Sampler0_test(self)
 
     # measure_MOT_end(self)
     # delay(1*ms)
@@ -2959,6 +2961,7 @@ def microwave_freq_scan_with_photons_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         self.laser_stabilizer.run()
 
     delay(1 * ms)
