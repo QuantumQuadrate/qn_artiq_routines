@@ -32,7 +32,7 @@ class ExperimentCycler(EnvExperiment):
 
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
-        self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
 
         experiment_function_names_list = [x for x in dir(exp_functions)
             if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"
@@ -61,8 +61,10 @@ class ExperimentCycler(EnvExperiment):
             raise
 
         self.measurement = 0
-        self.counts = 0
-        self.counts2 = 0
+        self.SPCM0_RO1 = 0
+        self.SPCM0_RO2 = 0
+        self.SPCM1_RO1 = 0
+        self.SPCM1_RO2 = 0
 
     @kernel
     def hardware_init(self):
@@ -84,13 +86,15 @@ class ExperimentCycler(EnvExperiment):
         set datasets that are redefined each iteration.
         :return:
         """
-        self.set_dataset("test_dataset", [0], broadcast=True)
+        # self.set_dataset("test_dataset", [0], broadcast=True)
 
         # typically these datasets are used for plotting which would be meaningless if we continued to append to the data,
         # e.g. for the second readout histogram which we expect in general will change as experiment parameters induce
         # different amount of atom loss.
-        self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
-        self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
 
         # no reason to let these datasets grow to huge lengths
         for ch in self.laser_stabilizer.all_channels:
@@ -115,7 +119,7 @@ class ExperimentCycler(EnvExperiment):
 
         while True:
 
-            self.hardware_init()
+            self.hardware_init()  # same as initialize hardware
             self.reset_datasets()
 
             # the measurement loop.

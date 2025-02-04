@@ -11,7 +11,7 @@ Experiment cycle (repeats n times)
 7. Turn on the fiber AOMs and read from a single SPCM (TTL) for a certain exposure time
 8. Store the number of counts registered by the SPCM in an array
 End of experiment
-9. Save the array of counts to a file
+9. Save the array of SPCM0_RO1 to a file
 
 
 * Tested that all the delays and timings are functioning as expected by pulsing TTLs at different points and monitoring
@@ -67,7 +67,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.cooling_volts_ch = 7
 
         # self.hist_bins = np.zeros(self.bins, dtype=int)
-        # self.photocounts = np.full(self.n_measurements, 0.0)
+        # self.SPCM0_RO1 = np.full(self.n_measurements, 0.0)
 
         print("prepare - done")
 
@@ -87,7 +87,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0],  # voltages must be floats or ARTIQ complains
                              channels=self.coil_channels)
 
-        self.set_dataset("photocounts_per_s", [0], broadcast=True)
+        self.set_dataset("SPCM0_counts_per_s", [0], broadcast=True)
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
 
         # turn on cooling/RP AOMs
@@ -170,10 +170,10 @@ class SimpleAtomTrapNoChop(EnvExperiment):
 
             ### take the shot
             t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-            counts = self.ttl0.count(t_gate_end)
+            SPCM0_RO1 = self.ttl0.count(t_gate_end)
             delay(1*ms)
             if self.print_counts:
-                print(counts)
+                print(SPCM0_RO1)
             delay(10 * ms)
 
             self.ttl6.pulse(5*ms)
@@ -190,7 +190,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
 
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-            self.append_to_dataset('photocounts_per_s', counts/self.t_SPCM_exposure)
+            self.append_to_dataset('SPCM0_counts_per_s', SPCM0_RO1/self.t_SPCM_exposure)
 
             if self.print_measurement_number:
                 print("measurement", measurement)

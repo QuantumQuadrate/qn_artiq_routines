@@ -29,7 +29,7 @@
                 {
                     "sampler_ch": 3,
                     "set_points": ["set_point_PD3_AOM_A3"],
-                    "p": 0.2,
+                    "p": 0.1,
                     "i": 0.000,
                     "series": true,
                     "dataset": "MOT3_monitor",
@@ -41,7 +41,7 @@
                 {
                     "sampler_ch": 4,
                     "set_points": ["set_point_PD4_AOM_A4"],
-                    "p": 0.2,
+                    "p": 0.1,
                     "i": 0.0,
                     "series": true,
                     "dataset": "MOT4_monitor",
@@ -53,7 +53,7 @@
                 {
                     "sampler_ch": 1,
                     "set_points": ["set_point_PD5_AOM_A5"],
-                    "p": 0.07,
+                    "p": 0.1,
                     "i": 0.00,
                     "series": true,
                     "dataset":"MOT5_monitor",
@@ -61,6 +61,7 @@
                     "t_measure_delay":0.0005,
                     "max_dB": -3
                 },
+
             "dds_AOM_A6":
                 {
                     "sampler_ch": 2,
@@ -101,6 +102,25 @@
                     "power_dataset":"p_D1_pumping_DP",
                     "t_measure_delay":0.00001,
                     "max_dB": -5
+                },
+            "dds_excitation":
+                {
+                    "sampler_ch": 4,
+                    "set_points": ["set_point_excitation"],
+                    "p": 0.2,
+                    "i": 0.0,
+                    "series": true,
+                    "dataset":"GRIN1_EXC_feedback_monitor",
+                    "power_dataset":"p_excitation",
+                    "t_measure_delay":0.001,
+                    "max_dB": 0.5,
+                    "comment": ""
                 }
         }
+
+
+
+
+
+
 }

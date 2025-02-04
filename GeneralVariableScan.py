@@ -141,8 +141,10 @@ class GeneralVariableScan(EnvExperiment):
             raise
 
         self.measurement = 0
-        self.counts = 0
-        self.counts2 = 0
+        self.SPCM0_RO1 = 0
+        self.SPCM0_RO2 = 0
+        self.SPCM1_RO1 = 0
+        self.SPCM1_RO2 = 0
 
         # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
         # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
@@ -184,8 +186,10 @@ class GeneralVariableScan(EnvExperiment):
         :return:
         """
         self.set_dataset("test_dataset", [0], broadcast=True)
-        self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
-        self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
 
         # these are set here because running BaseExperiment.initialize_hardware resets these to be empty
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
@@ -256,7 +260,7 @@ class GeneralVariableScan(EnvExperiment):
         for variable, value in self.override_ExperimentVariables_dict.items():
             setattr(self, variable, value)
 
-        self.warm_up()
+        # self.warm_up()
 
         for variable1_value in self.scan_sequence1:
             # update the variable. setattr can't be called on the kernel, and this is what
@@ -281,6 +285,8 @@ class GeneralVariableScan(EnvExperiment):
 
                 # the measurement loop.
                 self.experiment_function()
+
+
                 # write and overwrite the file here so we can quit the experiment early without losing data
                 self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 

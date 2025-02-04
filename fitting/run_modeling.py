@@ -120,7 +120,7 @@ def get_release_recap_fit_result(tlist, retention, p0=None, bounds=None, retenti
                 p0 = [4e-5, retention[0]]
         if bounds is None:
                 lower_bounds = np.array([1e-7, 0.0])
-                upper_bounds = np.array([5e-4, 1.0])
+                upper_bounds = np.array([5e-4, 1.01])
                 bounds = (lower_bounds, upper_bounds)
 
         model = lambda t, T, r: release_recap_retention_at_t(t, T, r, **retention_at_t_kwargs)

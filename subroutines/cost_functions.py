@@ -13,7 +13,7 @@ Adding new cost function:
 1. The name of each function below MUST end in 'cost'
 2. The cost function must take self as the first and only argument,
 which is a reference to an experiment. This allows the cost function
-to reference the self.counts we care about without needing to pass in self.counts
+to reference the self.SPCM0_RO1 we care about without needing to pass in self.SPCM0_RO1
 explicitly thus allowing us to keep the interface general.
 3. The cost returned by the function must be a float.
 
@@ -35,14 +35,14 @@ def atoms_loaded_in_continuous_MOT_cost(self) -> TFloat:
     the cost function for optimizing number of atoms in the dipole trap
     in a continuously loaded MOT
     :param self: experiment instance
-    :param photocounts: sequence containing photon count values for the measurement interval
+    :param SPCM0_RO1: sequence containing photon count values for the measurement interval
     :return: -1 * atoms_loaded, the negated number of atoms loaded
     """
 
     atoms_loaded = 0
-    q_last = (self.photocounts[0] > self.single_atom_counts_threshold)
-    for x in self.photocounts[1:]:
-        q = x > self.single_atom_counts_threshold
+    q_last = (self.SPCM0_RO1[0] > self.single_atom_SPCM0_RO1_threshold)
+    for x in self.SPCM0_RO1[1:]:
+        q = x > self.single_atom_SPCM0_RO1_threshold
         if q != q_last and q_last:
             atoms_loaded += 1
         q_last = q
@@ -63,11 +63,16 @@ def atom_loading_cost(self) -> TFloat:
     :return: -1*atom_retention, the negated number of atoms detected in the readout
     """
 
-    shot1 = self.counts_list
-    atoms_loaded = [x > self.single_atom_counts_threshold for x in shot1]
+    shot1 = self.SPCM0_RO1_list
+    atoms_loaded = [x > self.single_atom_SPCM0_RO1_threshold for x in shot1]
     n_atoms_loaded = sum(atoms_loaded)
     loading_fraction = n_atoms_loaded/len(shot1)
-    return -100 * loading_fraction
+
+    cost = -100 * loading_fraction
+
+    # todo delete
+    print("inside cost function:", self.iteration, cost)
+    return cost
 
 
 def atom_loading_with_otsu_threshold_cost(self) -> TFloat:
@@ -83,8 +88,8 @@ def atom_loading_with_otsu_threshold_cost(self) -> TFloat:
     :return: -1*atom_retention, the negated number of atoms detected in the readout
     """
 
-    shot1 = self.counts_list
-    atoms_loaded = [x > self.single_atom_counts_threshold for x in shot1]
+    shot1 = self.SPCM0_RO1_list
+    atoms_loaded = [x > self.single_atom_SPCM0_RO1_threshold for x in shot1]
     n_atoms_loaded = sum(atoms_loaded)
     loading_fraction = n_atoms_loaded/len(shot1)
 
@@ -94,7 +99,7 @@ def atom_loading_with_otsu_threshold_cost(self) -> TFloat:
     # still return a cut-off even if we load no atoms, and the cut-off would just bisect the background mode. Put
     # another way, it can not tell whether the data is bimodal or not.
     if loading_fraction > 0.3:  # apparent very low rate loading might just be wrongly classified background
-        threshold = threshold_otsu(np.array(self.counts_list))
+        threshold = threshold_otsu(np.array(self.SPCM0_RO1_list))
         atoms_loaded = [x > threshold for x in shot1]
         n_atoms_loaded = sum(atoms_loaded)
         loading_fraction = n_atoms_loaded / len(shot1)
@@ -115,16 +120,16 @@ def atom_retention_and_loading_cost(self) -> TFloat:
     """
 
     cost = 1
-    shot1 = self.counts_list
-    shot2 = self.counts2_list
-    atoms_loaded = [x > self.single_atom_counts_threshold for x in shot1]
+    shot1 = self.SPCM0_RO1_list
+    shot2 = self.SPCM0_RO2_list
+    atoms_loaded = [x > self.single_atom_SPCM0_RO1_threshold for x in shot1]
     n_atoms_loaded = sum(atoms_loaded)
-    atoms_retained = [x > self.single_atom_counts2_threshold and y for x, y in zip(shot2, atoms_loaded)]
+    atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
     loading_fraction = n_atoms_loaded/len(shot1)
 
     if loading_fraction > 0.3:  # apparent very low rate loading might just be wrongly classified background
-        threshold = threshold_otsu(np.array(self.counts_list))
+        threshold = threshold_otsu(np.array(self.SPCM0_RO1_list))
         atoms_loaded = [x > threshold for x in shot1]
         n_atoms_loaded = sum(atoms_loaded)
         loading_fraction = n_atoms_loaded / len(shot1)
@@ -144,11 +149,11 @@ def atom_retention_cost(self) -> TFloat:
     :return: -100*retention_fraction, the negated percentage of atoms detected in the readout
     """
 
-    shot1 = self.counts_list
-    shot2 = self.counts2_list
-    atoms_loaded = [x > self.single_atom_counts_threshold for x in shot1]
+    shot1 = self.SPCM0_RO1_list
+    shot2 = self.SPCM0_RO2_list
+    atoms_loaded = [x > self.single_atom_SPCM0_RO1_threshold for x in shot1]
     n_atoms_loaded = sum(atoms_loaded)
-    atoms_retained = [x > self.single_atom_counts2_threshold and y for x, y in zip(shot2, atoms_loaded)]
+    atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
     loading_fraction = n_atoms_loaded/len(shot1)
 
@@ -158,10 +163,10 @@ def atom_retention_cost(self) -> TFloat:
     # # still return a cut-off even if we load no atoms, and the cut-off would just bisect the background mode. Put
     # # another way, it can not tell whether the data is bimodal or not.
     # if loading_fraction > 0.3:  # apparent very low rate loading might just be wrongly classified background
-    #     threshold = threshold_otsu(np.array(self.counts_list))
+    #     threshold = threshold_otsu(np.array(self.SPCM0_RO1_list))
     #     atoms_loaded = [x > threshold for x in shot1]
     #     n_atoms_loaded = sum(atoms_loaded)
-    #     atoms_retained = [x > self.single_atom_counts2_threshold and y for x, y in zip(shot2, atoms_loaded)]
+    #     atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     #     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
     return -100 * retention_fraction
@@ -175,11 +180,11 @@ def atom_blowaway_cost(self) -> TFloat:
     :return: 100*(retention_fraction-1)
     """
 
-    shot1 = self.counts_list
-    shot2 = self.counts2_list
-    atoms_loaded = [x > self.single_atom_counts_threshold for x in shot1]
+    shot1 = self.SPCM0_RO1_list
+    shot2 = self.SPCM0_RO2_list
+    atoms_loaded = [x > self.single_atom_SPCM0_RO1_threshold for x in shot1]
     n_atoms_loaded = sum(atoms_loaded)
-    atoms_retained = [x > self.single_atom_counts2_threshold and y for x, y in zip(shot2, atoms_loaded)]
+    atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
     return 100*(retention_fraction - 1)

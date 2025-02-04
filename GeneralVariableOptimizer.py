@@ -131,8 +131,8 @@ class GeneralVariableOptimizer(EnvExperiment):
     def prepare(self):
         self.base.prepare()
 
-        self.single_atom_counts_threshold = self.single_atom_counts_per_s*self.t_SPCM_first_shot
-        self.single_atom_counts2_threshold = self.single_atom_counts_per_s*self.t_SPCM_second_shot
+        self.single_atom_SPCM0_RO1_threshold = self.single_atom_threshold*self.t_SPCM_first_shot
+        self.single_atom_SPCM0_RO2_threshold = self.single_atom_threshold*self.t_SPCM_second_shot
 
         self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
         assert type(self.override_ExperimentVariables_dict) == dict, \
@@ -179,8 +179,8 @@ class GeneralVariableOptimizer(EnvExperiment):
                                                       max_boundary=max_bounds)
 
         self.measurement = 0
-        self.counts = 0
-        self.counts2 = 0
+        self.SPCM0_RO1 = 0
+        self.SPCM0_RO2 = 0
 
         # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
         # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
@@ -223,13 +223,13 @@ class GeneralVariableOptimizer(EnvExperiment):
         """
         set datasets that are redefined each iteration.
 
-        typically these datasets are used for plotting which would be meaningless if we continued to append to the photocounts,
+        typically these datasets are used for plotting which would be meaningless if we continued to append to the SPCM0_RO1,
         e.g. for the second readout histogram which we expect in general will change as experiment parameters induce
         different amount of atom loss.
         :return:
         """
-        self.set_dataset('photocounts_current_iteration', [0], broadcast=True)
-        self.set_dataset('photocounts2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
 
     def run(self):
 
@@ -253,7 +253,8 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         print('Best parameters found:')
         print(self.mloop_controller.best_params)
-        # best_params = self.mloop_controller.best_params
+        best_params = self.mloop_controller.best_params
+        print(best_params)
         # self.set_experiment_variables_to_best_params(best_params)
 
         self.print_async("initial cost:", self.initial_cost)
@@ -325,16 +326,24 @@ class GeneralVariableOptimizer(EnvExperiment):
                 self.set_dataset(self.optimizer_var_datasets[i], [self.var_and_bounds_objects[i].default_value],
                                  broadcast=True)
 
+        # todo: delete
+        print("in opt. routine:", params)
+
         self.initialize_hardware()
         self.reset_datasets()
 
         # the measurement loop.
         self.experiment_function()
 
+        cost = self.get_cost()
+        # todo: delete
+        # if check_initial_cost:
+        #     print("this is the starting cost")
+        # print("inside optimization routine:", self.iteration, cost)
+
         self.iteration += 1
         self.set_dataset("iteration", self.iteration, broadcast=True)
 
-        cost = self.get_cost()
         if not check_initial_cost:
             self.append_to_dataset(self.cost_dataset, cost)
             if cost < self.best_cost:

@@ -74,8 +74,8 @@ class MOTDetuningAndGradBScan(EnvExperiment):
                              channels=self.coil_channels)
 
         self.set_dataset("photocount_bins", [50], broadcast=True)
-        self.set_dataset("photocounts", [0])
-        self.set_dataset("photocounts_current_iteration", [0], broadcast=True, archive=False)
+        self.set_dataset("SPCM0_RO1", [0])
+        self.set_dataset("SPCM0_RO1_current_iteration", [0], broadcast=True, archive=False)
         self.set_dataset("FORT_TTI_volts", [0.0])
 
         # turn off AOMs we aren't using, in case they were on previously
@@ -125,8 +125,8 @@ class MOTDetuningAndGradBScan(EnvExperiment):
 
             for dV_Z in self.dV_Z_coils_list:
 
-                # reset the photocounts that we're plotting
-                self.set_dataset("photocounts_current_iteration", [0], broadcast=True, archive=False)
+                # reset the SPCM0_RO1 that we're plotting
+                self.set_dataset("SPCM0_RO1_current_iteration", [0], broadcast=True, archive=False)
 
                 # experiment loop
                 for measurement in range(self.n_measurements):
@@ -193,8 +193,8 @@ class MOTDetuningAndGradBScan(EnvExperiment):
                     delay(self.t_SPCM_second_shot + 2*ms)
 
                     # update the datasets
-                    self.append_to_dataset('photocounts', counts)
-                    self.append_to_dataset('photocounts_current_iteration', counts)
+                    self.append_to_dataset('SPCM0_RO1', counts)
+                    self.append_to_dataset('SPCM0_RO1_current_iteration', counts)
 
         # effectively turn the FORT AOM off
         self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)

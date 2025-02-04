@@ -81,8 +81,8 @@ class SingleAtomTrapLifetime(EnvExperiment):
                              channels=self.coil_channels)
 
         # todo: these are going to be regularly used, so put these in the base experiment
-        self.set_dataset("photocounts", [0], broadcast=True)
-        self.set_dataset("photocounts2", [0], broadcast=True)
+        self.set_dataset("SPCM0_RO1", [0], broadcast=True)
+        self.set_dataset("SPCM0_RO2", [0], broadcast=True)
 
         self.set_dataset("photocount_bins", [self.bins], broadcast=True)
         self.set_dataset("n_measurements", self.n_measurements, broadcast=True)
@@ -103,15 +103,15 @@ class SingleAtomTrapLifetime(EnvExperiment):
             self.laser_stabilizer.run()
         delay(1*ms)
 
-        counts = 0
-        counts2 = 0
+        SPCM0_RO1 = 0
+        SPCM0_RO2 = 0
 
         iteration = 0
         for t_delay_between_shots in self.t_delay_between_shots_list:
 
             # these are the datasets for plotting only, an we restart them each iteration
-            self.set_dataset("photocounts_current_iteration", [0], broadcast=True)
-            self.set_dataset("photocounts2_current_iteration", [0], broadcast=True)
+            self.set_dataset("SPCM0_RO1_current_iteration", [0], broadcast=True)
+            self.set_dataset("SPCM0_RO2_current_iteration", [0], broadcast=True)
 
             # loop the experiment sequence
             for measurement in range(self.n_measurements):
@@ -132,7 +132,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
                     # take the first shot
                     self.dds_cooling_DP.sw.on()
                     t_gate_end = self.ttl0.gate_rising(self.t_SPCM_first_shot)
-                    counts = self.ttl0.count(t_gate_end)
+                    SPCM0_RO1 = self.ttl0.count(t_gate_end)
                     delay(1*ms)
                     self.dds_cooling_DP.sw.off()
 
@@ -141,7 +141,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
                 # take the second shot
                 self.dds_cooling_DP.sw.on()
                 t_gate_end = self.ttl0.gate_rising(self.t_SPCM_second_shot)
-                counts2 = self.ttl0.count(t_gate_end)
+                SPCM0_RO2 = self.ttl0.count(t_gate_end)
                 delay(1*ms)
 
                 if not self.MOT_AOMs_always_on:
@@ -155,12 +155,12 @@ class SingleAtomTrapLifetime(EnvExperiment):
 
                 # update the datasets
                 if not self.no_first_shot:
-                    self.append_to_dataset('photocounts', counts)
-                    self.append_to_dataset('photocounts_current_iteration', counts)
+                    self.append_to_dataset('SPCM0_RO1', SPCM0_RO1)
+                    self.append_to_dataset('SPCM0_RO1_current_iteration', SPCM0_RO1)
 
                 # update the datasets
-                self.append_to_dataset('photocounts2', counts2)
-                self.append_to_dataset('photocounts2_current_iteration', counts2)
+                self.append_to_dataset('SPCM0_RO2', SPCM0_RO2)
+                self.append_to_dataset('SPCM0_RO2_current_iteration', SPCM0_RO2)
                 self.set_dataset("iteration", iteration, broadcast=True)
 
             iteration += 1
