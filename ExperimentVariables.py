@@ -59,12 +59,15 @@ class ExperimentVariables(EnvExperiment):
         self.vars_list = [
 
             Variable("n_measurements", 50, NumberValue, {'type': 'int', 'ndecimals':0, 'step':1, 'scale':1}, "general"),
-            Variable("require_atom_loading_to_advance", True, BooleanValue, {}, "general"),
+            Variable("require_atom_loading_to_advance", False, BooleanValue, {}, "general"),
+            Variable("require_atom_loading_to_advance_in_single_photon_exp", True, BooleanValue, {}, "single photon experiment"),
 
             Variable("n_excitation_attempts", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
-                     "general"),
+                     "single photon experiment"),
             Variable("n_excitation_cycles", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
-                     "general"),
+                     "single photon experiment"),
+
+            Variable("record_every_shot", True, BooleanValue, {}, "single photon experiment"),
 
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
@@ -148,6 +151,13 @@ class ExperimentVariables(EnvExperiment):
                      "Fiber AOMs"),
             Variable("p_AOM_A6", -13.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Fiber AOMs"),
+
+            # # Pumping Repump
+            # Variable("p_pumping_repump_A5", -20.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            #          "Fiber AOMs"),
+            # Variable("p_pumping_repump_A6", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+            #          "Fiber AOMs"),
+
 
             # Microwaves
             # assumes the microwave source is set at 6.5 GHz
@@ -233,6 +243,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_SPCM_recool_and_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_in_MOT", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_MOT_dissipation", 3 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
@@ -263,6 +274,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("gate_switch_offset", 0*ns, NumberValue, {'type': 'int', 'unit':'ns',
                                                             'ndecimals': 0, 'scale': 1, 'step': 1},
                      "Timing"),
+            Variable("t_recooling", 1 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
@@ -275,9 +287,10 @@ class ExperimentVariables(EnvExperiment):
             Variable("require_D1_lock_to_advance", False, BooleanValue, {}, "Booleans"),
             Variable("use_chopped_readout", True, BooleanValue, {}, "Booleans"),
             Variable("chopped_RO_light_off", False, BooleanValue, {}, "Booleans"),
+            Variable("verify_OP_in_photon_experiment", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
-            Variable("single_atom_counts_per_s", 33000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_threshold", 45000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
             Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
@@ -291,6 +304,7 @@ class ExperimentVariables(EnvExperiment):
             Variable('set_point_FORT_MM_loading', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable('set_point_FORT_MM_science', 0.2, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
             Variable('set_point_D1_SP', 0.175, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
+            Variable('set_point_excitation', 1.0, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
 
             # Plotting
             Variable("MOT_beam_monitor_points", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
@@ -311,8 +325,6 @@ class ExperimentVariables(EnvExperiment):
             Variable("aom_feedback_averages", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Laser feedback"),
             Variable("aom_feedback_iterations", 4, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
-                     "Laser feedback"),
-            Variable("aom_feedback_periodicity", 2, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
                      "Laser feedback"),
             Variable("Rigol_carrier_frequency", 40 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),

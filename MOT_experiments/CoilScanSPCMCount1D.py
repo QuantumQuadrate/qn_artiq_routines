@@ -128,13 +128,13 @@ class CoilScanSPCMCount1D(EnvExperiment):
         self.sampler_buffer = np.full(8, 0.0)
         self.control_volts_channels = [0, 1, 2, 3]  # the sampler channels to read
 
-        self.count_rate_dataset = 'photocounts_per_s'
-        self.set_dataset(self.count_rate_dataset,
+        self.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
+        self.set_dataset(self.SPCM0_rate_dataset,
                          [0.0],
                          broadcast=True)
 
         self.maxcount_dataset = 'SPCM_max_counts_and_volts'
-        self.set_dataset(self.count_rate_dataset,
+        self.set_dataset(self.SPCM0_rate_dataset,
                          [0.0, *self.default_volts],
                          broadcast=True)
 
@@ -237,7 +237,7 @@ class CoilScanSPCMCount1D(EnvExperiment):
     #         self.zotino0.load()
     #         delay(2 * ms)
     #
-    #         self.append_to_dataset(self.count_rate_dataset, count_rate_Hz)
+    #         self.append_to_dataset(self.SPCM0_rate_dataset, count_rate_Hz)
     #         if count_rate_Hz > max_count_rate:
     #             max_count_rate = count_rate_Hz
     #             best_volts = control_volts

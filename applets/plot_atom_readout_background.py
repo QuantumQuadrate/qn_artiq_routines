@@ -5,7 +5,7 @@ with a fit
 
 applet command:
 ppython "C:\...\artiq-master\repository\qn_artiq_routines\applets\plot_loading_background.py"
-photocounts photocounts2 n_measurements single_atom_counts_per_s t_SPCM_first_shot
+SPCM0_RO1 SPCM0_RO2 n_measurements single_atom_threshold t_SPCM_first_shot
 """
 
 #!/usr/bin/env python3
@@ -83,7 +83,7 @@ class XYPlot(pyqtgraph.PlotWidget):
 def main():
     applet = TitleApplet(XYPlot)
     applet.add_dataset("counts_shot1", "first readout photocounts")
-    applet.add_dataset("counts_shot2", "second readout photocounts2")
+    applet.add_dataset("counts_shot2", "second readout photocounts")
     applet.add_dataset("measurements", "how many measurements per data point")
     applet.add_dataset("threshold_cts_per_s", "the atom signal counts/s threshold")
     applet.add_dataset("t_exposure", "the atom readout exposure time")

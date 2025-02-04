@@ -48,8 +48,8 @@ class MOTMonitorEverything(EnvExperiment):
 
         self.t_SPCM_exposure = self.dt_SPCM_exposure
 
-        self.count_rate_dataset = 'photocounts_per_s'
-        self.set_dataset(self.count_rate_dataset,
+        self.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
+        self.set_dataset(self.SPCM0_rate_dataset,
                          [0.0],
                          broadcast=True)
 
@@ -139,7 +139,7 @@ class MOTMonitorEverything(EnvExperiment):
                     delay(self.t_feedback_period - 2000*ms - 65*ms - self.t_SPCM_exposure)
 
                     delay(1 * ms)
-                    self.append_to_dataset(self.count_rate_dataset, count_rate_Hz)
+                    self.append_to_dataset(self.SPCM0_rate_dataset, count_rate_Hz)
 
             else:
                 # posts one data point for each beam

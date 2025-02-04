@@ -111,7 +111,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                               self.AX_volts_MOT, self.AY_volts_MOT]
         self.volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
 
-        self.set_dataset(self.count_rate_dataset,
+        self.set_dataset(self.SPCM0_rate_dataset,
                          [0.0],
                          broadcast=True)
         print("prepare - done")
@@ -152,6 +152,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         saturated_coils = [False] * 4
         control_volts = [0.0] * 4
+        volts = 0.0
 
         ampl1_factor = 1.0
         ampl2_factor = 1.0
@@ -201,10 +202,10 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
             t_end = self.ttl0.gate_rising(self.dt_exposure)
             counts = self.ttl0.count(t_end)
-            count_rate_per_s = counts / self.dt_exposure
+            SPCM0_counts_per_s = counts / self.dt_exposure
 
             delay(1 * ms)
-            self.append_to_dataset(self.count_rate_dataset, count_rate_per_s)
+            self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts_per_s)
 
             # check the current state of 14 read by ttl3
             self.ttl3.sample_input()
@@ -341,8 +342,11 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
                 if self.what_to_tune == self.both_mode or self.what_to_tune == self.coil_mode:
                     print("setting current coil values")
-                    print(control_volts)
                     for i in range(4):
-                        self.set_dataset(self.volt_datasets[i], control_volts[i], broadcast=True, persist=True)
+                        volts = control_volts[i]
+                        if (volts**2)**(1/2) > 10.0:
+                            sign = volts / (volts ** 2) ** (1 / 2)
+                            volts = sign * 9.9
+                        self.set_dataset(self.volt_datasets[i], volts, broadcast=True, persist=True)
 
         print("Experiment finished.")

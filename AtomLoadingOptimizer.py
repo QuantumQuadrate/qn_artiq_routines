@@ -45,7 +45,7 @@ class AtomLoadingOptimizer(EnvExperiment):
 
         # overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
-        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(70000))
+        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(40000))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
         self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
@@ -76,15 +76,15 @@ class AtomLoadingOptimizer(EnvExperiment):
                               NumberValue(0.1), group)
 
         self.setattr_argument("max_set_point_percent_deviation_minus",
-                              NumberValue(0.3), group)
+                              NumberValue(0.1), group)
 
         # we can balance the z beams with confidence by measuring the powers outside the chamber,
         # so unless we are fine tuning loading, we may want trust our initial manual balancing
         self.setattr_argument("disable_z_beam_tuning",
-                              BooleanValue(True), group)
+                              BooleanValue(False), group)
 
         group1 = "optimizer settings"
-        self.setattr_argument("max_runs",NumberValue(70, type='int', scale=1, ndecimals=0, step=1),group1)
+        self.setattr_argument("max_runs",NumberValue(100, type='int', scale=1, ndecimals=0, step=1),group1)
 
         # this should be close to the mean signal from the atom
         self.base.set_datasets_from_gui_args()
@@ -120,8 +120,8 @@ class AtomLoadingOptimizer(EnvExperiment):
                                   "set_point_PD4_AOM_A4", "set_point_PD5_AOM_A5", "set_point_PD6_AOM_A6"]
         self.default_setpoints = np.array([getattr(self, dataset) for dataset in self.setpoint_datasets])
 
-        self.counts_list = np.zeros(self.n_measurements)
-        self.set_dataset(self.count_rate_dataset,
+        self.SPCM0_counts_list = np.zeros(self.n_measurements)
+        self.set_dataset(self.SPCM0_rate_dataset,
                          [0.0],
                          broadcast=True)
 
@@ -323,16 +323,16 @@ class AtomLoadingOptimizer(EnvExperiment):
         delay(self.t_MOT_loading)
 
         # reset the counts dataset each run so we don't overwhelm the dashboard when plotting
-        self.set_dataset(self.count_rate_dataset,[0.0],broadcast=True)
+        self.set_dataset(self.SPCM0_rate_dataset,[0.0],broadcast=True)
 
         for i in range(self.n_measurements):
             t_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-            counts_per_s = self.ttl0.count(t_end) / self.t_SPCM_exposure
+            SPCM0_counts_per_s = self.ttl0.count(t_end) / self.t_SPCM_exposure
             delay(1 * ms)
-            self.append_to_dataset(self.count_rate_dataset, counts_per_s)
-            self.counts_list[i] = counts_per_s * self.t_SPCM_exposure
+            self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts_per_s)
+            self.SPCM0_counts_list[i] = SPCM0_counts_per_s * self.t_SPCM_exposure
 
-        cost = self.get_cost(self.counts_list)
+        cost = self.get_cost(self.SPCM0_counts_list)
         self.append_to_dataset(self.cost_dataset, cost)
 
         param_idx = 0
