@@ -206,8 +206,7 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
-            self.experiment.ttl_SPCM0 = self.experiment.ttl0
-            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
+            # self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
@@ -215,6 +214,7 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
             self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_excitation_switch = self.experiment.ttl14
 
             # in experiment_functions.py, measure_FORT_MM_fiber() function uses sampler1
             self.experiment.FORT_MM_sampler_ch = 7

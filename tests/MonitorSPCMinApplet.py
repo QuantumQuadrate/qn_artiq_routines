@@ -23,7 +23,7 @@ class MonitorSPCMinApplet(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("run_time_minutes", NumberValue(1))
-        self.setattr_argument("print_count_rate", BooleanValue(False))
+        self.setattr_argument("t_SPCM_exposure", NumberValue(0.05))
 
         self.base.set_datasets_from_gui_args()
 
@@ -42,27 +42,37 @@ class MonitorSPCMinApplet(EnvExperiment):
         self.n_steps = int(60*self.run_time_minutes/self.t_SPCM_exposure+0.5)
         print(self.n_steps)
 
-        self.set_dataset(self.count_rate_dataset,
-                             [0.0],
-                             broadcast=True)
 
         print("prepare - done")
 
     @kernel
     def run(self):
         self.base.initialize_hardware(turn_off_dds_channels=False, turn_off_zotinos=False)
+        self.ttl8.input()
+        self.ttl9.input()
+
+        delay(10 * ms)
+        self.set_dataset("TTL8_per_s", [0.0], broadcast=True)
+        self.set_dataset("TTL9_per_s", [0.0], broadcast=True)
 
         delay(10 * ms)
 
         for i in range(self.n_steps):
 
-            t_gate_end = self.ttl0.gate_rising(self.t_SPCM_exposure)
-            count1 = self.ttl0.count(t_gate_end)
-            count_rate_per_s = count1 / self.t_SPCM_exposure
-            if self.print_count_rate:
-                print(round(count_rate_per_s))
-            delay(10 * ms)
-            self.append_to_dataset(self.count_rate_dataset, count_rate_per_s)
+            t_gate_end = self.ttl8.gate_rising(self.t_SPCM_exposure)
+            count8 = self.ttl8.count(t_gate_end)
+            count8_per_s = count8 / self.t_SPCM_exposure
+
+            delay(1 * ms)
+
+            t_gate_end = self.ttl9.gate_rising(self.t_SPCM_exposure)
+            count9 = self.ttl9.count(t_gate_end)
+            count9_per_s = count9 / self.t_SPCM_exposure
+
+            delay(1 * ms)
+            self.append_to_dataset("TTL8_per_s", count8_per_s)
+            delay(1 * ms)
+            self.append_to_dataset("TTL9_per_s", count9_per_s)
 
 
         print("Experiment finished.")
