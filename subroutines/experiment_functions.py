@@ -2865,9 +2865,9 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
             SPCM0_SinglePhoton = self.ttl_SPCM0.count(t_end_SPCM0)
             SPCM1_SinglePhoton = self.ttl_SPCM1.count(t_end_SPCM1)
 
-            # SPCM0_timestamps = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
-            # SPCM1_timestamps = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
-            ### just a comment in testing something branch.
+            SPCM0_timestamps = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
+            SPCM1_timestamps = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
+
 
             delay(15 * us)
             self.ttl_exc0_switch.on()  # block Excitation
