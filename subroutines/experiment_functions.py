@@ -2850,7 +2850,7 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
             at_mu(t1 + 150 + int(self.gate_start_offset_mu))
 
 
-            ######### Using the edge_counter:
+            ######### Using the edge_counter (works well):
             # with parallel:
             #     self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_time)
             #     self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_time)
