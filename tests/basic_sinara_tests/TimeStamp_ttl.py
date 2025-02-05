@@ -1,27 +1,22 @@
-### Test test2
+### 11:31
 
-# from artiq.experiment import *
-# # import pandas as pd
-# import time
-# from artiq.language.core import *
-# from artiq.language.types import *
-#
-#
-# St_t = time.time()
-# file0 = open('C:/Users/QC/OneDrive - UW-Madison/Desktop/Akbar/AkSTimeList0.txt', 'a')
-# file1 = open('C:/Users/QC/OneDrive - UW-Madison/Desktop/Akbar/AkSTimeList1.txt', 'a')
-# class TimeStamp_ttl(EnvExperiment):
-#
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("ttl0")
-#         self.setattr_device("ttl1")
-#
-#     @rpc(flags={"async"})
-#     def saveTime0(self, x):
-#         file0.write(str(x) + '\n')
-#         # print(x)
-#
+aasda
+sda
+sda
+sd
+a
+sda
+sd
+
+fs
+dgs
+dgs
+dg
+s
+s
+dsdg
+
+
 #     @rpc(flags={"async"})
 #     def saveTime1(self, x):
 #         file1.write(str(x) + '\n')
