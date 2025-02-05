@@ -82,12 +82,12 @@ class XYPlot(pyqtgraph.PlotWidget):
 
 def main():
     applet = TitleApplet(XYPlot)
-    applet.add_dataset("MOT1", "MOT1 fW PD voltage")
-    applet.add_dataset("MOT2", "MOT2 fW PD voltage")
-    applet.add_dataset("MOT3", "MOT3 fW PD voltage")
-    applet.add_dataset("MOT4", "MOT4 fW PD voltage")
-    applet.add_dataset("MOT5", "MOT5 fW PD voltage")
-    applet.add_dataset("MOT6", "MOT6 fW PD voltage")
+    applet.add_dataset("MOT1", "MOT1 PD voltage")
+    applet.add_dataset("MOT2", "MOT2 PD voltage")
+    applet.add_dataset("MOT3", "MOT3 PD voltage")
+    applet.add_dataset("MOT4", "MOT4 PD voltage")
+    applet.add_dataset("MOT5", "MOT5 PD voltage")
+    applet.add_dataset("MOT6", "MOT6 PD voltage")
     applet.add_dataset("pts", "number of points to display")
     applet.add_dataset("MOT_switchyard_input", "MOT PD0 voltage", required=False)
     applet.add_dataset("x", "X values", required=False)

@@ -33,11 +33,16 @@ class SamplerPrint(EnvExperiment):
 
         print("Print out measurement from each sampler:")
         delay(10*ms)
+        sampler_num=0
 
         for sampler in self.sampler_list:
+            print("Sampler No. ", sampler_num)
+            sampler_num += 1
             sampler.sample(self.buffer)
             delay(10*ms)
             print(self.buffer)
             delay(10*ms)
+
+
 
         print("End of Sampler Print")

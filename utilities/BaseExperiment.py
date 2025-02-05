@@ -217,14 +217,24 @@ class BaseExperiment:
 
             # devices can also be nicknamed here:
             # todo: do this in the device_db
+            self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
-            self.experiment.ttl_SPCM0 = self.experiment.ttl0
-            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
+            # self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_scope_trigger = self.experiment.ttl7
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
+            self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+            self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_exc0_switch = self.experiment.ttl6
+            self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
+
+            # in experiment_functions.py, measure_FORT_MM_fiber() function uses sampler1
+            self.experiment.FORT_MM_sampler_ch = 7
+
+
 
             # for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -257,6 +267,8 @@ class BaseExperiment:
             # converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
+
+            # not in alice
             self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
@@ -330,7 +342,6 @@ class BaseExperiment:
             # converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
@@ -776,6 +787,12 @@ class BaseExperiment:
             self.experiment.ttl6.output()  # for outputting a trigger
             self.experiment.ttl1.input()
 
+            # channel 3 is configured to read from 14, separated by a switch
+            self.experiment.ttl3.input()
+            self.experiment.ttl14.output()
+            self.experiment.ttl14.on()
+
+
             # for diagnostics including checking the performance of fast switches for SPCM gating
             self.experiment.ttl9.output()
             delay(1 * ms)
@@ -809,6 +826,8 @@ class BaseExperiment:
                     delay(1 * ms)
 
             self.experiment.core.break_realtime()
+
+
         elif self.node == "two_nodes":
             self.experiment.core.reset()
 
