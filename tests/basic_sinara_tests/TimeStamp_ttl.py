@@ -1,5 +1,3 @@
-12:29 testing merge without PR
-
 # from artiq.experiment import *
 # # import pandas as pd
 # import time
@@ -64,6 +62,7 @@
 #
 
 
+
 from artiq.experiment import *
 
 class TimeStamp_ttl(EnvExperiment):
@@ -76,26 +75,28 @@ class TimeStamp_ttl(EnvExperiment):
         self.core.reset()
         self.ttl0.input()
 
-        # Preallocate an array for timestamps
-        num_iterations = 10
-        max_events = 5  # Maximum number of events per iteration
-        timestamps = [[-1.0] * max_events for _ in range(num_iterations)]  # Nested arrays
+        num_iterations = 100
+        max_clicks = 20  # Maximum pulses to time-tag per iteration
+        timestamps = [[-1.0] * max_clicks for _ in range(num_iterations)]  # Preallocated array
+        counts = [0] * num_iterations  # Store click counts separately
 
         for i in range(num_iterations):
-            delay(1*ms)
-            tend = self.ttl0.gate_rising(100 * us)
+            delay(random()*10*us)
+            t_end_SPCM0 = self.ttl0.gate_rising(100 * us)
 
-            # Read and store timestamps for each detected event
-            event_counter = 0
-            while event_counter < max_events:
-                event_time = self.ttl0.timestamp_mu(tend)
-                if event_time == -1:  # No more events detected
+            click_counter = 0
+            while click_counter < max_clicks:
+                click_time = self.ttl0.timestamp_mu(t_end_SPCM0)
+                if click_time == -1:  # No more clicks detected
                     break
-                timestamps[i][event_counter] = self.core.mu_to_seconds(event_time)
-                event_counter += 1
+                timestamps[i][click_counter] = self.core.mu_to_seconds(click_time)
+                click_counter += 1
 
+            counts[i] = click_counter  # Store the number of detected events
+
+        # Save data outside the kernel
         self.save_data(timestamps)
-        delay(10 * ms)
+        self.save_counts(counts)
         print("************  ALL DONE  ************")
 
     @rpc(flags={"async"})
@@ -105,6 +106,7 @@ class TimeStamp_ttl(EnvExperiment):
                 file.write(", ".join(map(str, iteration)) + "\n")
 
     @rpc(flags={"async"})
-    def saveTime1(self, x):
-        file1.write(str(x) + '\n')
-        # print(x)
+    def save_counts(self, data):
+        with open("AkScounts.txt", "a") as file:
+            file.write(", ".join(map(str, data)) + "\n")
+

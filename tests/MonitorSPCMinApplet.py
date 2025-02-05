@@ -1,7 +1,8 @@
 """
-This code allows for monitoring an SPCM whose output is connected to TTL0 ch0. The counts detected per s can be viewed
- with the plot_xyline applet (nicknamed "SPCM count rate" in the Node 1 ARTIQ dashboard). Any Zotino channels and
- Urukul channels that were on before running this code will be left on.
+This code allows for monitoring both SPCMs which are connected to ttl0 and ttl1. The counts detected per s can be viewed
+ with the plot_xyline applets (nicknamed "SPCM0 count rate" and "SPCM1 count rate" in the Node 1 ARTIQ dashboard).
+ Any Zotino channels and Urukul channels that were on before running this code will be left on. For long exposure times
+ (in ms regime for example) we need to use _counter.gate_rising rather than ttl.count to avoid overflow.
 """
 
 from artiq.experiment import *
@@ -41,38 +42,26 @@ class MonitorSPCMinApplet(EnvExperiment):
 
         self.n_steps = int(60*self.run_time_minutes/self.t_SPCM_exposure+0.5)
         print(self.n_steps)
-
-
         print("prepare - done")
 
     @kernel
     def run(self):
         self.base.initialize_hardware(turn_off_dds_channels=False, turn_off_zotinos=False)
-        self.ttl8.input()
-        self.ttl9.input()
 
-        delay(10 * ms)
-        self.set_dataset("TTL8_per_s", [0.0], broadcast=True)
-        self.set_dataset("TTL9_per_s", [0.0], broadcast=True)
+        self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.SPCM1_rate_dataset, [0.0], broadcast=True)
 
         delay(10 * ms)
 
         for i in range(self.n_steps):
-
-            t_gate_end = self.ttl8.gate_rising(self.t_SPCM_exposure)
-            count8 = self.ttl8.count(t_gate_end)
-            count8_per_s = count8 / self.t_SPCM_exposure
-
-            delay(1 * ms)
-
-            t_gate_end = self.ttl9.gate_rising(self.t_SPCM_exposure)
-            count9 = self.ttl9.count(t_gate_end)
-            count9_per_s = count9 / self.t_SPCM_exposure
+            with parallel:
+                self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_exposure)
+                self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_exposure)
+            SPCM0_counts = self.ttl_SPCM0_counter.fetch_count()
+            SPCM1_counts = self.ttl_SPCM1_counter.fetch_count()
 
             delay(1 * ms)
-            self.append_to_dataset("TTL8_per_s", count8_per_s)
-            delay(1 * ms)
-            self.append_to_dataset("TTL9_per_s", count9_per_s)
-
+            self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts / self.t_SPCM_exposure)
+            self.append_to_dataset(self.SPCM1_rate_dataset, SPCM1_counts / self.t_SPCM_exposure)
 
         print("Experiment finished.")
