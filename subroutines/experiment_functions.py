@@ -2654,11 +2654,10 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
     self.SPCM1_RO2 = 0
     SPCM0_SinglePhoton = 0
     SPCM1_SinglePhoton = 0
-    # SPCM0_SinglePhoton_array = [0]
+
+    max_clicks = 5  ### maximum number of clicks that will be time tagged in each gate window
 
     SPCM0_every_exc_RO_array = [0]
-
-    # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
 
     record_chopped_optical_pumping(self)
     delay(100*ms)
@@ -2684,6 +2683,9 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
         SPCM1_SinglePhoton_array = [0] * self.n_excitation_cycles
 
         SPCM0_every_exc_RO_array = [0] * self.n_excitation_cycles
+
+        SPCM0_timestamps = [[-1.0] * max_clicks for _ in range(self.n_excitation_cycles)]
+        SPCM1_timestamps = [[-1.0] * max_clicks for _ in range(self.n_excitation_cycles)]
 
         self.laser_stabilizer.run()
 
@@ -2840,12 +2842,12 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
 
             at_mu(t1 + 150 + int(self.t_photon_collection_time / ns) + 150)
             self.dds_FORT.sw.on()  ### turns FORT on
-            #
-            # at_mu(t1+150)
-            # self.ttl_GRIN1_switch.off() # turns on excitation
-            #
-            # at_mu(t1 + 150 + int(self.t_excitation_pulse / ns))
-            # self.ttl_GRIN1_switch.on()  # turns off excitation
+
+            at_mu(t1+150)
+            self.ttl_GRIN1_switch.off() # turns on excitation
+
+            at_mu(t1 + 150 + int(self.t_excitation_pulse / ns))
+            self.ttl_GRIN1_switch.on()  # turns off excitation
 
             at_mu(t1 + 150 + int(self.gate_start_offset_mu))
 
@@ -2859,14 +2861,41 @@ def single_photon_experiment_atom_loading_advance_WO_switch(self):
             # SPCM1_SinglePhoton = self.ttl_SPCM1_counter.fetch_count()
 
             ######### Using ttl.count (works well):
+            # with parallel:
+            #     t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
+            #     t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
+            # SPCM0_SinglePhoton = self.ttl_SPCM0.count(t_end_SPCM0)
+            # SPCM1_SinglePhoton = self.ttl_SPCM1.count(t_end_SPCM1)
+
+            ######### Time stamping and counting the photons:
+            SPCM0_click_counter = 0
+            SPCM1_click_counter = 0
             with parallel:
                 t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
                 t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
-            SPCM0_SinglePhoton = self.ttl_SPCM0.count(t_end_SPCM0)
-            SPCM1_SinglePhoton = self.ttl_SPCM1.count(t_end_SPCM1)
 
-            SPCM0_timestamps = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
-            SPCM1_timestamps = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
+            ### timestamping SPCM0 events
+            while SPCM0_click_counter < max_clicks:
+                SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
+                if SPCM0_click_time == -1:
+                    break
+                SPCM0_timestamps[excitaton_cycle][SPCM0_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
+                SPCM0_click_counter += 1
+
+            ### timestamping SPCM1 events
+            while SPCM1_click_counter < max_clicks:
+                SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
+                if SPCM1_click_time == -1:
+                    break
+                SPCM1_timestamps[excitaton_cycle][SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
+                SPCM1_click_counter += 1
+
+            ### counting by adding up the timestamps
+            SPCM0_SinglePhoton = SPCM0_click_counter
+            SPCM1_SinglePhoton = SPCM1_click_counter
+
+
+
 
 
             delay(15 * us)
