@@ -181,6 +181,80 @@ def load_MOT_and_FORT(self):
         delay(self.t_PGC_in_MOT)
         self.dds_cooling_DP.sw.off()
 
+@kernel
+def load_MOT_and_FORT_until_atom(self):
+    """
+    Turning on the MOT and FORT light at the same time and monitor SPCM0. Turn off the MOT as soon as an atom is trapped.
+
+    Turns ON the following at the beginning:
+        FORT AOM
+        Cooling DP
+        All fiber AOMs
+        MOT RP
+
+    Leaves the following OFF at the end:
+        Cooling DP
+        MOT RP
+
+
+    :param self: the experiment instance
+    :return:
+    """
+
+    ### Set the coils to MOT loading setting
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        channels=self.coil_channels)
+
+    ### set the cooling DP AOM to the MOT settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+
+    self.dds_cooling_DP.sw.on()  ### turn on cooling
+    self.ttl_repump_switch.off()  ### turn on MOT RP
+
+    delay(1 * ms)
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    self.dds_FORT.sw.on()
+
+    delay(1 * ms)
+    # self.ttl_UV.pulse(self.t_UV_pulse)
+
+    try_n = 0
+    atom_loaded = False
+    while not atom_loaded:
+        delay(100 * us) ### needs a delay of about 100us or maybe less
+        self.ttl_SPCM0_counter.gate_rising(20 * ms)
+        self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
+        try_n += 1
+
+        if self.SPCM0_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+            delay(100 * us) ### needs a delay of about 100us or maybe less
+            atom_loaded = True
+            # break
+
+    self.ttl_repump_switch.on()  ### turn off MOT RP
+    self.dds_cooling_DP.sw.off()  ### turn off cooling
+
+    delay(1 * ms)
+    self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+    delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+
+    self.SPCM0_FORT_science = 0
+    # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
+    # self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
+
+    # delay(1 * ms)
+    # print(try_n)
+    # delay(1 * ms)
+
 
 @kernel
 def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
@@ -355,47 +429,44 @@ def first_shot(self):
         self.dds_cooling_DP.sw.off()
     else:
 
-        # if self.use_chopped_readout:
-        #     ro_dma_handle = self.core_dma.get_handle("first_chopped_readout")
-        #     delay(10 * ms)
-        #
-        #     # todo set RO coils here?
-        #
-        #     self.ttl_repump_switch.off()  # turns the RP AOM on
-        #     self.dds_cooling_DP.sw.off()  # the chop sequence likes to turn the FORT off
-        #
-        #     delay(1 * ms)
-        #     self.ttl7.pulse(100 * us)
-        #     self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
-        #
-        #     delay(0.1 * ms)
-        #
-        #     # we want to initiate the chop playback and read in detector clicks while the chop sequence is playing.
-        #     # the ttl.gate_rising(duration) function is equivalent to:
-        #     #     ttl._set_sensitivity(1)
-        #     #     delay(duration)
-        #     #     ttl._set_sensitivity(0)
-        #     #     return now_mu()
-        #     #
-        #     # we want the dma playback to happen during the gating, so we call the _set_sensitivity functions directly
-        #
-        #     self.ttl_SPCM0._set_sensitivity(1)
-        #     self.core_dma.playback_handle(ro_dma_handle)
-        #     self.ttl_SPCM0._set_sensitivity(0)
-        #     self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
-        #
-        # else:
+        if self.use_chopped_readout:
+            ro_dma_handle = self.core_dma.get_handle("first_chopped_readout")
+            delay(10 * ms)
 
-        with parallel:
-            self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
-            self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_first_shot)
+            self.ttl_repump_switch.off()  # turns the RP AOM on
+            self.dds_cooling_DP.sw.off()  # the chop sequence likes to turn the FORT off
 
-        self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
-        self.SPCM1_RO1 = self.ttl_SPCM1_counter.fetch_count()
-        delay(0.1 * ms)
-        self.dds_cooling_DP.sw.off() ### turn off cooling
-        self.ttl_repump_switch.on() ### turn off MOT RP
-        delay(10 * us)
+            delay(1 * ms)
+            self.ttl7.pulse(100 * us)
+            self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
+
+            delay(0.1 * ms)
+
+            # we want to initiate the chop playback and read in detector clicks while the chop sequence is playing.
+            # the ttl.gate_rising(duration) function is equivalent to:
+            #     ttl._set_sensitivity(1)
+            #     delay(duration)
+            #     ttl._set_sensitivity(0)
+            #     return now_mu()
+            #
+            # we want the dma playback to happen during the gating, so we call the _set_sensitivity functions directly
+
+            self.ttl_SPCM0._set_sensitivity(1)
+            self.core_dma.playback_handle(ro_dma_handle)
+            self.ttl_SPCM0._set_sensitivity(0)
+            self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
+
+        else:
+            with parallel:
+                self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
+                self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_first_shot)
+
+            self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
+            self.SPCM1_RO1 = self.ttl_SPCM1_counter.fetch_count()
+            delay(0.1 * ms)
+            self.dds_cooling_DP.sw.off() ### turn off cooling
+            self.ttl_repump_switch.on() ### turn off MOT RP
+            delay(10 * us)
 
 @kernel
 def second_shot(self):
@@ -1398,9 +1469,7 @@ def atom_loading_experiment(self):
 
     self.require_D1_lock_to_advance = False # override experiment variable
 
-    # self.set_dataset(self.SPCM0_rate_dataset,
-    #                  [0.0],
-    #                  broadcast=True)
+    # self.set_dataset(self.SPCM0_rate_dataset,[0.0], broadcast=True)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -1411,32 +1480,16 @@ def atom_loading_experiment(self):
         load_MOT_and_FORT(self)
         delay(0.1*ms)
 
-        ### set coils to the readout settings
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-            channels=self.coil_channels)
-        delay(0.2 * ms) ### Coils relaxation time
-
-        ### set the FORT AOM to the readout settings
-        self.dds_FORT.set(frequency=self.f_FORT,
-                          amplitude=self.stabilizer_FORT.amplitudes[1])
-
-        ### set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
-
-        if not self.no_first_shot:
-            first_shot(self)
+        first_shot(self)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
 
-        self.dds_cooling_DP.sw.off()
-        # self.ttl_SPCM_gate.pulse(self.t_delay_between_shots) # blocks the SPCM
+        # self.dds_cooling_DP.sw.off()
         delay(self.t_delay_between_shots)
-        self.dds_cooling_DP.sw.on()
+        # self.dds_cooling_DP.sw.on()
 
         rtio_log("2nd_shot_block",1)
         second_shot(self)
@@ -1448,6 +1501,66 @@ def atom_loading_experiment(self):
         self.dds_AOM_A4.sw.off()
         self.dds_AOM_A5.sw.off()
         self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+
+    self.dds_FORT.sw.off()
+
+
+@kernel
+def atom_loading_2_experiment(self):
+    """
+    Testing fast atom loading: turn on MOT and FORT until an atom is detected. Then turn off MOT.
+
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
+
+    if self.use_chopped_readout:
+        # record_chopped_readout(self, self.t_SPCM_first_shot, "first_chopped_readout")
+        # delay(100*ms)
+        record_chopped_readout(self, readout_duration=self.t_SPCM_second_shot, label="second_chopped_readout")
+        delay(100*ms)
+
+    # self.print_async("in exp:",self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT)
+
+    self.require_D1_lock_to_advance = False # override experiment variable
+
+    # self.set_dataset(self.SPCM0_rate_dataset,[0.0], broadcast=True)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+        delay(1 * ms)
+        load_MOT_and_FORT_until_atom(self)
+        delay(0.1*ms)
+
+        first_shot(self)
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        delay(self.t_delay_between_shots)
+        second_shot(self)
+
+        # self.dds_AOM_A1.sw.off()
+        # self.dds_AOM_A2.sw.off()
+        # self.dds_AOM_A3.sw.off()
+        # self.dds_AOM_A4.sw.off()
+        # self.dds_AOM_A5.sw.off()
+        # self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
 
@@ -1566,7 +1679,8 @@ def microwave_Rabi_experiment(self):
             # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
             self.dds_microwaves.sw.on()
 
-        load_MOT_and_FORT(self)
+        # load_MOT_and_FORT(self)
+        load_MOT_and_FORT_until_atom(self)
 
         delay(0.1 * ms)
 
@@ -1999,11 +2113,11 @@ def single_photon_experiment_atom_loading_advance(self):
                 [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
                 channels=self.coil_channels)
 
-            # set the FORT AOM to the readout settings
+            ### set the FORT AOM to the readout settings
             self.dds_FORT.set(frequency=self.f_FORT,
                               amplitude=self.stabilizer_FORT.amplitudes[1])
 
-            # set the cooling DP AOM to the readout settings
+            ### set the cooling DP AOM to the readout settings
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                                     amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
 
@@ -2148,7 +2262,6 @@ def single_photon_experiment_atom_loading_advance(self):
 
             at_mu(t1 + 150 + int(self.gate_start_offset_mu))
 
-
             ######### Using the edge_counter (works well):
             # with parallel:
             #     self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_time)
@@ -2164,7 +2277,7 @@ def single_photon_experiment_atom_loading_advance(self):
             # SPCM0_SinglePhoton = self.ttl_SPCM0.count(t_end_SPCM0)
             # SPCM1_SinglePhoton = self.ttl_SPCM1.count(t_end_SPCM1)
 
-            ######### Using time stamping and counting the photons:
+            ######### Using time stamping and counting the photons (works well):
             SPCM0_click_counter = 0
             SPCM1_click_counter = 0
 
@@ -2299,7 +2412,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
         delay(10*ms)
 
-    delay(1 * ms)
+    delay(10 * ms)
     self.dds_FORT.sw.off()
 
 @kernel
