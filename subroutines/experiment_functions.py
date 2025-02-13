@@ -208,16 +208,16 @@ def load_MOT_and_FORT_until_atom(self):
 
     ### set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    delay(0.1 * ms)
 
     self.dds_cooling_DP.sw.on()  ### turn on cooling
     self.ttl_repump_switch.off()  ### turn on MOT RP
-
-    delay(1 * ms)
 
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
     self.dds_AOM_A4.sw.on()
+    delay(0.1 * ms)
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
@@ -235,10 +235,9 @@ def load_MOT_and_FORT_until_atom(self):
         self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
         try_n += 1
 
-        if self.SPCM0_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.SPCM0_RO1 / (20 * ms) > self.single_atom_threshold:
             delay(100 * us) ### needs a delay of about 100us or maybe less
             atom_loaded = True
-            # break
 
     self.ttl_repump_switch.on()  ### turn off MOT RP
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -247,13 +246,14 @@ def load_MOT_and_FORT_until_atom(self):
     self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
+    ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
     self.SPCM0_FORT_science = 0
     # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
     # self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
 
-    # delay(1 * ms)
-    # print(try_n)
-    # delay(1 * ms)
+    ### just for plotting the number of trials for each atom loading
+    self.append_to_dataset("Atom_loading_try_n", try_n)
+    delay(1 * ms)
 
 
 @kernel
@@ -1518,10 +1518,7 @@ def atom_loading_2_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    self.set_dataset("Atom_loading_try_n", [0.0], broadcast=True)
 
     if self.use_chopped_readout:
         # record_chopped_readout(self, self.t_SPCM_first_shot, "first_chopped_readout")
@@ -1533,15 +1530,16 @@ def atom_loading_2_experiment(self):
 
     self.require_D1_lock_to_advance = False # override experiment variable
 
-    # self.set_dataset(self.SPCM0_rate_dataset,[0.0], broadcast=True)
-
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+            self.laser_stabilizer.run()
 
-        delay(1 * ms)
+        delay(0.1 * ms)
+        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        delay(0.1 * ms)
+
         load_MOT_and_FORT_until_atom(self)
         delay(0.1*ms)
 
@@ -1554,13 +1552,6 @@ def atom_loading_2_experiment(self):
 
         delay(self.t_delay_between_shots)
         second_shot(self)
-
-        # self.dds_AOM_A1.sw.off()
-        # self.dds_AOM_A2.sw.off()
-        # self.dds_AOM_A3.sw.off()
-        # self.dds_AOM_A4.sw.off()
-        # self.dds_AOM_A5.sw.off()
-        # self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
 
@@ -1651,6 +1642,8 @@ def microwave_Rabi_experiment(self):
     """
 
     self.core.reset()
+
+    self.set_dataset("Atom_loading_try_n", [0.0], broadcast=True)
 
     self.SPCM0_RO1 = 0
     self.SPCM0_RO2 = 0

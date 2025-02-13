@@ -507,7 +507,7 @@ class AOMPowerStabilizer:
             unless for example, in cases where one wants specifically wants to read the detector values after the dds
             amplitudes have been changed in an experiment. This happens at the end of SamplerMOTCoilAndBeamBalance.
         """
-        self.exp.core.reset()
+        # self.exp.core.reset() ### disabled on 2025-02-13; caused ignoring any commands beofre stabilizer line in the experiments.
 
         if not self.exp.enable_laser_feedback:
             monitor_only = True

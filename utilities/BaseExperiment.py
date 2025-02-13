@@ -223,7 +223,6 @@ class BaseExperiment:
             # self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
