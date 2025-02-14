@@ -82,7 +82,7 @@ class XYPlot(pyqtgraph.PlotWidget):
                     error_standard = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
                     error_binomial = np.array([np.sqrt(n * p * (1 - p)) / n if n > 0 else 0 for n, p in zip(n_atoms_loaded_array, retention_array)])
 
-                    error = error_binomial
+                    error = error_standard
 
                     self.clear()
                     if len(x) == len(retention_array) and len(x) == len(loading_rate_array):

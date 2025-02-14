@@ -227,17 +227,62 @@ def load_MOT_and_FORT_until_atom(self):
     delay(1 * ms)
     # self.ttl_UV.pulse(self.t_UV_pulse)
 
-    try_n = 0
+    max_tries = 100  ### Maximum number of attempts before running the feedback
     atom_loaded = False
-    while not atom_loaded:
-        delay(100 * us) ### needs a delay of about 100us or maybe less
-        self.ttl_SPCM0_counter.gate_rising(20 * ms)
-        self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
-        try_n += 1
+    try_n = 0
 
-        if self.SPCM0_RO1 / (20 * ms) > self.single_atom_threshold:
-            delay(100 * us) ### needs a delay of about 100us or maybe less
-            atom_loaded = True
+    while True:
+        while not atom_loaded and try_n < max_tries:
+            delay(100 * us)  ### Needs a delay of about 100us or maybe less
+            self.ttl_SPCM0_counter.gate_rising(20 * ms)
+            SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
+            try_n += 1
+
+            if SPCM0_atom_check / (20 * ms) > self.single_atom_threshold:
+                delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                atom_loaded = True
+
+        if atom_loaded:
+            break  ### Exit the outer loop if an atom is loaded
+
+        ### If max_tries reached and atom still no atom, run feedback
+        if self.enable_laser_feedback:
+            delay(0.1 * ms) ### necessary to avoid underflow
+
+            # delay(0.1 * ms)
+            # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+
+            ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+            ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            delay(0.1 * ms)
+            self.laser_stabilizer.run()
+            # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
+            self.dds_microwaves.sw.on()
+            self.dds_FORT.sw.on()
+            delay(0.1 * ms)
+
+            try_n = 0
+
+            # delay(10 * ms)
+            # print("**************   No atom after 2 seconds. Running feedback   ***************")
+            # delay(10 * ms)
+
+    # ###########  PGC on the trapped atom  #############
+    # ### Set the coils to MOT loading setting
+    # self.zotino0.set_dac(
+    #     [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+    #     channels=self.coil_channels)
+    #
+    # ### set the cooling DP AOM to the MOT settings
+    # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+    # delay(0.1 * ms)
+    #
+    # self.ttl_repump_switch.on()  ### turn off MOT RP
+    # delay(20 * ms) ### this is the PGC time
+    # ###################################################
+
 
     self.ttl_repump_switch.on()  ### turn off MOT RP
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -253,8 +298,7 @@ def load_MOT_and_FORT_until_atom(self):
 
     ### just for plotting the number of trials for each atom loading
     self.append_to_dataset("Atom_loading_try_n", try_n)
-    delay(1 * ms)
-
+    delay(10 * ms)
 
 @kernel
 def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
@@ -457,6 +501,9 @@ def first_shot(self):
             self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
 
         else:
+            delay(1 * ms)
+            self.ttl7.pulse(100 * us)
+            delay(1 * ms)
             with parallel:
                 self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
                 self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_first_shot)
@@ -1475,6 +1522,10 @@ def atom_loading_experiment(self):
     while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
+            ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+            ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            delay(0.1 * ms)
             self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
         load_MOT_and_FORT(self)
@@ -1530,18 +1581,18 @@ def atom_loading_2_experiment(self):
 
     self.require_D1_lock_to_advance = False # override experiment variable
 
+    if self.enable_laser_feedback:
+        self.laser_stabilizer.run()
+
     self.measurement = 0
     while self.measurement < self.n_measurements:
+        delay(10 * ms)
 
-        if self.enable_laser_feedback:
-            self.laser_stabilizer.run()
-
-        delay(0.1 * ms)
-        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
-        delay(0.1 * ms)
+        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
 
         load_MOT_and_FORT_until_atom(self)
-        delay(0.1*ms)
+        delay(1*ms)
 
         first_shot(self)
 
@@ -1668,9 +1719,149 @@ def microwave_Rabi_experiment(self):
     while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+            ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+            ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            delay(0.1 * ms)
+            self.laser_stabilizer.run()
             # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
             self.dds_microwaves.sw.on()
+
+        load_MOT_and_FORT(self)
+        # load_MOT_and_FORT_until_atom(self)
+
+        delay(0.1 * ms)
+
+        first_shot(self)
+
+        # todo: do we need to pump into F=2? Remove see what happens.
+        # self.ttl_repump_switch.off()  # turns the MOT RP AOM on
+        # delay(1 * ms) # leave the repump on so atoms are left in F=2
+        # self.ttl_repump_switch.on()  # turns the MOT RP AOM off
+        delay (1 * ms)
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        ############################
+        # optical pumping phase - pumps atoms into F=1,m_F=0
+        ############################
+        ### With chopped pumping:
+        if self.t_pumping > 0.0:
+            chopped_optical_pumping(self)
+            delay(1*ms)
+
+        # ### with cw pumping:
+        # if self.t_pumping > 0.0:
+        #     delay (10 * us)
+        #     optical_pumping(self)
+        #     delay(1*ms)
+
+        ############################
+        # microwave phase
+        ############################
+
+        if self.t_microwave_pulse > 0.0:
+            # self.ttl_repump_switch.on()  # turns off the RP AOM
+
+            # todo: set coils for microwaves. good for diagnostics-- we can use this phase to zero the B-field
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP,
+                 self.AX_volts_OP, self.AY_volts_OP],
+                channels=self.coil_channels)
+            delay(0.3*ms)
+
+            # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_pulse)
+            self.ttl_microwave_switch.on()
+            delay(0.1 * ms)
+
+        ############################
+        # blow-away phase - push out atoms in F=2 only
+        ############################
+
+        if self.t_blowaway > 0.0:
+            chopped_blow_away(self)
+
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(5 * ms) ### hopefully to avoid underflow.
+
+    delay(10*ms)
+    self.dds_FORT.sw.off()
+    delay(1*ms)
+    self.dds_microwaves.sw.off()
+
+@kernel
+def microwave_Rabi_2_experiment(self):
+    """
+    Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom(self).
+
+    This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
+    microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
+    - microwave Rabi oscillations to test the optical pumping fidelity
+    - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
+    transitions |F=1,m>->|F=2,m'>)
+    - depumping measurements (by using a non-zero depump time)
+
+    self is the experiment instance to which ExperimentVariables are bound
+    """
+
+    self.core.reset()
+
+    self.set_dataset("Atom_loading_try_n", [0.0], broadcast=True)
+
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
+
+    if self.t_pumping > 0.0:
+        record_chopped_optical_pumping(self)
+        delay(100*ms)
+
+    if self.t_blowaway > 0.0:
+        record_chopped_blow_away(self)
+        delay(100*ms)
+
+
+    if self.enable_laser_feedback:
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.laser_stabilizer.run()
+
+    # delay(1 * ms)
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(1 * ms)
+    self.dds_microwaves.sw.on()
+    delay(1 * ms)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        # if self.enable_laser_feedback:
+        #     ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        #     ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        #     delay(0.1 * ms)
+        #     self.laser_stabilizer.run()
+        #     # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
+        #     self.dds_microwaves.sw.on()
 
         # load_MOT_and_FORT(self)
         load_MOT_and_FORT_until_atom(self)
@@ -1718,7 +1909,7 @@ def microwave_Rabi_experiment(self):
                 channels=self.coil_channels)
             delay(0.3*ms)
 
-            self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
