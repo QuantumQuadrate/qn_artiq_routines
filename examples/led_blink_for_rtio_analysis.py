@@ -34,26 +34,26 @@ class BlinkForever(EnvExperiment):
     # and the slack remains positive (and actually increases). Around 48 ms the
     # slack wraps around, and this continues to happen, so this will go until we
     # stop it or the hardware gives out.
-    # @kernel
-    # def run(self):
-    #     self.core.reset()
-    #     while True:
-    #         self.led0.pulse(1 * us)
-    #         delay(1 * us)
-
-    # more complicated example
     @kernel
     def run(self):
         self.core.reset()
-        for i in range(10):
-            for i in range(10):
-                self.led0.pulse(10 * ns)
-                delay(10 * ns)
-            # delay(50 * us)
-            self.core.reset() # in lieu of a delay, just cheat and reset the clock?
-            for i in range(10):
-                self.led0.pulse(10 * ns)
-                delay(10 * ns)
-        print("blink example done.")
+        while True:
+            self.led0.pulse(1 * us)
+            delay(1 * us)
+
+    # # more complicated example
+    # @kernel
+    # def run(self):
+    #     self.core.reset()
+    #     for i in range(10):
+    #         for i in range(10):
+    #             self.led0.pulse(10 * ns)
+    #             delay(10 * ns)
+    #         # delay(50 * us)
+    #         self.core.reset() # in lieu of a delay, just cheat and reset the clock?
+    #         for i in range(10):
+    #             self.led0.pulse(10 * ns)
+    #             delay(10 * ns)
+    #     print("blink example done.")
 
     # todo: add an overflow example

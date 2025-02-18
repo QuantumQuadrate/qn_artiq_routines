@@ -886,11 +886,17 @@ def optical_pumping(self):
 
 @kernel
 def measure_FORT_MM_fiber(self):
+
+    # BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
+
     measurement_buf = np.array([0.0]*8)
     measurement = 0.0
     avgs = 50
     for i in range(avgs):
-        self.sampler1.sample(measurement_buf)
+        if self.which_node != 'alice':
+            self.sampler1.sample(measurement_buf)
+        else:
+            self.sampler0.sample(measurement_buf)
         measurement += measurement_buf[self.FORT_MM_sampler_ch]
         delay(0.1*ms)
     measurement /= avgs
