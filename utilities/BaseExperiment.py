@@ -670,9 +670,10 @@ class BaseExperiment:
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
         self.experiment.set_dataset("SPCM0_SinglePhoton", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_SinglePhoton_tStamps", [[0.0,0.0,0.0]], broadcast=True)
-        self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [[0.0,0.0,0.0]], broadcast=True)
+        self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
+        self.experiment.set_dataset("n_excitation_cycles", [0], broadcast=True)
 
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
