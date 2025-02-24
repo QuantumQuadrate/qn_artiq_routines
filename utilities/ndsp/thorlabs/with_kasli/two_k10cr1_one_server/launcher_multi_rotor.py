@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # you can install sipyco via nix, or from the github using pip
 from sipyco.pc_rpc import simple_server_loop
 from pylablib.devices import Thorlabs  # for Kinesis instrument control
@@ -10,6 +12,9 @@ from pylablib.devices import Thorlabs  # for Kinesis instrument control
 import k10cr1_driver as k10cr1_driver
 from device_db import device_db
 
+
+
+
 def main():
     # network settings
     device_name = "k10cr1_ndsp"
@@ -19,6 +24,10 @@ def main():
     sn_list = device_db[device_name]["sn_list"]
     nicknames = device_db[device_name]["nickname_list"]
     devices = [(name, {'conn':sn}) for name,sn in zip(nicknames,sn_list)]
+    # devices = [
+    #     ("780_QWP", {"conn": 55000741}),
+    #     ("780_HWP", {"conn": 55105674})
+    # ]
 
     # instantiate driver object
     driver = k10cr1_driver.K10CR1_NDSP_Driver(devices)
