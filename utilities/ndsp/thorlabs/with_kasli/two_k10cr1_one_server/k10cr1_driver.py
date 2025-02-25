@@ -8,28 +8,31 @@ from artiq.experiment import *
 class K10CR1_NDSP_Driver():
     """control two K10CR1 units with only one NDSP server"""
 
+
     def __init__(self, devices):
+
+        print_full_setting = False
+        initialize_to_home = True
+
         self.motors = {}
         for name, kwargs in devices:
 
             self.motors[name] = Thorlabs.KinesisMotor(**kwargs)
             print(f"initialized {name} with {kwargs}")
 
-            self.get_jog_parameters(name)   # prints the jog parameters of the device
-
-
-
+            # self.get_jog_parameters(name)   # prints the jog parameters of the device
             self.get_scale(name)            # prints the scale of the device
             self.get_scale_units(name)      # prints the scale unit of the device
-            self.get_stage(name)            # prints the name of the stage
+            # self.get_stage(name)            # prints the name of the stage
 
-            # device initialized to home
-            self.home(name)
+            if print_full_setting:
+                print(self.motors[name].get_settings())
 
-            # prints the status of the device
-            self.get_status(name)
+            # initializing device to home
+            if initialize_to_home:
+                self.home(name)
 
-            print(self.motors[name].get_settings())
+            self.get_status(name)           # prints the status of the device
 
             print("------------")
         print("Initialization Done!")
@@ -50,7 +53,7 @@ class K10CR1_NDSP_Driver():
         print("scale units: ", scale_units)
 
         if scale_units == "step":
-            print("** Autodetected a driver but not detected step scale **")
+            print("** Autodetected a driver but not detected step scale - setting deg_to_pos = sw_position = 136533")
 
     def get_stage(self, name: str):
         """Return the name of the stage which was supplied by the usr or autodetected."""
@@ -106,16 +109,8 @@ class K10CR1_NDSP_Driver():
         # sync = True: wait until homing is done(with the given timeout)
         # force = False: only home if the device isn't homed already
 
-
-
     def is_homed(self, name: str) -> bool:
         """Check if the device is homed"""
         homed = self.motors[name].is_homed()
         return homed
 
-
-
-
-
-# >>>>>>> 39fa172 (don't hardcode sn's in __init__. two rotators hardware example not working)
-# >>>>>>> ndsp_simplify

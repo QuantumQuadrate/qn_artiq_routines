@@ -1,6 +1,3 @@
-
-
-
 """
 Control two K10CR1 units with only one NDSP server, where the calls to the
 NDSP object are made from a kernel.
