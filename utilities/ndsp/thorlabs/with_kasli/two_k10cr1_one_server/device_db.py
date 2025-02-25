@@ -59,14 +59,3 @@ device_db["k10cr1_ndsp"] = {
     "host": "::1",  #localhost
     "port": 8080
 }
-#
-# device_db.update({
-#     "k10cr1_ndsp": {
-#         "type": "controller",  # this tells artiq it's an ndsp
-#         "host": "::1",
-#         "port": 8080,
-#         # "command": "python repository\\qn_artiq_routines\\utilities\\ndsp\\thorlabs\with_kasli\\two_k10cr1_one_server\\launcher_multi_rotor.py -p {port}"
-#         "command": "python launcher_multi_rotor.py -p {port}"
-#
-# },
-# })

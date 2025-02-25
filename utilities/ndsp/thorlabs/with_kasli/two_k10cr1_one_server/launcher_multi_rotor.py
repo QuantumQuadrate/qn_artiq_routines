@@ -12,10 +12,14 @@ from pylablib.devices import Thorlabs  # for Kinesis instrument control
 import k10cr1_driver as k10cr1_driver
 from device_db import device_db
 
+import logging
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def main():
+    logger.info("Running unit tests")
     # network settings
     device_name = "k10cr1_ndsp"
     host = device_db[device_name]["host"]

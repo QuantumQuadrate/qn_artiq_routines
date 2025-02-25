@@ -216,8 +216,9 @@ class K10CR1Example_EO(EnvExperiment):
 
 
         #todo: Make this as a function; probably put it in initialize_hardware;
+        #todo: check how much time it needs for homing the device
         ### Check if the waveplates are homed
-        while wr_is_homed != True:
+        if self.wr_is_homed('780_QWP') != True:
             print("780_QWP is not homed. lets home it before we start exp")
             self.k10cr1_ndsp.home('780_QWP')
             self.k10cr1_ndsp.wait_for_home('780_QWP')

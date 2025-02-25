@@ -8,43 +8,6 @@ from artiq.experiment import *
 class K10CR1_NDSP_Driver():
     """control two K10CR1 units with only one NDSP server"""
 
-# <<<<<<< HEAD
-#     def __init__(self, devices):
-#         self.motors = {}
-#         for name, kwargs in devices:
-#                 self.motors[name] = Thorlabs.KinesisMotor(**kwargs)
-#                 print(f"initialized {name} with {kwargs}")
-# =======
-# <<<<<<< HEAD
-#     def __init__(self):
-#         self.motor = {}
-#         self.motor['780_QWP'] = Thorlabs.KinesisMotor(conn=55000741, scale='K10CR1')
-#         self.motor['780_HWP'] = Thorlabs.KinesisMotor(conn=55105674, scale='K10CR1')
-# >>>>>>> ndsp_simplify
-#
-#     def get_position(self, name: str) -> float:
-#         position = self.motors[name].get_position()
-#         return float(position)
-#
-#     def is_moving(self, name: str) -> bool:
-#         moving = self.motors[name].is_moving()
-#         return moving
-#
-#     def move_by(self, degrees, name: str):
-#         self.motors[name].move_by(degrees)
-#         print("K10CR1 moving!")
-#
-#     def move_to(self, degrees, name: str):
-#         self.motors[name].move_to(degrees)
-#
-#     # todo: what does this do again? block until movement is done?
-#     def wait_move(self):
-# <<<<<<< HEAD
-#         self.motors.wait_move()
-# =======
-#         self.motor.wait_move()
-# =======
-
     def __init__(self, devices):
         self.motors = {}
         for name, kwargs in devices:
@@ -54,10 +17,11 @@ class K10CR1_NDSP_Driver():
 
             self.get_scale(name)
             self.get_scale_units(name)
+            self.get_stage(name)
+            self.get_status(name)
 
-            print("name of the stage: ", self.motors[name].get_stage())
-            print("status of the device: ", self.motors[name].get_status())
             print("------------")
+        print("Initialization Done!")
 
 
     def get_scale(self, name: str):
@@ -70,6 +34,12 @@ class K10CR1_NDSP_Driver():
 
         if scale_units == "step":
             print("** Autodetected a driver but not detected step scale **")
+
+    def get_stage(self, name: str):
+        print("name of the stage: ", self.motors[name].get_stage())
+
+    def get_status(self, name: str):
+        print("status of the device: ", self.motors[name].get_status())
 
 
 
