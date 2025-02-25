@@ -29,17 +29,25 @@ examples."""
 # here's how you do ndsp stuff in your artiq scripts
 from artiq.experiment import *
 from time import sleep
-
-import numpy as np
-
-import random
-
 from pylablib.devices import Thorlabs  # for Kinesis instrument control
+
+
+
+import logging
+import numpy as np
+import sys, os
+
+# cwd = os.getcwd() + "\\"
+# sys.path.append(cwd)
+# sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+# from utilities.BaseExperiment import BaseExperiment
+
 
 
 class K10CR1Example_EO(EnvExperiment):
 
     def build(self):
+
         self.setattr_device("core")
         self.setattr_device("led0")
 
@@ -48,7 +56,9 @@ class K10CR1Example_EO(EnvExperiment):
         except Exception as e:
             print(f"Error connecting to device {e}")
 
-        self.rotators_are_moving = True
+        self.setattr_argument("initiallize_to_home", BooleanValue(True))
+        self.setattr_argument("target_qwp_deg", NumberValue(0.0, ndecimals=1, step=1))
+        self.setattr_argument("target_hwp_deg", NumberValue(0.0, ndecimals=1, step=1))
 
     # if you want to call NDSP functions from the kernel and return things,
     # you need to define wrapper functions. if you call the NDSP functions
@@ -69,11 +79,16 @@ class K10CR1Example_EO(EnvExperiment):
         homed = self.k10cr1_ndsp.is_homed(name)
         return homed
 
-    # def get_scale_and_units_wrapper(self, name: TStr) -> TFloat:
-    #     """wrapper function"""
-    #     scale = self.k10cr1_ndsp.get_scale_and_units(name)
-    #     # print("scale: ", scale)
-    #     return scale
+
+    def move_to_target_deg(self, name, target_deg):
+        """ move to target position """
+        deg_to_pos = 136533 # sw_position = 136533
+        target_pos = target_deg * deg_to_pos
+        self.k10cr1_ndsp.move_to(target_pos, name)
+        after_move_pos = self.k10cr1_ndsp.get_position(name)
+        after_move_deg = int(after_move_pos / deg_to_pos)
+        print("now ", name, " at : deg = ", after_move_deg, "position = ", after_move_pos)
+
 
 
     @kernel
@@ -151,59 +166,36 @@ class K10CR1Example_EO(EnvExperiment):
         # get position and move the 780 QWP & 780 HWP
         qwp780_pos = self.get_rotator_position('780_QWP')
         hwp780_pos = self.get_rotator_position('780_HWP')
+        print('780_QWP initially at', qwp780_pos)
+        print('780_HWP initially at', hwp780_pos)
 
 
-        ### Check if the waveplates are homed
-        if self.wr_is_homed('780_QWP'):
-            print("780_QWP is homed! Can proceed!")
-        else:
-            print("780_QWP is not homed. lets home it before we start exp")
+        if self.initiallize_to_home:
+            print("initialize the devices to home")
             self.k10cr1_ndsp.home('780_QWP')
-            self.k10cr1_ndsp.wait_for_home('780_QWP')
+            self.k10cr1_ndsp.home('780_HWP')
 
-        if self.wr_is_homed('780_QWP'):
-            print("780_QWP is homed! Can proceed!")
+            qwp780_pos = self.get_rotator_position('780_QWP')
+            hwp780_pos = self.get_rotator_position('780_HWP')
+            print('780_QWP homed at', qwp780_pos)
+            print('780_HWP homed at', hwp780_pos)
 
-        target_qwp = 0
-        target_hwp = 0
-        print('780_QWP initially at', qwp780_pos, "target ", target_qwp)
-        print('780_HWP initially at', hwp780_pos, "target ", target_hwp)
+        #todo: step = 682667; it seems like 1 deg ~ 682667/2/3.14=108704 but not exact.
+        # target_qwp = int(self.target_qwp_deg * 682667/2/3.14)
+        # target_hwp = int(self.target_hwp_deg * 682667/2/3.14)
+        # sw_position = 136533
+        # target_qwp = int(self.target_qwp_deg * 136533)
+
+
+        print('780_QWP target in deg: ', self.target_qwp_deg)
+        print('780_HWP target in deg: ', self.target_hwp_deg)
+
         delay(10 * ms)
 
-        trial_qwp = 0
-        trial_hwp = 0
-
-        print("=== QWP with wait_move ===")
-
-        while qwp780_pos != target_qwp:
-            delay(10*ms)
-            trial_qwp += 1
-            # self.k10cr1_ndsp.move_by(target_qwp, '780_QWP')
-            self.k10cr1_ndsp.move_to(target_qwp, '780_QWP')
-            self.k10cr1_ndsp.wait_move('780_QWP')
-            # get position and move the 780 QWP.
-            qwp780_pos = self.get_rotator_position('780_QWP')
-
-            print("trial #", trial_qwp, "780_QWP position: ", qwp780_pos)
-
-            if trial_qwp > 100:
-                print("trial_qwp > 100")
-                break
+        self.move_to_target_deg(name="780_QWP", target_deg=self.target_qwp_deg)
+        self.move_to_target_deg(name="780_HWP", target_deg=self.target_hwp_deg)
 
 
-        print("=== HWP without wait_move ===")
-        while hwp780_pos != target_hwp:
-            trial_hwp += 1
-            self.k10cr1_ndsp.move_to(target_hwp, '780_HWP')
-            # self.k10cr1_ndsp.wait_move('780_HWP')
-            # get position and move the 780 HWP.
-            hwp780_pos = self.get_rotator_position('780_HWP')
-
-            print("trial #", trial_hwp, "780_HWP position: ", hwp780_pos)
-
-            if trial_hwp > 100:
-                print("trial_hwp > 100")
-                break
 
 
     @kernel
@@ -221,7 +213,6 @@ class K10CR1Example_EO(EnvExperiment):
         if self.wr_is_homed('780_QWP') != True:
             print("780_QWP is not homed. lets home it before we start exp")
             self.k10cr1_ndsp.home('780_QWP')
-            self.k10cr1_ndsp.wait_for_home('780_QWP')
 
         if self.wr_is_homed('780_QWP'):
             print("780_QWP is homed! Can proceed!")
@@ -230,6 +221,7 @@ class K10CR1Example_EO(EnvExperiment):
 
     def initialize_hardware(self):
         print("setting up hardware!")
+
 
     def initialize_datasets(self):
         print("setting up datasets!")
@@ -245,7 +237,6 @@ class K10CR1Example_EO(EnvExperiment):
 
         # our experiment on the kernel
         # self.experiment_function()
-        # self.how_many_trials_to_initialization()
+        self.how_many_trials_to_initialization()
 
-
-        self.simple_test()
+        # self.simple_test()
