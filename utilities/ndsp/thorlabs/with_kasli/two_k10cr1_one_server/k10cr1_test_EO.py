@@ -11,17 +11,23 @@ NDSP server for this test with
 
     python launcher_multi_rotor.py
 
+    1- open conda prompt
+    2- cd C:\Networking Experiment\artiq codes\artiq-master\repository\qn_artiq_routines\utilities\ndsp\thorlabs\with_kasli\two_k10cr1_one_server
+    3- conda activate artiq7
+    4- python launcher_multi_rotor.py
+
 3. In another terminal in this directory in the artiq environment,
 run this script with artiq:
 
     artiq_run example_multi_k10cr1.py --device-db=.\device_db.py
 
-If you wanted to connect to multiple K10CR1 units, at least if we stick to the
-way this example is structured using the K10CR1_NDSP_Driver class, you would need
-to launch a separate server for every Thorlabs rotator, which is probably not a
-good solution. A better solution would have only one server for all the K10CR1 units,
-and this is what the K10CR1_Multi_NDSP_Driver tries to accomplish. See the multi
-examples."""
+3-1. This script can also be ran in artiq_dashboard.
+
+
+2025/02/26 EO
+This is a modified code from "example_multi_k10cr1.py" to test the functionalities of K10CR1.
+
+"""
 
 # here's how you do ndsp stuff in your artiq scripts
 from artiq.experiment import *
@@ -152,7 +158,7 @@ class K10CR1Example_EO(EnvExperiment):
         delay(10 * ms)
 
     @kernel
-    def how_many_trials_to_initialization(self):
+    def test_initialize_and_move(self):
         """
         In a real use case, this would be an experiment that lives
         in experiment_functions.py
@@ -191,8 +197,6 @@ class K10CR1Example_EO(EnvExperiment):
 
         self.move_to_target_deg(name="780_QWP", target_deg=self.target_qwp_deg)
         self.move_to_target_deg(name="780_HWP", target_deg=self.target_hwp_deg)
-
-
 
 
     @kernel
@@ -234,6 +238,6 @@ class K10CR1Example_EO(EnvExperiment):
 
         # our experiment on the kernel
         # self.experiment_function()
-        self.how_many_trials_to_initialization()
+        self.test_initialize_and_move()
 
         # self.simple_test()

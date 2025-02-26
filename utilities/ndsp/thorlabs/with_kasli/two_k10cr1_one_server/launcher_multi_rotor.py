@@ -3,19 +3,24 @@
 # you can install sipyco via nix, or from the github using pip
 from sipyco.pc_rpc import simple_server_loop
 from pylablib.devices import Thorlabs  # for Kinesis instrument control
-# import sys, os
 
-# # local imports
-# cwd = os.getcwd() + "\\"
-# sys.path.append(cwd)
-# sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 import k10cr1_driver as k10cr1_driver
-from device_db import device_db
+# from device_db import device_db
 
 import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+
+# using the same device_db.py as artiq.
+import sys, os
+cwd_artiq_master = "C:\\Networking Experiment\\artiq codes\\artiq-master"
+sys.path.append(cwd_artiq_master)
+
+from device_db import device_db
+
+
 
 
 def main():
