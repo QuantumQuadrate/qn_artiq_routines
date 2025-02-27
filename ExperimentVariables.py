@@ -66,6 +66,8 @@ class ExperimentVariables(EnvExperiment):
                      "single photon experiment"),
             Variable("max_excitation_cycles", 200, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
                      "single photon experiment"),
+            Variable("atom_check_every_n", 5, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
+                     "single photon experiment"),
 
             Variable("record_every_shot", True, BooleanValue, {}, "single photon experiment"),
 

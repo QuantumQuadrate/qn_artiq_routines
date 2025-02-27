@@ -77,28 +77,28 @@ class K10CR1Example(EnvExperiment):
         if qwp780_pos != 0:
             self.k10cr1_ndsp.move_to(0, '780_QWP')
 
-<<<<<<< HEAD
-            # wait for it to move
-            while self.is_rotator_moving('780_QWP'):
-                self.led0.pulse(0.3*s)
-                delay(0.3*s)
-
-        self.k10cr1_ndsp.move_by(20, '780_QWP')
-        self.k10cr1_ndsp.move_by(15, '780_HWP')
-=======
-        # wait for the rotators to stop moving before proceeding with your experiment
-        i = 0
-        while self.is_rotator_moving('780_QWP') and self.is_rotator_moving('780_HWP'):
-            delay(0.1*s)
-            i += 1
-        print(i)
-        delay(10*ms)
-            
-
-        # do some stuff with the Sinara hardware
-        # for measurement in range(self.n_measurements):
-        #     your tomography experiment goes here...
->>>>>>> ndsp_simplify
+# <<<<<<< HEAD
+#             # wait for it to move
+#             while self.is_rotator_moving('780_QWP'):
+#                 self.led0.pulse(0.3*s)
+#                 delay(0.3*s)
+#
+#         self.k10cr1_ndsp.move_by(20, '780_QWP')
+#         self.k10cr1_ndsp.move_by(15, '780_HWP')
+# =======
+#         # wait for the rotators to stop moving before proceeding with your experiment
+#         i = 0
+#         while self.is_rotator_moving('780_QWP') and self.is_rotator_moving('780_HWP'):
+#             delay(0.1*s)
+#             i += 1
+#         print(i)
+#         delay(10*ms)
+#
+#
+#         # do some stuff with the Sinara hardware
+#         # for measurement in range(self.n_measurements):
+#         #     your tomography experiment goes here...
+# >>>>>>> ndsp_simplify
 
         # # wait for the rotators to stop moving before proceeding with your experiment
         # i = 0
