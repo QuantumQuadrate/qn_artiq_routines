@@ -2998,7 +2998,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
     self.measurement = 0  # advances in end_measurement
 
     while self.measurement < self.n_measurements:
-        delay(1 * ms)
+        delay(20 * ms)
 
         SPCM0_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         tStamps_t1 = [0.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
@@ -3034,7 +3034,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
         for excitation_cycle in range(self.max_excitation_cycles):
 
-            delay(100 * us)
+            delay(1000 * us)
 
             ### low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
 
@@ -3105,20 +3105,20 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
                 self.dds_FORT.sw.off()  ### turns FORT off
 
-                at_mu(t1 + 150 + int(self.t_photon_collection_time / ns) + 150)
+                at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
                 self.dds_FORT.sw.on()  ### turns FORT on
 
-                at_mu(t1 + 150)
+                at_mu(t1 + 50)
                 self.ttl_GRIN1_switch.off()  # turns on excitation
 
-                at_mu(t1 + 150 + int(self.t_excitation_pulse / ns))
+                at_mu(t1 + 50 + int(self.t_excitation_pulse / ns))
                 self.ttl_GRIN1_switch.on()  # turns off excitation
 
                 ######### time stamping the photons. Counting to be done in analysis.
                 SPCM0_click_counter = 0
                 SPCM1_click_counter = 0
 
-                at_mu(t1 + 150 + int(self.gate_start_offset_mu))
+                at_mu(t1 + int(self.gate_start_offset_mu))
                 with parallel:
                     t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
                     t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
@@ -3128,8 +3128,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
                     SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
                     if SPCM0_click_time == -1.0:
                         break
-                    SPCM0_timestamps[excitation_cycle + excitation_attempt][SPCM0_click_counter] = self.core.mu_to_seconds(
-                        SPCM0_click_time)
+                    SPCM0_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][SPCM0_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
                     SPCM0_click_counter += 1
 
                 ### timestamping SPCM1 events
@@ -3137,13 +3136,12 @@ def single_photon_experiment_3_atom_loading_advance(self):
                     SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
                     if SPCM1_click_time == -1.0:
                         break
-                    SPCM1_timestamps[excitation_cycle + excitation_attempt][SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
+                    SPCM1_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
                     SPCM1_click_counter += 1
 
                 # at_mu(t1 + 30000)
-                tStamps_t1[excitation_cycle  * self.n_excitation_attempts + excitation_attempt ] = self.core.mu_to_seconds(t1)
-                delay(30 * us) ### 20us is not enough
-
+                tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
+                delay(30 * us)  ### 20us is not enough
 
 
             delay(20 * us)
