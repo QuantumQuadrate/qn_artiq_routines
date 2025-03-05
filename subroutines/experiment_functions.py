@@ -228,24 +228,25 @@ def load_MOT_and_FORT_until_atom(self):
     # self.ttl_UV.pulse(self.t_UV_pulse)
 
     max_tries = 100  ### Maximum number of attempts before running the feedback
+    SPCM0_atom_check_time = 20 * ms
     atom_loaded = False
     try_n = 0
 
     while True:
         while not atom_loaded and try_n < max_tries:
             delay(100 * us)  ### Needs a delay of about 100us or maybe less
-            self.ttl_SPCM0_counter.gate_rising(20 * ms)
+            self.ttl_SPCM0_counter.gate_rising(SPCM0_atom_check_time)
             SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
             try_n += 1
 
-            if SPCM0_atom_check / (20 * ms) > self.single_atom_threshold:
+            if SPCM0_atom_check / SPCM0_atom_check_time > self.single_atom_threshold:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
         if atom_loaded:
             break  ### Exit the outer loop if an atom is loaded
 
-        ### If max_tries reached and atom still no atom, run feedback
+        ### If max_tries reached and still no atom, run feedback
         if self.enable_laser_feedback:
             delay(0.1 * ms) ### necessary to avoid underflow
 
@@ -280,10 +281,9 @@ def load_MOT_and_FORT_until_atom(self):
     ### set the cooling DP AOM to the PGC settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
 
-    self.ttl_repump_switch.on()  ### turn off MOT RP
+    # self.ttl_repump_switch.on()  ### turn off MOT RP
     delay(20 * ms) ### this is the PGC time
     ###################################################
-
 
     self.ttl_repump_switch.on()  ### turn off MOT RP
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -425,6 +425,75 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.dds_cooling_DP.sw.off()
 
 @kernel
+def first_shot_chopped(self):
+    """
+    chopped first atom readout.
+
+    # Turns on:
+    #     Cooling DP
+    #     MOT RP
+    #     All 6 fiber AOMs
+    #
+    # Turns off at the end:
+    #     Cooling DP
+    #     MOT RP
+
+    :return:
+    """
+    ### set the coils to the readout settings
+
+    n_RO_total = 100
+    self.SPCM0_RO1 = 0
+
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        channels=self.coil_channels)
+    delay(0.4 * ms) ## coils relaxation time
+
+    ### set the FORT AOM to the readout settings
+    self.dds_FORT.set(frequency=self.f_FORT,
+                      amplitude=self.stabilizer_FORT.amplitudes[1])
+
+    ### set the cooling DP AOM to the readout settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                            amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+    delay(10 * us)
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    self.ttl7.pulse(10 * us)
+    delay(100 * us)
+
+    for n_RO in range(n_RO_total):
+        t1 = now_mu()
+
+        self.dds_FORT.sw.off()  ### Turn off FORT
+        at_mu(t1 + 1000)
+        self.dds_FORT.sw.on()  ### Turn on FORT
+
+        at_mu(t1)
+        self.ttl_repump_switch.off()  ### turn on MOT RP
+        self.dds_cooling_DP.sw.on()  ### Turn on cooling
+
+        at_mu(t1 + 1000)
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+
+        at_mu(t1 + 200)
+        with parallel:
+            self.ttl_SPCM0_counter.gate_rising(800 * ns)
+
+        SPCM0_RO1_n = self.ttl_SPCM0_counter.fetch_count()
+
+        delay(5 * us)
+        self.SPCM0_RO1 += SPCM0_RO1_n
+
+@kernel
 def first_shot(self):
     """
     non-chopped first atom readout.
@@ -438,7 +507,6 @@ def first_shot(self):
         Cooling DP
         MOT RP
 
-    warning: assumes the fiber AOMs are already on, which is usually the case
     :return:
     """
     ### set the coils to the readout settings
@@ -1593,9 +1661,11 @@ def atom_loading_2_experiment(self):
         # delay(0.1 * ms)
 
         load_MOT_and_FORT_until_atom(self)
+        # load_MOT_and_FORT(self)
         delay(1*ms)
 
         first_shot(self)
+        # first_shot_chopped(self)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -2998,12 +3068,13 @@ def single_photon_experiment_3_atom_loading_advance(self):
     self.measurement = 0  # advances in end_measurement
 
     while self.measurement < self.n_measurements:
-        delay(20 * ms)
 
         SPCM0_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         tStamps_t1 = [0.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
         SPCM0_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
         SPCM1_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
+
+        delay(40 * ms) ### with n_excitation_attempts = 5, 30ms delay is not enough
 
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
@@ -3254,7 +3325,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
         delay(1*ms)
 
-    delay(10 * ms)
+    delay(15 * ms)
     self.dds_FORT.sw.off()
 
 @kernel

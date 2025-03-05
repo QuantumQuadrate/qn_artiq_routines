@@ -1,9 +1,7 @@
 """
-Atom loading optimization which tunes the MOT coils and beam powers using M-LOOP
+Atom loading optimization 2 to optimize atom loading with load_MOT_and_FORT_until_atom function.
+MOT and FORT beams are turned on and the time to load an atom is minimized.
 
-For a given choice of parameters within the specified bounds, the MOT is loaded in steady-state
-with the FORT on the whole time, and we try to maximize the number of single atoms that come and
-go in the trap.
 """
 
 from artiq.experiment import *
@@ -20,21 +18,21 @@ import mloop.visualizations as mlv
 from utilities.BaseExperiment import BaseExperiment
 
 
-# Declare your custom class that inherits from the Interface class
+### Declare your custom class that inherits from the Interface class
 class MLOOPInterface(mli.Interface):
 
-    # Initialization of the interface, including this method is optional
+    ### Initialization of the interface, including this method is optional
     def __init__(self):
         # You must include the super command to call the parent class, Interface, constructor
         super(MLOOPInterface, self).__init__()
 
-    # You must include the get_next_cost_dict method in your class
-    # this method is called whenever M-LOOP wants to run an experiment
+    ### You must include the get_next_cost_dict method in your class
+    ### this method is called whenever M-LOOP wants to run an experiment
     def get_next_cost_dict(self, params_dict):
         pass
 
 
-class AtomLoadingOptimizer(EnvExperiment):
+class AtomLoadingOptimizer2(EnvExperiment):
 
     def build(self):
         """
@@ -43,9 +41,9 @@ class AtomLoadingOptimizer(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
-        # overwrite the experiment variables of the same names
+        ### overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
-        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(40000))
+        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(10000))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
         self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
@@ -60,6 +58,7 @@ class AtomLoadingOptimizer(EnvExperiment):
         self.setattr_argument("dV_AZ_top", NumberValue(0.05, unit="V"), group)
         self.setattr_argument("dV_AX", NumberValue(0.05, unit="V"), group)
         self.setattr_argument("dV_AY", NumberValue(0.05, unit="V"), group)
+
         group = "absolute coil volts boundaries"
         self.setattr_argument("V_AZ_bottom_min", NumberValue(3.5,unit="V"), group)
         self.setattr_argument("V_AZ_bottom_max", NumberValue(4.8,unit="V"), group)
@@ -71,22 +70,16 @@ class AtomLoadingOptimizer(EnvExperiment):
         self.setattr_argument("V_AY_max", NumberValue(0.5, unit="V"), group)
 
         group = "beam tuning settings"
+        self.setattr_argument("max_set_point_percent_deviation_plus", NumberValue(0.1), group)
+        self.setattr_argument("max_set_point_percent_deviation_minus", NumberValue(0.1), group)
 
-        self.setattr_argument("max_set_point_percent_deviation_plus",
-                              NumberValue(0.1), group)
-
-        self.setattr_argument("max_set_point_percent_deviation_minus",
-                              NumberValue(0.1), group)
-
-        # we can balance the z beams with confidence by measuring the powers outside the chamber,
-        # so unless we are fine tuning loading, we may want trust our initial manual balancing
-        self.setattr_argument("disable_z_beam_tuning",
-                              BooleanValue(False), group)
+        ### we can balance the z beams with confidence by measuring the powers outside the chamber,
+        ### so unless we are fine tuning loading, we may want trust our initial manual balancing
+        self.setattr_argument("disable_z_beam_tuning", BooleanValue(False), group)
 
         group1 = "optimizer settings"
         self.setattr_argument("max_runs",NumberValue(100, type='int', scale=1, ndecimals=0, step=1),group1)
 
-        # this should be close to the mean signal from the atom
         self.base.set_datasets_from_gui_args()
         print("build - done")
 
@@ -97,9 +90,9 @@ class AtomLoadingOptimizer(EnvExperiment):
 
         self.atom_counts_threshold = self.atom_counts_per_s_threshold*self.t_SPCM_exposure
 
-        # whether to use boundaries which are defined as +/- dV around the current settings
+        ### whether to use boundaries which are defined as +/- dV around the current settings
         if self.use_differential_boundaries:
-            # override the absolute boundaries
+            ### override the absolute boundaries
             self.V_AZ_bottom_min = self.AZ_bottom_volts_MOT - self.dV_AZ_bottom
             self.V_AZ_top_min = self.AZ_top_volts_MOT - self.dV_AZ_top
             self.V_AX_min = self.AX_volts_MOT - self.dV_AX
