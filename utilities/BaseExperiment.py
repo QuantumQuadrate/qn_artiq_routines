@@ -676,6 +676,7 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_RO_atom_check", [0], broadcast=True)
         self.experiment.set_dataset("n_excitation_cycles", [0], broadcast=True)
+        self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
 
 
 

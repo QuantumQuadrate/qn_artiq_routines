@@ -74,7 +74,6 @@ def zotino_stability_test(self):
 
     delay(0.1 * ms)
 
-
 @kernel
 def load_MOT_and_FORT(self):
     """
@@ -231,6 +230,8 @@ def load_MOT_and_FORT_until_atom(self):
     SPCM0_atom_check_time = 20 * ms
     atom_loaded = False
     try_n = 0
+    t_before_atom = now_mu() ### is used to calculate the loading time of atoms by t_atom_loading = t_after_atom - t_before_atom
+    t_after_atom = now_mu()
 
     while True:
         while not atom_loaded and try_n < max_tries:
@@ -244,6 +245,8 @@ def load_MOT_and_FORT_until_atom(self):
                 atom_loaded = True
 
         if atom_loaded:
+            t_before_atom = t_after_atom
+            t_after_atom = now_mu()
             break  ### Exit the outer loop if an atom is loaded
 
         ### If max_tries reached and still no atom, run feedback
@@ -297,8 +300,8 @@ def load_MOT_and_FORT_until_atom(self):
     # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
     # self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
 
-    ### just for plotting the number of trials for each atom loading
-    self.append_to_dataset("Atom_loading_try_n", try_n)
+    ### saving the atom loading time for each loaded atom.
+    self.append_to_dataset("Atom_loading_time", self.core.mu_to_seconds(t_after_atom - t_before_atom))
     delay(10 * ms)
 
 @kernel
@@ -1626,7 +1629,6 @@ def atom_loading_experiment(self):
 
     self.dds_FORT.sw.off()
 
-
 @kernel
 def atom_loading_2_experiment(self):
     """
@@ -1637,8 +1639,6 @@ def atom_loading_2_experiment(self):
     """
 
     self.core.reset()
-
-    self.set_dataset("Atom_loading_try_n", [0.0], broadcast=True)
 
     if self.use_chopped_readout:
         # record_chopped_readout(self, self.t_SPCM_first_shot, "first_chopped_readout")
@@ -1765,8 +1765,6 @@ def microwave_Rabi_experiment(self):
 
     self.core.reset()
 
-    self.set_dataset("Atom_loading_try_n", [0.0], broadcast=True)
-
     self.SPCM0_RO1 = 0
     self.SPCM0_RO2 = 0
     self.SPCM1_RO1 = 0
@@ -1892,8 +1890,6 @@ def microwave_Rabi_2_experiment(self):
     """
 
     self.core.reset()
-
-    self.set_dataset("Atom_loading_try_n", [0.0], broadcast=True)
 
     self.SPCM0_RO1 = 0
     self.SPCM0_RO2 = 0
@@ -2673,8 +2669,6 @@ def single_photon_experiment_2_atom_loading_advance(self):
 
     self.core.reset()
 
-    self.set_dataset("Atom_loading_try_n", [0.0], broadcast=True)
-
     # overwritten below but initialized here so they are always initialized
     self.SPCM0_RO1 = 0
     self.SPCM0_RO2 = 0
@@ -3034,8 +3028,6 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
     self.core.reset()
     delay(1 * ms)
-
-    self.set_dataset("Atom_loading_try_n", [0.0], broadcast=True)
 
     max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
