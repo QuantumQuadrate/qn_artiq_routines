@@ -4,6 +4,7 @@ This code turns on the MOT AOMs and also the MOT coils.
 from artiq.experiment import *
 
 from utilities.BaseExperiment import BaseExperiment
+from subroutines.k10cr1_functions import *
 
 class AOMsCoils(EnvExperiment):
 
@@ -31,6 +32,8 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("yes_Im_sure_I_want_the_microwave_dds_ON", BooleanValue(default=False), "Microwaves")
         self.setattr_argument("run_laser_feedback", BooleanValue(default=False), "Laser power stabilization")
 
+        self.setattr_argument("go_to_home_780HWP", BooleanValue(default=False), "K10CR1")
+        self.setattr_argument("go_to_home_780QWP", BooleanValue(default=False), "K10CR1")
         self.base.set_datasets_from_gui_args()
 
     def prepare(self):
@@ -177,6 +180,16 @@ class AOMsCoils(EnvExperiment):
                 [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                 channels=self.coil_channels)
 
+    @kernel
+    def k10cr1_go_to_home(self):
+        delay(10*ms)
+        if self.go_to_home_780HWP:
+            go_to_home(self, '780_HWP')
+        if self.go_to_home_780QWP:
+            go_to_home(self, '780_QWP')
+
+
     def run(self):
         self.aoms_and_coils()
         self.run_feedback()
+        self.k10cr1_go_to_home()

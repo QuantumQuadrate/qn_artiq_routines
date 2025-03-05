@@ -38,33 +38,17 @@ def rotator_test_experiment(self):
     """
 
     self.core.reset()
-    delay(2*s)
-    # get position and move the 780 QWP.
-    qwp780_pos = get_rotator_position(self,'780_QWP')
-    hwp780_pos = get_rotator_position(self,'780_HWP')
+    delay(2* s)
 
-    self.print_async('780_QWP initially at ', qwp780_pos/self.deg_to_pos, ' deg')
-    self.print_async('780_HWP initially at ', hwp780_pos/self.deg_to_pos, ' deg')
-    delay(1 * s)
 
-    # home the devices
-    go_to_home(self, '780_QWP')
-    go_to_home(self, '780_HWP')
-
-    self.print_async("home done")
-    delay(2*s)
-
-    qwp780_pos = get_rotator_position(self, '780_QWP')
-    hwp780_pos = get_rotator_position(self, '780_HWP')
-
-    self.print_async('780_QWP homed at', qwp780_pos/self.deg_to_pos, ' deg')
-    self.print_async('780_HWP homed at', hwp780_pos/self.deg_to_pos, ' deg')
-
-    move_to_target_deg(self, name="780_QWP", target_deg=self.target_qwp_deg)
+    # GVS - set target_hwp_deg as the scan_variable.
     move_to_target_deg(self, name="780_HWP", target_deg=self.target_hwp_deg)
-
-    delay(10 * ms)
-
+    wait_move(self, "780_HWP")
+    hwp780_pos = get_rotator_position(self, '780_HWP')
+    delay(1*s)
+    self.print_async('hwp780 at ', hwp780_pos / self.deg_to_pos, ' deg')
+    delay(1*s)
+    record_PDA_power(self)
 
 
 

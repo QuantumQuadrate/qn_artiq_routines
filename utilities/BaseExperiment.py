@@ -53,7 +53,8 @@ from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
 from utilities.write_h5 import write_results
 from utilities.conversions import dB_to_V
-from K10CR1.KinesisMotorWrapper import KinesisMotorWrapper
+# from K10CR1.KinesisMotorWrapper import KinesisMotorWrapper
+from subroutines.k10cr1_functions import *
 
 import os
 
@@ -727,6 +728,7 @@ class BaseExperiment:
 
         self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("test_PDA_monitor", [0.0], broadcast=True)
 
     @kernel
     def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):
