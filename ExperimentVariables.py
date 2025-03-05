@@ -359,8 +359,16 @@ class ExperimentVariables(EnvExperiment):
                      "Thorlabs Devices"),
             Variable("qwp_degrees_to_move_to", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("target_qwp_deg", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("target_hwp_deg", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("deg_to_pos", 136533, NumberValue,
+                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
                      "Thorlabs Devices")
-
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so

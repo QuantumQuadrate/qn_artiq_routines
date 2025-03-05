@@ -1,38 +1,38 @@
-"""
-Control two K10CR1 units with only one NDSP server, where the calls to the
-NDSP object are made from a kernel.
 
-1. connect thorlabs K10CR1 rotators to your machine with USB, and make sure
-the serial numbers in the device_db match the rotators you connected.
+# Control two K10CR1 units with only one NDSP server, where the calls to the
+# NDSP object are made from a kernel.
+#
+# 1. connect thorlabs K10CR1 rotators to your machine with USB, and make sure
+# the serial numbers in the device_db match the rotators you connected.
+#
+# 2. open a terminal in the same directory as this script,
+# enter your artiq virtual environment, then run the
+# NDSP server for this test with
+#
+#     python launcher_multi_rotor.py
+#
+#     1- open conda prompt
+#     2- cd C:\Networking Experiment\artiq codes\artiq-master\repository\qn_artiq_routines\utilities\ndsp\thorlabs\with_kasli\two_k10cr1_one_server
+#     3- conda activate artiq7
+#     4- python launcher_multi_rotor.py
+#
+# 3. In another terminal in this directory in the artiq environment,
+# run this script with artiq:
+#
+#     artiq_run example_multi_k10cr1.py --device-db=.\device_db.py
+#
+# 3-1. This script can also be ran in artiq_dashboard.
+#
+#
+# 2025.02.26 EO
+# This is a modified code from example_multi_k10cr1.py to test the functionalities of K10CR1.
 
-2. open a terminal in the same directory as this script,
-enter your artiq virtual environment, then run the
-NDSP server for this test with
-
-    python launcher_multi_rotor.py
-
-    1- open conda prompt
-    2- cd C:\Networking Experiment\artiq codes\artiq-master\repository\qn_artiq_routines\utilities\ndsp\thorlabs\with_kasli\two_k10cr1_one_server
-    3- conda activate artiq7
-    4- python launcher_multi_rotor.py
-
-3. In another terminal in this directory in the artiq environment,
-run this script with artiq:
-
-    artiq_run example_multi_k10cr1.py --device-db=.\device_db.py
-
-3-1. This script can also be ran in artiq_dashboard.
-
-
-2025/02/26 EO
-This is a modified code from "example_multi_k10cr1.py" to test the functionalities of K10CR1.
-
-"""
+#!/usr/bin/env python3
 
 # here's how you do ndsp stuff in your artiq scripts
 from artiq.experiment import *
 from time import sleep
-from pylablib.devices import Thorlabs  # for Kinesis instrument control
+# from pylablib.devices import Thorlabs  # for Kinesis instrument control
 
 
 
@@ -77,7 +77,7 @@ class K10CR1Example_EO(EnvExperiment):
         is_moving = self.k10cr1_ndsp.is_moving(name)
         return is_moving
 
-    def wr_is_homed(self, name: str) -> TBool:
+    def wr_is_homed(self, name: TStr) -> TBool:
         """wrapper function"""
         homed = self.k10cr1_ndsp.is_homed(name)
         return homed

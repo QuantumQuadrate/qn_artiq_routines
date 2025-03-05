@@ -226,6 +226,14 @@ class BaseExperiment:
             for dev in devices_no_alias:
                 self.experiment.setattr_device(dev)
 
+            # ndsp devices
+            try:
+                self.experiment.setattr_device("k10cr1_ndsp")
+            except Exception as e:
+                print(f"Error connecting to device {e}")
+
+
+
             # devices can also be nicknamed here:
             # todo: do this in the device_db
 

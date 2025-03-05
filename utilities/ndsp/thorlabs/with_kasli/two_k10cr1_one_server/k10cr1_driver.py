@@ -79,7 +79,6 @@ class K10CR1_NDSP_Driver():
         moving = self.motors[name].is_moving()
         return moving
 
-    #todo: what is the difference btw move_by and move_to?
     def move_by(self, degrees, name: str):
         """Move piezo-motor by a given distance (positive or negative)"""
         self.motors[name].move_by(degrees)

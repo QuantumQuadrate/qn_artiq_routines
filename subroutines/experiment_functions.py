@@ -10,6 +10,7 @@ sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.conversions import dB_to_V_kernel as dB_to_V
+from subroutines.k10cr1_functions import *
 
 """
 Table of contents:
@@ -24,6 +25,47 @@ Table of contents:
 # intended to be run in a standalone fashion, e.g. from GeneralVariableScan.
 # Consequently, note that the name should not end in "experiment"
 ###############################################################################
+
+
+
+@kernel
+def rotator_test_experiment(self):
+    """
+    ratator_test function to record the Sampler value while rotating the waveplate
+
+    :param self:
+    :return:
+    """
+
+    self.core.reset()
+    delay(2*s)
+    # get position and move the 780 QWP.
+    qwp780_pos = get_rotator_position(self,'780_QWP')
+    hwp780_pos = get_rotator_position(self,'780_HWP')
+
+    self.print_async('780_QWP initially at ', qwp780_pos/self.deg_to_pos, ' deg')
+    self.print_async('780_HWP initially at ', hwp780_pos/self.deg_to_pos, ' deg')
+    delay(1 * s)
+
+    # home the devices
+    go_to_home(self, '780_QWP')
+    go_to_home(self, '780_HWP')
+
+    self.print_async("home done")
+    delay(2*s)
+
+    qwp780_pos = get_rotator_position(self, '780_QWP')
+    hwp780_pos = get_rotator_position(self, '780_HWP')
+
+    self.print_async('780_QWP homed at', qwp780_pos/self.deg_to_pos, ' deg')
+    self.print_async('780_HWP homed at', hwp780_pos/self.deg_to_pos, ' deg')
+
+    move_to_target_deg(self, name="780_QWP", target_deg=self.target_qwp_deg)
+    move_to_target_deg(self, name="780_HWP", target_deg=self.target_hwp_deg)
+
+    delay(10 * ms)
+
+
 
 
 @kernel
