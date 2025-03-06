@@ -41,15 +41,34 @@ def rotator_test_experiment(self):
     delay(2* s)
 
 
-    # GVS - set target_hwp_deg as the scan_variable.
-    move_to_target_deg(self, name="780_HWP", target_deg=self.target_hwp_deg)
-    wait_move(self, "780_HWP")
-    hwp780_pos = get_rotator_position(self, '780_HWP')
-    delay(1*s)
-    self.print_async('hwp780 at ', hwp780_pos / self.deg_to_pos, ' deg')
-    delay(1*s)
-    record_PDA_power(self)
+    # # GVS - set target_hwp_deg as the scan_variable.
+    # move_to_target_deg(self, name="780_HWP", target_deg=self.target_hwp_deg)
+    # wait_move(self, "780_HWP")
+    # hwp780_pos = get_rotator_position(self, '780_HWP')
+    # delay(1*s)
+    # self.print_async('hwp780 at ', hwp780_pos / self.deg_to_pos, ' deg')
+    # delay(1*s)
+    # record_PDA_power(self)
 
+
+    move_to_target_deg(self, name="780_HWP", target_deg=10)
+    hwp780_deg = get_rotator_deg(self, '780_HWP')
+    delay(1*s)
+    self.print_async('hwp780 at ', hwp780_deg, ' deg')
+
+    move_to_target_deg(self, name="780_HWP", target_deg=10)
+    hwp780_deg = get_rotator_deg(self, '780_HWP')
+    delay(1*s)
+    self.print_async('hwp780 at ', hwp780_deg, ' deg')
+
+    # # delay(2*s)
+    # # move_to_target_deg(self, name="780_HWP", target_deg=350)
+    #
+    # go_to_home(self, '780_HWP')
+    #
+    # hwp780_deg = get_rotator_deg(self, '780_HWP')
+    # delay(1*s)
+    # self.print_async('hwp780 at ', hwp780_deg, ' deg')
 
 
 @kernel

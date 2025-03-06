@@ -75,7 +75,26 @@ def is_rotator_moving(self, name: TStr) -> TBool:
 def go_to_home(self, name: TStr):
     """
     k10cr1_ndsp.home() includes wait_for_home() inside - defined in k10cr1_driver.py
+
+    * problem of this built_in function is that, it doesn't know the fastest way to home.
+        ex) if the initial position is at 350, it rotates -350 to go back to home rather than +10.
+    * good thing is that we can check the position of the rotator and then let the device know which is the fastest way to go.
+    * this way, we can save maximum of 18s.
+    * oh no... this gives underflow error
     """
+    # # delay(2*s)
+    # # delay(4*s)
+    #
+    # pos_in_deg = self.get_rotator_deg(self, name)
+    # pos_in_deg %= 360   # this will return 0~359.99999
+    #
+    # delay(10 * s)
+    #
+    # if pos_in_deg < 180:
+    #     move_by_deg(self, name, -1 * pos_in_deg)
+    # else:
+    #     move_by_deg(self, name, (360 - pos_in_deg))
+
     self.k10cr1_ndsp.home(name)
 
 
@@ -90,10 +109,10 @@ def get_rotator_deg(self, name: TStr) -> TFloat:
     """
     returns the actual position of the rotator in device units.
     """
+    #todo: deg % 360
     positions = self.k10cr1_ndsp.get_position(name)
     degs = positions / self.deg_to_pos
     return degs
-
 
 def move_to_target_deg(self, name: TStr, target_deg):
     """
@@ -152,5 +171,6 @@ def record_PDA_power(self):
 
     self.append_to_dataset("test_PDA_monitor", measurement1)
 
-
     delay(0.1 * ms)
+
+    return measurement1
