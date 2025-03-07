@@ -230,8 +230,9 @@ def load_MOT_and_FORT_until_atom(self):
     SPCM0_atom_check_time = 20 * ms
     atom_loaded = False
     try_n = 0
-    t_before_atom = now_mu() ### is used to calculate the loading time of atoms by t_atom_loading = t_after_atom - t_before_atom
+    t_before_atom = now_mu() ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
     t_after_atom = now_mu()
+    time_without_atom = 0.0
 
     while True:
         while not atom_loaded and try_n < max_tries:
@@ -245,9 +246,16 @@ def load_MOT_and_FORT_until_atom(self):
                 atom_loaded = True
 
         if atom_loaded:
-            t_before_atom = t_after_atom
+            # t_before_atom = t_after_atom ### I don't know why I had this! Removed and seems working fine.
+            self.set_dataset("time_without_atom", 0.0, broadcast=True) ### resetting time_without_atom when we load an atom
             t_after_atom = now_mu()
             break  ### Exit the outer loop if an atom is loaded
+
+        #### time_without_atom shows how long is passed from the previous atom loading. Calculated only when try_n > max_tries
+        delay(0.1 * ms)
+        t_no_atom = now_mu()
+        time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
+        self.set_dataset("time_without_atom", time_without_atom, broadcast=True)
 
         ### If max_tries reached and still no atom, run feedback
         if self.enable_laser_feedback:
@@ -283,8 +291,6 @@ def load_MOT_and_FORT_until_atom(self):
 
     ### set the cooling DP AOM to the PGC settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-
-    # self.ttl_repump_switch.on()  ### turn off MOT RP
     delay(20 * ms) ### this is the PGC time
     ###################################################
 

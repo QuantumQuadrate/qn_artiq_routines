@@ -292,15 +292,15 @@ class ExperimentVariables(EnvExperiment):
             Variable("verify_OP_in_photon_experiment", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
-            Variable("single_atom_threshold", 45000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
-            Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':3}, "Set points"),
-            Variable("set_point_PD2_AOM_A2", 0.148, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-            Variable("set_point_PD3_AOM_A3", 0.293, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-            Variable("set_point_PD4_AOM_A4", 0.286, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-            Variable("set_point_PD5_AOM_A5", 0.214, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
-            Variable("set_point_PD6_AOM_A6", 0.296, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
+            Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':4}, "Set points"),
+            Variable("set_point_PD2_AOM_A2", 0.148, NumberValue, {'type': 'float','ndecimals':4}, "Set points"),
+            Variable("set_point_PD3_AOM_A3", 0.293, NumberValue, {'type': 'float','ndecimals':4}, "Set points"),
+            Variable("set_point_PD4_AOM_A4", 0.286, NumberValue, {'type': 'float','ndecimals':4}, "Set points"),
+            Variable("set_point_PD5_AOM_A5", 0.214, NumberValue, {'type': 'float','ndecimals':4}, "Set points"),
+            Variable("set_point_PD6_AOM_A6", 0.296, NumberValue, {'type': 'float','ndecimals':4}, "Set points"),
             Variable('set_point_FORT_APD_loading', 0.051, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
             Variable('set_point_FORT_APD_science', 0.04, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
             Variable('set_point_FORT_MM_loading', 0.272, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
