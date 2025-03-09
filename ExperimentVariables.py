@@ -368,6 +368,12 @@ class ExperimentVariables(EnvExperiment):
                      "Thorlabs Devices"),
             Variable("deg_to_pos", 136533, NumberValue,
                      {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Thorlabs Devices"),
+            Variable("best_HWP_to_H", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "Thorlabs Devices"),
+            Variable("best_QWP_to_H", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
                      "Thorlabs Devices")
         ]
 

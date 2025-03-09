@@ -9,6 +9,14 @@ you need to define wrapper functions. if you call the NDSP functions
 directly, you'll get an error saying that the expression of NoneType
 can't be unified with float (or whatever your return type is).
 
+* Notes on @rpc decorator
+    - @rpc decorator is required when calling host functions from a kernel
+    - @rpc functions runs on the host PC, while the rest of the run() runs on the FPGA
+
+* Notes on @rpc(flags={"async"})
+    - makes RPCs asynchronous
+    - allows the kernel to continue execution without waiting for the host function to return
+
 """
 
 
@@ -57,6 +65,7 @@ def working_example(self):
 
     delay(10 * ms)
 
+@rpc
 def wr_is_homed(self, name: TStr) -> TBool:
     """
     There is a built_in function that can be called by:
@@ -66,12 +75,13 @@ def wr_is_homed(self, name: TStr) -> TBool:
     homed = self.k10cr1_ndsp.is_homed(name)
     return homed
 
+@rpc
 def is_rotator_moving(self, name: TStr) -> TBool:
     """wrapper function"""
     is_moving = self.k10cr1_ndsp.is_moving(name)
     return is_moving
 
-
+@rpc
 def go_to_home(self, name: TStr):
     """
     k10cr1_ndsp.home() includes wait_for_home() inside - defined in k10cr1_driver.py
@@ -97,7 +107,7 @@ def go_to_home(self, name: TStr):
 
     self.k10cr1_ndsp.home(name)
 
-
+@rpc
 def get_rotator_position(self, name: TStr) -> TFloat:
     """
     returns the actual position of the rotator in device units.
@@ -105,6 +115,7 @@ def get_rotator_position(self, name: TStr) -> TFloat:
     positions = self.k10cr1_ndsp.get_position(name)
     return positions
 
+@rpc
 def get_rotator_deg(self, name: TStr) -> TFloat:
     """
     returns the actual position of the rotator in device units.
@@ -114,6 +125,7 @@ def get_rotator_deg(self, name: TStr) -> TFloat:
     degs = positions / self.deg_to_pos
     return degs
 
+@rpc
 def move_to_target_deg(self, name: TStr, target_deg):
     """
     move to target position
@@ -128,7 +140,7 @@ def move_to_target_deg(self, name: TStr, target_deg):
     # after_move_deg = int(after_move_pos / deg_to_pos)
     # print("now ", name, " at : deg = ", after_move_deg)
 
-
+@rpc
 def move_by_deg(self, name: TStr, target_deg):
     """
     move to target position
@@ -140,7 +152,7 @@ def move_by_deg(self, name: TStr, target_deg):
 
     self.k10cr1_ndsp.move_by(target_pos, name)
 
-
+@rpc
 def wait_move(self, name: TStr):
     self.k10cr1_ndsp.wait_move(name)
 
@@ -174,3 +186,14 @@ def record_PDA_power(self):
     delay(0.1 * ms)
 
     return measurement1
+
+@kernel(flags={"fast-math"})
+def time_to_rotate_in_ms(self, deg:TFloat) -> TInt32:
+    rotator_ave_speed = 10  # deg/s
+
+    if deg < 0:
+        deg = -deg
+
+    delay_time = int(deg / rotator_ave_speed * 1000)
+
+    return delay_time
