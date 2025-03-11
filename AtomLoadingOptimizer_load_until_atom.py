@@ -706,8 +706,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ### overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("atom_counts_per_s_threshold", NumberValue(10000))
-        self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
-        self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(0, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
         self.both_mode = "coils and beam powers"
         self.beam_mode = "beam powers only"
@@ -837,7 +836,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=self.max_runs,
-                                           target_cost=-100.0, # Corresponds to average atom_loading_time = 10ms calculated from -1/atom_loading_time.
+                                           target_cost=-10.0, # Corresponds to average atom_loading_time = 100ms calculated from -1/atom_loading_time.
                                            num_params=n_params,
                                            min_boundary=min_bounds,
                                            max_boundary=max_bounds)
@@ -907,29 +906,8 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         for t in data:
             total_t += -1.0 / t
         average_t = total_t / len(data) ### Though I am naming these at _t, these are indeed 1/t to calculate the cost
-
-        # return average_t
-
         return int(round(average_t))
 
-        # atoms_loaded = 0
-        # q_last = (data[0] > self.atom_counts_threshold)
-        # for x in data[1:]:
-        #     q = x > self.atom_counts_threshold
-        #     if q != q_last and q_last:
-        #         atoms_loaded += 1
-        #     q_last = q
-        # atoms_loaded += q_last
-        ### the function above counts the number of times the counts cross the threshold
-
-        # return -1 * atoms_loaded
-
-        # atoms_loaded = 0
-        # for x in data[1:]:
-        #     atoms_loaded += 1
-        #
-        # return -1 * atoms_loaded
-        # return -5
 
     @kernel
     def optimization_routine(self, params: TArray(TFloat)) -> TInt32:
@@ -977,11 +955,6 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
         delay(1 * ms)
 
-
-
-
-
-
         ##################### This is the core of the optimizer that runs the sequence and get a cost:
 
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
@@ -1005,7 +978,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             # self.ttl_UV.pulse(self.t_UV_pulse)
 
             max_tries = 100  ### Maximum number of attempts before running the feedback
-            SPCM0_atom_check_time = 20 * ms
+            SPCM0_atom_check_time   = 20 * ms
             atom_loaded = False
             try_n = 0
             t_before_atom = now_mu()  ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
@@ -1023,7 +996,6 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                 if SPCM0_counts_per_s > self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
-                    break
 
             if atom_loaded:
                 t_after_atom = now_mu()
@@ -1046,70 +1018,6 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         self.append_to_dataset(self.cost_dataset, cost)
 
         ################################################################################
-
-
-        # ########### This works, but incomplete. Should be deleted later:
-        # ##################### This is the core of the optimizer that runs the sequence and get a cost:
-        #
-        # ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
-        # self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
-        #
-        # for i in range(self.n_measurements):
-        #     delay(1 * ms)  ### to dissipate MOT
-        #     self.dds_cooling_DP.sw.on()  ### turn on cooling
-        #     self.ttl_repump_switch.off()  ### turn on MOT RP
-        #
-        #     self.dds_AOM_A1.sw.on()
-        #     self.dds_AOM_A2.sw.on()
-        #     self.dds_AOM_A3.sw.on()
-        #     self.dds_AOM_A4.sw.on()
-        #     delay(0.1 * ms)
-        #     self.dds_AOM_A5.sw.on()
-        #     self.dds_AOM_A6.sw.on()
-        #     self.dds_FORT.sw.on()
-        #
-        #     delay(1 * ms)
-        #     # self.ttl_UV.pulse(self.t_UV_pulse)
-        #
-        #     max_tries = 10  ### Maximum number of attempts before running the feedback
-        #     SPCM0_atom_check_time = 20 * ms
-        #     atom_loaded = False
-        #     try_n = 0
-        #     t_before_atom = now_mu()  ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
-        #     t_after_atom = now_mu()
-        #
-        #     while not atom_loaded and try_n < max_tries:
-        #         delay(100 * us)  ### Needs a delay of about 100us or maybe less
-        #         self.ttl_SPCM0_counter.gate_rising(SPCM0_atom_check_time)
-        #         SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
-        #         try_n += 1
-        #
-        #         if SPCM0_atom_check / SPCM0_atom_check_time > self.single_atom_threshold:
-        #             delay(100 * us)  ### Needs a delay of about 100us or maybe less
-        #             atom_loaded = True
-        #
-        #     if atom_loaded:
-        #         t_after_atom = now_mu()
-        #         atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
-        #     else:
-        #         atom_loading_time = 100.0
-        #
-        #     delay(1 * ms)
-        #     ### Turning off AOMs to be ready to start atom loading from scratch
-        #     self.ttl_repump_switch.on()  ### turn off MOT RP
-        #     self.dds_cooling_DP.sw.off()  ### turn off cooling
-        #     self.dds_FORT.sw.off()  ### turn off FORT
-        #     delay(50 * ms)  ### to dissipate MOT
-        #
-        # cost = self.get_cost(self.SPCM0_counts_list)
-        # self.append_to_dataset(self.cost_dataset, cost)
-        #
-        # ################################################################################
-
-
-
-
-
 
         param_idx = 0
         if cost < self.current_best_cost:
