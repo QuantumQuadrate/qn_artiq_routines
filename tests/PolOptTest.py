@@ -1,5 +1,8 @@
 """
-new version based on GVS
+This is a test file for FORT polarization optimization
+
+
+
 """
 
 
@@ -38,15 +41,13 @@ class Polarization_Optimization_Test(EnvExperiment):
         except Exception as e:
             print(f"Error connecting to device {e}")
 
-        self.setattr_argument("max_iterations", NumberValue(4, ndecimals=1, step=1))
+        # self.setattr_argument("max_iterations", NumberValue(4, ndecimals=1, step=1))
+        self.setattr_argument("tolerance_deg", NumberValue(.2, ndecimals=2, step=1))
         self.setattr_argument("full_range", NumberValue(20, ndecimals=1, step=1))
         self.setattr_argument("sample_pts", NumberValue(9, ndecimals=1, step=1))
         self.setattr_argument("start_from_home", BooleanValue(default=False), "initialization")
-        # self.setattr_argument("start_from_optimized_point", BooleanValue(default=False), "initialization")
+        self.setattr_argument("reduce_sample_pts", BooleanValue(default=False), "initialization")
 
-        # n_measurements not used
-        # self.setattr_argument("n_measurements", NumberValue(0, ndecimals=1, step=1))
-        # self.base.set_datasets_from_gui_args()
         print("build - done")
 
     def prepare(self):
@@ -83,11 +84,15 @@ class Polarization_Optimization_Test(EnvExperiment):
 
     @kernel
     def exp_fun(self):
-        delay(10*s)
+        self.core.reset()
+
+        delay(1*s)
+
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         # iterations = 0
 
-        max_iterations = int(self.max_iterations)  # Limit iterations to prevent infinite loops
+        # max_iterations = int(self.max_iterations)  # Limit iterations to prevent infinite loops
+        tolerance = float(self.tolerance_deg)   # rather than using fixed iteration, stop when step < tolerance
         full_range = float(self.full_range)  # Start with a full range
         sample_pts = int(self.sample_pts)  # Number of samples per iteration
 
@@ -103,10 +108,16 @@ class Polarization_Optimization_Test(EnvExperiment):
 
         power = 0.0
 
+        tolerance_satisfied = False
+        iteration = 0
+
+
         # Iterative search loop
-        for iteration in range(max_iterations):
+        while not tolerance_satisfied:
+        # for iteration in range(max_iterations):
             print("iteration no.", iteration) # this statement has to be here for it to run,,,, why...
             time_ite = time_to_rotate_in_ms(self, half_range)
+
 
             delay(2 * 2 * time_ite * ms + 1*s)  # rotate two waveplates
 
@@ -114,6 +125,8 @@ class Polarization_Optimization_Test(EnvExperiment):
             hwp_values = np.array([best_HWP - half_range + i * steps for i in range(sample_pts)])
             qwp_values = np.array([best_QWP - half_range + i * steps for i in range(sample_pts)])
 
+            if steps <= tolerance:
+                tolerance_satisfied = True
 
             for hwp in hwp_values:
                 # time to rotate hwp
@@ -163,13 +176,19 @@ class Polarization_Optimization_Test(EnvExperiment):
 
                 previous_hwp = hwp
                 delay(1*s)
-                # iterations += 1
 
             half_range = steps
-            sample_pts = max(3, sample_pts // 2)  # Prevent sample_pts from becoming too small
-            # sample_pts must be odd number to reproduce former best parameter
-            if sample_pts % 2 == 0:
-                sample_pts += 1
+
+            if self.reduce_sample_pts:
+                sample_pts = max(3, sample_pts // 2)  # Prevent sample_pts from becoming too small
+                # sample_pts must be odd number to reproduce former best parameter
+                if sample_pts % 2 == 0:
+                    sample_pts += 1
+
+
+            iteration += 1
+
+
 
             delay(1 * s)
             print("best_HWP, best_QWP, power = ", best_HWP,", ", best_QWP, ",", best_power)
