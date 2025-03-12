@@ -35,6 +35,10 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("go_to_home_780HWP", BooleanValue(default=False), "K10CR1")
         self.setattr_argument("go_to_home_780QWP", BooleanValue(default=False), "K10CR1")
         self.setattr_argument("go_to_H_780", BooleanValue(default=False), "K10CR1")
+
+        self.setattr_argument("go_to_home_852HWP", BooleanValue(default=False), "K10CR1")
+        self.setattr_argument("go_to_home_852QWP", BooleanValue(default=False), "K10CR1")
+
         self.base.set_datasets_from_gui_args()
 
     def prepare(self):
@@ -186,11 +190,17 @@ class AOMsCoils(EnvExperiment):
 
     @kernel
     def k10cr1_operations(self):
+        self.core.reset()
         delay(10*ms)
         if self.go_to_home_780HWP:
             go_to_home(self, '780_HWP')
         if self.go_to_home_780QWP:
             go_to_home(self, '780_QWP')
+
+        if self.go_to_home_852HWP:
+            go_to_home(self, '852_HWP')
+        if self.go_to_home_852QWP:
+            go_to_home(self, '852_QWP')
 
         if self.go_to_H_780:
             move_to_target_deg(self, name="780_HWP", target_deg=self.best_HWP_to_H)

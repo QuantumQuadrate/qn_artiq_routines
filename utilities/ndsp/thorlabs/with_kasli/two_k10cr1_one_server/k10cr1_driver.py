@@ -11,7 +11,7 @@ class K10CR1_NDSP_Driver():
 
     def __init__(self, devices):
 
-        print_full_setting = False
+        print_full_setting = True
         initialize_to_home = True
 
         self.motors = {}

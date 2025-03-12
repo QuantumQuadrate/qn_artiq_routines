@@ -17,6 +17,11 @@ can't be unified with float (or whatever your return type is).
     - makes RPCs asynchronous
     - allows the kernel to continue execution without waiting for the host function to return
 
+
+Few ways to improve the code:
+1. implement "asyncio"
+- this will allow rotating two waveplates at the same time.
+
 """
 
 
@@ -160,11 +165,13 @@ def wait_move(self, name: TStr):
 @kernel
 def record_PDA_power(self):
     """
-    move by increment and measure from the sampler
-
+    This is for the test setup.
     :return: power
     """
 
+    #todo: define this in BaseExperiment.
+    # this function was for the test setup.
+    # change the name to record_APD_power before merging to the actual setup.
     # Sampler2 ch1
     test_PDA_ch = 1
 
@@ -182,6 +189,35 @@ def record_PDA_power(self):
     measurement1 /= avgs
 
     self.append_to_dataset("test_PDA_monitor", measurement1)
+
+    delay(0.1 * ms)
+
+    return measurement1
+
+@kernel
+def record_FORT_MM_power(self):
+    """
+    same thing as "measure_FORT_MM_fiber(self)" in experiment_functions.py
+
+    move by increment and measure from the sampler
+
+    :return: power
+    """
+
+    measurement_buf = np.array([0.0] * 8)
+    measurement1 = 0.0  # 1
+
+    avgs = 50
+
+    # APD
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[self.FORT_MM_sampler_ch]
+
+    measurement1 /= avgs
+
+    self.append_to_dataset("FORT_MM_monitor", measurement1)
 
     delay(0.1 * ms)
 

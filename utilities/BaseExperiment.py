@@ -262,7 +262,7 @@ class BaseExperiment:
             # in experiment_functions.py, measure_FORT_MM_fiber() function
             # BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
 
-            self.experiment.FORT_MM_sampler_ch = 6 # SAMPLER 0 for BOB
+            self.experiment.FORT_MM_sampler_ch = 7 # SAMPLER 1 for BOB also.
             # Sampler1; function "measure_GRIN1" in experiment functions.py
             self.experiment.GRIN1_sampler_ch = 4  # to avoid error. not implemented in node2
 
@@ -705,6 +705,8 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
 
+        self.experiment.set_dataset("SPCM0_total_click_counter", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_total_click_counter", [0], broadcast=True)
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("GRIN1_EXC_monitor", [0.0], broadcast=True)
@@ -728,7 +730,6 @@ class BaseExperiment:
 
         self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("test_PDA_monitor", [0.0], broadcast=True)
 
     @kernel
     def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):
