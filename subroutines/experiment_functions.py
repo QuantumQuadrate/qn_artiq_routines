@@ -3770,8 +3770,9 @@ def atom_photon_tomography_experiment(self):
 
     # K10CR1 set the waveplates
     with parallel:      # note: this does not make two wavplates to rotate at the same time.
+        # GVS variable - hwp_move_to_deg, qwp_move_to_deg
 
-
+        #todo: atom projection
 
         move_to_target_deg(self, name="780_HWP", target_deg=self.hwp_move_to_deg)
         move_to_target_deg(self, name="780_QWP", target_deg=self.qwp_move_to_deg)
@@ -3790,15 +3791,13 @@ def atom_photon_tomography_experiment(self):
     record_chopped_optical_pumping(self)
     delay(100 * ms)
 
-    if self.verify_OP_in_photon_experiment:
-        if self.t_blowaway > 0.0:
-            record_chopped_blow_away(self)
-            delay(100 * ms)
+    record_chopped_blow_away(self)
+    delay(100 * ms)
 
-        self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(10 * ms)
-        self.dds_microwaves.sw.on()
-        delay(100 * ms)
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(10 * ms)
+    self.dds_microwaves.sw.on()
+    delay(100 * ms)
 
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
 
@@ -3809,6 +3808,9 @@ def atom_photon_tomography_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
         self.laser_stabilizer.run()
+        # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
+        #todo: check if this bug still exists
+        self.dds_microwaves.sw.on()
 
     self.measurement = 0  # advances in end_measurement
 
@@ -3949,7 +3951,7 @@ def atom_photon_tomography_experiment(self):
                     t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
                     t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
 
-                # photon state - use count or timestamp
+                ############################ photon state measurement - use count or timestamp
 
                 # Notes on timestamping:
                 # .timestamp_mu(up_to_timestamp_mu): timestamp (in machine units) of the first event received; -1 on timeout.
@@ -3985,81 +3987,36 @@ def atom_photon_tomography_experiment(self):
             delay(20 * us)
             self.ttl_exc0_switch.on()  # block Excitation
 
-            ############################ atom cooling phase with PGC settings
-            if self.t_recooling > 0:
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                    channels=self.coil_channels)
 
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-                delay(0.4 * ms)  ### coils relaxation time
-
-                self.dds_cooling_DP.sw.on()
-                self.ttl_repump_switch.off()
-                self.dds_AOM_A1.sw.on()
-                self.dds_AOM_A2.sw.on()
-                self.dds_AOM_A3.sw.on()
-                delay(1 * us)
-                self.dds_AOM_A4.sw.on()
-                self.dds_AOM_A5.sw.on()
-                self.dds_AOM_A6.sw.on()
-
-                delay(self.t_recooling)
-
-                self.dds_cooling_DP.sw.off()
-                self.ttl_repump_switch.on()
-                self.dds_AOM_A1.sw.off()
-                self.dds_AOM_A2.sw.off()
-                self.dds_AOM_A3.sw.off()
-                delay(1 * us)
-                self.dds_AOM_A4.sw.off()
-                self.dds_AOM_A5.sw.off()
-                self.dds_AOM_A6.sw.off()
-                delay(1 * us)
-
-
-            ### atomic state analysis
+            ############################ atom state measurement
 
             # assume that the atom is not lost.
-            # turn on bias field
-            # map the state
+            # turn on bias field - already turned on at OP phase
+            # map the state |1,-1> -> |2,+1> with uw+RF
             # blowaway
             # readout
 
 
+            ############################
+            # microwave phase - transfer |1,-1> -> |2,+1> with uw+RF
+            ############################
 
+            # coils already set to OP.
 
+            self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-            # atom readout |B> or |D> ?
-            # if |D> => survived => reuse atom?
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_pulse)    #todo: change the pulse time
+            self.ttl_microwave_switch.on()
+            delay(0.1 * ms)
 
-            ############################# readout to see if the atom survived every self.atom_check_every_n
-            if (excitation_cycle + 1) % self.atom_check_every_n == 0:
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-                    channels=self.coil_channels)
+            ############################
+            # blow-away phase - push out atoms in F=2 only
+            ############################
 
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
-                delay(0.4 * ms)
+            if self.t_blowaway > 0.0:
+                chopped_blow_away(self)
 
-                self.dds_cooling_DP.sw.on()
-                self.ttl_repump_switch.off()
-                self.dds_AOM_A1.sw.on()
-                self.dds_AOM_A2.sw.on()
-                self.dds_AOM_A3.sw.on()
-                delay(1 * us)
-                self.dds_AOM_A4.sw.on()
-                self.dds_AOM_A5.sw.on()
-                self.dds_AOM_A6.sw.on()
-
-                self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
-                SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
-                SPCM0_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = SPCM0_RO_atom_check
-
-                ### stopping the excitation cycle after the atom is lost
-                if SPCM0_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
-                    delay(100 * us)  ### Needs a delay of about 100us or maybe less
-                    break
 
             delay(10 * us)
 
@@ -4067,15 +4024,12 @@ def atom_photon_tomography_experiment(self):
 
         self.dds_excitation.sw.off()
 
-        # turn AOMs back on
-        self.dds_AOM_A1.sw.on()
-        self.dds_AOM_A2.sw.on()
-        self.dds_AOM_A3.sw.on()
-        self.dds_AOM_A4.sw.on()
-        self.dds_AOM_A5.sw.on()
-        self.dds_AOM_A6.sw.on()
-
         delay(0.1 * ms)
+
+        ############################
+        # readout phase
+        ############################
+
 
         second_shot(self)
 
@@ -4112,6 +4066,8 @@ def atom_photon_tomography_experiment(self):
 
     delay(15 * ms)
     self.dds_FORT.sw.off()
+    delay(1 * ms)
+    self.dds_microwaves.sw.off()
 
 
     # saves the total clicks in each SPCM0 and SPCM1 - applet

@@ -8,6 +8,7 @@ This is a code for FORT polarization optimization with simple iterative approach
 - we can optimize the FORT polarization.
 
 
+As long as the step size is small enough, it will always find the correct value.
 
 
 """
@@ -48,11 +49,13 @@ class Polarization_Optimization_Test(EnvExperiment):
             print(f"Error connecting to device {e}")
 
         # self.setattr_argument("max_iterations", NumberValue(4, ndecimals=1, step=1))
-        self.setattr_argument("tolerance_deg", NumberValue(.2, ndecimals=2, step=1))
-        self.setattr_argument("full_range", NumberValue(90, ndecimals=1, step=1))
-        self.setattr_argument("sample_pts", NumberValue(9, ndecimals=1, step=1))
-        self.setattr_argument("start_from_home", BooleanValue(default=False), "initialization")
-        self.setattr_argument("reduce_sample_pts", BooleanValue(default=False), "initialization")
+        self.setattr_argument("initialize_to_home", BooleanValue(default=False), "initialization")
+        self.setattr_argument("tolerance_deg", NumberValue(.2, ndecimals=2, step=1), "optimization parameters")
+        self.setattr_argument("full_range", NumberValue(90, ndecimals=1, step=1), "optimization parameters")
+        self.setattr_argument("sample_pts", NumberValue(9, ndecimals=1, step=1), "optimization parameters")
+
+        self.setattr_argument("search_start_from_scratch", BooleanValue(default=False), "optimization settings")
+        self.setattr_argument("reduce_sample_pts", BooleanValue(default=False), "optimization settings")
 
         print("build - done")
 
@@ -83,10 +86,11 @@ class Polarization_Optimization_Test(EnvExperiment):
         #     move_to_target_deg(self, name="780_HWP", target_deg=self.best_HWP_to_H)
         #     move_to_target_deg(self, name="780_QWP", target_deg=self.best_QWP_to_H)
 
-        if self.start_from_home:
+        if self.initialize_to_home:
             go_to_home(self,'852_HWP')
             go_to_home(self,'852_QWP')
         else:
+            # this will do nothing if it has been optimized before
             move_to_target_deg(self, name="852_HWP", target_deg=self.best_852HWP_to_max)
             move_to_target_deg(self, name="852_QWP", target_deg=self.best_852QWP_to_max)
 
@@ -118,10 +122,10 @@ class Polarization_Optimization_Test(EnvExperiment):
         half_range = full_range / 2  # Half the full range
         measurement_count = 0  # Track number of power measurements
 
-        if self.start_from_home:
+        if self.search_start_from_scratch:
             best_HWP, best_QWP, best_power = 0.0, 0.0, 0.0
         else:
-            best_HWP, best_QWP, best_power = self.best_852HWP_to_max, self.best_852QWP_to_max, self.best_852_power
+            best_HWP, best_QWP, best_power = self.best_852HWP_to_max, self.best_852QWP_to_max, 0.0
         previous_hwp, previous_qwp, previous_power = 0.0, 0.0, 0.0
 
         power = 0.0
@@ -207,7 +211,7 @@ class Polarization_Optimization_Test(EnvExperiment):
 
             delay(1 * s)
             print("best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
-
+        print("full range search: ", full_range)
         print("previous best power: ", self.best_852_power, ", current best power: ", best_power)
 
         self.dds_FORT.sw.off()  ### turns FORT on
