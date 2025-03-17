@@ -292,5 +292,7 @@ class GeneralVariableScan(EnvExperiment):
 
                 iteration += 1
 
+        print("****************    General Variable Scan DONE   *****************")
+
 
 

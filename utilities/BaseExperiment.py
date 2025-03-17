@@ -223,7 +223,6 @@ class BaseExperiment:
             # self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_SPCM_gate = self.experiment.ttl13
@@ -670,8 +669,16 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
         self.experiment.set_dataset("SPCM0_SinglePhoton", [0], broadcast=True)
+        self.experiment.set_dataset("reference_tStamps_t1", [0.0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
+        self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_RO_atom_check", [0], broadcast=True)
+        self.experiment.set_dataset("n_excitation_cycles", [0], broadcast=True)
+        self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
+        self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
+
 
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)

@@ -9,7 +9,7 @@ import numpy as np
 from datetime import datetime as dt
 
 from utilities.BaseExperiment import BaseExperiment
-from subroutines.experiment_functions import atom_loading_experiment
+from subroutines.experiment_functions import atom_loading_2_experiment
 
 
 class SingleAtomTemperature(EnvExperiment):
@@ -21,6 +21,7 @@ class SingleAtomTemperature(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        self.setattr_argument("n_measurements", NumberValue(100, type='int', scale=1, ndecimals=0, step=1))
         # this is an argument for using a scan package, maybe
         self.scan_datasets = ["t_FORT_drop_sequence"]
         try:
@@ -50,8 +51,8 @@ class SingleAtomTemperature(EnvExperiment):
 
         self.t_exp_trigger = 1*ms
 
-        self.sampler_buffer = np.full(8, 0.0)
-        self.cooling_volts_ch = 7
+        # self.sampler_buffer = np.full(8, 0.0)
+        # self.cooling_volts_ch = 7
 
         self.t_FORT_drop_list = eval(self.t_FORT_drop_sequence)
         self.n_iterations = len(self.t_FORT_drop_list)
@@ -61,8 +62,9 @@ class SingleAtomTemperature(EnvExperiment):
     @kernel
     def run(self):
         self.base.initialize_hardware()
+        self.base.initialize_datasets()
         self.expt()
-        print("Experiment finished.")
+        print("*************   Experiment finished   *************")
 
     @kernel
     def expt(self):
@@ -90,7 +92,7 @@ class SingleAtomTemperature(EnvExperiment):
         self.dds_AOM_A5.sw.on()
         delay(1 * ms)
 
-        delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
+        # delay(2000*ms) # wait for AOMS to thermalize in case they have been off.
 
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()
@@ -102,14 +104,17 @@ class SingleAtomTemperature(EnvExperiment):
         iteration = 0
         for t_FORT_drop in self.t_FORT_drop_list:
 
-            # these are the datasets for plotting only, an we restart them each iteration
+            ### These are the datasets for plotting only. We restart them each iteration
             self.set_dataset("SPCM0_RO1_current_iteration", [0], broadcast=True)
             self.set_dataset("SPCM0_RO2_current_iteration", [0], broadcast=True)
 
-            self.t_FORT_drop = t_FORT_drop
-            atom_loading_experiment(self)
+            self.set_dataset("SPCM1_RO1_current_iteration", [0], broadcast=True)
+            self.set_dataset("SPCM1_RO2_current_iteration", [0], broadcast=True)
 
-            # loop the experiment sequence
+            self.t_FORT_drop = t_FORT_drop
+            atom_loading_2_experiment(self)
+
+            # ### loop the experiment sequence
             # for measurement in range(self.n_measurements):
             #
             #     if self.enable_laser_feedback:
@@ -165,13 +170,14 @@ class SingleAtomTemperature(EnvExperiment):
             #     self.set_dataset("iteration", iteration, broadcast=True)
 
         delay(1*ms)
-        # leave MOT on at end of experiment, but turn off the FORT
+
+        ### leave MOT on at end of experiment, but turn off the FORT
         self.dds_cooling_DP.sw.on()
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
-        # effectively turn the FORT AOM off
+        ### effectively turn the FORT AOM off
         self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
         # set the cooling DP AOM to the MOT settings
 
-        # finally, in case the worker refuses to die
+        ### finally, in case the worker refuses to die
         self.write_results()
