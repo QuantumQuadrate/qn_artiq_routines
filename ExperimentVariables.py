@@ -163,6 +163,8 @@ class ExperimentVariables(EnvExperiment):
             # assumes the microwave source is set at 6.5 GHz
             Variable("f_microwaves_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
                      "Microwaves"),
+            Variable("f_microwaves_detuning", 2.261 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
+                     "Microwaves"),
             Variable("p_microwaves", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Microwaves"),
 

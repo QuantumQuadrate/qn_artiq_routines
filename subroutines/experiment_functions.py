@@ -3744,6 +3744,29 @@ def atom_loading_and_waveplate_rotation_experiment(self):
 
     self.dds_FORT.sw.off()
 
+@kernel
+def atom_state_mapping(self):
+    detuning = self.f_microwaves_detuning
+
+    ### mapping |1,-1> to |2,0>
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds - detuning, amplitude=dB_to_V(self.p_microwaves))
+    delay(10 * ms)
+
+    self.ttl_microwave_switch.off()
+    delay(self.t_pi_microwave_pulse)  # todo: change the pulse time
+    self.ttl_microwave_switch.on()
+    delay(0.1 * ms)
+
+    ### mapping |1,+1> to |2,1>
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds - detuning, amplitude=dB_to_V(self.p_microwaves))
+    delay(10 * ms)
+
+    self.ttl_microwave_switch.off()
+    delay(self.t_pi_microwave_pulse)  # todo: change the pulse time
+    self.ttl_microwave_switch.on()
+    delay(0.1 * ms)
+
+
 
 @kernel
 def atom_photon_tomography_experiment(self):
@@ -3910,7 +3933,7 @@ def atom_photon_tomography_experiment(self):
 
                 # self.ttl_GRIN1_switch.on() ### was used when D1 was on GRIN1
 
-                ############ microwave phase - ONLY USED FOR VERIFYING OP.
+                ############ microwave phase - readout
                 if self.t_microwave_pulse > 0.0 and self.verify_OP_in_photon_experiment:
                     self.ttl_microwave_switch.off()
                     delay(self.t_microwave_pulse)
