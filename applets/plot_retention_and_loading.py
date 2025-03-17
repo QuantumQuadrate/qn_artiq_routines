@@ -79,7 +79,10 @@ class XYPlot(pyqtgraph.PlotWidget):
                         retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
                         retention_array[i] = retention_fraction
 
-                    error = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
+                    error_standard = np.array([1/np.sqrt(n) if n > 0 else 0 for n in n_atoms_loaded_array])
+                    error_binomial = np.array([np.sqrt(n * p * (1 - p)) / n if n > 0 else 0 for n, p in zip(n_atoms_loaded_array, retention_array)])
+
+                    error = error_standard
 
                     self.clear()
                     if len(x) == len(retention_array) and len(x) == len(loading_rate_array):
