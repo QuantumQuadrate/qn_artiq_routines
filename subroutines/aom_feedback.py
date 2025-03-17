@@ -525,10 +525,11 @@ class AOMPowerStabilizer:
                 ch.set_dds_to_defaults()
                 delay(0.1 * ms)
 
-        # make sure we're feeding back without the modulation on
-        delay(1*ms)
-        self.exp.FORT_mod_switch.off()
-        delay(1*ms)
+        if self.exp.which_node == "alice":
+            # make sure we're feeding back without the modulation on
+            delay(1*ms)
+            self.exp.FORT_mod_switch.off()
+            delay(1*ms)
 
         with sequential:
 

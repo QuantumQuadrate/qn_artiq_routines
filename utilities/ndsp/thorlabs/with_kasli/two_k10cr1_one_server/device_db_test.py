@@ -1,4 +1,4 @@
-core_addr = "192.168.1.70"
+core_addr = "192.168.1.76"
 
 device_db = {
     "core": {
@@ -56,6 +56,6 @@ device_db["k10cr1_ndsp"] = {
     "type": "controller",  # this tells artiq it's an ndsp
     "sn_list": [55000741,55105674],
     "nickname_list": ["780_QWP", "780_HWP"],
-    "host": "localhost",
+    "host": "::1",  #localhost
     "port": 8080
 }

@@ -53,7 +53,8 @@ from ExperimentVariables import setattr_variables
 from utilities.DeviceAliases import DeviceAliases
 from utilities.write_h5 import write_results
 from utilities.conversions import dB_to_V
-from K10CR1.KinesisMotorWrapper import KinesisMotorWrapper
+# from K10CR1.KinesisMotorWrapper import KinesisMotorWrapper
+from subroutines.k10cr1_functions import *
 
 import os
 
@@ -137,20 +138,28 @@ class BaseExperiment:
 
             # devices can also be nicknamed here:
             # todo: do this in the device_db
-            self.experiment.ttl_microwave_switch = self.experiment.ttl4
-            self.experiment.ttl_repump_switch = self.experiment.ttl5
+            # ttl0~3
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
             self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
-            self.experiment.ttl_scope_trigger = self.experiment.ttl7
-            self.experiment.ttl_UV = self.experiment.ttl15
-            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
-            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
-            self.experiment.FORT_mod_switch = self.experiment.ttl12
+
+            # ttl4~7
+            self.experiment.ttl_microwave_switch = self.experiment.ttl4
+            self.experiment.ttl_repump_switch = self.experiment.ttl5
             # self.experiment.ttl_Luca_trigger = self.experiment.ttl6 # Luca no longer used.
             self.experiment.ttl_exc0_switch = self.experiment.ttl6
+            self.experiment.ttl_scope_trigger = self.experiment.ttl7
+
+            # ttl8~11
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
+
+            # ttl12~15
+            self.experiment.FORT_mod_switch = self.experiment.ttl12
+            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
+            self.experiment.ttl_UV = self.experiment.ttl15
+
 
             # for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -211,27 +220,51 @@ class BaseExperiment:
                                 "sampler0",  # for measuring laser power PD
                                 "sampler1", # for reading in volts in the coil tune experiment
                                 "sampler2",
-                                *[f"ttl{i}" for i in range(16)]] # todo: add edge_counters when gateware upgraded
+                                *[f"ttl{i}" for i in range(16)],
+                                *[f"ttl{i}_counter" for i in range(4)],         # ttl card 0 edge counters
+                                *[f"ttl{i}_counter" for i in range(8, 12)]]      # ttl card 1 edge counters
+
             for dev in devices_no_alias:
                 self.experiment.setattr_device(dev)
 
+            # ndsp devices
+            try:
+                self.experiment.setattr_device("k10cr1_ndsp")
+            except Exception as e:
+                print(f"Error connecting to device {e}")
+
+
+
             # devices can also be nicknamed here:
             # todo: do this in the device_db
-            self.experiment.ttl_SPCM0 = self.experiment.ttl0
+
+            # ttl0~3
+            self.experiment.ttl_SPCM0 = self.experiment.ttl0   # SPCM2
+            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter   # SPCM2 counter
+            self.experiment.ttl_SPCM1 = self.experiment.ttl1   # SPCM3
+            self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter   # SPCM3 counter
+
+            # ttl4~7
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
-            # self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
-            self.experiment.ttl_scope_trigger = self.experiment.ttl7
-            self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
-            self.experiment.FORT_mod_switch = self.experiment.ttl12
-            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
-            self.experiment.ttl_UV = self.experiment.ttl15
             self.experiment.ttl_exc0_switch = self.experiment.ttl6
-            self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
+            self.experiment.ttl_scope_trigger = self.experiment.ttl7
 
-            # in experiment_functions.py, measure_FORT_MM_fiber() function uses sampler1
-            self.experiment.FORT_MM_sampler_ch = 7
+            # ttl8~11
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
+            self.experiment.FORT_mod_switch = self.experiment.ttl11
+
+            # ttl12~15
+            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+            self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
+            self.experiment.ttl_UV = self.experiment.ttl15
+
+            # in experiment_functions.py, measure_FORT_MM_fiber() function
+            # BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
+
+            self.experiment.FORT_MM_sampler_ch = 7 # SAMPLER 1 for BOB also.
+            # Sampler1; function "measure_GRIN1" in experiment functions.py
+            self.experiment.GRIN1_sampler_ch = 4  # to avoid error. not implemented in node2
 
 
 
@@ -680,6 +713,8 @@ class BaseExperiment:
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
 
 
+        self.experiment.set_dataset("SPCM0_total_click_counter", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_total_click_counter", [0], broadcast=True)
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("GRIN1_EXC_monitor", [0.0], broadcast=True)
@@ -724,29 +759,25 @@ class BaseExperiment:
 
             self.experiment.named_devices.initialize()
 
+            # TTL Setting: individually set each TTL port to input or output
+            # ttl0~3
+            self.experiment.ttl_SPCM0.input()
+            self.experiment.ttl_SPCM1.input()
+
+            # ttl4~7: already configured to be used as output at TTL card
             self.experiment.ttl_microwave_switch.output()
             self.experiment.ttl_repump_switch.output()
-            self.experiment.ttl_scope_trigger.output()
-            # self.experiment.ttl6.output()  # for outputting a trigger
             self.experiment.ttl_exc0_switch.output()
-            self.experiment.ttl1.input()
+            self.experiment.ttl_scope_trigger.output()
 
+            # ttl8~11
             self.experiment.ttl_D1_lock_monitor.input()
 
-            # for diagnostics including checking the performance of fast switches for SPCM gating
-            self.experiment.ttl9.output()
-            delay(1 * ms)
-            self.experiment.ttl9.off()
-
-            self.experiment.ttl_UV.output()
-            delay(1*ms)
-            self.experiment.ttl_UV.off()
-
-            # ttl channel for toggling between what we send to the VCA: the zotino voltage or the Rigol signal
-            # for modulating the FORT
+            # ttl12~15: already configured to be used as output at TTL card
             self.experiment.FORT_mod_switch.output()
-            delay(1*ms)
-            self.experiment.FORT_mod_switch.off() # off = no modulation
+            self.experiment.ttl_UV.output()
+
+            delay(1 * ms)
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
@@ -756,11 +787,16 @@ class BaseExperiment:
             # which might not happen if we abort an experiment in the middle and don't reset it
             self.experiment.ttl_exc0_switch.on()   # blocks excitation
             delay(1*ms)
-            self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
+            self.experiment.ttl_repump_switch.on() # block RF to get to the RP AOM
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
             self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
+            delay(1*ms)
+            self.experiment.ttl_UV.off()
+            delay(1 * ms)
+            self.experiment.FORT_mod_switch.off()  # off = no modulation
+
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
@@ -779,6 +815,7 @@ class BaseExperiment:
             delay(1 * ms)
 
             self.experiment.core.break_realtime()
+
         elif self.node == "bob":
             self.experiment.core.reset()
 
@@ -789,24 +826,26 @@ class BaseExperiment:
 
             self.experiment.named_devices.initialize()
 
+
+            # TTL Setting: individually set each TTL port to input or output
+            # ttl0~3
+            self.experiment.ttl_SPCM0.input()
+            self.experiment.ttl_SPCM1.input()
+
+            # ttl4~7: already configured to be used as output at TTL card
             self.experiment.ttl_microwave_switch.output()
             self.experiment.ttl_repump_switch.output()
-            self.experiment.ttl6.output()  # for outputting a trigger
-            self.experiment.ttl1.input()
+            self.experiment.ttl_exc0_switch.output()
+            self.experiment.ttl_scope_trigger.output()
 
-            # channel 3 is configured to read from 14, separated by a switch
-            self.experiment.ttl3.input()
-            self.experiment.ttl14.output()
-            self.experiment.ttl14.on()
+            # ttl8~11
+            self.experiment.ttl_D1_lock_monitor.input()
+            self.experiment.FORT_mod_switch.input()
 
-
-            # for diagnostics including checking the performance of fast switches for SPCM gating
-            self.experiment.ttl9.output()
-            delay(1 * ms)
-            self.experiment.ttl9.off()
-
+            # ttl12~15: already configured to be used as output at TTL card
+            self.experiment.ttl_SPCM_gate.output()
+            self.experiment.ttl_GRIN1_switch.output()
             self.experiment.ttl_UV.output()
-            self.experiment.ttl_UV.off()
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
@@ -814,11 +853,15 @@ class BaseExperiment:
 
             # turn on/off any switches. this ensures that switches always start in a default state,
             # which might not happen if we abort an experiment in the middle and don't reset it
-            self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
-            delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
+            self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
+            delay(1*ms)
+            self.experiment.ttl_exc0_switch.on()
+            delay(1 * ms)
             self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
+            delay(1 * ms)
+            self.experiment.ttl_UV.off()
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
