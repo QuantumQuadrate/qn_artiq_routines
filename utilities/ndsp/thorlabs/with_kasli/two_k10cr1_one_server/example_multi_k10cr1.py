@@ -86,6 +86,7 @@ class K10CR1Example(EnvExperiment):
 #         self.k10cr1_ndsp.move_by(20, '780_QWP')
 #         self.k10cr1_ndsp.move_by(15, '780_HWP')
 # =======
+
         # wait for the rotators to stop moving before proceeding with your experiment
         i = 0
         while self.is_rotator_moving('780_QWP') and self.is_rotator_moving('780_HWP'):
@@ -98,6 +99,7 @@ class K10CR1Example(EnvExperiment):
         # do some stuff with the Sinara hardware
         # for measurement in range(self.n_measurements):
         #     your tomography experiment goes here...
+
 # >>>>>>> ndsp_simplify
 
 
