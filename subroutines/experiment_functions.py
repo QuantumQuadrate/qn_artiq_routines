@@ -1638,7 +1638,8 @@ def atom_loading_experiment(self):
 @kernel
 def atom_loading_2_experiment(self):
     """
-    Testing fast atom loading: turn on MOT and FORT until an atom is detected. Then turn off MOT.
+    Simple atom loading experiment based on load_MOT_and_FORT_until_atom:
+    turn on MOT and FORT until an atom is detected. Then turn off MOT.
 
     :param self: an experiment instance.
     :return:
@@ -3324,7 +3325,6 @@ def single_photon_experiment_3_atom_loading_advance(self):
         delay(1*ms)
 
     delay(15 * ms)
-    self.dds_FORT.sw.off()
 
 @kernel
 def test_exc_singe_photon_experiment(self):
