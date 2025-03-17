@@ -3748,6 +3748,24 @@ def atom_loading_and_waveplate_rotation_experiment(self):
 def atom_state_mapping(self):
     detuning = self.f_microwaves_detuning
 
+    ### mapping |1,+1> to |2,1>
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds + 2 * detuning, amplitude=dB_to_V(self.p_microwaves))
+    delay(10 * ms)
+
+    self.ttl_microwave_switch.off()
+    delay(self.t_pi_microwave_pulse)  # todo: change the pulse time
+    self.ttl_microwave_switch.on()
+    delay(0.1 * ms)
+
+    ### mapping |2,+1> to |1, 0>
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds + 1 * detuning, amplitude=dB_to_V(self.p_microwaves))
+    delay(10 * ms)
+
+    self.ttl_microwave_switch.off()
+    delay(self.t_pi_microwave_pulse)  # todo: change the pulse time
+    self.ttl_microwave_switch.on()
+    delay(0.1 * ms)
+
     ### mapping |1,-1> to |2,0>
     self.dds_microwaves.set(frequency=self.f_microwaves_dds - detuning, amplitude=dB_to_V(self.p_microwaves))
     delay(10 * ms)
@@ -3757,15 +3775,17 @@ def atom_state_mapping(self):
     self.ttl_microwave_switch.on()
     delay(0.1 * ms)
 
-    ### mapping |1,+1> to |2,1>
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds - detuning, amplitude=dB_to_V(self.p_microwaves))
+
+@kernel
+def atom_rotation(self, t_pulse):
+    ### rotating |1,0> and  |2,0>
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(10 * ms)
 
     self.ttl_microwave_switch.off()
-    delay(self.t_pi_microwave_pulse)  # todo: change the pulse time
+    delay(t_pulse)
     self.ttl_microwave_switch.on()
     delay(0.1 * ms)
-
 
 
 @kernel
@@ -4025,13 +4045,22 @@ def atom_photon_tomography_experiment(self):
             ############################
 
             # coils already set to OP.
+            state_mapping = False
 
-            self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            if state_mapping:
+                atom_state_mapping(self)
+            else:
+                # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_pulse)    #todo: change the pulse time
-            self.ttl_microwave_switch.on()
-            delay(0.1 * ms)
+                self.ttl_microwave_switch.off()
+                delay(self.t_microwave_pulse)    #todo: change the pulse time
+                self.ttl_microwave_switch.on()
+                delay(0.1 * ms)
+
+            state_rotation = False
+
+            if state_rotation:
+                atom_rotation(self, self.t_microwave_pulse/2)
 
             ############################
             # blow-away phase - push out atoms in F=2 only
