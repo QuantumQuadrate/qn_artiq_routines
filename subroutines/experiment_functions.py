@@ -4099,6 +4099,7 @@ def atom_loading_and_waveplate_rotation_experiment(self):
 
 @kernel
 def atom_state_mapping(self):
+    #todo: change detuning in ExperimentVariables
     detuning = self.f_microwaves_detuning
 
     ### mapping |1,+1> to |2,1>
@@ -4106,7 +4107,7 @@ def atom_state_mapping(self):
     delay(10 * ms)
 
     self.ttl_microwave_switch.off()
-    delay(self.t_pi_microwave_pulse)  # todo: change the pulse time
+    delay(self.t_pi_microwave_pulse)
     self.ttl_microwave_switch.on()
     delay(0.1 * ms)
 
@@ -4115,7 +4116,7 @@ def atom_state_mapping(self):
     delay(10 * ms)
 
     self.ttl_microwave_switch.off()
-    delay(self.t_pi_microwave_pulse)  # todo: change the pulse time
+    delay(self.t_pi_microwave_pulse)
     self.ttl_microwave_switch.on()
     delay(0.1 * ms)
 
@@ -4124,14 +4125,14 @@ def atom_state_mapping(self):
     delay(10 * ms)
 
     self.ttl_microwave_switch.off()
-    delay(self.t_pi_microwave_pulse)  # todo: change the pulse time
+    delay(self.t_pi_microwave_pulse)
     self.ttl_microwave_switch.on()
     delay(0.1 * ms)
 
 
 @kernel
 def atom_rotation(self, t_pulse):
-    ### rotating |1,0> and  |2,0>
+    ### rotating |1,0> and |2,0>
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(10 * ms)
 
@@ -4386,19 +4387,15 @@ def atom_photon_tomography_experiment(self):
 
             ############################ atom state measurement
 
-            # assume that the atom is not lost.
-            # turn on bias field - already turned on at OP phase
-            # map the state |1,-1> -> |2,+1> with uw+RF
-            # blowaway
-            # readout
-
-
             ############################
             # microwave phase - transfer |1,-1> -> |2,+1> with uw+RF
             ############################
 
             # coils already set to OP.
             state_mapping = False
+            state_rotation = False
+
+            # map the states to |1,0> and |2,0>
 
             if state_mapping:
                 atom_state_mapping(self)
@@ -4410,8 +4407,7 @@ def atom_photon_tomography_experiment(self):
                 self.ttl_microwave_switch.on()
                 delay(0.1 * ms)
 
-            state_rotation = False
-
+            # rotate the states to different basis
             if state_rotation:
                 atom_rotation(self, self.t_microwave_pulse/2)
 
