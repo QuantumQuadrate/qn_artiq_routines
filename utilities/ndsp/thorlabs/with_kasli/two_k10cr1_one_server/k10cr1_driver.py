@@ -13,23 +13,25 @@ class K10CR1_NDSP_Driver():
 
         print_full_setting = True
         initialize_to_home = True
-
+        print("------------")
         self.motors = {}
         for name, kwargs in devices:
 
             self.motors[name] = Thorlabs.KinesisMotor(**kwargs)
-            print(f"initialized {name} with {kwargs}")
-
-            # self.get_jog_parameters(name)   # prints the jog parameters of the device
-            self.get_scale(name)            # prints the scale of the device
-            self.get_scale_units(name)      # prints the scale unit of the device
-            # self.get_stage(name)            # prints the name of the stage
+            print(f"Initializing {name} with {kwargs}")
 
             if print_full_setting:
+                print("\nprint_full_setting = True")
                 print(self.motors[name].get_settings())
+            else:
+                # self.get_jog_parameters(name)   # prints the jog parameters of the device
+                self.get_scale(name)  # prints the scale of the device
+                self.get_scale_units(name)  # prints the scale unit of the device
+                # self.get_stage(name)            # prints the name of the stage
 
             # initializing device to home
             if initialize_to_home:
+                print("\ninitialize_to_home = True")
                 self.home(name)
 
             self.get_status(name)           # prints the status of the device
@@ -60,7 +62,7 @@ class K10CR1_NDSP_Driver():
         print("name of the stage: ", self.motors[name].get_stage())
 
     def get_status(self, name: str):
-        print("status of the device: ", self.motors[name].get_status())
+        print(f"{name} status: ",self.motors[name].get_status() )
 
     def wait_for_status(self, name: str, status: str):
         self.motors[name].wait_for_status(status = status, enabled = True)
