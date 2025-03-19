@@ -840,7 +840,7 @@ class BaseExperiment:
 
             # ttl8~11
             self.experiment.ttl_D1_lock_monitor.input()
-            self.experiment.FORT_mod_switch.input()
+            self.experiment.FORT_mod_switch.output()
 
             # ttl12~15: already configured to be used as output at TTL card
             self.experiment.ttl_SPCM_gate.output()
