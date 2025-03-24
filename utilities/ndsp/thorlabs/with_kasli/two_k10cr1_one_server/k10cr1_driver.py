@@ -12,7 +12,7 @@ class K10CR1_NDSP_Driver():
     def __init__(self, devices):
 
         print_full_setting = True
-        initialize_to_home = True
+        initialize_to_home = False
 
         self.motors = {}
         for name, kwargs in devices:
@@ -31,6 +31,8 @@ class K10CR1_NDSP_Driver():
             # initializing device to home
             if initialize_to_home:
                 self.home(name)
+            else:
+                print("initialize_to_home = False")
 
             self.get_status(name)           # prints the status of the device
 

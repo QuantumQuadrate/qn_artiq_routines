@@ -341,6 +341,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("f_Rigol_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
             # Thorlabs Devices
+            #todo: delete these in ExperimentVariables. These are defined in device_db.py
             Variable("K10CR1_FORT_HWP_SN", 55000759, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
                      "Thorlabs Devices"),
             Variable("K10CR1_FORT_QWP_SN", 55000740, NumberValue,
@@ -404,7 +405,7 @@ class ExperimentVariables(EnvExperiment):
                 else:
                     print(f"Exception {e}")
 
-        self.setattr_argument('which_node', EnumerationValue(['bob','alice','two_nodes']), "general")
+        self.setattr_argument('which_node', EnumerationValue(['alice','bob','two_nodes']), "general")
 
     def run(self):
 
