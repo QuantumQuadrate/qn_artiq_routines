@@ -17,9 +17,9 @@ class SingleAtomLoading(EnvExperiment):
 
 
     def build(self):
-        self.setattr_argument("measurements", NumberValue(100, ndecimals=0, step=1))
-        self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1))
-        self.setattr_argument("counts_per_bin", NumberValue(10, ndecimals=0, step=1))
+        self.setattr_argument("measurements", NumberValue(100, precision=0, step=1))
+        self.setattr_argument("bins", NumberValue(50, precision=0, step=1))
+        self.setattr_argument("counts_per_bin", NumberValue(10, precision=0, step=1))
         
     def sample_photocounts(self):
         """generator function to sample counts from background + single atom distribution"""
@@ -171,9 +171,9 @@ class SingleAtomTest(EnvExperiment):
 
     def build(self):
         self.name = "Atom Loading Fit Testing"
-        self.setattr_argument("measurements", NumberValue(100, ndecimals=0, step=1))
-        self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1))
-        self.setattr_argument("counts_per_bin", NumberValue(10, ndecimals=0, step=1))
+        self.setattr_argument("measurements", NumberValue(100, precision=0, step=1))
+        self.setattr_argument("bins", NumberValue(50, precision=0, step=1))
+        self.setattr_argument("counts_per_bin", NumberValue(10, precision=0, step=1))
         self.counts = self.sample_photocounts()
 
     def run(self):

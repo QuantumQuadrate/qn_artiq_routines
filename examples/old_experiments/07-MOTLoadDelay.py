@@ -29,48 +29,48 @@ class MOT_Load_Time(EnvExperiment):
         self.setattr_device("ttl1")
 
 
-        # self.setattr_argument("f_FORT", NumberValue(345.1 * MHz, unit="MHz", ndecimals=1), "AOM1, pumping repumper")
-        # self.setattr_argument("p_FORT_loading", NumberValue(-5, unit="dBm", scale=1, ndecimals=1), "AOM1, pumping repumper")
+        # self.setattr_argument("f_FORT", NumberValue(345.1 * MHz, unit="MHz", precision=1), "AOM1, pumping repumper")
+        # self.setattr_argument("p_FORT_loading", NumberValue(-5, unit="dBm", scale=1, precision=1), "AOM1, pumping repumper")
         # self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False), "AOM1, pumping repumper")
 
-        self.setattr_argument("f_FORT", NumberValue(210 * MHz, unit="MHz", ndecimals=1), "AOM1, FORT")
-        self.setattr_argument("p_FORT_loading", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM1, FORT")
+        self.setattr_argument("f_FORT", NumberValue(210 * MHz, unit="MHz", precision=1), "AOM1, FORT")
+        self.setattr_argument("p_FORT_loading", NumberValue(3, unit="dBm", scale=1, precision=1), "AOM1, FORT")
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False), "AOM1, FORT")
 
-        self.setattr_argument("f_cooling_DP_MOT", NumberValue(115.0 * MHz, unit="MHz",ndecimals=1), "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_cooling_DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1), "AOM2, MOT cooling double pass")
+        self.setattr_argument("f_cooling_DP_MOT", NumberValue(115.0 * MHz, unit="MHz",precision=1), "AOM2, MOT cooling double pass")
+        self.setattr_argument("p_cooling_DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, precision=1), "AOM2, MOT cooling double pass")
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
 
-        self.setattr_argument("f_D1_pumping_DP", NumberValue(130.0 * MHz, unit="MHz",ndecimals=1), "AOM3, MOT cooling single pass")
-        self.setattr_argument("p_D1_pumping_DP", NumberValue(1, unit="dBm", scale=1, ndecimals=1), "AOM3, MOT cooling single pass")
+        self.setattr_argument("f_D1_pumping_DP", NumberValue(130.0 * MHz, unit="MHz",precision=1), "AOM3, MOT cooling single pass")
+        self.setattr_argument("p_D1_pumping_DP", NumberValue(1, unit="dBm", scale=1, precision=1), "AOM3, MOT cooling single pass")
         self.setattr_argument("D1_pumping_DP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
 
-        self.setattr_argument("f_pumping_repump", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("p_pumping_repump", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("f_pumping_repump", NumberValue(150.5 * MHz, unit="MHz", precision=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("p_pumping_repump", NumberValue(3, unit="dBm", scale=1, precision=1), "AOM4, MOT RP/Exc")
         self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
-        self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
-        self.setattr_argument("AOM_A2_power", NumberValue(-5, unit="dBm", scale=1, ndecimals=1), "AOM A2")
+        self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", precision=2), "AOM A2")
+        self.setattr_argument("AOM_A2_power", NumberValue(-5, unit="dBm", scale=1, precision=1), "AOM A2")
         self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
 
-        self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
-        self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
+        self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", precision=2), "AOM A3")
+        self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, precision=1), "AOM A3")
         self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
 
-        self.setattr_argument("AOM_A5_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A5")
-        self.setattr_argument("AOM_A5_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A5")
+        self.setattr_argument("AOM_A5_freq", NumberValue(78.5 * MHz, unit="MHz", precision=2), "AOM A5")
+        self.setattr_argument("AOM_A5_power", NumberValue(-3, unit="dBm", scale=1, precision=1), "AOM A5")
         self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
 
-        self.setattr_argument("AOM_A6_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A6")
-        self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
+        self.setattr_argument("AOM_A6_freq", NumberValue(78.51 * MHz, unit="MHz", precision=2), "AOM A6")
+        self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, precision=1), "AOM A6")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.01),
+        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", precision=3, step=0.01),
                               "A-Z shim/quad bottom coils")
-        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.9, unit="V", ndecimals=3, step=0.01),
+        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.9, unit="V", precision=3, step=0.01),
                               "A-Z shim/quad top coil")
-        self.setattr_argument("AX_volts_MOT", NumberValue(-0.35, unit="V", ndecimals=3, step=0.01), "A-X shim coils")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.43, unit="V", ndecimals=3, step=0.01), "A-Y shim coils")
+        self.setattr_argument("AX_volts_MOT", NumberValue(-0.35, unit="V", precision=3, step=0.01), "A-X shim coils")
+        self.setattr_argument("AY_volts_MOT", NumberValue(-0.43, unit="V", precision=3, step=0.01), "A-Y shim coils")
 
     def prepare(self):
         # converts RF power in dBm to amplitudes in V

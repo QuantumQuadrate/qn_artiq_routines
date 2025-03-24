@@ -20,8 +20,8 @@ class SPCMGateRiseTimeTest(EnvExperiment):
     def build(self):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
-        self.setattr_argument("pulse_duty_cycle", NumberValue(0.2, ndecimals=1, step=1))
-        self.setattr_argument("pulse_period", NumberValue(500*ns, unit='ns', ndecimals=1, step=1))
+        self.setattr_argument("pulse_duty_cycle", NumberValue(0.2, precision=1, step=1))
+        self.setattr_argument("pulse_period", NumberValue(500*ns, unit='ns', precision=1, step=1))
         self.setattr_argument("disable_pulse_sequence", BooleanValue(False)) # for viewing SPCM output in steady state
 
         self.base.set_datasets_from_gui_args()

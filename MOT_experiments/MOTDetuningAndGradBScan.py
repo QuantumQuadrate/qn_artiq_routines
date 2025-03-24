@@ -39,12 +39,12 @@ class MOTDetuningAndGradBScan(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
-        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(100, precision=0, step=1))
         self.setattr_argument("t_ThorCam_exposure_ms", NumberValue(100))
 
         # these are the coil values as they are set on 12.17.2023
-        self.setattr_argument("AZ_bottom_default", NumberValue(8.036*V, unit='V', ndecimals=3, step=0.001))
-        self.setattr_argument("AZ_top_default", NumberValue(8.489*V, unit='V', ndecimals=3, step=0.001))
+        self.setattr_argument("AZ_bottom_default", NumberValue(8.036*V, unit='V', precision=3, step=0.001))
+        self.setattr_argument("AZ_top_default", NumberValue(8.489*V, unit='V', precision=3, step=0.001))
 
         # don't overshadow the experiment variable f_cooling_DP_MOT
         self.scan_datasets = ["dV_Z_coils", "f_MOT_cooling_DP"]

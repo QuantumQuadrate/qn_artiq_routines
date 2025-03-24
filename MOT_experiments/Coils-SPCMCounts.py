@@ -23,7 +23,7 @@ class CoilsSPCMCounts(EnvExperiment):
         self.setattr_device("sampler0") # for measuring laser power PD
 
         self.setattr_argument("n_steps",
-                              NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
+                              NumberValue(10, type='int', precision=0, scale=1, step=1))
         # exposure time of the SPCM
         self.setattr_argument("dt_exposure", NumberValue(
             300 * ms))

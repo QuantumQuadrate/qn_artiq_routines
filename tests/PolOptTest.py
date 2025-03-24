@@ -48,11 +48,11 @@ class Polarization_Optimization_Test(EnvExperiment):
         except Exception as e:
             print(f"Error connecting to device {e}")
 
-        # self.setattr_argument("max_iterations", NumberValue(4, ndecimals=1, step=1))
+        # self.setattr_argument("max_iterations", NumberValue(4, precision=1, step=1))
         self.setattr_argument("initialize_to_home", BooleanValue(default=False), "initialization")
-        self.setattr_argument("tolerance_deg", NumberValue(.2, ndecimals=2, step=1), "optimization parameters")
-        self.setattr_argument("full_range", NumberValue(90, ndecimals=1, step=1), "optimization parameters")
-        self.setattr_argument("sample_pts", NumberValue(9, ndecimals=1, step=1), "optimization parameters")
+        self.setattr_argument("tolerance_deg", NumberValue(.2, precision=2, step=1), "optimization parameters")
+        self.setattr_argument("full_range", NumberValue(90, precision=1, step=1), "optimization parameters")
+        self.setattr_argument("sample_pts", NumberValue(9, precision=1, step=1), "optimization parameters")
 
         self.setattr_argument("search_start_from_scratch", BooleanValue(default=False), "optimization settings")
         self.setattr_argument("reduce_sample_pts", BooleanValue(default=False), "optimization settings")

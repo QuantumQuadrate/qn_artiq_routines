@@ -124,7 +124,7 @@ Note in particular the method calls for base.build, base.prepare, base.set_datas
           self.base.build()
 
           # add some GUI arguments particular to this experiment
-          self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
+          self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))  #artiq8: change "ndecimal" -> "precison"
           self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
           self.setattr_argument("control_experiment", BooleanValue(False), "Control experiment")
 

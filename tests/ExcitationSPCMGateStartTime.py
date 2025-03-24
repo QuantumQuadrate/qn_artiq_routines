@@ -31,10 +31,10 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.base.build()
         # sets ttls
 
-        self.setattr_argument("n_measurements", NumberValue(1000000, ndecimals=0, step=1))
-        # self.setattr_argument("exc_RF_in_dBm", NumberValue(1., ndecimals=0, step=1))
-        self.setattr_argument("exc_pulse_length_mu", NumberValue(50, ndecimals=0, step=1))
-        self.setattr_argument("t_photon_collection_mu", NumberValue(100, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(1000000, precision=0, step=1))
+        # self.setattr_argument("exc_RF_in_dBm", NumberValue(1., precision=0, step=1))
+        self.setattr_argument("exc_pulse_length_mu", NumberValue(50, precision=0, step=1))
+        self.setattr_argument("t_photon_collection_mu", NumberValue(100, precision=0, step=1))
 
 
         self.setattr_argument("t_pulse_mu_list", StringValue('[100,200,300,400,500, 600]'))

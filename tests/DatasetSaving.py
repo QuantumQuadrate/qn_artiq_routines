@@ -19,9 +19,9 @@ class DatasetSaving(EnvExperiment):
     def build(self):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
-        self.setattr_argument("n_datapoints", NumberValue(100, ndecimals=0, step=1))
+        self.setattr_argument("n_datapoints", NumberValue(100, precision=0, step=1))
         # self.setattr_argument("python_data_type",StringValue('float'))
-        self.setattr_argument("round_decimals", NumberValue(10, ndecimals=0, step=1))
+        self.setattr_argument("round_decimals", NumberValue(10, precision=0, step=1))
 
         self.base.set_datasets_from_gui_args()
 

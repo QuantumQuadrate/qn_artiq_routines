@@ -88,7 +88,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
-        self.setattr_argument("n_measurements", NumberValue(100, type='int', scale=1, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(100, type='int', scale=1, precision=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
 
         # [('experiment_var_name',minval,maxval,differential or absolute)]
@@ -119,8 +119,8 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.setattr_argument('override_ExperimentVariables', StringValue("{'require_atom_loading_to_advance':False}"))
 
         group1 = "optimizer settings"
-        self.setattr_argument("max_runs", NumberValue(70, type='int', scale=1, ndecimals=0, step=1), group1)
-        self.setattr_argument("target_cost", NumberValue(-100, type='int', scale=1, ndecimals=0, step=1), group1)
+        self.setattr_argument("max_runs", NumberValue(70, type='int', scale=1, precision=0, step=1), group1)
+        self.setattr_argument("target_cost", NumberValue(-100, type='int', scale=1, precision=0, step=1), group1)
 
         # todo: add keyword arguments for setting up M-LOOP
         #  there is a lot more available than what we've been using

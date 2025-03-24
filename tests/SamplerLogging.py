@@ -13,10 +13,10 @@ class SamplerLogging(EnvExperiment):
         self.setattr_device("sampler1")
         self.setattr_device("sampler2")
 
-        self.setattr_argument("n_average", NumberValue(5, type='int', ndecimals=0, scale=1, step=1))  # averaging over n in each measurement
-        self.setattr_argument("n_measure", NumberValue(10, type='int', ndecimals=0, scale=1, step=1))  # number of measurements
-        self.setattr_argument("t_step", NumberValue(10, type='int', unit='ms', ndecimals=0, scale=1, step=1))  # delay between measurements
-        self.setattr_argument("t_step_in_average", NumberValue(1, type='int', unit='ms', ndecimals=0, scale=1, step=1))  # delay between measurements
+        self.setattr_argument("n_average", NumberValue(5, type='int', precision=0, scale=1, step=1))  # averaging over n in each measurement
+        self.setattr_argument("n_measure", NumberValue(10, type='int', precision=0, scale=1, step=1))  # number of measurements
+        self.setattr_argument("t_step", NumberValue(10, type='int', unit='ms', precision=0, scale=1, step=1))  # delay between measurements
+        self.setattr_argument("t_step_in_average", NumberValue(1, type='int', unit='ms', precision=0, scale=1, step=1))  # delay between measurements
 
     def prepare(self):
         self.n_channels = 8

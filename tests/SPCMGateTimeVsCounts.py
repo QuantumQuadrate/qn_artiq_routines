@@ -28,7 +28,7 @@ class SPCMGateTimeVsCounts(EnvExperiment):
         self.base.build()
         # sets ttls
 
-        self.setattr_argument("n_measurements", NumberValue(1000, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(1000, precision=0, step=1))
         # self.setattr_argument("t_pulse_mu_list", StringValue('[10,100,1000,10000,100000, 1000000, 10000000]'))
         self.setattr_argument("t_pulse_mu_list", StringValue('[100,200,300,400,500, 600]'))
 

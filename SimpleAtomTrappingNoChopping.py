@@ -36,14 +36,14 @@ class SimpleAtomTrapNoChop(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
-        self.setattr_argument("n_measurements", NumberValue(10, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(10, precision=0, step=1))
         self.setattr_argument("print_measurement_number", BooleanValue(False))
         self.setattr_argument("dt_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("iteration_delay", NumberValue(0 * s, unit='s'))
         self.setattr_argument("drop_MOT", BooleanValue(False))
         ### When selected, the MOT is dropped after atom loading.
 
-        self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
+        self.setattr_argument("bins", NumberValue(50, precision=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("print_counts", BooleanValue(False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
         self.setattr_argument("control_experiment", BooleanValue(False))

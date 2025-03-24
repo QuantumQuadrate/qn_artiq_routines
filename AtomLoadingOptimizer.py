@@ -47,7 +47,7 @@ class AtomLoadingOptimizer(EnvExperiment):
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("atom_counts_per_s_threshold", NumberValue(40000))
         self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit='ms'))
-        self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(400, type='int', scale=1, precision=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
         self.both_mode = "coils and beam powers"
         self.beam_mode = "beam powers only"
@@ -84,7 +84,7 @@ class AtomLoadingOptimizer(EnvExperiment):
                               BooleanValue(False), group)
 
         group1 = "optimizer settings"
-        self.setattr_argument("max_runs",NumberValue(100, type='int', scale=1, ndecimals=0, step=1),group1)
+        self.setattr_argument("max_runs",NumberValue(100, type='int', scale=1, precision=0, step=1),group1)
 
         # this should be close to the mean signal from the atom
         self.base.set_datasets_from_gui_args()

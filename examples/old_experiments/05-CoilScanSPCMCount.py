@@ -37,77 +37,77 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.setattr_device("ttl0")  # input for counting SPCM clicks
         self.setattr_device("ttl7")  # output for experiment trigger
 
-        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
-        # self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
-        # self.setattr_argument("AZ_bottom_volts_RO", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
-        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.9, unit="V", ndecimals=3, step=0.025),
+        self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", precision=3, step=0.025), "A-Z shim/quad bottom coils")
+        # self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0*(-1.64/2.5), unit="V", precision=3, step=0.025), "A-Z shim/quad bottom coils")
+        # self.setattr_argument("AZ_bottom_volts_RO", NumberValue(0*(-1.64/2.5), unit="V", precision=3, step=0.025), "A-Z shim/quad bottom coils")
+        self.setattr_argument("AZ_top_volts_MOT", NumberValue(-2.9, unit="V", precision=3, step=0.025),
                               "A-Z shim/quad top coil")
-        # self.setattr_argument("AZ_top_volts_PGC", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025),
+        # self.setattr_argument("AZ_top_volts_PGC", NumberValue(0 * (-1.64 / 2.5), unit="V", precision=3, step=0.025),
         #                       "A-Z shim/quad top coil")
-        # self.setattr_argument("AZ_top_volts_RO", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025),
+        # self.setattr_argument("AZ_top_volts_RO", NumberValue(0 * (-1.64 / 2.5), unit="V", precision=3, step=0.025),
         #                       "A-Z shim/quad top coil")
-        self.setattr_argument("AX_volts_MOT", NumberValue(-0.35, unit="V", ndecimals=3, step=0.025),"A-X shim coils")
-        # self.setattr_argument("AX_volts_PGC", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
-        # self.setattr_argument("AX_volts_RO", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
-        self.setattr_argument("AY_volts_MOT", NumberValue(-0.43, unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-        # self.setattr_argument("AY_volts_PGC", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-        # self.setattr_argument("AY_volts_RO", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
+        self.setattr_argument("AX_volts_MOT", NumberValue(-0.35, unit="V", precision=3, step=0.025),"A-X shim coils")
+        # self.setattr_argument("AX_volts_PGC", NumberValue(0.5*(-1.64/2.5), unit="V", precision=3, step=0.025),"A-X shim coils")
+        # self.setattr_argument("AX_volts_RO", NumberValue(0.5*(-1.64/2.5), unit="V", precision=3, step=0.025),"A-X shim coils")
+        self.setattr_argument("AY_volts_MOT", NumberValue(-0.43, unit="V", precision=3, step=0.025),"A-Y shim coils")
+        # self.setattr_argument("AY_volts_PGC", NumberValue(0.4*(-1.64/2.5), unit="V", precision=3, step=0.025),"A-Y shim coils")
+        # self.setattr_argument("AY_volts_RO", NumberValue(0.4*(-1.64/2.5), unit="V", precision=3, step=0.025),"A-Y shim coils")
 
         # define user-configurable independent variables in human-readable units
         # these will show up in the GUI
-        # self.setattr_argument("f_FORT", NumberValue(100.0 * MHz, unit="MHz", ndecimals=1),
+        # self.setattr_argument("f_FORT", NumberValue(100.0 * MHz, unit="MHz", precision=1),
         #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_loading", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
+        # self.setattr_argument("p_FORT_loading", NumberValue(0, unit="dBm", scale=1, precision=1),
         #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_RO", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
+        # self.setattr_argument("p_FORT_RO", NumberValue(0, unit="dBm", scale=1, precision=1),
         #                       "AOM1, FORT switching AOM")
-        # self.setattr_argument("p_FORT_PGC", NumberValue(0, unit="dBm", scale=1, ndecimals=1),
+        # self.setattr_argument("p_FORT_PGC", NumberValue(0, unit="dBm", scale=1, precision=1),
         #                       "AOM1, FORT switching AOM")
-        self.setattr_argument("f_cooling_DP_MOT", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_DP_MOT", NumberValue(115.0 * MHz, unit="MHz", precision=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("f_cooling_DP_PGC", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_DP_PGC", NumberValue(115.0 * MHz, unit="MHz", precision=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("f_cooling_DP_RO", NumberValue(115.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_cooling_DP_RO", NumberValue(115.0 * MHz, unit="MHz", precision=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_cooling_DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_DP_MOT", NumberValue(-0.2, unit="dBm", scale=1, precision=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_cooling_DP_PGC", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_DP_PGC", NumberValue(-0.2, unit="dBm", scale=1, precision=1),
                               "AOM2, MOT cooling double pass")
-        self.setattr_argument("p_cooling_DP_RO", NumberValue(-0.2, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_cooling_DP_RO", NumberValue(-0.2, unit="dBm", scale=1, precision=1),
                               "AOM2, MOT cooling double pass")
         # self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False), "AOM2, MOT cooling double pass")
 
-        self.setattr_argument("f_D1_pumping_DP", NumberValue(130.0 * MHz, unit="MHz", ndecimals=1),
+        self.setattr_argument("f_D1_pumping_DP", NumberValue(130.0 * MHz, unit="MHz", precision=1),
                               "AOM3, MOT cooling single pass")
-        self.setattr_argument("p_D1_pumping_DP", NumberValue(1, unit="dBm", scale=1, ndecimals=1),
+        self.setattr_argument("p_D1_pumping_DP", NumberValue(1, unit="dBm", scale=1, precision=1),
                               "AOM3, MOT cooling single pass")
         # self.setattr_argument("D1_pumping_DP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
 
-        self.setattr_argument("f_pumping_repump", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("p_pumping_repump", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("f_pumping_repump", NumberValue(150.5 * MHz, unit="MHz", precision=1), "AOM4, MOT RP/Exc")
+        self.setattr_argument("p_pumping_repump", NumberValue(3, unit="dBm", scale=1, precision=1), "AOM4, MOT RP/Exc")
         # self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
 
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
-        self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", ndecimals=2), "AOM A2")
-        self.setattr_argument("AOM_A2_power", NumberValue(-5, unit="dBm", scale=1, ndecimals=1), "AOM A2")
+        self.setattr_argument("AOM_A2_freq", NumberValue(78.48 * MHz, unit="MHz", precision=2), "AOM A2")
+        self.setattr_argument("AOM_A2_power", NumberValue(-5, unit="dBm", scale=1, precision=1), "AOM A2")
         # self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "AOM A2")
 
-        self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", ndecimals=2), "AOM A3")
-        self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A3")
+        self.setattr_argument("AOM_A3_freq", NumberValue(78.49 * MHz, unit="MHz", precision=2), "AOM A3")
+        self.setattr_argument("AOM_A3_power", NumberValue(-3, unit="dBm", scale=1, precision=1), "AOM A3")
         # self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "AOM A3")
 
-        self.setattr_argument("AOM_A5_freq", NumberValue(78.5 * MHz, unit="MHz", ndecimals=2), "AOM A5")
-        self.setattr_argument("AOM_A5_power", NumberValue(-3, unit="dBm", scale=1, ndecimals=1), "AOM A5")
+        self.setattr_argument("AOM_A5_freq", NumberValue(78.5 * MHz, unit="MHz", precision=2), "AOM A5")
+        self.setattr_argument("AOM_A5_power", NumberValue(-3, unit="dBm", scale=1, precision=1), "AOM A5")
         # self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "AOM A5")
 
-        self.setattr_argument("AOM_A6_freq", NumberValue(78.51 * MHz, unit="MHz", ndecimals=2), "AOM A6")
-        self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, ndecimals=1), "AOM A6")
+        self.setattr_argument("AOM_A6_freq", NumberValue(78.51 * MHz, unit="MHz", precision=2), "AOM A6")
+        self.setattr_argument("AOM_A6_power", NumberValue(0, unit="dBm", scale=1, precision=1), "AOM A6")
         # self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "AOM A6")
 
 
         self.setattr_argument("coils_enabled", BooleanValue(True))
-        self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit="ms", ndecimals=0, step=10 * ms))
-        self.setattr_argument("t_SPCM_exposure", NumberValue(50 * ms, unit="ms", ndecimals=1, step=5 * ms))
+        self.setattr_argument("t_MOT_loading", NumberValue(500 * ms, unit="ms", precision=0, step=10 * ms))
+        self.setattr_argument("t_SPCM_exposure", NumberValue(50 * ms, unit="ms", precision=1, step=5 * ms))
         self.setattr_argument("datadir", StringValue('/home/fiber-cavity/NetworkExperimentData/CoilScanSPCMCount/'),"File to save data")
         self.setattr_argument("datafile", StringValue('coil_scan_zmax_---mV_xmax_ymax_---mV.csv'),"File to save data")
         self.setattr_argument("prepend_date_to_datafile", BooleanValue(True),"File to save data")

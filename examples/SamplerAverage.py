@@ -10,7 +10,7 @@ class SamplerAverage(EnvExperiment):
     def build(self):
         self.setattr_device("core")
         self.setattr_device("sampler0")
-        self.setattr_argument("averages", NumberValue(4, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("averages", NumberValue(4, type='int', precision=0, scale=1, step=1))
 
     def prepare(self):
         self.data_array = np.zeros(8)

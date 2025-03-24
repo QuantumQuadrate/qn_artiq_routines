@@ -41,7 +41,7 @@ class GeneralVariableScan(EnvExperiment):
 
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
-        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(100, precision=0, step=1))
         self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
         self.setattr_argument("scan_sequence1", StringValue(
             'np.array([0.000,0.005,0.02,0.05])*ms'))

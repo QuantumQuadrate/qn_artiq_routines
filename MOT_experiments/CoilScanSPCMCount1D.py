@@ -47,7 +47,7 @@ class CoilScanSPCMCount1D(EnvExperiment):
 
         self.setattr_argument("differential_scan", BooleanValue(True))
 
-        self.setattr_argument("iterations", NumberValue(10, ndecimals=0, step=1, scale=1, type='int'))
+        self.setattr_argument("iterations", NumberValue(10, precision=0, step=1, scale=1, type='int'))
 
         # for now, just run laser feedback at beginning
         self.setattr_argument("enable_laser_feedback", BooleanValue(True), "Laser feedback")
@@ -55,7 +55,7 @@ class CoilScanSPCMCount1D(EnvExperiment):
         # group1 = "Coil tune settings"
         # self.setattr_argument("enable_coil_tune", BooleanValue(True), group1)
         #
-        # self.setattr_argument("Acceptable_SPCM_Count", NumberValue(10000.0, ndecimals=1, step=1), group1)
+        # self.setattr_argument("Acceptable_SPCM_Count", NumberValue(10000.0, precision=1, step=1), group1)
         # self.setattr_argument("FORT_AOM_on", BooleanValue(False), group1)
         # self.setattr_argument("coil_volts_multiplier",
         #                       NumberValue(3.3), group1)  # scales the value read by the Sampler

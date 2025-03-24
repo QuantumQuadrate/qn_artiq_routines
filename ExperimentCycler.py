@@ -32,7 +32,7 @@ class ExperimentCycler(EnvExperiment):
 
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
-        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(100, precision=0, step=1))
 
         experiment_function_names_list = [x for x in dir(exp_functions)
             if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"

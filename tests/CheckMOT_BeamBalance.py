@@ -33,10 +33,10 @@ class CheckMOTBalance(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("n_steps",
-                              NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
+                              NumberValue(10, type='int', precision=0, scale=1, step=1))
 
-        self.setattr_argument("loop_delay", NumberValue(0.001 * s, ndecimals=3, unit='s'))
-        self.setattr_argument("t_Luca_exposure", NumberValue(0.5 * s, ndecimals=3, unit='s'))
+        self.setattr_argument("loop_delay", NumberValue(0.001 * s, precision=3, unit='s'))
+        self.setattr_argument("t_Luca_exposure", NumberValue(0.5 * s, precision=3, unit='s'))
 
         # the Luca will be setup here using pylablib and the analysis will be carried
         # out in self.analyze

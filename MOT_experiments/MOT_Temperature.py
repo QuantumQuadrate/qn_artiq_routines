@@ -37,7 +37,7 @@ class MOTTemperature(EnvExperiment):
         self.setattr_argument("camera_model", EnumerationValue(['Luca','ThorCam'],default='ThorCam'))
         # wait for the camera to take the shot
         self.setattr_argument("t_exposure", NumberValue(0.5*ms, unit='ms'))
-        self.setattr_argument("averages", NumberValue(70, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("averages", NumberValue(70, type='int', precision=0, scale=1, step=1))
         self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
 
         self.base.set_datasets_from_gui_args()

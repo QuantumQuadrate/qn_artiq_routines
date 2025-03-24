@@ -29,7 +29,7 @@ class MOTMonitorEverything(EnvExperiment):
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
         self.setattr_argument("take_images_with_Luca",BooleanValue(False),"Luca params (assumes 50ms exposure for now)")
-        self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', ndecimals=1, step=1),
+        self.setattr_argument("t_feedback_period", NumberValue(5*s, unit='s', precision=1, step=1),
                               "Laser power stabilization")
         self.setattr_argument("run_time_minutes", NumberValue(1))
         self.setattr_argument("dt_SPCM_exposure", NumberValue(300 * ms, unit='ms'))

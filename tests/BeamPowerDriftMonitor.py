@@ -27,7 +27,7 @@ class BeamPowerDriftMonitor(EnvExperiment):
     def build(self):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
-        self.setattr_argument("experiment_iterations", NumberValue(20, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("experiment_iterations", NumberValue(20, type='int', precision=0, scale=1, step=1))
         self.setattr_argument("dds_list",
                               StringValue(
                                   "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A4','dds_AOM_A5',"

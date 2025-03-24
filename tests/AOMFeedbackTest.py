@@ -27,7 +27,7 @@ class AOMFeedbackTest(EnvExperiment):
                                   "'dds_AOM_A6','dds_cooling_DP']"))
         self.setattr_argument("reinitialize_DDSs_each_iteration", BooleanValue(False))
 
-        self.setattr_argument("experiment_iterations", NumberValue(1, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("experiment_iterations", NumberValue(1, type='int', precision=0, scale=1, step=1))
 
         # note this is ignored if running with fake drift
         self.setattr_argument("t_iteration_delay", NumberValue(1 * s, unit='s'))
@@ -44,9 +44,9 @@ class AOMFeedbackTest(EnvExperiment):
                               StringValue(
                                   "['dds_cooling_DP']"),"simulate drift")
         self.setattr_argument("no_feedback", BooleanValue(False),"feedback params")
-        self.setattr_argument("feedback_iterations", NumberValue(10, type='int', ndecimals=0, scale=1, step=1),
+        self.setattr_argument("feedback_iterations", NumberValue(10, type='int', precision=0, scale=1, step=1),
                               "feedback params")
-        self.setattr_argument("averages", NumberValue(10, type='int', ndecimals=0, scale=1, step=1),
+        self.setattr_argument("averages", NumberValue(10, type='int', precision=0, scale=1, step=1),
                               "feedback params")
 
         # whether to plot all measurements or only after each feedback loop has been applied

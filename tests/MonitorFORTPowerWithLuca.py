@@ -31,12 +31,12 @@ class MonitorFORTWithLuca(EnvExperiment):
     def build(self):
         self.setattr_device('scheduler')
         self.setattr_argument("n_measurements",
-                              NumberValue(10, type='int', ndecimals=0, scale=1, step=1))
+                              NumberValue(10, type='int', precision=0, scale=1, step=1))
         self.setattr_argument("warm_up_shots",
-                              NumberValue(0, type='int', ndecimals=0, scale=1, step=1))
+                              NumberValue(0, type='int', precision=0, scale=1, step=1))
         self.setattr_argument("MOT_repump_off", BooleanValue(True))
         self.setattr_argument("MOT_light_off", BooleanValue(True))
-        self.setattr_argument("APD_averages", NumberValue(1, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("APD_averages", NumberValue(1, type='int', precision=0, scale=1, step=1))
         self.setattr_argument("no_feedback", BooleanValue(True))
         self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
 

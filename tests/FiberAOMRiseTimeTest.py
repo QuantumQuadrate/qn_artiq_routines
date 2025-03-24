@@ -25,10 +25,10 @@ class FiberAOMRiseTimeTest(EnvExperiment):
 
         self.setattr_argument("run_time_minutes", NumberValue(1))
         self.setattr_argument("dt_AOM_on", NumberValue(1000 * ms, unit='ms'))
-        self.setattr_argument("which_fiber_AOM", NumberValue(1, type='int', ndecimals=0, scale=1, step=1))
+        self.setattr_argument("which_fiber_AOM", NumberValue(1, type='int', precision=0, scale=1, step=1))
         self.setattr_argument("leave_on_but_change_frequency", BooleanValue(False))
         self.setattr_argument("default_frequency", NumberValue(78.5 * MHz, unit='MHz'))
-        self.setattr_argument("default_power", NumberValue(-8, unit="dBm",scale=1, ndecimals=1))
+        self.setattr_argument("default_power", NumberValue(-8, unit="dBm",scale=1, precision=1))
         self.setattr_argument("switch_frequency", NumberValue(70 * MHz, unit='MHz'))
 
         self.base.set_datasets_from_gui_args()

@@ -27,8 +27,8 @@ class ReadRigolFrequencies(EnvExperiment):
 
         self.setattr_argument("modulation_frequency_sequence", StringValue(
             'np.array([])'))
-        self.setattr_argument("Rigol_carrier_frequency", NumberValue(65*kHz, unit='kHz', ndecimals=1))
-        self.setattr_argument("Rigol_FM_deviation", NumberValue(65*kHz, unit='kHz', ndecimals=1))
+        self.setattr_argument("Rigol_carrier_frequency", NumberValue(65*kHz, unit='kHz', precision=1))
+        self.setattr_argument("Rigol_FM_deviation", NumberValue(65*kHz, unit='kHz', precision=1))
 
     def prepare(self):
         self.scan_sequence1 = eval(self.modulation_frequency_sequence)

@@ -24,7 +24,7 @@ class CheckMOTBalanceWithMOTLoading(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("n_steps",
-                              NumberValue(100, type='int', ndecimals=0, scale=1, step=1))
+                              NumberValue(100, type='int', precision=0, scale=1, step=1))
         self.setattr_argument("t_ThorCam_exposure_ms", NumberValue(100))
         self.setattr_argument("LoopDelay", NumberValue(2 * s)," how often to run the loop in (s)")
         self.setattr_argument("datafile", StringValue('LaserPowers.csv'), "Record counts")

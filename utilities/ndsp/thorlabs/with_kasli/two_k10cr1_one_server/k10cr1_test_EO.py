@@ -60,8 +60,8 @@ class K10CR1Example_EO(EnvExperiment):
             print(f"Error connecting to device {e}")
 
         self.setattr_argument("initiallize_to_home", BooleanValue(True))
-        self.setattr_argument("target_qwp_deg", NumberValue(0.0, ndecimals=1, step=1))
-        self.setattr_argument("target_hwp_deg", NumberValue(0.0, ndecimals=1, step=1))
+        self.setattr_argument("target_qwp_deg", NumberValue(0.0, precision=1, step=1))
+        self.setattr_argument("target_hwp_deg", NumberValue(0.0, precision=1, step=1))
 
     # if you want to call NDSP functions from the kernel and return things,
     # you need to define wrapper functions. if you call the NDSP functions

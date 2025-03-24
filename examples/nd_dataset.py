@@ -7,8 +7,8 @@ import time
 class NDDataBroadcast(EnvExperiment):
 
     def build(self):
-        self.setattr_argument("iterations", NumberValue(10, ndecimals=0, step=1))
-        self.setattr_argument("channels", NumberValue(5, ndecimals=0, step=1))
+        self.setattr_argument("iterations", NumberValue(10, precision=0, step=1))
+        self.setattr_argument("channels", NumberValue(5, precision=0, step=1))
 
     def run(self):
 

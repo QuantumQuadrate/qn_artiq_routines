@@ -23,7 +23,7 @@ class Test_FiberSplitters(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("n_steps",
-                              NumberValue(100, type='int', ndecimals=0, scale=1, step=1))
+                              NumberValue(100, type='int', precision=0, scale=1, step=1))
 
         self.setattr_argument("LoopDelay", NumberValue(10 * s)," how often to run the loop in (s)")
 
