@@ -137,7 +137,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(10 * ms)
 
         #turning SPCM gate OFF & Sensitivity ON
-        self.ttl_SPCM_gate.on()
+        self.ttl_SPCM_gate.on() ### remove: SPCM gate no longer exists
         self.ttl_SPCM0._set_sensitivity(1)
         self.ttl_SPCM1._set_sensitivity(1)
 
@@ -177,11 +177,11 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
                 # gate on
                 at_mu(t1 + t_exc_on_mu + t_pulse_mu)
-                self.ttl_SPCM_gate.off()  ## turns on the SPCM switch to let TTL pulses go through
+                self.ttl_SPCM_gate.off()  ## turns on the SPCM switch to let TTL pulses go through ### remove: SPCM gate no longer exists
 
                 # gate off
                 at_mu(t1 + t_exc_on_mu + t_pulse_mu + self.t_photon_collection_mu)
-                self.ttl_SPCM_gate.on()  ## turns off the SPCM switch
+                self.ttl_SPCM_gate.on()  ## turns off the SPCM switch ### remove: SPCM gate no longer exists
 
                 t2 = now_mu()
 
@@ -218,7 +218,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         #     #     return now_mu()
 
         # gate_rising
-        # self.ttl_SPCM_gate.off()
+        # self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
         # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
         # self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
 
@@ -238,7 +238,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         # turning on excitation DDS and switch
         self.ttl_exc0_switch.off()
         self.dds_excitation.sw.on()
-        self.ttl_SPCM_gate.off()
+        self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
 
         delay(10 * ms)
 

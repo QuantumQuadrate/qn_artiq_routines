@@ -206,7 +206,7 @@ def load_MOT_and_FORT(self):
     self.dds_cooling_DP.sw.off()
     self.ttl_repump_switch.on()
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
-    # self.ttl_SPCM_gate.off()
+    # self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
     self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
     delay(1*ms)
@@ -386,7 +386,7 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 
     # record FORT scattering with Luca and record Raman scattering from SM fiber
     self.ttl_Luca_trigger.pulse(5 * ms) # FORT loading scattering shot
-    # self.ttl_SPCM_gate.off()
+    # self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
     self.SPCM0_FORT_loading = self.ttl_SPCM0.count(t_gate_end)
     delay(10*us)
@@ -427,7 +427,7 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     # wait for the MOT to load
     delay(self.t_MOT_loading/2)
     self.ttl_Luca_trigger.pulse(5 * ms) # total scattering shot
-    # self.ttl_SPCM_gate.off()
+    # self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
     self.SPCM0_FORT_and_MOT = self.ttl_SPCM0.count(t_gate_end)
     delay(1 * ms)
@@ -446,7 +446,7 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     delay(1*ms)
     # record FORT scattering with Luca and record Raman scattering from SM fiber
     self.ttl_Luca_trigger.pulse(5 * ms)  # FORT loading scattering shot
-    # self.ttl_SPCM_gate.off()
+    # self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
     t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
     self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
     delay(10*us)
@@ -795,22 +795,22 @@ def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
             self.dds_cooling_DP.sw.on()
 
             at_mu(start + i * period_mu + gate_on_mu)
-            self.ttl_SPCM_gate.off()  # unblocks the SPCM output
+            self.ttl_SPCM_gate.off()  # unblocks the SPCM output ### remove: SPCM gate no longer exists
             at_mu(start + i * period_mu + RO_on_mu)
             self.dds_cooling_DP.sw.on()
             at_mu(start + i * period_mu + gate_on_mu + RO_pulse_length_mu)
-            self.ttl_SPCM_gate.on()  # blocks the SPCM output
+            self.ttl_SPCM_gate.on()  # blocks the SPCM output ### remove: SPCM gate no longer exists
             at_mu(start + i * period_mu + RO_on_mu + RO_pulse_length_mu)
             self.dds_cooling_DP.sw.off()
 
             # cooling light doesn't seem synced up with SPCM gating based on photon count rate compared to RO_light_off case
             # with parallel:
-            #     self.ttl_SPCM_gate.off() # unblocks the SPCM output
+            #     self.ttl_SPCM_gate.off() # unblocks the SPCM output ### remove: SPCM gate no longer exists
             #     self.dds_cooling_DP.sw.on()
             # delay_mu(RO_pulse_length_mu)
             # with parallel:
             #     self.dds_cooling_DP.sw.off()
-            #     self.ttl_SPCM_gate.on()  # blocks the SPCM output
+            #     self.ttl_SPCM_gate.on()  # blocks the SPCM output ### remove: SPCM gate no longer exists
         # else:
         #     for i in range(n_chop_cycles):
         #         at_mu(start + i * period_mu + FORT_on_mu)
@@ -818,9 +818,9 @@ def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
         #         delay_mu(RO_pulse_length_mu)
         #         self.dds_FORT.sw.on()
         #         at_mu(start + i * period_mu + gate_on_mu)
-        #         self.ttl_SPCM_gate.off()  # unblocks the SPCM output
+        #         self.ttl_SPCM_gate.off()  # unblocks the SPCM output ### remove: SPCM gate no longer exists
         #         delay_mu(RO_pulse_length_mu)
-        #         self.ttl_SPCM_gate.on()  # blocks the SPCM output
+        #         self.ttl_SPCM_gate.on()  # blocks the SPCM output ### remove: SPCM gate no longer exists
 
 @kernel
 def record_chopped_blow_away(self):
@@ -2152,7 +2152,7 @@ def single_photon_experiment(self):
 
         delay(1 * us)
 
-        # self.ttl_SPCM_gate.on()  # blocks the SPCM output - this is related to the atom readouts undercounting
+        # self.ttl_SPCM_gate.on()  # blocks the SPCM output ### remove: SPCM gate no longer exists
         loop_start_mu = now_mu()
 
         self.zotino0.set_dac(
@@ -3182,7 +3182,8 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
                 delay(1 * ms)
 
-                # self.ttl_GRIN1_switch.off() ### was used when D1 was on GRIN1
+                self.ttl_GRIN1_switch.off() ### was used when D1 was on GRIN1
+                delay(10 * us)
 
                 self.core_dma.playback_handle(op_dma_handle)
                 delay(self.t_depumping)
@@ -3198,7 +3199,8 @@ def single_photon_experiment_3_atom_loading_advance(self):
                 self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
                 delay(1 * ms)
 
-                # self.ttl_GRIN1_switch.on() ### was used when D1 was on GRIN1
+                self.ttl_GRIN1_switch.on() ### was used when D1 was on GRIN1
+                delay(10 * us)
 
                 ############ microwave phase - ONLY USED FOR VERIFYING OP.
                 if self.t_microwave_pulse > 0.0 and self.verify_OP_in_photon_experiment:
@@ -3487,7 +3489,7 @@ def test_exc_singe_photon_experiment(self):
 
         delay(1*us)
 
-        # self.ttl_SPCM_gate.on()  # blocks the SPCM output - this is related to the atom readouts undercounting
+        # self.ttl_SPCM_gate.on()  # blocks the SPCM output ### remove: SPCM gate no longer exists
 
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],

@@ -39,7 +39,7 @@ class SPCMGateRiseTimeTest(EnvExperiment):
             start_mu = now_mu()
             for i in range(2000):
                 at_mu(start_mu + i * period_mu)
-                self.ttl_SPCM_gate.pulse(t_pulse)
+                self.ttl_SPCM_gate.pulse(t_pulse) ### remove: SPCM gate no longer exists
 
     @kernel
     def run(self):
@@ -61,7 +61,7 @@ class SPCMGateRiseTimeTest(EnvExperiment):
             [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
             channels=self.coil_channels)
 
-        self.ttl_SPCM_gate.on()
+        self.ttl_SPCM_gate.on() ### remove: SPCM gate no longer exists
         delay(10*ms)
 
         if not self.disable_pulse_sequence:
@@ -73,5 +73,5 @@ class SPCMGateRiseTimeTest(EnvExperiment):
                 self.core_dma.playback_handle(dma_handle)
 
                 delay(1*ms)
-        self.ttl_SPCM_gate.off()
+        self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
 

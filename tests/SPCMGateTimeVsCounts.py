@@ -96,7 +96,7 @@ class SPCMGateTimeVsCounts(EnvExperiment):
         SPCM0_counts_array = [0.0] * n_cycles
         SPCM1_counts_array = [0.0] * n_cycles
 
-        self.ttl_SPCM_gate.on()
+        self.ttl_SPCM_gate.on() ### remove: SPCM gate no longer exists
 
         self.ttl_SPCM0._set_sensitivity(1)
         self.ttl_SPCM1._set_sensitivity(1)
@@ -117,10 +117,10 @@ class SPCMGateTimeVsCounts(EnvExperiment):
                 now = now_mu()
 
                 at_mu(now)
-                self.ttl_SPCM_gate.off()  # turn on
+                self.ttl_SPCM_gate.off()  # turn on ### remove: SPCM gate no longer exists
 
                 at_mu(now + t_pulse_mu)
-                self.ttl_SPCM_gate.on()  # turn off
+                self.ttl_SPCM_gate.on()  # turn off ### remove: SPCM gate no longer exists
 
                 delay(1 * us)
 
@@ -161,7 +161,7 @@ class SPCMGateTimeVsCounts(EnvExperiment):
         #     #     return now_mu()
 
         # gate_rising
-        # self.ttl_SPCM_gate.off()
+        # self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
         # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
         # self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
 

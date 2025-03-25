@@ -162,7 +162,7 @@ class BaseExperiment:
 
             ### ttl12~15
             self.experiment.FORT_mod_switch = self.experiment.ttl12
-            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+            self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
             self.experiment.ttl_UV = self.experiment.ttl15
 
@@ -261,7 +261,7 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch = self.experiment.ttl11
 
             ### ttl12~15
-            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+            self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
             self.experiment.ttl_UV = self.experiment.ttl15
 
@@ -347,7 +347,7 @@ class BaseExperiment:
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_UV = self.experiment.ttl15
-            self.experiment.ttl_SPCM_gate = self.experiment.ttl13
+            self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
 
             ### for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -780,6 +780,11 @@ class BaseExperiment:
             self.experiment.ttl_D1_lock_monitor.input()
 
             ### ttl12~15: already configured to be used as output at TTL card
+            self.experiment.ttl_GRIN2_switch.output()
+            self.experiment.ttl_GRIN1_switch.output()
+            self.experiment.ttl_GRIN2_switch.on()  ### ensure no excitation or D1 is on at the beginning
+            self.experiment.ttl_GRIN1_switch.on()  ### ensure no excitation or D1 is on at the beginning
+
             self.experiment.FORT_mod_switch.output()
             self.experiment.ttl_UV.output()
 
@@ -796,8 +801,6 @@ class BaseExperiment:
             self.experiment.ttl_repump_switch.on() # block RF to get to the RP AOM
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
-            delay(1*ms)
-            self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
             delay(1*ms)
             self.experiment.ttl_UV.off()
             delay(1 * ms)
@@ -849,8 +852,11 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch.output()
 
             ### ttl12~15: already configured to be used as output at TTL card
-            self.experiment.ttl_SPCM_gate.output()
+            self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
+            self.experiment.ttl_GRIN2_switch.on() ### ensure no excitation or D1 is on at the beginning
+            self.experiment.ttl_GRIN1_switch.on() ### ensure no excitation or D1 is on at the beginning
+
             self.experiment.ttl_UV.output()
 
             self.experiment.sampler0.init() # for reading laser feedback
@@ -864,8 +870,6 @@ class BaseExperiment:
             self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
             delay(1*ms)
             self.experiment.ttl_exc0_switch.on()
-            delay(1 * ms)
-            self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
             delay(1 * ms)
             self.experiment.ttl_UV.off()
 
@@ -917,7 +921,6 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
-            self.experiment.ttl_SPCM_gate.off() # unblocks the SPCM output
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
