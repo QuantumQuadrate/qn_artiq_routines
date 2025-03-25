@@ -385,19 +385,43 @@ class AOMPowerStabilizer:
         # todo: could add option to average for better snr
         """
 
-        # doesn't properly read sampler1
-        dummy = np.full(8 * self.num_samplers, 0.0)
+        # Zero out measurement_array first
+        for m in range(8 * self.num_samplers):
+            self.measurement_array[m] = 0.0
+
         i = 0
         for sampler in self.sampler_list:
             measurement_array = np.full(8, 0.0)
             for j in range(self.averages):
                 sampler.sample(measurement_array)
-                delay(0.1*ms)
-                dummy[i * 8:(i + 1) * 8] += measurement_array
+                delay(0.1 * ms)
+                for k in range(8):
+                    self.measurement_array[i * 8 + k] += measurement_array[k]
                 delay(0.1 * ms)
             i += 1
-        dummy /= self.averages
-        self.measurement_array = dummy
+
+        # Divide each value by averages
+        for m in range(8 * self.num_samplers):
+            self.measurement_array[m] = self.measurement_array[m] / self.averages
+
+
+        # ## this is the original version that worked in artiq7 but doesn't work with artiq8
+        # ## in artiq8 slicing inside kernel is not allowed
+        # # doesn't properly read sampler1
+        # dummy = np.full(8 * self.num_samplers, 0.0)
+        # i = 0
+        # for sampler in self.sampler_list:
+        #     measurement_array = np.full(8, 0.0)
+        #     for j in range(self.averages):
+        #         sampler.sample(measurement_array)
+        #         delay(0.1*ms)
+        #         dummy[i * 8:(i + 1) * 8] += measurement_array
+        #         delay(0.1 * ms)
+        #     i += 1
+        # dummy /= self.averages
+        # self.measurement_array = dummy
+        #
+
 
         # self.exp.print_async("in measure:",self.measurement_array)
 
