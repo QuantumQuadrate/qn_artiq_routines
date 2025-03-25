@@ -23,7 +23,7 @@ def setattr_variables(experiment, exclude_list=[], exclude_keywords=[]):
     :return:
     """
     for var in experiment.variables:
-        if not var in exclude_list and not np.product([x in var for x in exclude_keywords]):
+        if not var in exclude_list and not np.prod([x in var for x in exclude_keywords]):
             try:
                 value = experiment.get_dataset(var)
                 setattr(experiment, var, value)
