@@ -77,15 +77,6 @@ class Polarization_Optimization_Test(EnvExperiment):
         self.core.reset()
         self.sampler1.init()  # for reading laser feedback
 
-        ### initialization for the TEST setup
-        # delay(1*s)
-        # if self.start_from_home:
-        #     go_to_home(self,'780_HWP')
-        #     go_to_home(self,'780_QWP')
-        # else:
-        #     move_to_target_deg(self, name="780_HWP", target_deg=self.best_HWP_to_H)
-        #     move_to_target_deg(self, name="780_QWP", target_deg=self.best_QWP_to_H)
-
         if self.initialize_to_home:
             go_to_home(self,'852_HWP')
             go_to_home(self,'852_QWP')

@@ -32,12 +32,18 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("yes_Im_sure_I_want_the_microwave_dds_ON", BooleanValue(default=False), "Microwaves")
         self.setattr_argument("run_laser_feedback", BooleanValue(default=False), "Laser power stabilization")
 
-        self.setattr_argument("go_to_home_780HWP", BooleanValue(default=False), "K10CR1")
-        self.setattr_argument("go_to_home_780QWP", BooleanValue(default=False), "K10CR1")
-        self.setattr_argument("go_to_H_780", BooleanValue(default=False), "K10CR1")
+        self.setattr_argument("go_to_home_780HWP", BooleanValue(default=False), "K10CR1 780 waveplates initialization")
+        self.setattr_argument("go_to_home_780QWP", BooleanValue(default=False), "K10CR1 780 waveplates initialization")
+        self.setattr_argument("go_to_target_780HWP", BooleanValue(default=False), "K10CR1 780 waveplates initialization")
+        self.setattr_argument("go_to_target_780QWP", BooleanValue(default=False), "K10CR1 780 waveplates initialization")
 
-        self.setattr_argument("go_to_home_852HWP", BooleanValue(default=False), "K10CR1")
-        self.setattr_argument("go_to_home_852QWP", BooleanValue(default=False), "K10CR1")
+        self.setattr_argument("go_to_home_852HWP", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
+        self.setattr_argument("go_to_home_852QWP", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
+
+        self.setattr_argument("go_to_target_852HWP", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
+        self.setattr_argument("go_to_target_852QWP", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
+
+        self.setattr_argument("go_to_optimized_852_settings", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
 
         self.base.set_datasets_from_gui_args()
 
@@ -197,14 +203,27 @@ class AOMsCoils(EnvExperiment):
         if self.go_to_home_780QWP:
             go_to_home(self, '780_QWP')
 
+        if self.go_to_target_780HWP:
+            move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
+        if self.go_to_target_780QWP:
+            move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
+
+
+
         if self.go_to_home_852HWP:
             go_to_home(self, '852_HWP')
         if self.go_to_home_852QWP:
             go_to_home(self, '852_QWP')
 
-        if self.go_to_H_780:
-            move_to_target_deg(self, name="780_HWP", target_deg=self.best_HWP_to_H)
-            move_to_target_deg(self, name="780_QWP", target_deg=self.best_QWP_to_H)
+        if self.go_to_target_780HWP:
+            move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+        if self.go_to_target_780QWP:
+            move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+
+        if self.go_to_optimized_852_settings:
+            move_to_target_deg(self, name="852_HWP", target_deg=self.best_852HWP_to_max)
+            move_to_target_deg(self, name="852_QWP", target_deg=self.best_852QWP_to_max)
+
 
 
     def run(self):
