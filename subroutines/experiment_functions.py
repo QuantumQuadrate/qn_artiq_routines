@@ -4104,8 +4104,6 @@ def atom_state_mapping(self):
 
     ### mapping |1,+1> to |2,1>
     self.dds_microwaves.set(frequency=self.f_microwaves_dds + 2 * detuning, amplitude=dB_to_V(self.p_microwaves))
-    delay(10 * ms)
-
     self.ttl_microwave_switch.off()
     delay(self.t_pi_microwave_pulse)
     self.ttl_microwave_switch.on()
@@ -4113,8 +4111,6 @@ def atom_state_mapping(self):
 
     ### mapping |2,+1> to |1, 0>
     self.dds_microwaves.set(frequency=self.f_microwaves_dds + 1 * detuning, amplitude=dB_to_V(self.p_microwaves))
-    delay(10 * ms)
-
     self.ttl_microwave_switch.off()
     delay(self.t_pi_microwave_pulse)
     self.ttl_microwave_switch.on()
@@ -4122,8 +4118,6 @@ def atom_state_mapping(self):
 
     ### mapping |1,-1> to |2,0>
     self.dds_microwaves.set(frequency=self.f_microwaves_dds - detuning, amplitude=dB_to_V(self.p_microwaves))
-    delay(10 * ms)
-
     self.ttl_microwave_switch.off()
     delay(self.t_pi_microwave_pulse)
     self.ttl_microwave_switch.on()
@@ -4131,13 +4125,40 @@ def atom_state_mapping(self):
 
 
 @kernel
-def atom_rotation(self, t_pulse):
+def atom_rotation_x(self):
+    """
+    At the atom state mapping stage:
+        |1,-1> mapped to |2,0>
+        |1,+1> mapped to |1,0>
+    Here, we rotate the atoms using microwave pi/2 pulse
+    for measurement in X basis
+
+    phase set to 0.0
+    """
     ### rotating |1,0> and |2,0>
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(10 * ms)
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
 
     self.ttl_microwave_switch.off()
-    delay(t_pulse)
+    delay(self.t_pi_microwave_pulse/2)
+    self.ttl_microwave_switch.on()
+    delay(0.1 * ms)
+
+@kernel
+def atom_rotation_y(self):
+    """
+    At the atom state mapping stage:
+        |1,-1> mapped to |2,0>
+        |1,+1> mapped to |1,0>
+    Here, we rotate the atoms using microwave pi/2 pulse
+    for measurement in X basis
+
+    phase set to np.pi/2
+    """
+    # phase in SI unit (radians)
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves), phase=np.pi/2)
+
+    self.ttl_microwave_switch.off()
+    delay(self.t_pi_microwave_pulse/2)
     self.ttl_microwave_switch.on()
     delay(0.1 * ms)
 
@@ -4169,7 +4190,7 @@ def atom_photon_tomography_experiment(self):
     with parallel:      # note: this does not make two wavplates to rotate at the same time.
         # GVS variable - hwp_move_to_deg, qwp_move_to_deg
 
-        #todo: atom projection
+        #todo: atom state projection via photon measurement - 2D scan
 
         move_to_target_deg(self, name="780_HWP", target_deg=self.hwp_move_to_deg)
         move_to_target_deg(self, name="780_QWP", target_deg=self.qwp_move_to_deg)
@@ -4392,24 +4413,16 @@ def atom_photon_tomography_experiment(self):
             ############################
 
             # coils already set to OP.
-            state_mapping = False
-            state_rotation = False
 
             # map the states to |1,0> and |2,0>
+            atom_state_mapping(self)
 
-            if state_mapping:
-                atom_state_mapping(self)
-            else:
-                # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            # rotate the states to measure in different basis
+            if self.atom_rotation_to_x:
+                atom_rotation_x(self)
+            elif self.atom_rotation_to_y:
+                atom_rotation_y(self)
 
-                self.ttl_microwave_switch.off()
-                delay(self.t_microwave_pulse)    #todo: change the pulse time
-                self.ttl_microwave_switch.on()
-                delay(0.1 * ms)
-
-            # rotate the states to different basis
-            if state_rotation:
-                atom_rotation(self, self.t_microwave_pulse/2)
 
             ############################
             # blow-away phase - push out atoms in F=2 only
