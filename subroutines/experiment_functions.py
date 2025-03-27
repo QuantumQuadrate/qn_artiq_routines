@@ -3228,11 +3228,11 @@ def single_photon_experiment_3_atom_loading_advance(self):
                 at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
                 self.dds_FORT.sw.on()  ### turns FORT on
 
-                at_mu(t1 + 50)
-                self.ttl_GRIN1_switch.off()  # turns on excitation
+                at_mu(t1 + int(self.t_excitation_offset_mu))
+                self.ttl_GRIN2_switch.off()  # turns on excitation
 
-                at_mu(t1 + 50 + int(self.t_excitation_pulse / ns))
-                self.ttl_GRIN1_switch.on()  # turns off excitation
+                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+                self.ttl_GRIN2_switch.on()  # turns off excitation
 
                 ######### time stamping the photons. Counting to be done in analysis.
                 SPCM0_click_counter = 0
@@ -3248,7 +3248,8 @@ def single_photon_experiment_3_atom_loading_advance(self):
                     SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
                     if SPCM0_click_time == -1.0:
                         break
-                    SPCM0_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][SPCM0_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
+                    SPCM0_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                        SPCM0_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
                     SPCM0_click_counter += 1
 
                 ### timestamping SPCM1 events
@@ -3256,13 +3257,13 @@ def single_photon_experiment_3_atom_loading_advance(self):
                     SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
                     if SPCM1_click_time == -1.0:
                         break
-                    SPCM1_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
+                    SPCM1_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                        SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
                     SPCM1_click_counter += 1
 
                 # at_mu(t1 + 30000)
                 tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
                 delay(30 * us)  ### 20us is not enough
-
 
             delay(20 * us)
             self.ttl_exc0_switch.on()  # block Excitation
