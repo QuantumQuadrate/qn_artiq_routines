@@ -89,7 +89,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.dds_FORT.sw.off()
 
         self.ttl_GRIN1_switch.on()
-        self.dds_excitation.sw.off()
+        self.GRIN1and2_dds.sw.off()
         self.dds_D1_pumping_DP.sw.off()
 
         delay(10*ms)
@@ -112,7 +112,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
         # Excitation
         self.ttl_GRIN1_switch.on()
-        self.dds_excitation.sw.off()
+        self.GRIN1and2_dds.sw.off()
 
         # D1
         self.dds_D1_pumping_DP.sw.off()
@@ -142,13 +142,13 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.ttl_SPCM1._set_sensitivity(1)
 
         # setting excitation aom to 1dBm
-        # self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
-        self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+        # self.GRIN1and2_dds.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
+        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
         # don't have to set it back; any code that runs feedback will do
 
         #turning on excitation; ttl switch still blocked
         self.ttl_exc0_switch.off()
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
         delay(10*ms)
 
@@ -231,13 +231,13 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
 
         # setting excitation aom to 1dBm
-        # self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
-        self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+        # self.GRIN1and2_dds.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
+        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
         # don't have to set it back; any code that runs feedback will do
 
         # turning on excitation DDS and switch
         self.ttl_exc0_switch.off()
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
         self.ttl_SPCM_gate.off() ### remove: SPCM gate no longer exists
 
         delay(10 * ms)
@@ -305,13 +305,13 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(10 * ms)
 
         # setting excitation aom to 1dBm
-        # self.dds_excitation.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
-        self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+        # self.GRIN1and2_dds.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
+        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
         # don't have to set it back; any code that runs feedback will do
 
         # turning on excitation DDS and switch
         self.ttl_exc0_switch.off()
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
         delay(10 * ms)
 

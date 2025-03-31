@@ -471,7 +471,7 @@ class BaseExperiment:
                     'dds_D1_pumping_DP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
-                    'dds_excitation',
+                    'GRIN1and2_dds',
                     'dds_microwaves',
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
                 ]
@@ -553,7 +553,7 @@ class BaseExperiment:
                     'dds_D1_pumping_DP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
-                    'dds_excitation',
+                    'GRIN1and2_dds',
                     'dds_microwaves',
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
                 ]
@@ -625,7 +625,7 @@ class BaseExperiment:
                     'dds_D1_pumping_DP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
-                    'dds_excitation',
+                    'GRIN1and2_dds',
                     'dds_microwaves',
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
                 ]

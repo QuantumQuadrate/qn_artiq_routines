@@ -155,7 +155,7 @@ class FeedbackChannel:
         measured = buffer[self.buffer_index]
         err = self.set_points[setpoint_index] - measured
 
-        # if self.name == 'dds_excitation':
+        # if self.name == 'GRIN1and2_dds':
         #     self.stabilizer.exp.print_async("in feedback method:", measured, self.stabilizer.measurement_array[self.buffer_index])
 
         # runs off the kernel, else the error array isn't correctly updated
@@ -574,9 +574,9 @@ class AOMPowerStabilizer:
             with sequential:
                 for ch in self.series_channels:
 
-                    if ch.name == 'dds_excitation':
+                    if ch.name == 'GRIN1and2_dds':
                         # self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
-                        self.exp.dds_excitation.sw.on()
+                        self.exp.GRIN1and2_dds.sw.on()
                         delay(1*ms)
                         # self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
                         self.exp.ttl_exc0_switch.off()
@@ -585,7 +585,7 @@ class AOMPowerStabilizer:
                     #
                     # todo: D1 feedback
                     # if ch.name == 'dds_D1_pumping_DP':
-                    #     self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+                    #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
                     #     self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
                     #     delay(1*ms)
 
@@ -595,7 +595,7 @@ class AOMPowerStabilizer:
                     for i in range(self.iterations):
                         self.measure()
                         delay(0.1 * ms)
-                        # if ch.name == 'dds_excitation':
+                        # if ch.name == 'GRIN1and2_dds':
                         #     self.exp.print_async("in feedback loop:",self.measurement_array[ch.buffer_index])
 
                         if not (self.dry_run or monitor_only):
@@ -613,9 +613,9 @@ class AOMPowerStabilizer:
                         delay(60*ms)
                     delay(1*ms)
 
-                    if ch.name == 'dds_excitation':
+                    if ch.name == 'GRIN1and2_dds':
                         # self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
-                        self.exp.dds_excitation.sw.off()
+                        self.exp.GRIN1and2_dds.sw.off()
                         delay(1 * ms)
                         # self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
                         self.exp.ttl_exc0_switch.on()

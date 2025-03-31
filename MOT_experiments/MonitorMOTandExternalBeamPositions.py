@@ -75,7 +75,7 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
 
         # turn off AOMs we aren't using, in case they were on previously
         self.dds_D1_pumping_DP.sw.off()
-        self.dds_excitation.sw.off()
+        self.GRIN1and2_dds.sw.off()
 
         # turn on cooling MOT AOMs and warm up FORT AOM
         self.dds_cooling_DP.sw.on()  # cooling double pass

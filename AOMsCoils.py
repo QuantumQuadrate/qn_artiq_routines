@@ -99,9 +99,9 @@ class AOMsCoils(EnvExperiment):
 
         delay(1 * ms)
         if self.GRIN1and2_DDS_ON == True:
-            self.dds_excitation.sw.on()
+            self.GRIN1and2_dds.sw.on()
         else:
-            self.dds_excitation.sw.off()
+            self.GRIN1and2_dds.sw.off()
 
         delay(1 * ms)
         if self.GRIN1_AOM_switch_ON == True:

@@ -9,7 +9,7 @@
   "dds_AOM_A6": "urukul1_ch3",
   "dds_AOM_A4": "urukul2_ch0",
   "dds_AOM_A5": "urukul2_ch1",
-  "dds_excitation": "urukul0_ch3",
+  "GRIN1and2_dds": "urukul0_ch3",
   "dds_microwaves": "urukul2_ch3"
   },
   "DDS_DEFAULTS": {
@@ -29,7 +29,7 @@
       "frequency": "f_pumping_repump",
       "power": "p_pumping_repump"
     },
-    "dds_excitation": {
+    "GRIN1and2_dds": {
       "frequency": "f_excitation",
       "power": "p_excitation"
     },

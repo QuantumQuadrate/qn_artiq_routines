@@ -1026,7 +1026,7 @@ def chopped_optical_pumping(self):
     self.dds_cooling_DP.sw.off()  # no cooling light
     delay(1 * us)
 
-    self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
     delay(1 * us)
@@ -1039,7 +1039,7 @@ def chopped_optical_pumping(self):
     delay(1*ms)
 
     ### so that D1 can pass
-    self.dds_excitation.sw.on()
+    self.GRIN1and2_dds.sw.on()
     self.ttl_GRIN1_switch.off()
 
     ### set coils for pumping
@@ -1061,9 +1061,9 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
-    # self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     delay(1*ms)
-    self.dds_excitation.sw.off()
+    self.GRIN1and2_dds.sw.off()
     self.ttl_GRIN1_switch.on()
     # self.dds_cooling_DP.sw.off()
 
@@ -1089,8 +1089,8 @@ def optical_pumping(self):
     delay(1*ms)
 
     ### so that D1 can pass
-    self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
-    self.dds_excitation.sw.on()
+    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+    self.GRIN1and2_dds.sw.on()
     self.ttl_GRIN1_switch.off()
 
     ### set coils for pumping
@@ -1120,9 +1120,9 @@ def optical_pumping(self):
     # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
-    self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     delay(1*ms)
-    self.dds_excitation.sw.off()
+    self.GRIN1and2_dds.sw.off()
     self.ttl_GRIN1_switch.on()
 
 @kernel
@@ -1161,12 +1161,12 @@ def measure_GRIN1(self):
     self.dds_cooling_DP.sw.off()
 
     # todo: D1 feedback
-    # self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
 
     # UNBLOCKING GRIN1
     self.ttl_GRIN1_switch.off()
-    self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
-    self.dds_excitation.sw.on()
+    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
+    self.GRIN1and2_dds.sw.on()
     # self.ttl_excitation_switch.off()
 
     #turning D1 ON
@@ -1182,7 +1182,7 @@ def measure_GRIN1(self):
     self.append_to_dataset("GRIN1_D1_monitor", measurement)
 
     # turning D1 off & repump on
-    # self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     self.dds_D1_pumping_DP.sw.off()
     # self.ttl_repump_switch.off()  # turns the RP AOM on
     self.ttl_exc0_switch.off() # turns EXC0 AOM on
@@ -1199,7 +1199,7 @@ def measure_GRIN1(self):
 
 
     # turning EXC OFF
-    self.dds_excitation.sw.off()
+    self.GRIN1and2_dds.sw.off()
     # self.ttl_excitation_switch.on()
     self.ttl_GRIN1_switch.on()
     self.ttl_exc0_switch.on()
@@ -2162,7 +2162,7 @@ def single_photon_experiment(self):
 
         # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         # use ttl_excitation to swith on/off D1 or Exc light
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
 
         for excitation_cycle in range(self.max_excitation_cycles):  # todo: revert later
@@ -2177,8 +2177,8 @@ def single_photon_experiment(self):
 
             # todo: D1 feedback
             if self.t_pumping > 0.0:
-                self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
-                # self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+                self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
+                # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
                 # self.ttl_repump_switch.on()  # turns off the MOT RP AOM
 
                 if not self.pumping_light_off:
@@ -2230,7 +2230,7 @@ def single_photon_experiment(self):
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.ttl_exc0_switch.off()  # turns excitation0 AOM on
 
             t1 = now_mu()
@@ -2300,7 +2300,7 @@ def single_photon_experiment(self):
                     channels=self.coil_channels)
                 delay(0.4 * ms)  # coil relaxation time
 
-        self.dds_excitation.sw.off() ## turns off excitation dds
+        self.GRIN1and2_dds.sw.off() ## turns off excitation dds
 
         delay(1 * ms)
 
@@ -2463,7 +2463,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
         # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         # use ttl_excitation to swith on/off D1 or Exc light
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
 
         for excitation_cycle in range(self.max_excitation_cycles): # todo: revert later
@@ -2482,7 +2482,7 @@ def single_photon_experiment_atom_loading_advance(self):
                 self.dds_cooling_DP.sw.off()  # no cooling light
                 delay(1 * us)
 
-                self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0)) ### set to 5V for optical pumping
+                self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0)) ### set to 5V for optical pumping
                 self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
                 self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
                 delay(1 * us)
@@ -2538,8 +2538,8 @@ def single_photon_experiment_atom_loading_advance(self):
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
-            # self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
             self.ttl_exc0_switch.off() # turns on the excitation0 AOM
             delay(1 * ms)
 
@@ -2665,7 +2665,7 @@ def single_photon_experiment_atom_loading_advance(self):
                 delay(0.4 * ms)  # coil relaxation time
 
 
-        self.dds_excitation.sw.off()
+        self.GRIN1and2_dds.sw.off()
 
         delay(1*ms)
 
@@ -2799,7 +2799,7 @@ def single_photon_experiment_2_atom_loading_advance(self):
 
         # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         # use ttl_excitation to swith on/off D1 or Exc light
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 1 ### just for initialization.
 
@@ -2818,7 +2818,7 @@ def single_photon_experiment_2_atom_loading_advance(self):
                 self.dds_cooling_DP.sw.off()  # no cooling light
                 delay(1 * us)
 
-                self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0)) ### set to 5V for optical pumping
+                self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0)) ### set to 5V for optical pumping
                 self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
                 self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
                 delay(1 * us)
@@ -2874,8 +2874,8 @@ def single_photon_experiment_2_atom_loading_advance(self):
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             ############################
-            # self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
             self.ttl_exc0_switch.off() # turns on the excitation0 AOM
             delay(1 * ms)
 
@@ -3011,7 +3011,7 @@ def single_photon_experiment_2_atom_loading_advance(self):
             delay(0.4 * ms)  # coil relaxation time
 
 
-        self.dds_excitation.sw.off()
+        self.GRIN1and2_dds.sw.off()
 
         delay(1*ms)
 
@@ -3146,7 +3146,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         ### use ttl_excitation to swith on/off D1 or Exc light
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 1 ### just for initialization.
 
@@ -3170,7 +3170,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
                     channels=self.coil_channels)
                 delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
 
-                self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0)) ### set to 5V for optical pumping
+                self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0)) ### set to 5V for optical pumping
                 self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
                 self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
                 delay(1 * us)
@@ -3214,8 +3214,14 @@ def single_photon_experiment_3_atom_loading_advance(self):
                     chopped_blow_away(self)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
-            # self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+
+            # ### zero the bias field for testing only
+            # self.zotino0.set_dac(
+            #     [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+            #     channels=self.coil_channels)
+
             self.ttl_exc0_switch.off() # turns on the excitation0 AOM
             delay(1 * ms)
 
@@ -3333,7 +3339,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
         delay(1 * ms)
 
-        self.dds_excitation.sw.off()
+        self.GRIN1and2_dds.sw.off()
 
         # turn AOMs back on
         self.dds_AOM_A1.sw.on()
@@ -3499,7 +3505,7 @@ def test_exc_singe_photon_experiment(self):
 
         # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         # use ttl_excitation to swith on/off D1 or Exc light
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
         delay(1*ms)
 
@@ -3511,7 +3517,7 @@ def test_exc_singe_photon_experiment(self):
 
 
         if self.t_pumping > 0.0:
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
             # self.ttl_repump_switch.on()  # turns off the MOT RP AOM
 
 
@@ -3546,7 +3552,7 @@ def test_exc_singe_photon_experiment(self):
             ############################
             # excitation phase - excite F=1,m=0 -> F'=0,m'=0,
             ############################
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.ttl_exc0_switch.off()  # turns on the excitation
 
             now = now_mu()
@@ -3741,13 +3747,13 @@ def test_exc_microwave_Rabi_experiment(self):
 
         excitation = True
         # self.t_excitation_pulse = 100 * ns
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
         if excitation:
 
             self.ttl_GRIN1_switch.on()
 
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.ttl_exc0_switch.off()  # turns on the excitation
             delay(1*us)
 
@@ -3768,7 +3774,7 @@ def test_exc_microwave_Rabi_experiment(self):
 
         else:
 
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
 
             delay(1 * us)
 
@@ -4248,7 +4254,7 @@ def atom_photon_tomography_experiment(self):
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         ### use ttl_excitation to swith on/off D1 or Exc light
-        self.dds_excitation.sw.on()
+        self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 1  ### just for initialization.
 
@@ -4278,7 +4284,7 @@ def atom_photon_tomography_experiment(self):
                     channels=self.coil_channels)
                 delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
 
-                self.dds_excitation.set(frequency=self.f_excitation,
+                self.GRIN1and2_dds.set(frequency=self.f_excitation,
                                         amplitude=dB_to_V(5.0))  ### set to 5V for optical pumping
                 self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
                 self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
@@ -4321,8 +4327,8 @@ def atom_photon_tomography_experiment(self):
                     chopped_blow_away(self)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
-            # self.dds_excitation.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.dds_excitation.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
             self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
             delay(1 * ms)
 
@@ -4430,7 +4436,7 @@ def atom_photon_tomography_experiment(self):
 
         delay(1 * ms)
 
-        self.dds_excitation.sw.off()
+        self.GRIN1and2_dds.sw.off()
 
         delay(0.1 * ms)
 
