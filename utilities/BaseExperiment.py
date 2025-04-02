@@ -704,6 +704,8 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_RO2", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO1", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO2", [0], broadcast=True)
+        self.experiment.set_dataset("BothSPCMs_RO1", [0], broadcast=True)
+        self.experiment.set_dataset("BothSPCMs_RO2", [0], broadcast=True)
         self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
