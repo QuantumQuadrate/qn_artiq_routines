@@ -190,6 +190,8 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('BothSPCMs_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('BothSPCMs_RO2_current_iteration', [0], broadcast=True)
 
         # these are set here because running BaseExperiment.initialize_hardware resets these to be empty
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)

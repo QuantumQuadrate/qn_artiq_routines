@@ -113,6 +113,8 @@ class BaseExperiment:
         self.experiment.SPCM0_RO2 = 0
         self.experiment.SPCM1_RO1 = 0
         self.experiment.SPCM1_RO2 = 0
+        self.experiment.BothSPCMs_RO1 = 0
+        self.experiment.BothSPCMs_RO2 = 0
 
         self.experiment.SPCM0_FORT_science = 0
         self.experiment.measurement = 0
@@ -193,6 +195,7 @@ class BaseExperiment:
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
+            self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -715,7 +718,7 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
-        self.experiment.set_dataset("SPCM0_RO_atom_check", [0], broadcast=True)
+        self.experiment.set_dataset("BothSPCMs_RO_atom_check", [0], broadcast=True)
         self.experiment.set_dataset("n_excitation_cycles", [0], broadcast=True)
         self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)

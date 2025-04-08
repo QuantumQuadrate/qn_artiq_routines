@@ -230,6 +230,10 @@ class GeneralVariableOptimizer(EnvExperiment):
         """
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('BothSPCMs_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('BothSPCMs_RO2_current_iteration', [0], broadcast=True)
 
     def run(self):
 

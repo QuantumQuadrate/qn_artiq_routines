@@ -44,7 +44,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ### overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("atom_counts_per_s_threshold", NumberValue(10000))
-        self.setattr_argument("n_measurements", NumberValue(0, type='int', scale=1, ndecimals=0, step=1))
+        self.setattr_argument("n_measurements", NumberValue(10, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
         self.both_mode = "coils and beam powers"
         self.beam_mode = "beam powers only"
@@ -111,7 +111,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         self.default_setpoints = np.array([getattr(self, dataset) for dataset in self.setpoint_datasets])
 
         self.atom_loading_time_list = np.zeros(self.n_measurements)
-        self.set_dataset(self.SPCM0_rate_dataset,
+        self.set_dataset(self.BothSPCMs_rate_dataset,
                          [0.0],
                          broadcast=True)
 
@@ -296,7 +296,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ##################### This is the core of the optimizer that runs the sequence and get a cost:
 
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
-        self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
 
         for i in range(self.n_measurements):
             delay(1 * ms) ### to dissipate MOT
@@ -316,7 +316,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             # self.ttl_UV.pulse(self.t_UV_pulse)
 
             max_tries = 100  ### Maximum number of attempts before running the feedback
-            SPCM0_atom_check_time   = 20 * ms
+            atom_check_time   = 20 * ms
             atom_loaded = False
             try_n = 0
             t_before_atom = now_mu()  ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
@@ -324,14 +324,18 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
             while not atom_loaded and try_n < max_tries:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
-                self.ttl_SPCM0_counter.gate_rising(SPCM0_atom_check_time)
-                SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
-                SPCM0_counts_per_s = SPCM0_atom_check / SPCM0_atom_check_time
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+
+                BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+
+                BothSPCMs_counts_per_s = BothSPCMs_atom_check / atom_check_time
                 delay(1 * ms)
-                self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts_per_s)
+                self.append_to_dataset(self.BothSPCMs_rate_dataset, BothSPCMs_counts_per_s)
                 try_n += 1
 
-                if SPCM0_counts_per_s > self.single_atom_threshold:
+                if BothSPCMs_counts_per_s > self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
 
