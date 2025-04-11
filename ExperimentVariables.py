@@ -366,8 +366,8 @@ class ExperimentVariables(EnvExperiment):
                      {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.5},
                      "K10CR1 852 waveplates"),
             # Atom Tomography Experiment
-            Variable("atom_rotation_to_x", True, BooleanValue, {}, "Atom Tomography Experiment"),
-            Variable("atom_rotation_to_y", True, BooleanValue, {}, "Atom Tomography Experiment"),
+            Variable("atom_rotation_to_x", False, BooleanValue, {}, "Atom Tomography Experiment"),
+            Variable("atom_rotation_to_y", False, BooleanValue, {}, "Atom Tomography Experiment"),
             # Variable("atom_rotation_to_z", True, BooleanValue, {}, "Atom Tomography Experiment"),
 
         ]

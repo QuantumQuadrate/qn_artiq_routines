@@ -74,18 +74,6 @@
                     "max_dB": -6
                 },
 
-            "dds_FORT":
-                {
-                    "sampler_ch": 6,
-                    "set_points": ["set_point_FORT_MM_loading", "set_point_FORT_MM_science"],
-                    "p": 0.01,
-                    "i": 0.0,
-                    "series": true,
-                    "dataset":"FORT_monitor",
-                    "power_dataset":"p_FORT_loading",
-                    "t_measure_delay":0.00001,
-                    "max_dB": 0
-                },
 
 			"dds_D1_pumping_DP":
                 {
@@ -98,6 +86,21 @@
                     "power_dataset":"p_D1_pumping_DP",
                     "t_measure_delay":0.00001,
                     "max_dB": -5
+                }
+        },
+    "sampler1":
+        {
+            "dds_FORT":
+                {
+                    "sampler_ch": 7,
+                    "set_points": ["set_point_FORT_MM_loading", "set_point_FORT_MM_science"],
+                    "p": 0.01,
+                    "i": 0.0,
+                    "series": true,
+                    "dataset":"FORT_monitor",
+                    "power_dataset":"p_FORT_loading",
+                    "t_measure_delay":0.00001,
+                    "max_dB": 0
                 }
         }
 }

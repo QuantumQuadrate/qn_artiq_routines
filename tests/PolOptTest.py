@@ -80,6 +80,7 @@ class Polarization_Optimization_Test(EnvExperiment):
         if self.initialize_to_home:
             go_to_home(self,'852_HWP')
             go_to_home(self,'852_QWP')
+            print("Both Waveplates Initialized to Home")
         else:
             # this will do nothing if it has been optimized before
             move_to_target_deg(self, name="852_HWP", target_deg=self.best_852HWP_to_max)
@@ -203,7 +204,7 @@ class Polarization_Optimization_Test(EnvExperiment):
             delay(1 * s)
             print("best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
 
-        print("full range search: ", full_range, "tolerance_deg: ", tolerance_deg, "sample_pts: ", sample_pts)
+        print("full range search: ", full_range, "tolerance_deg: ", tolerance, "sample_pts: ", sample_pts)
         print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
 
         self.dds_FORT.sw.off()  ### turns FORT on
