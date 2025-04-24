@@ -93,14 +93,14 @@
             "dds_FORT":
                 {
                     "sampler_ch": 7,
-                    "set_points": ["set_point_FORT_MM_loading", "set_point_FORT_MM_science"],
+                    "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
                     "p": 0.01,
                     "i": 0.0,
                     "series": true,
                     "dataset":"FORT_monitor",
                     "power_dataset":"p_FORT_loading",
                     "t_measure_delay":0.00001,
-                    "max_dB": 0
+                    "max_dB": -1
                 }
         }
 }
