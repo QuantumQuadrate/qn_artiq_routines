@@ -50,7 +50,7 @@ class Polarization_Optimization_Test(EnvExperiment):
 
         # self.setattr_argument("max_iterations", NumberValue(4, ndecimals=1, step=1))
         self.setattr_argument("initialize_to_home", BooleanValue(default=False), "initialization")
-        self.setattr_argument("tolerance_deg", NumberValue(.2, ndecimals=2, step=1), "optimization parameters")
+        self.setattr_argument("tolerance_deg", NumberValue(.5, ndecimals=2, step=1), "optimization parameters")
         self.setattr_argument("full_range", NumberValue(90, ndecimals=1, step=1), "optimization parameters")
         self.setattr_argument("sample_pts", NumberValue(9, ndecimals=1, step=1), "optimization parameters")
 
@@ -73,8 +73,8 @@ class Polarization_Optimization_Test(EnvExperiment):
 
     @kernel
     def initialize_hardware(self):
-        # self.base.initialize_hardware()
-        self.core.reset()
+        self.base.initialize_hardware()
+        # self.core.reset()
         self.sampler1.init()  # for reading laser feedback
 
         if self.initialize_to_home:
@@ -203,6 +203,10 @@ class Polarization_Optimization_Test(EnvExperiment):
 
             delay(1 * s)
             print("best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
+
+        # move back to the best HWP, QWP
+        move_to_target_deg(self, name="852_HWP", target_deg=best_HWP)
+        move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
 
         print("full range search: ", full_range, "tolerance_deg: ", tolerance, "sample_pts: ", sample_pts)
         print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
