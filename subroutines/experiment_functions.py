@@ -333,7 +333,7 @@ def load_MOT_and_FORT_until_atom(self):
 
         ### set the cooling DP AOM to the PGC settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-        delay(20 * ms) ### this is the PGC time
+        delay(self.t_PGC_in_MOT) ### this is the PGC time
         ###################################################
 
         self.ttl_repump_switch.on()  ### turn off MOT RP
