@@ -8,6 +8,7 @@ go in the trap.
 
 from artiq.experiment import *
 import numpy as np
+from numpy.linalg import norm
 import scipy as sp
 from skimage.filters import threshold_otsu
 import logging
@@ -190,9 +191,11 @@ class AtomLoadingOptimizer(EnvExperiment):
         self.mloop_controller.optimize()
 
         print('Best parameters found:')
-        print(self.mloop_controller.best_params)
         best_params = self.mloop_controller.best_params
+        print(best_params)
         self.set_experiment_variables_to_best_params(best_params)
+
+        # self.post_optimization_best_of_best_check()
 
     @kernel
     def initialize_hardware(self):
@@ -420,7 +423,54 @@ class AtomLoadingOptimizer(EnvExperiment):
     def analyze(self):
         mlv.show_all_default_visualizations(self.mloop_controller)
 
+    def post_optimization_best_of_best_check(self):
+        """
+        Re-check the 5 parameter sets that had costs closest to the best one
+        and choose the best among those 6 (including the best found by M-LOOP).
+        """
 
+
+        # Get all parameters and costs from M-LOOP
+        all_params = self.mloop_controller.parameters
+        all_costs = np.array(self.mloop_controller.costs)
+        best_cost = self.best_cost
+
+        # Sanity check
+        if len(all_params) < 6:
+            self.print_async("Not enough parameter points to perform best-of-best check.")
+            return
+
+        # Calculate cost distance to best cost
+        cost_diffs = np.abs(all_costs - best_cost)
+
+        # Get indices of the 5 closest (excluding the true best index)
+        best_index = np.argmin(cost_diffs)
+        cost_diffs[best_index] = np.inf  # exclude the best one
+        closest_indices = np.argsort(cost_diffs)[:5]
+
+        # Combine with the original best
+        all_indices = [best_index] + list(closest_indices)
+
+        # Evaluate each again and store costs
+        reevaluated_costs = []
+        for i in all_indices:
+            param_set = all_params[i]
+            cost = self.optimization_routine(param_set, check_initial_cost=False)
+            reevaluated_costs.append(cost)
+
+        # Determine the true best after re-evaluation
+        best_reevaluated_index = int(np.argmin(reevaluated_costs))
+        true_best_params = all_params[all_indices[best_reevaluated_index]]
+        true_best_cost = reevaluated_costs[best_reevaluated_index]
+
+        self.print_async(f"True best cost after re-check: {true_best_cost}")
+        self.print_async(f"True best parameters after re-check: {true_best_params}")
+
+        # Optionally persist the result
+        if self.set_best_parameters_at_finish:
+            for i in range(self.n_params):
+                self.set_dataset(self.var_and_bounds_objects[i].name,
+                                 float(true_best_params[i]), broadcast=True, persist=True)
 
 
 
