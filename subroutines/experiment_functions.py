@@ -142,13 +142,9 @@ def load_MOT_and_FORT(self):
     :param self: the experiment instance
     :return:
     """
-
+    #todo: [changes] getting read of FORT_on_at_MOT_start
     self.dds_FORT.sw.on()
-
-    if not self.FORT_on_at_MOT_start:
-        self.dds_FORT.sw.off()
-    else:
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
     delay(1 * ms)
 
@@ -195,13 +191,13 @@ def load_MOT_and_FORT(self):
                                 amplitude=self.ampl_cooling_DP_MOT) # todo: make a variable for phase 2
         delay(self.t_MOT_phase2)
 
-    # turn on the dipole trap and wait to load atoms
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
-    if not self.FORT_on_at_MOT_start:
-        delay_mu(self.t_FORT_loading_mu)
 
-    self.stabilizer_FORT.run(setpoint_index=1) # the science setpoint
+    # todo: make this work for bob too.
+    if self.which_node == 'alice':
+        self.stabilizer_FORT.run(setpoint_index=1) # the science setpoint
+    elif self.which_node == 'bob':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
 
     self.dds_cooling_DP.sw.off()
     self.ttl_repump_switch.on()
@@ -326,25 +322,26 @@ def load_MOT_and_FORT_until_atom(self):
             # print("**************   No atom after 2 seconds. Running feedback   ***************")
             # delay(10 * ms)
 
-    ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-        channels=self.coil_channels)
-    delay(0.4 * ms)
+    if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
+        ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+            channels=self.coil_channels)
+        delay(0.4 * ms)
 
-    ###########  PGC on the trapped atom  #############
+        ###########  PGC on the trapped atom  #############
 
-    ### set the cooling DP AOM to the PGC settings
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-    delay(20 * ms) ### this is the PGC time
-    ###################################################
+        ### set the cooling DP AOM to the PGC settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+        delay(20 * ms) ### this is the PGC time
+        ###################################################
 
-    self.ttl_repump_switch.on()  ### turn off MOT RP
-    self.dds_cooling_DP.sw.off()  ### turn off cooling
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
 
-    delay(1 * ms)
-    self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-    delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+        delay(1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
     ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
     self.SPCM0_FORT_science = 0
@@ -570,8 +567,12 @@ def first_shot(self):
     delay(0.4 * ms) ## coils relaxation time
 
     ### set the FORT AOM to the readout settings
-    self.dds_FORT.set(frequency=self.f_FORT,
-                      amplitude=self.stabilizer_FORT.amplitudes[1])
+    if self.which_node == 'alice':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    # elif self.which_node == 'bob':
+    #     # ampl_FORT_RO as below is defined in BaseExperiment
+    #     # self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
+    #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
     ### set the cooling DP AOM to the readout settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -661,9 +662,16 @@ def second_shot(self):
         channels=self.coil_channels)
     delay(0.4 * ms)  ## coils relaxation time
 
+    # todo: debugging self.stabilizer_FORT.amplitudes[1];
     ### set the FORT AOM to the readout settings
-    self.dds_FORT.set(frequency=self.f_FORT,
-                      amplitude=self.stabilizer_FORT.amplitudes[1])
+    if self.which_node == 'alice':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    # elif self.which_node == 'bob':
+    #     # ampl_FORT_RO as below is defined in BaseExperiment
+    #     # self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
+    #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    #     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
+
 
     ### set the cooling DP AOM to the readout settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -3996,7 +4004,7 @@ def FORT_monitoring_with_Luca_experiment(self):
             t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
         self.SPCM0_RO1 = self.ttl_SPCM0.count(t_gate_end)
         delay(1 * ms)
-        self.dds_cooling_DP.sw.off()
+        self.dds_cooling_DP.sw.off()  
 
         delay(self.t_delay_between_shots)
 
