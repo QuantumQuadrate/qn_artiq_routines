@@ -137,7 +137,9 @@ def atom_retention_and_loading_cost(self) -> TFloat:
         cost *= threshold/500
 
     # 0.6 is probably the best loading rate we can hope for.
-    cost *= -50 * (retention_fraction + loading_fraction / 0.6)
+    # cost *= -50 * (retention_fraction + loading_fraction / 0.6)
+    # now we are using atom_loading_2 which gives nearly 100% loading.
+    cost *= -50 * (retention_fraction + loading_fraction)
     return cost
 
 
