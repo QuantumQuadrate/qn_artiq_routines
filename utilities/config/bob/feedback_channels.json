@@ -86,10 +86,8 @@
                     "power_dataset":"p_D1_pumping_DP",
                     "t_measure_delay":0.00001,
                     "max_dB": -5
-                }
-        },
-    "sampler1":
-        {
+                },
+
             "dds_FORT":
                 {
                     "sampler_ch": 6,
@@ -102,5 +100,7 @@
                     "t_measure_delay":0.00001,
                     "max_dB": -1
                 }
+
         }
+
 }
