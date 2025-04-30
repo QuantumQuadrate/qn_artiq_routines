@@ -29,7 +29,7 @@ class XYPlot(pyqtgraph.PlotWidget):
 
     def data_changed(self, data, mods, title):
         try:
-            # the data display will be rolling, only showing display_pts at a time
+            # the data display will be rolling, only showing pts points at a time
             pts = (data[self.args.pts][1])
 
             labels = data.get(self.args.labels, (False, None))[1]
