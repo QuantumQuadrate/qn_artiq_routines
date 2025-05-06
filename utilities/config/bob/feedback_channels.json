@@ -11,7 +11,7 @@
                     "dataset": "MOT1_monitor",
                     "power_dataset":"p_AOM_A1",
                     "t_measure_delay":0.0005,
-                    "max_dB": -6
+                    "max_dB": -5
                 },
             "dds_AOM_A2":
                 {
@@ -23,7 +23,7 @@
                     "dataset": "MOT2_monitor",
                     "power_dataset":"p_AOM_A2",
                     "t_measure_delay":0.0005,
-                    "max_dB": -6
+                    "max_dB": -5
                 },
             "dds_AOM_A3":
                 {
@@ -35,7 +35,7 @@
                     "dataset": "MOT3_monitor",
                     "power_dataset":"p_AOM_A3",
                     "t_measure_delay":0.0005,
-                    "max_dB": -6
+                    "max_dB": -5
                 },
             "dds_AOM_A4":
                 {
@@ -47,7 +47,7 @@
                     "dataset": "MOT4_monitor",
                     "power_dataset":"p_AOM_A4",
                     "t_measure_delay":0.0005,
-                    "max_dB": -6
+                    "max_dB": -5
                 },
             "dds_AOM_A5":
                 {
@@ -59,7 +59,7 @@
                     "dataset":"MOT5_monitor",
                     "power_dataset":"p_AOM_A5",
                     "t_measure_delay":0.0005,
-                    "max_dB": -6
+                    "max_dB": -5
                 },
             "dds_AOM_A6":
                 {
@@ -71,7 +71,7 @@
                     "dataset": "MOT6_monitor",
                     "power_dataset":"p_AOM_A6",
                     "t_measure_delay":0.0005,
-                    "max_dB": -6
+                    "max_dB": -5
                 },
 
 
@@ -86,12 +86,17 @@
                     "power_dataset":"p_D1_pumping_DP",
                     "t_measure_delay":0.00001,
                     "max_dB": -5
-                },
+                }
 
+
+
+        },
+    "sampler1":
+        {
             "dds_FORT":
                 {
-                    "sampler_ch": 6,
-                    "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
+                    "sampler_ch": 7,
+                    "set_points": ["set_point_FORT_MM_loading", "set_point_FORT_MM_science"],
                     "p": 0.01,
                     "i": 0.0,
                     "series": true,
