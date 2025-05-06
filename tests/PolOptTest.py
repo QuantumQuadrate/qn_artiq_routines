@@ -90,6 +90,7 @@ class Polarization_Optimization_Test(EnvExperiment):
         # self.base.initialize_datasets()
         self.set_dataset("test_PDA_monitor", [0.0], broadcast=True)
         self.set_dataset("FORT_MM_monitor", [0.0], broadcast=True)
+        self.set_dataset("FORT_APD_monitor", [0.0], broadcast=True)
         self.set_dataset("HWP_angle", [0.0], broadcast=True)
         self.set_dataset("QWP_angle", [0.0], broadcast=True)
 
@@ -97,13 +98,15 @@ class Polarization_Optimization_Test(EnvExperiment):
     @kernel
     def exp_fun(self):
         self.core.reset()
-
         delay(1*s)
 
+        # run stabilizer
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()
+
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
         self.dds_FORT.sw.on()  ### turns FORT on
 
-        # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
-        # iterations = 0
 
         # max_iterations = int(self.max_iterations)  # Limit iterations to prevent infinite loops
         tolerance = float(self.tolerance_deg)   # rather than using fixed iteration, stop when step < tolerance
@@ -121,6 +124,7 @@ class Polarization_Optimization_Test(EnvExperiment):
         previous_hwp, previous_qwp, previous_power = 0.0, 0.0, 0.0
 
         power = 0.0
+        power_APD = 0.0
 
         tolerance_satisfied = False
         iteration = 0
@@ -168,6 +172,7 @@ class Polarization_Optimization_Test(EnvExperiment):
                         delay(1*s)
                         # power = record_PDA_power(self)  # Measure power
                         power = record_FORT_MM_power(self)
+                        power_APD = record_FORT_APD_power(self)
 
                         print("hwp, qwp: ", hwp, ", ", qwp, "power: ", power)
 
