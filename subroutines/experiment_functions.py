@@ -26,6 +26,31 @@ Table of contents:
 # Consequently, note that the name should not end in "experiment"
 ###############################################################################
 
+@kernel
+def FORT_polarization_check_and_optimize(self):
+
+    if self.enable_laser_feedback:
+        self.laser_stabilizer.run()
+
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    self.dds_FORT.sw.on()
+
+
+
+@kernel
+def FORT_stabilzation_test_experiment(self):
+
+    # run the stabilizer
+    self.laser_stabilizer.run()
+
+    # Turn on the FORT with stabilized power
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    self.dds_FORT.sw.on()
+    delay(1*ms)
+    self.dds_FORT.sw.off()
+    delay(1*ms)
+    self.stabilizer_FORT.run(setpoint_index=1)
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
 
 @kernel
@@ -261,7 +286,11 @@ def load_MOT_and_FORT_until_atom(self):
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    if self.which_node == 'alice':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    else:
+        #todo: delete this line - just for testing.
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
     self.dds_FORT.sw.on()
 
     delay(1 * ms)
@@ -329,7 +358,10 @@ def load_MOT_and_FORT_until_atom(self):
             channels=self.coil_channels)
         delay(0.4 * ms)
 
-        ###########  PGC on the trapped atom  #############
+        # ##########  PGC on the trapped atom  #############
+        #
+        # ### set the FORT AOM to the PGC settings
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_PGC)
 
         ### set the cooling DP AOM to the PGC settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
@@ -340,7 +372,10 @@ def load_MOT_and_FORT_until_atom(self):
         self.dds_cooling_DP.sw.off()  ### turn off cooling
 
         delay(1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+
+        # todo: make this work for bob too.
+        if self.which_node == 'alice':
+            self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
     ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
@@ -570,6 +605,8 @@ def first_shot(self):
     if self.which_node == 'alice':
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
     # elif self.which_node == 'bob':
+    #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
+    # elif self.which_node == 'bob':
     #     # ampl_FORT_RO as below is defined in BaseExperiment
     #     # self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
     #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
@@ -666,6 +703,8 @@ def second_shot(self):
     ### set the FORT AOM to the readout settings
     if self.which_node == 'alice':
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    # elif self.which_node == 'bob':
+    #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.ampl_FORT_RO)
     # elif self.which_node == 'bob':
     #     # ampl_FORT_RO as below is defined in BaseExperiment
     #     # self.experiment.ampl_FORT_RO = self.experiment.ampl_FORT_loading * self.experiment.p_FORT_RO
