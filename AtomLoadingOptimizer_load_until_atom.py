@@ -174,7 +174,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=self.max_runs,
-                                           target_cost=-10.0, # Corresponds to average atom_loading_time = 100ms calculated from -1/atom_loading_time.
+                                           target_cost=-10000.0, # Corresponds to average atom_loading_time = 100ms calculated from -1000/atom_loading_time.
                                            num_params=n_params,
                                            min_boundary=min_bounds,
                                            max_boundary=max_bounds)
@@ -242,7 +242,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
         total_t = 0.0
         for t in data:
-            total_t += -1.0 / t
+            total_t += -1000.0 / t
         average_t = total_t / len(data) ### Though I am naming these at _t, these are indeed 1/t to calculate the cost
         return int(round(average_t))
 
@@ -299,7 +299,8 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
 
         for i in range(self.n_measurements):
-            delay(1 * ms) ### to dissipate MOT
+            delay(1 * ms)
+            self.laser_stabilizer.run()
             self.dds_cooling_DP.sw.on()  ### turn on cooling
             self.ttl_repump_switch.off()  ### turn on MOT RP
 
@@ -343,7 +344,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                 t_after_atom = now_mu()
                 atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
             else:
-                atom_loading_time = 100.0 ### Just a large number to show no atom loading. This is compared to the typical 0.5 second atom loading.
+                atom_loading_time = 10e9 ### Just a large number to show no atom loading. This is compared to the typical 0.5 second atom loading.
 
             self.atom_loading_time_list[i] = atom_loading_time
 
@@ -353,7 +354,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.ttl_repump_switch.on()  ### turn off MOT RP
             self.dds_cooling_DP.sw.off()  ### turn off cooling
             self.dds_FORT.sw.off()  ### turn off FORT
-            delay(50 * ms)  ### to dissipate MOT
+            delay(100 * ms)  ### to dissipate MOT
 
 
         cost = self.get_cost(self.atom_loading_time_list)

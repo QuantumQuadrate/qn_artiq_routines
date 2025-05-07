@@ -739,19 +739,17 @@ device_db["led1"] = {
 
 device_db["k10cr1_ndsp"] = {
     "type": "controller",  # this tells artiq it's an ndsp
-    "sn_list": [55000740, 55000759],
-    "nickname_list": ["852_QWP", "852_HWP"],
+    "sn_list": [55420984, 55422044, 55000740, 55000759 ],
+    "nickname_list": ["780_QWP", "780_HWP", "852_QWP", "852_HWP"],
     "host": "::1",  #localhost
     "port": 8080
 }
 
-
-# #todo: this is the full list of node1 k10cr1 devices.
-# #      switch to this when 780 HWP and QWP are connected to USB hub
 # device_db["k10cr1_ndsp"] = {
 #     "type": "controller",  # this tells artiq it's an ndsp
-#     "sn_list": [55420984, 55422044, 55000740, 55000759 ],
-#     "nickname_list": ["780_QWP", "780_HWP", "852_QWP", "852_HWP"],
+#     "sn_list": [55000740, 55000759],
+#     "nickname_list": ["852_QWP", "852_HWP"],
 #     "host": "::1",  #localhost
 #     "port": 8080
 # }
+

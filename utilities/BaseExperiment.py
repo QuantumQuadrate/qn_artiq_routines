@@ -761,6 +761,7 @@ class BaseExperiment:
 
         self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("Sampler0_test", [0.0], broadcast=True)
 
         self.experiment.set_dataset("Magnetometer_MOT_X", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_MOT_Y", [0.0], broadcast=True)
