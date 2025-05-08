@@ -354,7 +354,7 @@ class Polarization_Optimization_Test(EnvExperiment):
         self.initialize_hardware()
         self.initialize_datasets()
 
-        if enable_zigzag_scan:
+        if self.enable_zigzag_scan:
             self.optimization_routine_zigzag()
         else:
             self.optimization_routine()
