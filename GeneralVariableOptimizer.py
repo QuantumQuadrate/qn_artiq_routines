@@ -133,6 +133,8 @@ class GeneralVariableOptimizer(EnvExperiment):
 
         self.single_atom_SPCM0_RO1_threshold = self.single_atom_threshold*self.t_SPCM_first_shot
         self.single_atom_SPCM0_RO2_threshold = self.single_atom_threshold*self.t_SPCM_second_shot
+        self.single_atom_RO1_threshold = self.single_atom_threshold*self.t_SPCM_first_shot
+        self.single_atom_RO2_threshold = self.single_atom_threshold*self.t_SPCM_second_shot
 
         self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
         assert type(self.override_ExperimentVariables_dict) == dict, \
@@ -230,6 +232,10 @@ class GeneralVariableOptimizer(EnvExperiment):
         """
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('BothSPCMs_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('BothSPCMs_RO2_current_iteration', [0], broadcast=True)
 
     def run(self):
 

@@ -145,7 +145,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
             if self.drop_MOT:
                 ### Turn off the coils
                 self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                    [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
                     channels=self.coil_channels)
                 delay(1 * ms)
 

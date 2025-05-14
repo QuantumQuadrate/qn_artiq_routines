@@ -112,7 +112,7 @@ def h5_archive_and_datasets_to_locals(f, parent_locals, quiet=False):
                     value = f[data_level][key][:]
                     # locals().update({key: value})
 
-                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2':
+                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'BothSPCMs_RO2':
                     value = value[1:]
                 
                 parent_locals.update({key: value})
@@ -162,7 +162,7 @@ def print_h5_archive_and_datasets(f, scalars_only=True, quiet=False):
                     value = f[data_level][key][:]
                     # locals().update({key: value})
 
-                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2':
+                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'BothSPCMs_RO2':
                     value = value[1:]
 
                 if scalars_only:
@@ -176,7 +176,7 @@ def print_h5_archive_and_datasets(f, scalars_only=True, quiet=False):
                 if not quiet:
                     print("oops in:",data_level, key, shape, dtype, value)
 
-def get_loading_and_retention(SPCM0_RO1, SPCM0_RO2, measurements, iterations, cutoff1, cutoff2=None, otsu=False):
+def get_loading_and_retention(BothSPCMs_RO1, BothSPCMs_RO2, measurements, iterations, cutoff1, cutoff2=None, otsu=False):
         """
         Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
         
@@ -193,8 +193,8 @@ def get_loading_and_retention(SPCM0_RO1, SPCM0_RO2, measurements, iterations, cu
         n_atoms_loaded_array = np.zeros(iterations)
                 
         for i in range(iterations):
-            shot1 = SPCM0_RO1[i*measurements:(i+1)*measurements]
-            shot2 = SPCM0_RO2[i*measurements:(i+1)*measurements]
+            shot1 = BothSPCMs_RO1[i*measurements:(i+1)*measurements]
+            shot2 = BothSPCMs_RO2[i*measurements:(i+1)*measurements]
 
             if len(shot1) == 0:
                 print(f"iteration {i}, no measurements")

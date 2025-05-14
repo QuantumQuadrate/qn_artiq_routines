@@ -215,7 +215,7 @@ class SimpleAtomTrapping(EnvExperiment):
         delay_mu(self.t_MOT_loading_mu)
 
         # change the magnetic fields for loading the dipole trap
-        self.zotino0.set_dac([self.AZ_top_volts_PGC, self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+        self.zotino0.set_dac([self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                              channels=[0, 1, 2, 3])
 
         # change double pass power and frequency to PGC settings
@@ -231,7 +231,7 @@ class SimpleAtomTrapping(EnvExperiment):
 
 
         # change the magnetic fields for imaging
-        self.zotino0.set_dac([self.AZ_top_volts_RO, self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        self.zotino0.set_dac([-self.AZ_bottom_volts_RO, self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
                              channels=[0, 1, 2, 3])
 
         # take the shot
