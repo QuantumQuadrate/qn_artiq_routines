@@ -1,5 +1,5 @@
 """
-This is a code for FORT polarization optimization with simple iterative approach.
+This is a code for FORT polarization optimization
 
 - A few percent of the FORT light passes the parabolic mirror through a small hole.
 - Then, it passes through a polarizer and collected through the MM fiber.
@@ -10,6 +10,21 @@ This is a code for FORT polarization optimization with simple iterative approach
 
 As long as the step size is small enough, it will always find the correct value.
 
+Possible Questions:
+Q: Why are we performing a simple scan instead of using a more advanced optimization algorithm?
+    Wouldn’t a smarter algorithm find the optimal point with fewer measurements?
+A: The main reason is that the waveplate rotator's rotation speed is relatively slow.
+    While each measurement only takes about 1 ms, rotating the waveplate by 1 degree
+    takes approximately 50 ms at best. Additionally, unless asynchronous control (e.g., using asyncio)
+    is implemented, the two waveplates cannot be rotated simultaneously.
+
+    In typical optimization algorithms, the search begins with large step sizes to explore a wide parameter space.
+    However, in our case, each movement is time-consuming. As a result, using such algorithms would actually take more time overall.
+
+Notes:
+    * The maximum speed and acceleration of the rotator are 20°/s, but this performance is only achievable
+    when using USB 3.0, which can supply up to 900 mA. If your USB cable or hub does not meet this power requirement,
+    the speed will be limited to 10°/s. Here, I am assuming this 10deg/s.
 
 """
 
@@ -42,14 +57,12 @@ class Polarization_Optimization_Test(EnvExperiment):
         self.base.build()
 
         self.setattr_argument("initialize_to_home", BooleanValue(default=False), "Initialization")
-        self.setattr_argument("enable_zigzag_scan", BooleanValue(default=True), "Scan Method")
 
-        self.setattr_argument("tolerance_deg", NumberValue(.5, ndecimals=2, step=1), "optimization parameters")
+        self.setattr_argument("tolerance_deg", NumberValue(1, ndecimals=2, step=1), "optimization parameters")
         self.setattr_argument("full_range", NumberValue(90, ndecimals=1, step=1), "optimization parameters")
-        self.setattr_argument("sample_pts", NumberValue(9, ndecimals=1, step=1), "optimization parameters")
+        self.setattr_argument("sample_pts", NumberValue(7, ndecimals=1, step=1), "optimization parameters")
 
         self.setattr_argument("search_start_from_scratch", BooleanValue(default=False), "optimization settings")
-        self.setattr_argument("reduce_sample_pts", BooleanValue(default=False), "optimization settings")
 
         print("build - done")
 
@@ -69,7 +82,10 @@ class Polarization_Optimization_Test(EnvExperiment):
             go_to_home(self,'852_HWP')
             go_to_home(self,'852_QWP')
             print("Both Waveplates Initialized to Home")
+
+        # if self.which_node == 'bob':      # if I use this, it gives me llvm error! what happens in Node1??
         else:
+            #### initializing the waveplates to best_852 parameters is necessary if using MM feedback
             # this will do nothing if it has been optimized before
             move_to_target_deg(self, name="852_HWP", target_deg=self.best_852HWP_to_max)
             move_to_target_deg(self, name="852_QWP", target_deg=self.best_852QWP_to_max)
@@ -108,7 +124,9 @@ class Polarization_Optimization_Test(EnvExperiment):
             best_HWP, best_QWP, best_power = 0.0, 0.0, 0.0
         else:
             best_HWP, best_QWP, best_power = self.best_852HWP_to_max, self.best_852QWP_to_max, 0.0
-        previous_hwp, previous_qwp, previous_power = 0.0, 0.0, 0.0
+
+        # it initializes to the best waveplate parameters. thus current hwp qwp angles are:
+        previous_hwp, previous_qwp, previous_power = self.best_852HWP_to_max, self.best_852QWP_to_max, 0.0
 
         power = 0.0
         power_APD = 0.0
@@ -117,7 +135,6 @@ class Polarization_Optimization_Test(EnvExperiment):
         iteration = 0
 
 
-        # Iterative search loop
         while not tolerance_satisfied:
         # for iteration in range(max_iterations):
             print("iteration no.", iteration) # this statement has to be here for it to run,,,, why...
@@ -135,6 +152,7 @@ class Polarization_Optimization_Test(EnvExperiment):
             for hwp in hwp_values:
                 # time to rotate hwp
                 current_hwp = hwp
+                # todo: reduce delays
                 time_hwp = time_to_rotate_in_ms(self, current_hwp - previous_hwp)
                 delay(time_hwp * ms)
                 count_down = 0
@@ -183,11 +201,6 @@ class Polarization_Optimization_Test(EnvExperiment):
 
             half_range = steps
 
-            if self.reduce_sample_pts:
-                sample_pts = max(3, sample_pts // 2)  # Prevent sample_pts from becoming too small
-                # sample_pts must be odd number to reproduce former best parameter
-                if sample_pts % 2 == 0:
-                    sample_pts += 1
 
             iteration += 1
 
@@ -211,6 +224,15 @@ class Polarization_Optimization_Test(EnvExperiment):
 
     @kernel
     def optimization_routine_zigzag(self):
+        """
+        It follows the same logic as the optimization_routine, with one key difference:
+        as the routine proceeds to the next HWP value, it reverses the direction in which it scans the QWP values.
+        For example, after completing the scan at hwp_values[0], the waveplates are positioned at (hwp_values[0], qwp_values[last_index]).
+        For the next step at hwp_values[1], the scan starts from (hwp_values[1], qwp_values[last_index])
+        and proceeds backward to (hwp_values[1], qwp_values[0]). This approach minimizes the total rotation time,
+        since only the HWP needs to move to the next position, avoiding a full reset of the QWP to its starting angle.
+        """
+
         self.core.reset()
         delay(1*s)
 
@@ -222,7 +244,6 @@ class Polarization_Optimization_Test(EnvExperiment):
         self.dds_FORT.sw.on()  ### turns FORT on
 
 
-        # max_iterations = int(self.max_iterations)  # Limit iterations to prevent infinite loops
         tolerance = float(self.tolerance_deg)   # rather than using fixed iteration, stop when step < tolerance
         full_range = float(self.full_range)  # Start with a full range
         sample_pts = int(self.sample_pts)  # Number of samples per iteration
@@ -235,7 +256,7 @@ class Polarization_Optimization_Test(EnvExperiment):
             best_HWP, best_QWP, best_power = 0.0, 0.0, 0.0
         else:
             best_HWP, best_QWP, best_power = self.best_852HWP_to_max, self.best_852QWP_to_max, 0.0
-        previous_hwp, previous_qwp, previous_power = 0.0, 0.0, 0.0
+        previous_hwp, previous_qwp, previous_power = best_HWP, best_QWP, 0.0
 
         power = 0.0
         power_APD = 0.0
@@ -247,17 +268,26 @@ class Polarization_Optimization_Test(EnvExperiment):
         # Iterative search loop
         while not tolerance_satisfied:
         # for iteration in range(max_iterations):
-            print("iteration no.", iteration) # this statement has to be here for it to run,,,, why...
+            print("starting iteration no.", iteration) # this statement has to be here for it to run,,,, why...
             time_ite = time_to_rotate_in_ms(self, half_range)
 
-            delay(2 * 2 * time_ite * ms + 1*s)  # rotate two waveplates
+            delay(2 * time_ite * ms + 1*s)  # rotate two waveplates - okay for full_range = 50
 
             steps = half_range * 2 / (sample_pts - 1)
+
+            # power difference with steps less than 1 is negligible.
+            if steps < 1:
+                tolerance_satisfied = True
+
+                steps = 1.0
+                sample_pts = int(half_range/steps) * 2 + 1 # how many sample pts to cover the range
+                half_range = steps * (sample_pts - 1) / 2
+
             hwp_values = np.array([best_HWP - half_range + i * steps for i in range(sample_pts)])
             qwp_values = np.array([best_QWP - half_range + i * steps for i in range(sample_pts)])
 
-            if steps <= tolerance:
-                tolerance_satisfied = True
+            # if steps <= tolerance:
+            #     tolerance_satisfied = True
 
             for hwp_i in range(len(hwp_values)):
                 # time to rotate hwp
@@ -267,15 +297,12 @@ class Polarization_Optimization_Test(EnvExperiment):
                 count_down = 0
 
                 stop_loop = False
-                #
-                # if hwp_i %2 != 0:
-                #     for qwp_i in range(len(qwp_values)):
 
 
                 for qwp_i in range(len(qwp_values)):
 
                     if hwp_i % 2 != 0:
-                        qwp_i = len(qwp_values)-1-qwp_i
+                        qwp_i = len(qwp_values) -1 -qwp_i
                     if not stop_loop:
                         current_qwp = qwp_values[qwp_i]
                         # time to rotate qwp
@@ -289,10 +316,10 @@ class Polarization_Optimization_Test(EnvExperiment):
                             move_to_target_deg(self, name="852_HWP", target_deg=current_hwp)
                             move_to_target_deg(self, name="852_QWP", target_deg=current_qwp)
 
-                        delay(1*s)
-                        # power = record_PDA_power(self)  # Measure power
+                        delay(1*s)    # deleting this for full_range=10 scan works.
+
                         power = record_FORT_MM_power(self)
-                        power_APD = record_FORT_APD_power(self)
+                        # power_APD = record_FORT_APD_power(self)
 
                         delay(1*s)
 
@@ -316,30 +343,52 @@ class Polarization_Optimization_Test(EnvExperiment):
 
             half_range = steps
 
-            if self.reduce_sample_pts:
-                sample_pts = max(3, sample_pts // 2)  # Prevent sample_pts from becoming too small
-                # sample_pts must be odd number to reproduce former best parameter
-                if sample_pts % 2 == 0:
-                    sample_pts += 1
-
-            iteration += 1
 
             delay(1 * s)
             print("iteration # ", iteration," : best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
+            iteration += 1
 
         # move back to the best HWP, QWP
         move_to_target_deg(self, name="852_HWP", target_deg=best_HWP)
         move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
 
-        print("full range: ", full_range, "tolerance_deg: ", tolerance, "sample_pts: ", sample_pts)
         print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
-        print("difference in best_HWP, best_QWP, best_power = ", (self.best_852HWP_to_max - best_HWP), ", ", (self.best_852QWP_to_max - best_QWP), ", ", (self.best_852_power - best_power))
+        # print("difference in best_HWP, best_QWP, best_power = ", (self.best_852HWP_to_max - best_HWP), ", ", (self.best_852QWP_to_max - best_QWP), ", ", (self.best_852_power - best_power))
 
         self.dds_FORT.sw.off()  ### turns FORT on
 
         self.set_dataset("best_852HWP_to_max", best_HWP, broadcast=True, persist=True)
         self.set_dataset("best_852QWP_to_max", best_QWP, broadcast=True, persist=True)
         self.set_dataset("best_852_power", best_power, broadcast=True, persist=True)
+
+    @kernel
+    def run_feedback_and_record_ref_power(self):
+        """
+        Uses the `run_feedback_and_record_FORT_MM_power` function from `experiment_functions.py`
+        to record a reference power value for detecting FORT polarization drift consistently.
+
+        The function is defined in `experiment_functions.py` to ensure a unified implementation
+        that can be reused across all experiments.
+
+        Note: Since the optimization is performed with the FORT continuously ON,
+        the recorded power may not be directly comparable to the power measured
+        immediately after the FORT is turned ON. On Bob, it takes approximately
+        2 seconds for the FORT power to stabilize, with ~5% fluctuation.
+
+        This procedure is essential for reliable polarization optimization.
+        """
+        self.core.reset()
+
+        delay(0.1 * ms)
+        power = run_feedback_and_record_FORT_MM_power(self)  # in experiment_functions
+
+        print("After feedback - best_852_power set to ", power)
+        self.set_dataset("best_852_power_ref", power, broadcast=True, persist=True)
+
+    @kernel
+    def testing(self):
+        abc = get_rotator_deg(self, name="852_HWP")
+        print("current HWP: ", abc)
 
     def run(self):
         """
@@ -354,13 +403,9 @@ class Polarization_Optimization_Test(EnvExperiment):
         self.initialize_hardware()
         self.initialize_datasets()
 
-        if self.enable_zigzag_scan:
-            self.optimization_routine_zigzag()
-        else:
-            self.optimization_routine()
+        self.optimization_routine_zigzag()  # running zigzag as default
 
-
-
+        self.run_feedback_and_record_ref_power()  # recording reference power
 
 
 
