@@ -190,3 +190,17 @@ def atom_blowaway_cost(self) -> TFloat:
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
     return 100*(retention_fraction - 1)
+
+#
+#
+# def atom_lading_and_time_cost(self, data: TArray(TFloat,1)) -> TInt32:
+#     atom_loading_time_list = self.Atom_loading_time
+#
+#     total_t = 0.0
+#     for t in data:
+#         total_t += -1.0 / t
+#     average_t = total_t / len(data) ### Though I am naming these at _t, these are indeed 1/t to calculate the cost
+#     return int(round(average_t))
+#
+#
+# # use with this kind of format:  get_cost(self.atom_loading_time_list)
