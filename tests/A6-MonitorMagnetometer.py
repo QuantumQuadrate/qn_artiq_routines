@@ -78,7 +78,7 @@ class MonitorMagnetometer(EnvExperiment):
         if self.Coils_settings == "Optical_pumping":
             ### Set the coils to OP values
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_OP, self.AZ_top_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
                 channels=self.coil_channels)
             delay(1 * ms)
 
