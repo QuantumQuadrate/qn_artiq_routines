@@ -79,6 +79,7 @@ class GeneralVariableScan(EnvExperiment):
         running the experiment.
         """
         self.base.prepare()
+        # self.base.prepare_microwave_RAM()
 
         self.scan_variable1 = str(self.scan_variable1_name)
         self.scan_variable2 = str(self.scan_variable2_name)
@@ -227,7 +228,7 @@ class GeneralVariableScan(EnvExperiment):
         self.dds_FORT.sw.on()
 
         # delay for AOMs to thermalize
-        delay(2 * s)
+        delay(200 * ms)
 
         self.core.break_realtime()
         # warm up to get make sure we get to the setpoints
@@ -236,7 +237,7 @@ class GeneralVariableScan(EnvExperiment):
             for i in range(10):
                 self.laser_stabilizer.run()
         else:
-            delay(500*ms) # lotsa slack
+            delay(200*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
     def run(self):

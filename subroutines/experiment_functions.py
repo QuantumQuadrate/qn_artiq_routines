@@ -3215,19 +3215,19 @@ def microwave_map01_map11_CORPSE_experiment(self):
             self.ttl_microwave_switch.on()
             delay(1 * us)
 
-        # ############################ microwave phase to transfer population from F=2,mF=1 to F=1,mF=1
-        # if self.t_microwave_11_pulse > 0.0:
-        #     self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
-        #     delay(100 * us)
-        #     self.ttl_microwave_switch.off()
-        #     delay(t_microwave_11_CORPSE1)
-        #     self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.5)
-        #     delay(t_microwave_11_CORPSE2)
-        #     self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
-        #     delay(t_microwave_11_CORPSE3)
-        #     self.ttl_microwave_switch.on()
-        #
-        #     delay(10 * us)
+        ############################ microwave phase to transfer population from F=2,mF=1 to F=1,mF=1
+        if self.t_microwave_11_pulse > 0.0:
+            self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+            delay(100 * us)
+            self.ttl_microwave_switch.off()
+            delay(t_microwave_11_CORPSE1)
+            self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.5)
+            delay(t_microwave_11_CORPSE2)
+            self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+            delay(t_microwave_11_CORPSE3)
+            self.ttl_microwave_switch.on()
+
+            delay(10 * us)
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -6044,6 +6044,108 @@ def atom_photon_tomography_experiment(self):
     self.append_to_dataset('SPCM0_total_click_counter', SPCM0_total_click_counter)
     self.append_to_dataset('SPCM1_total_click_counter', SPCM1_total_click_counter)
 
+def microwave_RAM_generator(self, MW_dwell_time):
+    """
+    preparation of smooth microwave pulse with RAM. This generates amplitudes_list representing a smooth pulse
+    to be used in experiment_functions to generate smooth MW pulses.
+    """
+    MW_ramp_time = 2 * us  # ramp time from first to max amplitude
+    MW_steps_rise = 30  # number of amplitude points during the rise and fall time
+    MW_amp_low, MW_amp_high = 0.0, 1.0  # low and high amplitudes in scale from 0 to 1
+
+    MW_step_ticks = int(
+        (MW_ramp_time / MW_steps_rise) / (
+                    4 * ns))  ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
+    ### step_ticks=25, for example, means the dds is updated every 25*4ns = 100ns.
+
+    MW_steps_dwell = int(
+        MW_steps_rise / MW_ramp_time * MW_dwell_time)  # Number of dwell points
+
+    ### Gaussian function. Put this in a python script and plot amp_points (without reversed()) to see the shape of the dds pulse.
+    MW_x_vals = [0.0 + 3.1 * i / (MW_steps_rise - 1) for i in range(MW_steps_rise)]  ### a list from 0 to 3.1
+    MW_raw = [math.exp(-0.5 * x * x) for x in MW_x_vals]
+    MW_g_min, MW_g_max = MW_raw[0], MW_raw[-1]
+    MW_norm = [(r - MW_g_min) / (MW_g_max - MW_g_min) for r in MW_raw]
+
+    ### scale into respective ramp according to amplitude.
+    MW_amp_points_rise = [MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]
+    MW_amp_points_fall = list(
+        reversed([MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]))
+
+    ### The full waveform.
+    MW_amp_points = (
+            MW_amp_points_rise +
+            [MW_amp_high] * MW_steps_dwell +
+            MW_amp_points_fall
+    )
+
+    print(f'microwave RAM MW_amp_points: {len(MW_amp_points)}')  ### Underflow error if > 500
+
+    ### some data conversion needed for RAM
+    MW_amplitudes_arr = np.zeros(len(MW_amp_points), dtype=np.int32)
+    self.dds_microwaves.amplitude_to_ram(MW_amp_points, MW_amplitudes_arr)  ### updates MW_amplitudes_arr according to the amp_points profile
+    MW_amplitudes_list = list(MW_amplitudes_arr)
+
+    ### This is calculation of steps based on above parameters
+    MW_total_points = len(MW_amplitudes_list)
+    return MW_step_ticks, MW_total_points, MW_amplitudes_list
+
+
+def testing_smooth_MW_experiment(self):
+    """
+
+    """
+
+    self.MW_step_ticks, self.MW_total_points, self.MW_amplitudes_list  = microwave_RAM_generator(self, self.t_microwave_pulse)
+
+    # print("MW_step_ticks = ", self.MW_step_ticks)
+    # print("MW_total_points = ", self.MW_total_points)
+    # print("MW_amplitudes_list = ", self.MW_amplitudes_list)
+
+
+    @kernel
+    def exp_run(self):
+        self.core.reset()
+        self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+        delay(1 * ms)
+        self.dds_microwaves.sw.on()
+        delay(1 * ms)
+        if self.t_microwave_pulse > 0.0:
+
+            self.ttl7.pulse(self.t_exp_trigger)  # to trigger oscilloscope
+
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_01_pulse)
+            self.ttl_microwave_switch.on()
+            delay(0.1 * ms)
+
+    exp_run(self)
+
+
+
+
+def calculate_pulse(x):
+    y = math.exp(x)
+    z = x + y
+    return y, z
+
+def testing_prep_on_host_experiment(self):
+    """
+    Example using multiple return values from calculate_pulse()
+    """
+    self.a = 2.1
+    self.b, self.c = calculate_pulse(self.t_microwave_pulse)
+
+    print("b =", self.b)
+    print("c =", self.c)
+
+    @kernel
+    def inner_run(self):
+        self.print_async(self.c)
+        delay(10 * ms)
+
+    inner_run(self)
+
 
 def track_1_microwave_transition_experiment(self):
     """
@@ -6055,12 +6157,7 @@ def track_1_microwave_transition_experiment(self):
 
     """
 
-    def prepare(self):
-        self.print_async("test1")
 
-    @kernel
-    def run(self):
-        self.print_async("test2")
 
 
     # try:
