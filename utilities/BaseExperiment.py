@@ -454,49 +454,57 @@ class BaseExperiment:
                 logging.debug(e)
 
 
-    # def prepare_microwave_RAM(self):
-    #     """
-    #     preparation of smooth microwave pulse with RAM. This generates amplitudes_list representing a smooth pulse
-    #     to be used in experiment_functions to generate smooth MW pulses.
-    #     """
-    #     self.experiment.MW_ramp_time = 2 * us  # ramp time from first to max amplitude
-    #     self.experiment.MW_steps_rise = 30  # number of amplitude points during the rise and fall time
-    #     self.experiment.MW_amp_low, self.experiment.MW_amp_high = 0.0, 1.0  # low and high amplitudes in scale from 0 to 1
-    #
-    #     self.experiment.MW_step_ticks = int(
-    #         (self.experiment.MW_ramp_time / self.experiment.MW_steps_rise) / (4 * ns))  ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
-    #     ### step_ticks=25, for example, means the dds is updated every 25*4ns = 100ns.
-    #
-    #     self.experiment.MW_dwell_time = self.experiment.t_microwave_00_pulse
-    #     self.experiment.MW_steps_dwell = int(self.experiment.MW_steps_rise / self.experiment.MW_ramp_time * self.experiment.MW_dwell_time)  # Number of dwell points
-    #
-    #     ### Gaussian function. Put this in a python script and plot amp_points (without reversed()) to see the shape of the dds pulse.
-    #     MW_x_vals = [0.0 + 3.1 * i / (self.experiment.MW_steps_rise - 1) for i in range(self.experiment.MW_steps_rise)]  ### a list from 0 to 3.1
-    #     MW_raw = [math.exp(-0.5 * x * x) for x in MW_x_vals]
-    #     MW_g_min, MW_g_max = MW_raw[0], MW_raw[-1]
-    #     MW_norm = [(r - MW_g_min) / (MW_g_max - MW_g_min) for r in MW_raw]
-    #
-    #     ### scale into respective ramp according to amplitude.
-    #     MW_amp_points_rise = [self.experiment.MW_amp_low + n * (self.experiment.MW_amp_high - self.experiment.MW_amp_low) for n in MW_norm]
-    #     MW_amp_points_fall = list(reversed([self.experiment.MW_amp_low + n * (self.experiment.MW_amp_high - self.experiment.MW_amp_low) for n in MW_norm]))
-    #
-    #     ### The full waveform.
-    #     MW_amp_points = (
-    #             MW_amp_points_rise +
-    #             [self.experiment.MW_amp_high] * self.experiment.MW_steps_dwell +
-    #             MW_amp_points_fall
-    #     )
-    #
-    #     print(f'microwave RAM MW_amp_points: {len(MW_amp_points)}') ### Underflow error if > 500
-    #
-    #     ### some data conversion needed for RAM
-    #     MW_amplitudes_arr = np.zeros(len(MW_amp_points), dtype=np.int32)
-    #     self.experiment.dds_microwaves.amplitude_to_ram(MW_amp_points,
-    #                                                     MW_amplitudes_arr)  ### updates MW_amplitudes_arr according to the amp_points profile
-    #     self.experiment.MW_amplitudes_list = list(MW_amplitudes_arr)
-    #
-    #     ### This is calculation of steps based on above parameters
-    #     self.experiment.MW_total_points = len(self.experiment.MW_amplitudes_list)
+    def prepare_microwave_RAM(self, MW_ramp_time, MW_pulse_length):
+        """
+        preparation of smooth microwave pulse with RAM. This generates amplitudes_list representing a smooth pulse
+        to be used in experiment_functions to generate smooth MW pulses.
+        """
+        MW_steps_rise = 30  # number of amplitude points during the rise and fall time
+        MW_amp_low, MW_amp_high = 0.0, dB_to_V(self.experiment.p_microwaves)  # low and high amplitudes in scale from 0 to 1
+
+        MW_step_ticks = int(
+            (MW_ramp_time / MW_steps_rise) / (
+                    4 * ns))  ### Step size
+
+        if MW_pulse_length > 2 * MW_ramp_time:
+            MW_dwell_time = MW_pulse_length - 2 * MW_ramp_time
+        else:
+            MW_dwell_time = 0.0
+
+        MW_steps_dwell = int(
+            MW_steps_rise / MW_ramp_time * MW_dwell_time)  # Number of dwell points
+
+        ### Gaussian function.
+        MW_x_vals = [0.0 + 3.1 * i / (MW_steps_rise - 1) for i in range(MW_steps_rise)]
+        MW_raw = [math.exp(-0.5 * x * x) for x in MW_x_vals]
+        MW_g_min, MW_g_max = MW_raw[0], MW_raw[-1]
+        MW_norm = [(r - MW_g_min) / (MW_g_max - MW_g_min) for r in MW_raw]
+
+        ### scale into respective ramp according to amplitude.
+        MW_amp_points_rise = [MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]
+        MW_amp_points_fall = list(
+            reversed([MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]))
+
+        ### The full waveform.
+        MW_amp_points = (
+                MW_amp_points_rise +
+                [MW_amp_high] * MW_steps_dwell +
+                MW_amp_points_fall
+        )
+
+        print(f'microwave RAM MW_amp_points: {len(MW_amp_points)}')  ### Underflow error if larger than ~500
+
+        ### some data conversion needed for RAM
+        MW_amplitudes_arr = np.zeros(len(MW_amp_points), dtype=np.int32)
+        self.experiment.dds_microwaves.amplitude_to_ram(MW_amp_points, MW_amplitudes_arr)
+        MW_amplitudes_list = list(MW_amplitudes_arr)
+
+        ### This is calculation of steps based on above parameters
+        MW_total_points = len(MW_amplitudes_list)
+
+        self.experiment.MW_step_size = MW_step_ticks
+        self.experiment.MW_total_points = MW_total_points
+        self.experiment.MW_amplitudes_list = MW_amplitudes_list
 
 
     def prepare(self):

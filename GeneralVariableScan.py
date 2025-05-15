@@ -13,6 +13,7 @@ base.build before each call of the experiment function, i.e., at the start of ea
 
 
 from artiq.experiment import *
+from artiq.language import us, ns, MHz
 import logging
 
 import numpy as np
@@ -79,7 +80,7 @@ class GeneralVariableScan(EnvExperiment):
         running the experiment.
         """
         self.base.prepare()
-        # self.base.prepare_microwave_RAM()
+        self.base.prepare_microwave_RAM(MW_ramp_time = 2*us, MW_pulse_length = self.t_microwave_01_pulse)
 
         self.scan_variable1 = str(self.scan_variable1_name)
         self.scan_variable2 = str(self.scan_variable2_name)
