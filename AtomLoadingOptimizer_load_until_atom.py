@@ -104,6 +104,10 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                                      self.AZ_top_volts_MOT,
                                      self.AX_volts_MOT,
                                      self.AY_volts_MOT])
+        self.coil_values_RO = np.array([self.AZ_bottom_volts_RO,
+                                     - self.AZ_bottom_volts_RO,
+                                     self.AX_volts_RO,
+                                     self.AY_volts_RO])
 
         self.volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
         self.setpoint_datasets = ["set_point_PD1_AOM_A1", "set_point_PD2_AOM_A2", "set_point_PD3_AOM_A3",
@@ -362,6 +366,19 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.dds_FORT.sw.off()  ### turn off FORT
             delay(100 * ms)  ### to dissipate MOT
 
+        #############todo: why does it give me error?
+        # # delay(1 * ms)
+        # # ### set the coils to the readout settings
+        # # self.zotino0.set_dac(
+        # #     [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        # #     channels=self.coil_channels)
+        # delay(1 * ms)
+        # delay(1*s)
+        # if True:
+        #     ### set the coils to the readout settings
+        #     self.zotino0.set_dac([0.0*V,0.0*V,0.0*V,0.0*V],channels=self.coil_channels)
+
+        self.zotino0.set_dac(self.coil_values_RO, channels=self.coil_channels)
 
         cost = self.get_cost(self.atom_loading_time_list)
         self.append_to_dataset(self.cost_dataset, cost)

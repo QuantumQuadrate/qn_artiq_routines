@@ -1,4 +1,8 @@
 """
+2025.05.15
+previous path and name: qn_artiq_routines/tests/PolOptTest.py
+renamed to: FORT_Polarization_Optimizer.py
+
 This is a code for FORT polarization optimization
 
 - A few percent of the FORT light passes the parabolic mirror through a small hole.
@@ -47,7 +51,7 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
-class Polarization_Optimization_Test(EnvExperiment):
+class FORT_Polarization_Optimizer(EnvExperiment):
     def build(self):
         """
         declare hardware and user-configurable independent variables
