@@ -305,6 +305,7 @@ class BaseExperiment:
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
+            self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"

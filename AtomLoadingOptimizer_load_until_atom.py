@@ -325,11 +325,17 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
             while not atom_loaded and try_n < max_tries:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
-                with parallel:
-                    self.ttl_SPCM0_counter.gate_rising(atom_check_time)
-                    self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+                if self.which_node == 'alice':
+                    with parallel:
+                        self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+                        self.ttl_SPCM1_counter.gate_rising(atom_check_time)
 
-                BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                    BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                else:
+                    with parallel:
+                        self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+
+                    BothSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count())
 
                 BothSPCMs_counts_per_s = BothSPCMs_atom_check / atom_check_time
                 delay(1 * ms)

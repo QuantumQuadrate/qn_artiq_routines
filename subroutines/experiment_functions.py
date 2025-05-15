@@ -911,6 +911,7 @@ def first_shot(self):
     if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
         self.SPCM0_RO1 = self.ttl_SPCM0.count(t_gate_end)
+        self.BothSPCMs_RO1 = int(self.SPCM0_RO1) #todo: connect a working SPCM1
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
     else:
@@ -1009,6 +1010,7 @@ def second_shot(self):
     if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
         t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
         self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
+        self.BothSPCMs_RO2 = int(self.SPCM0_RO2)
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()
 
