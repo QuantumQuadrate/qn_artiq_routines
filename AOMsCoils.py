@@ -1,5 +1,5 @@
 """
-This code turns on the MOT AOMs and also the MOT coils.
+This code turns on the MOT AOMs and also the MOT coils. xxx
 """
 from artiq.experiment import *
 
