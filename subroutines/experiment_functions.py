@@ -952,7 +952,7 @@ def first_shot(self):
 
             self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
             self.SPCM1_RO1 = self.ttl_SPCM1_counter.fetch_count()
-            self.BothSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1)/2)
+            self.BothSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
             delay(0.1 * ms)
             self.dds_cooling_DP.sw.off() ### turn off cooling
             self.ttl_repump_switch.on() ### turn off MOT RP
