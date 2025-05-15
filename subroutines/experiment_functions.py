@@ -6049,20 +6049,19 @@ def microwave_RAM_generator(self, MW_dwell_time):
     preparation of smooth microwave pulse with RAM. This generates amplitudes_list representing a smooth pulse
     to be used in experiment_functions to generate smooth MW pulses.
     """
-    MW_ramp_time = 2 * us  # ramp time from first to max amplitude
+    MW_ramp_time = 2 * us  # ramp time from low to high amplitude
     MW_steps_rise = 30  # number of amplitude points during the rise and fall time
     MW_amp_low, MW_amp_high = 0.0, 1.0  # low and high amplitudes in scale from 0 to 1
 
     MW_step_ticks = int(
         (MW_ramp_time / MW_steps_rise) / (
-                    4 * ns))  ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
-    ### step_ticks=25, for example, means the dds is updated every 25*4ns = 100ns.
+                    4 * ns))  ### Step size
 
     MW_steps_dwell = int(
         MW_steps_rise / MW_ramp_time * MW_dwell_time)  # Number of dwell points
 
-    ### Gaussian function. Put this in a python script and plot amp_points (without reversed()) to see the shape of the dds pulse.
-    MW_x_vals = [0.0 + 3.1 * i / (MW_steps_rise - 1) for i in range(MW_steps_rise)]  ### a list from 0 to 3.1
+    ### Gaussian function.
+    MW_x_vals = [0.0 + 3.1 * i / (MW_steps_rise - 1) for i in range(MW_steps_rise)]
     MW_raw = [math.exp(-0.5 * x * x) for x in MW_x_vals]
     MW_g_min, MW_g_max = MW_raw[0], MW_raw[-1]
     MW_norm = [(r - MW_g_min) / (MW_g_max - MW_g_min) for r in MW_raw]
@@ -6079,11 +6078,11 @@ def microwave_RAM_generator(self, MW_dwell_time):
             MW_amp_points_fall
     )
 
-    print(f'microwave RAM MW_amp_points: {len(MW_amp_points)}')  ### Underflow error if > 500
+    print(f'microwave RAM MW_amp_points: {len(MW_amp_points)}')  ### Underflow error if larger than ~500
 
     ### some data conversion needed for RAM
     MW_amplitudes_arr = np.zeros(len(MW_amp_points), dtype=np.int32)
-    self.dds_microwaves.amplitude_to_ram(MW_amp_points, MW_amplitudes_arr)  ### updates MW_amplitudes_arr according to the amp_points profile
+    self.dds_microwaves.amplitude_to_ram(MW_amp_points, MW_amplitudes_arr)
     MW_amplitudes_list = list(MW_amplitudes_arr)
 
     ### This is calculation of steps based on above parameters
@@ -6093,10 +6092,12 @@ def microwave_RAM_generator(self, MW_dwell_time):
 
 def testing_smooth_MW_experiment(self):
     """
+    you can run this experiment in GVS without scanning any parameters. It will generate a single smooth MW pulse which
+    you can see on the scope.
 
     """
 
-    self.MW_step_ticks, self.MW_total_points, self.MW_amplitudes_list  = microwave_RAM_generator(self, self.t_microwave_pulse)
+    self.MW_step_size, self.MW_total_points, self.MW_amplitudes_list  = microwave_RAM_generator(self, self.t_microwave_01_pulse)
 
     # print("MW_step_ticks = ", self.MW_step_ticks)
     # print("MW_total_points = ", self.MW_total_points)
@@ -6106,18 +6107,53 @@ def testing_smooth_MW_experiment(self):
     @kernel
     def exp_run(self):
         self.core.reset()
-        self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+        self.ttl_microwave_switch.off()
+        self.dds_microwaves.cpld.init()
+        # self.dds_microwaves.cfg_sw(True)
+        # self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+        self.dds_microwaves.set_frequency(self.f_microwaves_dds)
+        self.dds_microwaves.set_att(15.0)
         delay(1 * ms)
-        self.dds_microwaves.sw.on()
-        delay(1 * ms)
-        if self.t_microwave_pulse > 0.0:
-
+        if self.t_microwave_01_pulse > 0.0:
             self.ttl7.pulse(self.t_exp_trigger)  # to trigger oscilloscope
+            # self.ttl_microwave_switch.off()
+            delay(10 * us)
 
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_01_pulse)
-            self.ttl_microwave_switch.on()
-            delay(0.1 * ms)
+
+            self.dds_microwaves.set_cfr1(ram_enable=0)  ### disable RAM mode to write the config
+            self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### pulse the ttl to update and implement settings
+
+            ### Configures the RAM playback engine
+            self.dds_microwaves.set_profile_ram(
+                start=0,
+                end=self.MW_total_points - 1,
+                step=self.MW_step_size,
+                profile=0,
+                mode=RAM_MODE_RAMPUP,
+            )
+
+            self.dds_microwaves.cpld.set_profile(0)
+            # self.dds.cpld.io_update.pulse_mu(8)
+            self.dds_microwaves.write_ram(self.MW_amplitudes_list)  ### write the data onto RAM
+
+            ### Enabling RAM playback, not playing yet.
+            self.dds_microwaves.set_cfr1(
+                internal_profile=0,
+                ram_enable=1,
+                ram_destination=RAM_DEST_ASF,
+            )
+
+            self.dds_microwaves.sw.on()
+            self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### This runs the RAM
+
+            delay(100 * us)  ### keep the delay as ramp time
+            # self.ttl_microwave_switch.on()
+            # delay(self.dwell_time)  ### keep the delay as ramp time
+
+            ### shutting off
+            self.dds_microwaves.set_cfr1(ram_enable=0)
+            self.dds_microwaves.cpld.io_update.pulse_mu(8)
+            self.dds_microwaves.sw.off()
 
     exp_run(self)
 
