@@ -309,8 +309,9 @@ class AOMPowerStabilizer:
 
                 self.sampler_list.append(getattr(self.exp, sampler_name))
 
-                # loop over the dds channels associated with this sampler
+                # loop over the dds channels associated with this sampler,
                 for ch_name in feedback_channels.keys():
+                    # ex) ch_name = "dds_AOM_A1", ...
 
                     # create a feedback object for dds channels we want to feed back to
                     if ch_name in dds_names:

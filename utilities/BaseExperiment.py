@@ -141,15 +141,15 @@ class BaseExperiment:
             for dev in devices_no_alias:
                 self.experiment.setattr_device(dev)
 
-            ### ndsp devices
+            # ndsp devices
             try:
                 self.experiment.setattr_device("k10cr1_ndsp")
             except Exception as e:
                 print(f"Error connecting to device {e}")
 
-            ### devices can also be nicknamed here:
-            ### todo: do this in the device_db
-            ### ttl0~3
+            # devices can also be nicknamed here:
+            # todo: do this in the device_db
+            # ttl0~3
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
@@ -477,6 +477,12 @@ class BaseExperiment:
         # setattr_variables(self.experiment, exclude_list=[], exclude_keywords=exclude_keywords)
 
 
+        # ndsp - k10cr1 waveplate rotator datasets
+        self.experiment.setpoint_datasets = ["best_852HWP_to_max", "best_852QWP_to_max", "best_852_power",
+                                             "best_852_power_ref"]
+        self.experiment.default_setpoints = [getattr(self.experiment, dataset) for dataset in
+                                             self.experiment.setpoint_datasets]
+
         if self.node == "alice":
             # initialize named channels.
             self.experiment.named_devices = DeviceAliases(
@@ -563,7 +569,12 @@ class BaseExperiment:
                                      [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
         elif self.node == "bob":
-            ### initialize named channels.
+            # self.experiment.FORT_pol_stabilizer = FORTPolarizationStabilizer(experiment=self.experiment,
+            #                                                                  initialize_to_home = False,
+            #                                                                  search_start_from_scratch = False,
+            #                                                                  reduce_sample_pts = False)
+
+            # initialize named channels.
             self.experiment.named_devices = DeviceAliases(
                 experiment=self.experiment,
                 device_aliases=[

@@ -336,7 +336,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                 self.append_to_dataset(self.BothSPCMs_rate_dataset, BothSPCMs_counts_per_s)
                 try_n += 1
 
-                if BothSPCMs_counts_per_s > self.single_atom_threshold:
+                if BothSPCMs_counts_per_s > self.atom_counts_per_s_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
 

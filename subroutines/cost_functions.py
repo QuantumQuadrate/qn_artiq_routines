@@ -137,7 +137,9 @@ def atom_retention_and_loading_cost(self) -> TFloat:
         cost *= threshold/500
 
     # 0.6 is probably the best loading rate we can hope for.
-    cost *= -50 * (retention_fraction + loading_fraction / 0.6)
+    # cost *= -50 * (retention_fraction + loading_fraction / 0.6)
+    # now we are using atom_loading_2 which gives nearly 100% loading.
+    cost *= -50 * (retention_fraction + loading_fraction)
     return cost
 
 
@@ -192,3 +194,17 @@ def atom_blowaway_cost(self) -> TFloat:
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
     return 100*(retention_fraction - 1)
+
+#
+#
+# def atom_lading_and_time_cost(self, data: TArray(TFloat,1)) -> TInt32:
+#     atom_loading_time_list = self.Atom_loading_time
+#
+#     total_t = 0.0
+#     for t in data:
+#         total_t += -1.0 / t
+#     average_t = total_t / len(data) ### Though I am naming these at _t, these are indeed 1/t to calculate the cost
+#     return int(round(average_t))
+#
+#
+# # use with this kind of format:  get_cost(self.atom_loading_time_list)
