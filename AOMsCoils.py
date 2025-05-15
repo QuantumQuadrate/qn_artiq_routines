@@ -20,8 +20,9 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("D1_pumping_DP_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Excitation0_AOM_switch_ON", BooleanValue(default=False))
-        self.setattr_argument("GRIN1and2_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("GRIN1and2_DDS_ON", BooleanValue(default=False))
         self.setattr_argument("GRIN1_AOM_switch_ON", BooleanValue(default=False))
+        self.setattr_argument("GRIN2_AOM_switch_ON", BooleanValue(default=False))
         self.setattr_argument("AOM_A1_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A2_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A3_ON", BooleanValue(default=False), "Fiber AOMs")
@@ -53,6 +54,7 @@ class AOMsCoils(EnvExperiment):
         #todo: put this in BaseExperiment.py
         self.setpoint_datasets = ["best_HWP_to_H","best_QWP_to_H"]
         self.default_setpoints = [getattr(self, dataset) for dataset in self.setpoint_datasets]
+
     @kernel
     def turn_on_AOMs(self):
         """
@@ -102,16 +104,22 @@ class AOMsCoils(EnvExperiment):
             self.ttl_exc0_switch.on()
 
         delay(1 * ms)
-        if self.GRIN1and2_AOM_ON == True:
-            self.dds_excitation.sw.on()
+        if self.GRIN1and2_DDS_ON == True:
+            self.GRIN1and2_dds.sw.on()
         else:
-            self.dds_excitation.sw.off()
+            self.GRIN1and2_dds.sw.off()
 
         delay(1 * ms)
         if self.GRIN1_AOM_switch_ON == True:
             self.ttl_GRIN1_switch.off()
         else:
             self.ttl_GRIN1_switch.on()
+
+        delay(1 * ms)
+        if self.GRIN2_AOM_switch_ON == True:
+            self.ttl_GRIN2_switch.off()
+        else:
+            self.ttl_GRIN2_switch.on()
 
 
         # MOT arm fiber AOMs, excitation AOM:

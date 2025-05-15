@@ -95,8 +95,6 @@ class ExperimentVariables(EnvExperiment):
             # Cooling double pass AOM
             Variable("f_cooling_DP_MOT", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
-            Variable("f_cooling_DP_MOT_phase2", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
-                     "Cooling double pass AOM"),
             Variable("f_cooling_DP_RO", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Cooling double pass AOM"),
             Variable("f_cooling_DP_PGC", 111.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
@@ -165,9 +163,15 @@ class ExperimentVariables(EnvExperiment):
             # assumes the microwave source is set at 6.5 GHz
             Variable("f_microwaves_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
                      "Microwaves"),
-            Variable("f_microwaves_detuning", 2.25737 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
+            Variable("f_microwaves_detuning", 2.261 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
                      "Microwaves"),
             Variable("p_microwaves", 0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Microwaves"),
+            Variable("f_microwaves_00_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
+                     "Microwaves"),
+            Variable("f_microwaves_01_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
+                     "Microwaves"),
+            Variable("f_microwaves_11_dds", 334.682 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 7},
                      "Microwaves"),
 
             # Coils - MOT
@@ -180,19 +184,9 @@ class ExperimentVariables(EnvExperiment):
             Variable("AY_volts_MOT", 0.255, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
 
-            Variable("AZ_bottom_volts_MOT_phase2", 4.896, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "MOT coil settings"),
-            Variable("AZ_top_volts_MOT_phase2", 5.405, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "MOT coil settings"),
-            Variable("AX_volts_MOT_phase2", 0.419, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "MOT coil settings"),
-            Variable("AY_volts_MOT_phase2", 0.255, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "MOT coil settings"),
 
             # Coils - PGC
             Variable("AZ_bottom_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
-                     "MOT coil settings"),
-            Variable("AZ_top_volts_PGC", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
             Variable("AX_volts_PGC", -0.11, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
@@ -202,8 +196,6 @@ class ExperimentVariables(EnvExperiment):
             # Coils - Readout
             Variable("AZ_bottom_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
-            Variable("AZ_top_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
-                     "MOT coil settings"),
             Variable("AX_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
             Variable("AY_volts_RO", 0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
@@ -211,8 +203,6 @@ class ExperimentVariables(EnvExperiment):
 
             # Coils - state prep and science
             Variable("AZ_bottom_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "Science coil settings"),
-            Variable("AZ_top_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
             Variable("AX_volts_OP", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
@@ -230,8 +220,6 @@ class ExperimentVariables(EnvExperiment):
                      "Science coil settings"),
             Variable("AZ_bottom_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
-            Variable("AZ_top_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "Science coil settings"),
             Variable("AX_volts_microwave", 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
             # about 1 G along the parabolic mirror axis.
@@ -240,7 +228,6 @@ class ExperimentVariables(EnvExperiment):
 
             # Timing
             Variable("t_MOT_loading", 500*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
-            Variable("t_MOT_phase2", 500 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_loading", 50*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_drop", 10 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_FORT_modulation", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
@@ -254,10 +241,11 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_blowaway", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_depumping", 50 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
-            Variable("t_microwave_pulse", 100 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_microwave_pulse", 12.8 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_microwave_00_pulse", 12.8 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_microwave_01_pulse", 70 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_microwave_11_pulse", 70 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pi_microwave_pulse", 1.494 * us, NumberValue, {'type': 'float', 'unit': 'us', 'ndecimals': 3}, "Timing"),
-            Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
-            Variable("t_photon_collection_delay", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_exp_trigger", 1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_UV_pulse", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_OP_chop_period", 1 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
@@ -272,13 +260,13 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_RO_gate_offset", -0.2 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("duty_cycle_RO", 0.2, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
                                                           'scale': 1, 'ndecimals': 2}, "Timing"),
-            Variable("t_excitation_pulse", 100 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
-            Variable("gate_start_offset_mu", 0, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
-                     "Timing"),
-            Variable("gate_switch_offset", 0*ns, NumberValue, {'type': 'int', 'unit':'ns',
-                                                            'ndecimals': 0, 'scale': 1, 'step': 1},
-                     "Timing"),
             Variable("t_recooling", 1 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_photon_collection_time", 1 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
+            Variable("gate_start_offset_mu", 0, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Timing"),
+            Variable("t_excitation_pulse", 100 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
+            Variable("t_excitation_offset_mu", 0, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),

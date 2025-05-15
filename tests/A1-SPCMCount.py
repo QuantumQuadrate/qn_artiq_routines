@@ -39,14 +39,15 @@ class SPCMCount(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
-        self.setattr_device("ttl8")
-        self.setattr_device("ttl9")
+        self.setattr_device("ttl0")
+        self.setattr_device("ttl1")
         self.setattr_device("zotino0")
         self.setattr_device("sampler0")
 
 
         self.setattr_argument("n_steps", NumberValue(100, type='int', ndecimals=0, scale=1, step=1))  # exposure time of the SPCM
-        self.setattr_argument("dt_exposure", NumberValue(300*ms))  # saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
+        self.setattr_argument("dt_exposure", NumberValue(300*ms))
+        ### saturation limit of the SPCM in counts/s. Can be increased to 10**7 safely, but not higher than 3*10**7.
         self.setattr_argument("sat1s", NumberValue(1*10**5), "# of counts giving 5V output. do not set above 10**7") # saturation limit in counts/dt.
         self.setattr_argument("print_count_rate", BooleanValue(True))
         self.setattr_argument("Calculate_average_rate", BooleanValue(True))
@@ -73,8 +74,8 @@ class SPCMCount(EnvExperiment):
         self.file_setup(rowheaders=['counts','cooling_volts'])
 
         self.core.reset()
-        self.ttl8.input()
-        self.ttl9.input()
+        self.ttl0.input()
+        self.ttl1.input()
         self.zotino0.init()
 
         delay(10 * ms)
@@ -95,8 +96,8 @@ class SPCMCount(EnvExperiment):
         # self.core.break_realtime()
 
         for x in range(self.n_steps):
-            tend1 = self.ttl9.gate_rising(self.dt_exposure)
-            count1 = self.ttl9.count(tend1)
+            tend1 = self.ttl0.gate_rising(self.dt_exposure)
+            count1 = self.ttl0.count(tend1)
             if self.print_count_rate:
                 print(round(count1/self.dt_exposure),"Hz")
             delay(10 * ms)

@@ -103,7 +103,7 @@
                     "t_measure_delay":0.00001,
                     "max_dB": -5
                 },
-            "dds_excitation":
+            "GRIN1and2_dds":
                 {
                     "sampler_ch": 4,
                     "set_points": ["set_point_excitation"],

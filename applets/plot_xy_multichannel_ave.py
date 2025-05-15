@@ -1,9 +1,11 @@
 """
-For plotting up to 10 numeric sequences, for example, the DDS RF power history
+For plotting up to 10 numeric sequences, for example, the DDS RF power history averaged in each iteration,
+i.e. one point is plotted in each iteration. This works well for the RF powers when we used to feedback,
+i.e. measure the RF powers, in each measurement.
 
 Example usage:
-python "C:\..\qn_artiq_routines\applets\plot_xy_multichannel.py"
-p_AOM_A1_history MOT_beam_monitor_points --y2 p_AOM_A2_history --y3 p_AOM_A3_history
+python "C:\..\qn_artiq_routines\applets\plot_xy_multichannel_ave.py"
+p_AOM_A1_history n_measurements --y2 p_AOM_A2_history --y3 p_AOM_A3_history
 --y4 p_AOM_A4_history --y5 p_AOM_A5_history --y6 p_AOM_A6_history --y7 p_FORT_loading_history --labels feedbackchannels
 """
 

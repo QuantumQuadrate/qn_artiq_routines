@@ -151,11 +151,12 @@ def atom_retention_cost(self) -> TFloat:
     :return: -100*retention_fraction, the negated percentage of atoms detected in the readout
     """
 
-    shot1 = self.SPCM0_RO1_list
-    shot2 = self.SPCM0_RO2_list
-    atoms_loaded = [x > self.single_atom_SPCM0_RO1_threshold for x in shot1]
+    shot1 = self.BothSPCMs_RO1_list
+    shot2 = self.BothSPCMs_RO2_list
+
+    atoms_loaded = [x > self.single_atom_RO1_threshold for x in shot1]
     n_atoms_loaded = sum(atoms_loaded)
-    atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
+    atoms_retained = [x > self.single_atom_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
     loading_fraction = n_atoms_loaded/len(shot1)
 
@@ -171,7 +172,10 @@ def atom_retention_cost(self) -> TFloat:
     #     atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     #     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
-    return -100 * retention_fraction
+    return -100 * (1-retention_fraction)
+    ### use -100 * retention_fraction to maximize retention
+    ### use -100 * (1 - retention_fraction) to minimize retention
+
 
 
 def atom_blowaway_cost(self) -> TFloat:

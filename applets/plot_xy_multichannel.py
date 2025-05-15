@@ -29,7 +29,7 @@ class XYPlot(pyqtgraph.PlotWidget):
 
     def data_changed(self, data, mods, title):
         try:
-            # the data display will be rolling, only showing display_pts at a time
+            # the data display will be rolling, only showing pts points at a time
             pts = (data[self.args.pts][1])
 
             labels = data.get(self.args.labels, (False, None))[1]
@@ -41,7 +41,7 @@ class XYPlot(pyqtgraph.PlotWidget):
             self.clear()
             for i in range(10):
                 try:
-                    y_data = data[getattr(self.args, f"y{i+1}")][1][-pts:]
+                    y_data = data[getattr(self.args, f"y{i+1}")][1][1:][-pts:] ### [1:] to avoid the first element which is 0.0 when we set_dataset
                     self.plot(np.arange(len(y_data)), y_data, pen=next(colors)["color"], name=labels[i])
                 except KeyError as e:
                     break

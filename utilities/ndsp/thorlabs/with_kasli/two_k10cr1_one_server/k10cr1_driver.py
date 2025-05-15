@@ -12,7 +12,7 @@ class K10CR1_NDSP_Driver():
     def __init__(self, devices):
 
         print_full_setting = True
-        initialize_to_home = True
+        initialize_to_home = False
         print("------------")
         self.motors = {}
         for name, kwargs in devices:

@@ -9,7 +9,7 @@
   "dds_FORT": "urukul1_ch3",
   "dds_D1_pumping_DP": "urukul2_ch0",
   "dds_pumping_repump": "urukul2_ch1",
-  "dds_excitation": "urukul2_ch2",
+  "GRIN1and2_dds": "urukul2_ch2",
   "dds_microwaves": "urukul2_ch3"
   },
   "DDS_DEFAULTS": {
@@ -29,7 +29,7 @@
       "frequency": "f_pumping_repump",
       "power": "p_pumping_repump"
     },
-    "dds_excitation": {
+    "GRIN1and2_dds": {
       "frequency": "f_excitation",
       "power": "p_excitation"
     },
