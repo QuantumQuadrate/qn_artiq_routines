@@ -472,8 +472,11 @@ def load_MOT_and_FORT_until_atom(self):
             #todo: setting the coils to the readout settings
             #   trying to optimize PGC with the same settings as RO
             #   remove after test
+            # self.zotino0.set_dac(
+            #     [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            #     channels=self.coil_channels)
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_PGC, self.AZ_top_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                 channels=self.coil_channels)
         else:
             self.zotino0.set_dac(
