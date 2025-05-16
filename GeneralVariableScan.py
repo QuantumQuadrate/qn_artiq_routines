@@ -81,26 +81,26 @@ class GeneralVariableScan(EnvExperiment):
         """
         self.base.prepare()
 
-        ###### preparing the microwave RAM for F=1,mF=0 to F=2,mF=0 transition
-        self.base.prepare_microwave_RAM(MW_ramp_time = self.t_MW_00_ramp, MW_pulse_length = self.t_microwave_00_pulse)
-        self.MW_00_step_size = self.MW_step_size
-        self.MW_00_total_points = self.MW_total_points
-        self.MW_00_amplitudes_list = self.MW_amplitudes_list
-
-        ###### preparing the microwave RAM for F=1,mF=0 to F=2,mF=1 transition
-        self.base.prepare_microwave_RAM(MW_ramp_time=self.t_MW_01_ramp, MW_pulse_length=self.t_microwave_01_pulse)
-        self.MW_01_step_size = self.MW_step_size
-        self.MW_01_total_points = self.MW_total_points
-        self.MW_01_amplitudes_list = self.MW_amplitudes_list
-
-        ###### preparing the microwave RAM for F=1,mF=1 to F=2,mF=1 transition
-        self.base.prepare_microwave_RAM(MW_ramp_time=self.t_MW_11_ramp, MW_pulse_length=self.t_microwave_11_pulse)
-        self.MW_11_step_size = self.MW_step_size
-        self.MW_11_total_points = self.MW_total_points
-        self.MW_11_amplitudes_list = self.MW_amplitudes_list
-
-        self.scan_variable1 = str(self.scan_variable1_name)
-        self.scan_variable2 = str(self.scan_variable2_name)
+        # ###### preparing the microwave RAM for F=1,mF=0 to F=2,mF=0 transition
+        # self.base.prepare_microwave_RAM(MW_ramp_time = self.t_MW_00_ramp, MW_pulse_length = self.t_microwave_00_pulse)
+        # self.MW_00_step_size = self.MW_step_size
+        # self.MW_00_total_points = self.MW_total_points
+        # self.MW_00_amplitudes_list = self.MW_amplitudes_list
+        #
+        # ###### preparing the microwave RAM for F=1,mF=0 to F=2,mF=1 transition
+        # self.base.prepare_microwave_RAM(MW_ramp_time=self.t_MW_01_ramp, MW_pulse_length=self.t_microwave_01_pulse)
+        # self.MW_01_step_size = self.MW_step_size
+        # self.MW_01_total_points = self.MW_total_points
+        # self.MW_01_amplitudes_list = self.MW_amplitudes_list
+        #
+        # ###### preparing the microwave RAM for F=1,mF=1 to F=2,mF=1 transition
+        # self.base.prepare_microwave_RAM(MW_ramp_time=self.t_MW_11_ramp, MW_pulse_length=self.t_microwave_11_pulse)
+        # self.MW_11_step_size = self.MW_step_size
+        # self.MW_11_total_points = self.MW_total_points
+        # self.MW_11_amplitudes_list = self.MW_amplitudes_list
+        #
+        # self.scan_variable1 = str(self.scan_variable1_name)
+        # self.scan_variable2 = str(self.scan_variable2_name)
 
         assert hasattr(self,self.scan_variable1), (f"There is no ExperimentVariable "+self.scan_variable1+
                                                   ". Did you mistype it?")

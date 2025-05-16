@@ -6218,38 +6218,38 @@ def Pulse_microwave_smooth(self, MW_freq):
     MW_step_size = 1
     MW_total_points = 1
     MW_amplitudes_list = [0]
+    MW_pulse_length = 0.0
 
     if MW_freq == self.f_microwaves_00_dds:
         MW_step_size = self.MW_00_step_size
         MW_total_points = self.MW_00_total_points
         MW_amplitudes_list = self.MW_00_amplitudes_list
+        MW_pulse_length = self.t_microwave_00_pulse
 
     if MW_freq == self.f_microwaves_01_dds:
         MW_step_size = self.MW_01_step_size
         MW_total_points = self.MW_01_total_points
         MW_amplitudes_list = self.MW_01_amplitudes_list
+        MW_pulse_length = self.t_microwave_01_pulse
 
     if MW_freq == self.f_microwaves_11_dds:
         MW_step_size = self.MW_11_step_size
         MW_total_points = self.MW_11_total_points
         MW_amplitudes_list = self.MW_11_amplitudes_list
+        MW_pulse_length = self.t_microwave_11_pulse
 
-    self.ttl7.on()
-    self.ttl_microwave_switch.off()
-    self.dds_microwaves.cpld.init()
-    # self.dds_microwaves.cfg_sw(True)
-    self.dds_microwaves.set_frequency(MW_freq)
-    self.dds_microwaves.set_att(0.0)
-    # delay(1 * ms)
-    if self.t_microwave_01_pulse > 0.0:
-        # self.ttl7.pulse(self.t_exp_trigger)  # to trigger oscilloscope
-        # self.ttl_microwave_switch.off()
-        delay(10 * us)
+
+    self.ttl_microwave_switch.off() ### takes 0us
+    self.dds_microwaves.set_frequency(MW_freq) ### takes 0.7us
+    self.dds_microwaves.set_att(0.0) ### takes 1.6us
+
+    if MW_pulse_length > 0.0:
 
         self.dds_microwaves.set_cfr1(ram_enable=0)  ### disable RAM mode to write the config
         self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### pulse the ttl to update and implement settings
+        ### the two lines above take 0.7us
 
-        ### Configures the RAM playback engine
+        ### Configures the RAM playback engine. Takes 1.3us
         self.dds_microwaves.set_profile_ram(
             start=0,
             end=MW_total_points - 1,
@@ -6257,27 +6257,29 @@ def Pulse_microwave_smooth(self, MW_freq):
             profile=0,
             mode=RAM_MODE_RAMPUP,
         )
-        # self.ttl7.off()
 
-        self.dds_microwaves.cpld.set_profile(0)
+        self.dds_microwaves.cpld.set_profile(0) ### takes 0.4us
         # self.dds.cpld.io_update.pulse_mu(8)
-        self.dds_microwaves.write_ram(MW_amplitudes_list)  ### write the data onto RAM
 
-        ### Enabling RAM playback, not playing yet.
+        self.dds_microwaves.write_ram(MW_amplitudes_list)  ### write the data onto RAM.
+        ### Takes 33us with 60 MW_amp_points. Takes 48us with 90 points. Takes 96us with 180 points.
+
+        ### Enabling RAM playback, not playing yet. takes 0.7us
         self.dds_microwaves.set_cfr1(
             internal_profile=0,
             ram_enable=1,
             ram_destination=RAM_DEST_ASF,
         )
 
+        self.ttl7.on()
         self.dds_microwaves.sw.on()
         self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### This runs the RAM
 
-        delay(100 * us)  ### keep the delay as ramp time
+        delay(MW_pulse_length)  ### keep the delay as ramp time
         # self.ttl_microwave_switch.on()
         # delay(self.dwell_time)  ### keep the delay as ramp time
 
-        ### shutting off
+        ### shutting off. Takes 0.7us
         self.dds_microwaves.set_cfr1(ram_enable=0)
         self.dds_microwaves.cpld.io_update.pulse_mu(8)
         self.dds_microwaves.sw.off()
