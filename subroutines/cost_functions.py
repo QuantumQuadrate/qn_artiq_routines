@@ -128,13 +128,16 @@ def atom_retention_and_loading_cost(self) -> TFloat:
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
     loading_fraction = n_atoms_loaded/len(shot1)
 
-    if loading_fraction > 0.3:  # apparent very low rate loading might just be wrongly classified background
-        threshold = threshold_otsu(np.array(self.SPCM0_RO1_list))
-        atoms_loaded = [x > threshold for x in shot1]
-        n_atoms_loaded = sum(atoms_loaded)
-        loading_fraction = n_atoms_loaded / len(shot1)
-        retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
-        cost *= threshold/500
+    # recompute the retention and loading with an Otsu threshold.
+    #todo: check if this correct
+
+    # if loading_fraction > 0.3:  # apparent very low rate loading might just be wrongly classified background
+    #     threshold = threshold_otsu(np.array(self.SPCM0_RO1_list))
+    #     atoms_loaded = [x > threshold for x in shot1]
+    #     n_atoms_loaded = sum(atoms_loaded)
+    #     loading_fraction = n_atoms_loaded / len(shot1)
+    #     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
+    #     cost *= threshold/500
 
     # 0.6 is probably the best loading rate we can hope for.
     # cost *= -50 * (retention_fraction + loading_fraction / 0.6)
