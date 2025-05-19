@@ -57,8 +57,11 @@ def run_feedback_and_record_FORT_MM_power(self):
     self.dds_FORT.sw.on()  ### turns FORT on
     delay(0.1 * ms)
 
-    # record MM power
+    # todo: in record_FORT_MM_power function, power is recorded in "FORT_MM_monitor" dataset.
+    #       I think I'll keep this.
+    #       Just make another dataset for optimization
     power = record_FORT_MM_power(self)
+    record_FORT_APD_power(self)
     self.dds_FORT.sw.off()
 
     return power
@@ -66,30 +69,38 @@ def run_feedback_and_record_FORT_MM_power(self):
 @kernel
 def FORT_polarization_check_and_optimize(self):
 
-    # #todo: checking....! - doesn't make it work
-    # delay(1*s)
+    power_MM = 0.0
+    difference_in_power_in_perc = 0.0
 
-    # if self.enable_laser_feedback:
-    #     self.laser_stabilizer.run()
+    ############# feedback is not in here
 
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-    self.dds_FORT.sw.on()
+    self.dds_FORT.sw.on()  ### turns FORT on
+    delay(0.1 * ms)
+
+    # todo: in record_FORT_MM_power function, power is recorded in "FORT_MM_monitor" dataset.
+    #       I think I'll keep this.
+    #       Just make another dataset for optimization
+    power_MM = record_FORT_MM_power(self)
+    record_FORT_APD_power(self)
+
+    # difference_in_power: normalized over the setpoint, in %.
+    difference_in_power_in_perc = (power_MM - self.best_852_power_ref) / self.set_point_FORT_MM_loading * 100
+
+    # if difference_in_power_in_perc
+
+
+    self.dds_FORT.sw.off()
+
+
+    ###############  same upto here with def run_feedback_and_record_FORT_MM_power(self)
+
 
     power_MM = 0.0
     difference_in_power_in_perc = 0.0
 
-    # delay(1*s)
-    if self.which_node == 'alice':
-        # todo: set the MM setpoint for polarization stabilization.
-        #       now using best_852_power instead.
-        #       After feedback, record MM power. compare with the previous one.
-        power_MM = record_FORT_MM_power(self)
-        difference_in_power_in_perc = (power_MM - self.best_852_power) / self.best_852_power * 100
-
-    elif self.which_node == 'bob':
-        power_MM = record_FORT_MM_power(self)
-        # difference_in_power: normalized over the setpoint, in %.
-        difference_in_power_in_perc = (power_MM - self.set_point_FORT_MM_loading) / self.set_point_FORT_MM_loading * 100
+    # difference_in_power: normalized over the setpoint, in %.
+    difference_in_power_in_perc = (power_MM - self.set_point_FORT_MM_loading) / self.set_point_FORT_MM_loading * 100
 
     full_range = 0
     #todo: think about the full_range
@@ -471,27 +482,34 @@ def load_MOT_and_FORT_until_atom(self):
             # delay(10 * ms)
             # print("**************   No atom after 2 seconds. Running feedback   ***************")
             # delay(10 * ms)
+    if self.do_PGC_in_MOT:
+        if self.which_node == "alice":
+            ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                channels=self.coil_channels)
+        else:
+            ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                channels=self.coil_channels)
+        delay(0.4 * ms)
 
-    ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-        channels=self.coil_channels)
-    delay(0.4 * ms)
+        ###########  PGC on the trapped atom  #############
 
-    ###########  PGC on the trapped atom  #############
+        ### set the cooling DP AOM to the PGC settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+        delay(20 * ms) ### this is the PGC time
+        ###################################################
 
-    ### set the cooling DP AOM to the PGC settings
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-    delay(20 * ms) ### this is the PGC time
-    ###################################################
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
 
-    self.ttl_repump_switch.on()  ### turn off MOT RP
-    self.dds_cooling_DP.sw.off()  ### turn off cooling
-
-    self.ttl7.pulse(10 * ms)  ### for triggering oscilloscope
+        self.ttl7.pulse(10 * ms)  ### for triggering oscilloscope
 
     delay(1 * ms)
-    self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+    if self.which_node == "alice":
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
     ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
@@ -2000,16 +2018,18 @@ def end_measurement(self):
 
     self.append_to_dataset("SPCM0_FORT_science", self.SPCM0_FORT_science)
 
-    delay(1*ms)
-    measure_FORT_MM_fiber(self)
+    # now done at the beginning of the experiment for FORT POL stabilization
+    # delay(1*ms)
+    # measure_FORT_MM_fiber(self)
     delay(1*ms)
     measure_GRIN1(self)
     delay(1*ms)
     measure_PUMPING_REPUMP(self)
     delay(1*ms)
-    measure_Magnetometer(self)
-    delay(1*ms)
-    Sampler0_test(self)
+    if self.which_node == "alice":
+        measure_Magnetometer(self)
+        delay(1*ms)
+        Sampler0_test(self)
 
     # measure_MOT_end(self)
     # delay(1*ms)
@@ -2191,7 +2211,8 @@ def atom_loading_2_experiment(self):
     self.n_atom_loaded_per_iteration = 0
 
     if self.enable_laser_feedback:
-        self.laser_stabilizer.run()
+        # self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -2201,8 +2222,11 @@ def atom_loading_2_experiment(self):
         delay(0.1 * ms)
 
         # load_MOT_and_FORT(self)
-        # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+
+        if self.which_node == 'alice':
+            load_MOT_and_FORT_until_atom_recycle(self)
+        else self.which_node == 'bob':
+            load_MOT_and_FORT_until_atom(self)
 
         delay(1*ms)
         first_shot(self)
@@ -2213,8 +2237,8 @@ def atom_loading_2_experiment(self):
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
 
-        ### to see if RO heats atoms
-        # for i in range(30):
+        # ## to see if RO heats atoms
+        # for i in range(5):
         #     shot_without_measurement(self)
 
         delay(self.t_delay_between_shots)
@@ -5841,83 +5865,6 @@ def FORT_monitoring_with_Luca_experiment(self):
 
     self.dds_FORT.sw.off()
 
-@kernel
-def atom_loading_and_waveplate_rotation_experiment(self):
-    """
-    The most basic two-readout single atom experiment.
-
-    Load a MOT, load a single atom, readout, wait self.t_delay_between_shots, readout again.
-
-    Preston
-
-    :param self: an experiment instance.
-    :return:
-    """
-
-    self.core.reset()
-
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-
-    self.require_D1_lock_to_advance = False # override experiment variable
-    self.require_atom_loading_to_advance = False # override experiment variable
-
-    # self.set_dataset(self.SPCM0_rate_dataset,
-    #                  [0.0],
-    #                  broadcast=True)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        self.FORT_HWP.move_by(self.hwp_degrees_to_move_by) # degrees
-        self.FORT_QWP.move_by(self.qwp_degrees_to_move_by) # degrees
-        delay(10*ms)
-
-        if self.enable_laser_feedback:
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
-
-        load_MOT_and_FORT(self)
-
-        delay(0.1*ms)
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
-            channels=self.coil_channels)
-
-        # set the FORT AOM to the science setting. this is only valid if we have run
-        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
-
-        self.dds_FORT.set(frequency=self.f_FORT,
-                                amplitude=self.stabilizer_FORT.amplitudes[1])
-
-        # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
-
-        if not self.no_first_shot:
-            # take the first shot
-            self.dds_cooling_DP.sw.on()
-            t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
-            self.SPCM0_RO1 = self.ttl_SPCM0.count(t_gate_end)
-            delay(1 * ms)
-            self.dds_cooling_DP.sw.off()
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-        delay(self.t_delay_between_shots)
-
-        # take the second shot
-        self.dds_cooling_DP.sw.on()
-        t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
-        self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
-
-        delay(1 * ms)
-
-        end_measurement(self)
-
-    self.dds_FORT.sw.off()
 
 @kernel
 def atom_state_mapping(self):
