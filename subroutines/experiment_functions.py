@@ -6212,6 +6212,10 @@ def microwave_RAM_generator_2(self, MW_ramp_time, MW_pulse_length):
 @kernel
 def Pulse_microwave_smooth(self, MW_freq):
     """
+    This uses dds RAM profiles prepared in BaseExperiment to generate smooth MW pulses. Works but blocks
+    other dds channels. Needs fix.
+    Use it in the experiment like:
+    Pulse_microwave_smooth(self, self.f_microwaves_00_dds)
 
     """
     ### predefine these 3 parameters. Needed but not used.
@@ -6238,10 +6242,9 @@ def Pulse_microwave_smooth(self, MW_freq):
         MW_amplitudes_list = self.MW_11_amplitudes_list
         MW_pulse_length = self.t_microwave_11_pulse
 
-
-    self.ttl_microwave_switch.off() ### takes 0us
     self.dds_microwaves.set_frequency(MW_freq) ### takes 0.7us
     self.dds_microwaves.set_att(0.0) ### takes 1.6us
+
 
     if MW_pulse_length > 0.0:
 
@@ -6260,6 +6263,7 @@ def Pulse_microwave_smooth(self, MW_freq):
 
         self.dds_microwaves.cpld.set_profile(0) ### takes 0.4us
         # self.dds.cpld.io_update.pulse_mu(8)
+        self.ttl_microwave_switch.off()  ### takes 0us
 
         self.dds_microwaves.write_ram(MW_amplitudes_list)  ### write the data onto RAM.
         ### Takes 33us with 60 MW_amp_points. Takes 48us with 90 points. Takes 96us with 180 points.
@@ -6271,44 +6275,26 @@ def Pulse_microwave_smooth(self, MW_freq):
             ram_destination=RAM_DEST_ASF,
         )
 
-        self.ttl7.on()
+        self.ttl7.on() ## for triggering scope
         self.dds_microwaves.sw.on()
         self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### This runs the RAM
 
         delay(MW_pulse_length)  ### keep the delay as ramp time
-        # self.ttl_microwave_switch.on()
-        # delay(self.dwell_time)  ### keep the delay as ramp time
 
         ### shutting off. Takes 0.7us
         self.dds_microwaves.set_cfr1(ram_enable=0)
         self.dds_microwaves.cpld.io_update.pulse_mu(8)
         self.dds_microwaves.sw.off()
+
+        self.core.reset()
+        self.urukul2_cpld.init()
+        self.urukul2_ch0.cpld.init()
+        self.urukul2_ch1.cpld.init()
+        self.urukul2_ch2.cpld.init()
+        self.urukul2_ch3.cpld.init()
+
+        self.ttl_microwave_switch.on()
         self.ttl7.off()
-
-
-
-
-def calculate_pulse(x):
-    y = math.exp(x)
-    z = x + y
-    return y, z
-
-def testing_prep_on_host_experiment(self):
-    """
-    Example using multiple return values from calculate_pulse()
-    """
-    self.a = 2.1
-    self.b, self.c = calculate_pulse(self.t_microwave_pulse)
-
-    print("b =", self.b)
-    print("c =", self.c)
-
-    @kernel
-    def inner_run(self):
-        self.print_async(self.c)
-        delay(10 * ms)
-
-    inner_run(self)
 
 @kernel
 def track_1_microwave_transition_experiment(self):
@@ -6323,7 +6309,6 @@ def track_1_microwave_transition_experiment(self):
     self.core.reset()
     delay(1*ms)
 
-    Pulse_microwave_smooth(self, self.f_microwaves_00_dds)
 
 
     # try:

@@ -457,7 +457,7 @@ class BaseExperiment:
     def prepare_microwave_RAM(self, MW_ramp_time, MW_pulse_length):
         """
         preparation of smooth microwave pulse with RAM. This generates amplitudes_list representing a smooth pulse
-        to be used in experiment_functions to generate smooth MW pulses. It is called in GVS.
+        to be used in experiment_functions to generate smooth MW pulses.
         """
         MW_steps_rise = 30  # number of amplitude points during the rise and fall time
         MW_amp_low, MW_amp_high = 0.0, dB_to_V(self.experiment.p_microwaves)  # low and high amplitudes in scale from 0 to 1
@@ -505,6 +505,24 @@ class BaseExperiment:
         self.experiment.MW_step_size = MW_step_ticks
         self.experiment.MW_total_points = MW_total_points
         self.experiment.MW_amplitudes_list = MW_amplitudes_list
+
+    def prepare_all_microwave_RAM_profiles(self):
+        """
+        Prepares microwave RAM waveforms for 00, 01, and 11 transitions. Stores the resulting step size, total points,
+        and amplitude lists as attributes on self.experiment for use in experiment_functions.
+        This gets called in prepare() below.
+        """
+
+        def set_MW_profile(suffix, ramp_time, pulse_length):
+            self.prepare_microwave_RAM(ramp_time, pulse_length)
+            setattr(self.experiment, f"MW_{suffix}_step_size", self.experiment.MW_step_size)
+            setattr(self.experiment, f"MW_{suffix}_total_points", self.experiment.MW_total_points)
+            setattr(self.experiment, f"MW_{suffix}_amplitudes_list", self.experiment.MW_amplitudes_list)
+
+        set_MW_profile("00", self.experiment.t_MW_00_ramp, self.experiment.t_microwave_00_pulse)
+        set_MW_profile("01", self.experiment.t_MW_01_ramp, self.experiment.t_microwave_01_pulse)
+        set_MW_profile("11", self.experiment.t_MW_11_ramp, self.experiment.t_microwave_11_pulse)
+
 
 
     def prepare(self):
@@ -619,6 +637,7 @@ class BaseExperiment:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                      [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
+            self.prepare_all_microwave_RAM_profiles()
 
         elif self.node == "bob":
             ### initialize named channels.
@@ -694,6 +713,9 @@ class BaseExperiment:
                 except KeyError:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
+
+            self.prepare_all_microwave_RAM_profiles()
+
         elif self.node == "two_nodes":
             ### initialize named channels.
             self.experiment.named_devices = DeviceAliases(
@@ -768,6 +790,9 @@ class BaseExperiment:
                 except KeyError:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
+
+            self.prepare_all_microwave_RAM_profiles()
+
         else:
             raise KeyError
 
