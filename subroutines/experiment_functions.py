@@ -425,7 +425,8 @@ def load_MOT_and_FORT_until_atom(self):
     # zotino_stability_test(self)  ### Record one Zotino output just to test its stability.
 
     max_tries = 100  ### Maximum number of attempts before running the feedback
-    atom_check_time = 20 * ms
+    # atom_check_time = 20 * ms
+    atom_check_time = self.t_atom_check_time
     atom_loaded = False
     try_n = 0
     t_before_atom = now_mu() ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
@@ -446,9 +447,11 @@ def load_MOT_and_FORT_until_atom(self):
 
             try_n += 1
 
-            if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold:
+            if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
+
+            # self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
 
         if atom_loaded:
             # t_before_atom = t_after_atom ### I don't know why I had this! Removed and seems working fine.
@@ -607,7 +610,8 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         self.ttl_UV.pulse(self.t_UV_pulse)
 
         max_tries = 100  ### Maximum number of attempts before running the feedback
-        atom_check_time = 20 * ms
+        # atom_check_time = 20 * ms
+        atom_check_time = self.t_atom_check_time
         try_n = 0
         t_before_atom = now_mu() ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
         t_after_atom = now_mu()
@@ -2225,7 +2229,7 @@ def atom_loading_2_experiment(self):
 
         if self.which_node == 'alice':
             load_MOT_and_FORT_until_atom_recycle(self)
-        else self.which_node == 'bob':
+        elif self.which_node == 'bob':
             load_MOT_and_FORT_until_atom(self)
 
         delay(1*ms)

@@ -754,6 +754,7 @@ class BaseExperiment:
         self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
 
+        self.experiment.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
 
         self.experiment.set_dataset("SPCM0_total_click_counter", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_total_click_counter", [0], broadcast=True)

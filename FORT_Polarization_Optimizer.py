@@ -323,7 +323,7 @@ class FORT_Polarization_Optimizer(EnvExperiment):
                         delay(1*s)
 
                         power = record_FORT_MM_power(self)
-                        # power_APD = record_FORT_APD_power(self)
+                        power_APD = record_FORT_APD_power(self)
 
                         if half_range > 5:
                             delay(1*s)          # deleting this for full_range=10 scan works.
