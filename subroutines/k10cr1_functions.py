@@ -200,6 +200,8 @@ def record_FORT_MM_power(self):
     same thing as "measure_FORT_MM_fiber(self)" in experiment_functions.py
 
     move by increment and measure from the sampler
+    
+    Node1 & Node2 both have FORT_MM connected at Sampler1. ch7
 
     :return: power
     """
@@ -209,7 +211,7 @@ def record_FORT_MM_power(self):
 
     avgs = 50
 
-    # APD
+    # MM
     for i in range(avgs):
         self.sampler1.sample(measurement_buf)
         delay(0.1 * ms)

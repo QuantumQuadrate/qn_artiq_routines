@@ -320,12 +320,13 @@ class FORT_Polarization_Optimizer(EnvExperiment):
                             move_to_target_deg(self, name="852_HWP", target_deg=current_hwp)
                             move_to_target_deg(self, name="852_QWP", target_deg=current_qwp)
 
-                        delay(1*s)    # deleting this for full_range=10 scan works.
+                        delay(1*s)
 
                         power = record_FORT_MM_power(self)
                         # power_APD = record_FORT_APD_power(self)
 
-                        delay(1*s)
+                        if half_range > 5:
+                            delay(1*s)          # deleting this for full_range=10 scan works.
 
                         if power > best_power:  # Update best power and angles if improved
                             best_power = power
