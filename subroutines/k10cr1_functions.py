@@ -200,6 +200,37 @@ def record_FORT_MM_power(self):
     same thing as "measure_FORT_MM_fiber(self)" in experiment_functions.py
 
     move by increment and measure from the sampler
+    
+    Node1 & Node2 both have FORT_MM connected at Sampler1. ch7
+
+    :return: power
+    """
+
+    measurement_buf = np.array([0.0] * 8)
+    measurement1 = 0.0  # 1
+
+    avgs = 50
+
+    # MM
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[self.FORT_MM_sampler_ch]
+
+    measurement1 /= avgs
+
+    self.append_to_dataset("FORT_MM_monitor", measurement1)
+
+    delay(0.1 * ms)
+
+    return measurement1
+
+@kernel
+def record_FORT_APD_power(self):
+    """
+    same thing as "measure_FORT_MM_fiber(self)" in experiment_functions.py
+
+    move by increment and measure from the sampler
 
     :return: power
     """
@@ -211,13 +242,13 @@ def record_FORT_MM_power(self):
 
     # APD
     for i in range(avgs):
-        self.sampler1.sample(measurement_buf)
+        self.sampler0.sample(measurement_buf)
         delay(0.1 * ms)
-        measurement1 += measurement_buf[self.FORT_MM_sampler_ch]
+        measurement1 += measurement_buf[6]
 
     measurement1 /= avgs
 
-    self.append_to_dataset("FORT_MM_monitor", measurement1)
+    self.append_to_dataset("FORT_APD_monitor", measurement1)
 
     delay(0.1 * ms)
 

@@ -232,6 +232,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_FORT_drop", 10 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_FORT_modulation", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_atom_check_time", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_second_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_recool_and_shot", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
@@ -286,6 +287,7 @@ class ExperimentVariables(EnvExperiment):
 
             # Thresholds and cut-offs
             Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_threshold_for_loading", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
             Variable("set_point_PD1_AOM_A1", 0.427, NumberValue, {'type':'float','ndecimals':4}, "Set points"),
@@ -332,54 +334,64 @@ class ExperimentVariables(EnvExperiment):
             Variable("f_Rigol_modulation", 10 * kHz, NumberValue, {'type': 'float', 'unit': 'kHz', 'ndecimals': 3},
                      "Rigol DG1022Z settings"),
             # Thorlabs Devices
-            #todo: delete these in ExperimentVariables. These are defined in device_db.py
-            Variable("K10CR1_FORT_HWP_SN", 55000759, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
-                     "Thorlabs Devices"),
-            Variable("K10CR1_FORT_QWP_SN", 55000740, NumberValue,
-                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
-                     "Thorlabs Devices"),
-            Variable("K10CR1_780_HWP_SN", 55422044, NumberValue,
-                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
-                     "Thorlabs Devices"),
-            Variable("K10CR1_780_QWP_SN", 55420984, NumberValue,
-                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
-                     "Thorlabs Devices"),
-            Variable("hwp_move_by_deg", 0, NumberValue,
-                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
-            Variable("hwp_move_to_deg", 0, NumberValue,
-                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
-            Variable("qwp_move_by_deg", 0, NumberValue,
-                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
-            Variable("qwp_move_to_deg", 0, NumberValue,
-                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
-            Variable("target_qwp_deg", 0, NumberValue,
-                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
-            Variable("target_hwp_deg", 0, NumberValue,
-                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
             Variable("deg_to_pos", 136533, NumberValue,
                      {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
-                     "Thorlabs Devices"),
-            Variable("best_HWP_to_H", 0, NumberValue,
+                     "K10CR1 Unit Conversion"),
+            Variable("target_780_HWP", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
-            Variable("best_QWP_to_H", 0, NumberValue,
+                     "K10CR1 780 waveplates"),
+            Variable("target_780_QWP", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
+                     "K10CR1 780 waveplates"),
+            Variable("move_780_HWP_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 780 waveplates"),
+            Variable("move_780_QWP_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 780 waveplates"),
+
+
+            Variable("target_852_HWP", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 852 waveplates"),
+            Variable("target_852_QWP", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 852 waveplates"),
+            Variable("move_852_HWP_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 852 waveplates"),
+            Variable("move_852_QWP_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 852 waveplates"),
+
+
             Variable("best_852HWP_to_max", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
+                     "K10CR1 852 waveplates"),
             Variable("best_852QWP_to_max", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices"),
+                     "K10CR1 852 waveplates"),
             Variable("best_852_power", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.5},
-                     "Thorlabs Devices")
+                     "K10CR1 852 waveplates"),
+            Variable("best_852_power_ref", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.5},
+                     "K10CR1 852 waveplates"),
+            # FORT Polarization Stabilization
+            Variable("tolerance_deg", 0.5, NumberValue,
+                     {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.5},
+                     "FORT Polarization Stabilization"),
+            Variable("full_range", 45, NumberValue,
+                     {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.5},
+                     "FORT Polarization Stabilization"),
+            Variable("sample_pts", 9, NumberValue,
+                     {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "FORT Polarization Stabilization"),
+            # Atom Tomography Experiment
+            Variable("atom_rotation_to_x", False, BooleanValue, {}, "Atom Tomography Experiment"),
+            Variable("atom_rotation_to_y", False, BooleanValue, {}, "Atom Tomography Experiment"),
+            # Variable("atom_rotation_to_z", True, BooleanValue, {}, "Atom Tomography Experiment"),
+
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so
@@ -396,7 +408,7 @@ class ExperimentVariables(EnvExperiment):
                 else:
                     print(f"Exception {e}")
 
-        self.setattr_argument('which_node', EnumerationValue(['alice','bob','two_nodes']), "general")
+        self.setattr_argument('which_node', EnumerationValue(['bob','alice','two_nodes']), "general")
 
     def run(self):
 

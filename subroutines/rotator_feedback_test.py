@@ -20,11 +20,15 @@ import logging
 import numpy as np
 from numpy import array  # necessary for some override_ExperimentVariable entries
 
+import time
+import json
+
 import sys, os
 
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+
 from utilities.BaseExperiment import BaseExperiment
 
 # this is where your experiment function should live
@@ -32,63 +36,29 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
-class Polarization_Optimization_Test(EnvExperiment):
-    def build(self):
-        """
-        declare hardware and user-configurable independent variables
-        """
-        # it will not run correctly without this statement
-        self.base = BaseExperiment(experiment=self)
-        self.base.build()
+class FORTPolarizationStabilizer:
 
-        self.setattr_device("core")
-        self.setattr_device("sampler1")
-        try:
-            self.setattr_device("k10cr1_ndsp")
-        except Exception as e:
-            print(f"Error connecting to device {e}")
+    def __init__(self, tolerance_deg, full_range, sample_pts, initialize_to_home = False, search_start_from_scratch = False, reduce_sample_pts = False):
 
-        # self.setattr_argument("max_iterations", NumberValue(4, ndecimals=1, step=1))
-        self.setattr_argument("initialize_to_home", BooleanValue(default=False), "initialization")
-        self.setattr_argument("tolerance_deg", NumberValue(.2, ndecimals=2, step=1), "optimization parameters")
-        self.setattr_argument("full_range", NumberValue(90, ndecimals=1, step=1), "optimization parameters")
-        self.setattr_argument("sample_pts", NumberValue(9, ndecimals=1, step=1), "optimization parameters")
+        # self.exp = experiment
 
-        self.setattr_argument("search_start_from_scratch", BooleanValue(default=False), "optimization settings")
-        self.setattr_argument("reduce_sample_pts", BooleanValue(default=False), "optimization settings")
+        self.tolerance_deg = tolerance_deg
+        self.full_range = full_range
+        self.sample_pts = sample_pts
 
-        print("build - done")
+        self.initialize_to_home = initialize_to_home
+        self.search_start_from_scratch = search_start_from_scratch
+        self.reduce_sample_pts = reduce_sample_pts
 
-    def prepare(self):
-        """
-        performs initial calculations and sets parameter values before
-        running the experiment.
-        """
-        self.base.prepare()
-
-        #todo: put this in BaseExperiment.py
-        self.setpoint_datasets = ["best_852HWP_to_max", "best_852QWP_to_max", "best_852_power"]
-        self.default_setpoints = [getattr(self, dataset) for dataset in self.setpoint_datasets]
 
 
     @kernel
     def initialize_hardware(self):
-        # self.base.initialize_hardware()
-        self.core.reset()
-        self.sampler1.init()  # for reading laser feedback
-
-        ### initialization for the TEST setup
-        # delay(1*s)
-        # if self.start_from_home:
-        #     go_to_home(self,'780_HWP')
-        #     go_to_home(self,'780_QWP')
-        # else:
-        #     move_to_target_deg(self, name="780_HWP", target_deg=self.best_HWP_to_H)
-        #     move_to_target_deg(self, name="780_QWP", target_deg=self.best_QWP_to_H)
-
+        #todo: do this in Base Experiment
         if self.initialize_to_home:
             go_to_home(self,'852_HWP')
             go_to_home(self,'852_QWP')
+            print("Both Waveplates Initialized to Home")
         else:
             # this will do nothing if it has been optimized before
             move_to_target_deg(self, name="852_HWP", target_deg=self.best_852HWP_to_max)
@@ -96,22 +66,33 @@ class Polarization_Optimization_Test(EnvExperiment):
 
     def initialize_datasets(self):
         # self.base.initialize_datasets()
-        self.set_dataset("test_PDA_monitor", [0.0], broadcast=True)
-        self.set_dataset("FORT_MM_monitor", [0.0], broadcast=True)
-        self.set_dataset("HWP_angle", [0.0], broadcast=True)
-        self.set_dataset("QWP_angle", [0.0], broadcast=True)
+        # self.exp.set_dataset("FORT_MM_monitor", [0.0], broadcast=True)
+        # self.exp.set_dataset("FORT_APD_monitor", [0.0], broadcast=True)
+        # self.exp.set_dataset("HWP_angle", [0.0], broadcast=True)
+        # self.exp.set_dataset("QWP_angle", [0.0], broadcast=True)
+        self.set_dataset("FORT_MM_monitor", [], broadcast=True)
+        self.set_dataset("FORT_APD_monitor", [], broadcast=True)
+        self.set_dataset("HWP_angle", [], broadcast=True)
+        self.set_dataset("QWP_angle", [], broadcast=True)
 
 
     @kernel
-    def exp_fun(self):
-        self.core.reset()
+    def optimization_routine(self):
+        """
+        Run optimization loop.
+        :return:
+        """
 
+        self.core.reset()
         delay(1*s)
 
+        # adding stabilizer
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()
+
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
         self.dds_FORT.sw.on()  ### turns FORT on
 
-        # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
-        # iterations = 0
 
         # max_iterations = int(self.max_iterations)  # Limit iterations to prevent infinite loops
         tolerance = float(self.tolerance_deg)   # rather than using fixed iteration, stop when step < tolerance
@@ -129,6 +110,7 @@ class Polarization_Optimization_Test(EnvExperiment):
         previous_hwp, previous_qwp, previous_power = 0.0, 0.0, 0.0
 
         power = 0.0
+        power_APD = 0.0
 
         tolerance_satisfied = False
         iteration = 0
@@ -137,7 +119,7 @@ class Polarization_Optimization_Test(EnvExperiment):
         # Iterative search loop
         while not tolerance_satisfied:
         # for iteration in range(max_iterations):
-            print("iteration no.", iteration) # this statement has to be here for it to run,,,, why...
+            print("FORT POL OPT - iteration no.", iteration)
             time_ite = time_to_rotate_in_ms(self, half_range)
 
             delay(2 * 2 * time_ite * ms + 1*s)  # rotate two waveplates
@@ -176,6 +158,7 @@ class Polarization_Optimization_Test(EnvExperiment):
                         delay(1*s)
                         # power = record_PDA_power(self)  # Measure power
                         power = record_FORT_MM_power(self)
+                        power_APD = record_FORT_APD_power(self)
 
                         print("hwp, qwp: ", hwp, ", ", qwp, "power: ", power)
 
@@ -211,8 +194,13 @@ class Polarization_Optimization_Test(EnvExperiment):
 
             delay(1 * s)
             print("best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
-        print("full range search: ", full_range)
-        print("previous best power: ", self.best_852_power, ", current best power: ", best_power)
+
+        # move back to the best HWP, QWP
+        move_to_target_deg(self, name="852_HWP", target_deg=best_HWP)
+        move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
+
+        print("full range search: ", full_range, "tolerance_deg: ", tolerance, "sample_pts: ", sample_pts)
+        print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
 
         self.dds_FORT.sw.off()  ### turns FORT on
 
@@ -221,7 +209,7 @@ class Polarization_Optimization_Test(EnvExperiment):
         self.set_dataset("best_852_power", best_power, broadcast=True, persist=True)
 
 
-
+    @kernel
     def run(self):
         """
         Step through the variable values defined by the scan sequences and run the experiment function.
@@ -231,11 +219,7 @@ class Polarization_Optimization_Test(EnvExperiment):
         variable scan, i.e., each iteration.
         """
         self.core.reset()
-        self.prepare()
         self.initialize_hardware()
         self.initialize_datasets()
 
-        self.exp_fun()
-
-
-
+        self.optimization_routine()

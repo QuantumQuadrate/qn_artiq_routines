@@ -221,6 +221,13 @@ class GeneralVariableOptimizer(EnvExperiment):
             self.set_dataset(self.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                              [float(self.initial_RF_dB_values[ch_i])], broadcast=True, persist=True)
 
+
+        self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
+
+
     def reset_datasets(self):
         """
         set datasets that are redefined each iteration.

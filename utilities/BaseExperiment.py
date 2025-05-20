@@ -144,15 +144,15 @@ class BaseExperiment:
             for dev in devices_no_alias:
                 self.experiment.setattr_device(dev)
 
-            ### ndsp devices
+            # ndsp devices
             try:
                 self.experiment.setattr_device("k10cr1_ndsp")
             except Exception as e:
                 print(f"Error connecting to device {e}")
 
-            ### devices can also be nicknamed here:
-            ### todo: do this in the device_db
-            ### ttl0~3
+            # devices can also be nicknamed here:
+            # todo: do this in the device_db
+            # ttl0~3
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
@@ -308,6 +308,7 @@ class BaseExperiment:
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
+            self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -552,6 +553,12 @@ class BaseExperiment:
         # setattr_variables(self.experiment, exclude_list=[], exclude_keywords=exclude_keywords)
 
 
+        # ndsp - k10cr1 waveplate rotator datasets
+        self.experiment.setpoint_datasets = ["best_852HWP_to_max", "best_852QWP_to_max", "best_852_power",
+                                             "best_852_power_ref"]
+        self.experiment.default_setpoints = [getattr(self.experiment, dataset) for dataset in
+                                             self.experiment.setpoint_datasets]
+
         if self.node == "alice":
             # initialize named channels.
             self.experiment.named_devices = DeviceAliases(
@@ -640,7 +647,12 @@ class BaseExperiment:
             self.prepare_all_microwave_RAM_profiles()
 
         elif self.node == "bob":
-            ### initialize named channels.
+            # self.experiment.FORT_pol_stabilizer = FORTPolarizationStabilizer(experiment=self.experiment,
+            #                                                                  initialize_to_home = False,
+            #                                                                  search_start_from_scratch = False,
+            #                                                                  reduce_sample_pts = False)
+
+            # initialize named channels.
             self.experiment.named_devices = DeviceAliases(
                 experiment=self.experiment,
                 device_aliases=[
@@ -825,6 +837,7 @@ class BaseExperiment:
         self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
 
+        self.experiment.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
 
         self.experiment.set_dataset("SPCM0_total_click_counter", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_total_click_counter", [0], broadcast=True)
@@ -864,6 +877,10 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
+
+        self.experiment.set_dataset("FORT_MM_monitor", [], broadcast=True)
+        self.experiment.set_dataset("FORT_APD_monitor", [], broadcast=True)
+
 
     @kernel
     def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):

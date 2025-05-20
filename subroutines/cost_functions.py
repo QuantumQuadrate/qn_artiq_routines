@@ -128,16 +128,21 @@ def atom_retention_and_loading_cost(self) -> TFloat:
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
     loading_fraction = n_atoms_loaded/len(shot1)
 
-    if loading_fraction > 0.3:  # apparent very low rate loading might just be wrongly classified background
-        threshold = threshold_otsu(np.array(self.SPCM0_RO1_list))
-        atoms_loaded = [x > threshold for x in shot1]
-        n_atoms_loaded = sum(atoms_loaded)
-        loading_fraction = n_atoms_loaded / len(shot1)
-        retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
-        cost *= threshold/500
+    # recompute the retention and loading with an Otsu threshold.
+    #todo: check if this correct
+
+    # if loading_fraction > 0.3:  # apparent very low rate loading might just be wrongly classified background
+    #     threshold = threshold_otsu(np.array(self.SPCM0_RO1_list))
+    #     atoms_loaded = [x > threshold for x in shot1]
+    #     n_atoms_loaded = sum(atoms_loaded)
+    #     loading_fraction = n_atoms_loaded / len(shot1)
+    #     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
+    #     cost *= threshold/500
 
     # 0.6 is probably the best loading rate we can hope for.
-    cost *= -50 * (retention_fraction + loading_fraction / 0.6)
+    # cost *= -50 * (retention_fraction + loading_fraction / 0.6)
+    # now we are using atom_loading_2 which gives nearly 100% loading.
+    cost *= -50 * (retention_fraction + loading_fraction)
     return cost
 
 
@@ -170,7 +175,8 @@ def atom_retention_cost(self) -> TFloat:
     #     atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     #     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
-    return -100 * (1-retention_fraction)
+    return - 100 * retention_fraction
+    # return -100 * (1-retention_fraction)
     ### use -100 * retention_fraction to maximize retention
     ### use -100 * (1 - retention_fraction) to minimize retention
 
@@ -192,3 +198,17 @@ def atom_blowaway_cost(self) -> TFloat:
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
     return 100*(retention_fraction - 1)
+
+#
+#
+# def atom_lading_and_time_cost(self, data: TArray(TFloat,1)) -> TInt32:
+#     atom_loading_time_list = self.Atom_loading_time
+#
+#     total_t = 0.0
+#     for t in data:
+#         total_t += -1.0 / t
+#     average_t = total_t / len(data) ### Though I am naming these at _t, these are indeed 1/t to calculate the cost
+#     return int(round(average_t))
+#
+#
+# # use with this kind of format:  get_cost(self.atom_loading_time_list)
