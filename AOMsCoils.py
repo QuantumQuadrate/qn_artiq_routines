@@ -33,18 +33,22 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("yes_Im_sure_I_want_the_microwave_dds_ON", BooleanValue(default=False), "Microwaves")
         self.setattr_argument("run_laser_feedback", BooleanValue(default=False), "Laser power stabilization")
 
-        self.setattr_argument("go_to_home_780HWP", BooleanValue(default=False), "K10CR1 780 waveplates initialization")
-        self.setattr_argument("go_to_home_780QWP", BooleanValue(default=False), "K10CR1 780 waveplates initialization")
-        self.setattr_argument("go_to_target_780HWP", BooleanValue(default=False), "K10CR1 780 waveplates initialization")
-        self.setattr_argument("go_to_target_780QWP", BooleanValue(default=False), "K10CR1 780 waveplates initialization")
+        self.setattr_argument("go_to_home_780HWP", BooleanValue(default=False), "K10CR1 780 waveplates")
+        self.setattr_argument("go_to_home_780QWP", BooleanValue(default=False), "K10CR1 780 waveplates")
+        self.setattr_argument("go_to_target_780HWP", BooleanValue(default=False), "K10CR1 780 waveplates")
+        self.setattr_argument("go_to_target_780QWP", BooleanValue(default=False), "K10CR1 780 waveplates")
+        self.setattr_argument("move_780HWP_by", BooleanValue(default=False), "K10CR1 780 waveplates")
+        self.setattr_argument("move_780QWP_by", BooleanValue(default=False), "K10CR1 780 waveplates")
 
-        self.setattr_argument("go_to_home_852HWP", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
-        self.setattr_argument("go_to_home_852QWP", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
+        self.setattr_argument("go_to_home_852HWP", BooleanValue(default=False), "K10CR1 852 waveplates")
+        self.setattr_argument("go_to_home_852QWP", BooleanValue(default=False), "K10CR1 852 waveplates")
 
-        self.setattr_argument("go_to_target_852HWP", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
-        self.setattr_argument("go_to_target_852QWP", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
+        self.setattr_argument("go_to_target_852HWP", BooleanValue(default=False), "K10CR1 852 waveplates")
+        self.setattr_argument("go_to_target_852QWP", BooleanValue(default=False), "K10CR1 852 waveplates")
+        self.setattr_argument("move_852HWP_by", BooleanValue(default=False), "K10CR1 852 waveplates")
+        self.setattr_argument("move_852QWP_by", BooleanValue(default=False), "K10CR1 852 waveplates")
 
-        self.setattr_argument("go_to_optimized_852_settings", BooleanValue(default=False), "K10CR1 852 waveplates initialization")
+        self.setattr_argument("go_to_optimized_852_settings", BooleanValue(default=False), "K10CR1 852 waveplates")
 
         self.base.set_datasets_from_gui_args()
 
@@ -216,7 +220,10 @@ class AOMsCoils(EnvExperiment):
         if self.go_to_target_780QWP:
             move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
 
-
+        if self.move_780HWP_by:
+            move_by_deg(self, name="780_HWP", target_deg=self.move_780_HWP_by)
+        if self.move_780QWP_by:
+            move_by_deg(self, name="780_QWP", target_deg=self.move_780_QWP_by)
 
         if self.go_to_home_852HWP:
             go_to_home(self, '852_HWP')
@@ -227,6 +234,12 @@ class AOMsCoils(EnvExperiment):
             move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
         if self.go_to_target_780QWP:
             move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+
+        if self.move_852HWP_by:
+            move_by_deg(self, name="852_HWP", target_deg=self.move_852_HWP_by)
+        if self.move_852QWP_by:
+            move_by_deg(self, name="852_QWP", target_deg=self.move_852_QWP_by)
+
 
         if self.go_to_optimized_852_settings:
             move_to_target_deg(self, name="852_HWP", target_deg=self.best_852HWP_to_max)

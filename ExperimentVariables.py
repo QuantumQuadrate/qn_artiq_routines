@@ -340,12 +340,28 @@ class ExperimentVariables(EnvExperiment):
             Variable("target_780_QWP", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
                      "K10CR1 780 waveplates"),
+            Variable("move_780_HWP_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 780 waveplates"),
+            Variable("move_780_QWP_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 780 waveplates"),
+
+
             Variable("target_852_HWP", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
                      "K10CR1 852 waveplates"),
             Variable("target_852_QWP", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
                      "K10CR1 852 waveplates"),
+            Variable("move_852_HWP_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 852 waveplates"),
+            Variable("move_852_QWP_by", 0, NumberValue,
+                     {'type': 'float', 'ndecimals': 2, 'scale': 1, 'step': 0.5},
+                     "K10CR1 852 waveplates"),
+
+
             Variable("best_852HWP_to_max", 0, NumberValue,
                      {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.5},
                      "K10CR1 852 waveplates"),

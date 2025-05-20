@@ -89,7 +89,7 @@ def FORT_polarization_check_and_optimize(self):
     full_range = 0
     # todo: think about the full_range
     # Only run FORT pol stabilizer if the FORT power after polarizer is less than 5% of the setpoint.
-    if difference_in_power_in_perc < -5:
+    if difference_in_power_in_perc < -2:
 
         self.print_async("Running FORT Polarization optimization: difference_in_power_in_perc < -5")
         if difference_in_power_in_perc < -30:
@@ -98,9 +98,11 @@ def FORT_polarization_check_and_optimize(self):
         elif difference_in_power_in_perc < -10:
             # self.full_range = 45
             self.set_dataset("full_range", 45.0, broadcast=True)
-        else:
+        elif difference_in_power_in_perc < -5:
             # self.full_range = 30
             self.set_dataset("full_range", 30.0, broadcast=True)
+        else:
+            self.set_dataset("full_range", 20.0, broadcast=True)
 
 
         FORT_polarization_optimizer(self, full_range= self.full_range, sample_pts=sample_pts)
