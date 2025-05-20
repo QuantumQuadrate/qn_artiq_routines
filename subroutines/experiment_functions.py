@@ -67,64 +67,56 @@ def run_feedback_and_record_FORT_MM_power(self):
     return power
 
 @kernel
+def FORT_polarization_optimizer(self, full_range, sample_pts):
+
+    power_MM = 0.0
+    difference_in_power_in_perc = 0.0
+    full_range = full_range
+    sample_pts = sample_pts
+
+
 def FORT_polarization_check_and_optimize(self):
 
     power_MM = 0.0
     difference_in_power_in_perc = 0.0
 
-    ############# feedback is not in here
-
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-    self.dds_FORT.sw.on()  ### turns FORT on
-    delay(0.1 * ms)
-
-    # todo: in record_FORT_MM_power function, power is recorded in "FORT_MM_monitor" dataset.
-    #       I think I'll keep this.
-    #       Just make another dataset for optimization
-    power_MM = record_FORT_MM_power(self)
+    power_MM = run_feedback_and_record_FORT_MM_power(self)
     record_FORT_APD_power(self)
 
     # difference_in_power: normalized over the setpoint, in %.
     difference_in_power_in_perc = (power_MM - self.best_852_power_ref) / self.set_point_FORT_MM_loading * 100
 
-    # if difference_in_power_in_perc
+    full_range = 0
+    # todo: think about the full_range
+    # Only run FORT pol stabilizer if the FORT power after polarizer is less than 5% of the setpoint.
+    if difference_in_power_in_perc < -5:
+
+        self.print_async("Running FORT Polarization optimization: difference_in_power_in_perc < -5")
+        if difference_in_power_in_perc < -30:
+            # self.full_range = 90
+            self.set_dataset("full_range", 90.0, broadcast=True)
+        elif difference_in_power_in_perc < -10:
+            # self.full_range = 45
+            self.set_dataset("full_range", 45.0, broadcast=True)
+        else:
+            # self.full_range = 30
+            self.set_dataset("full_range", 30.0, broadcast=True)
+
+
+        FORT_polarization_optimizer(self, full_range= self.full_range, sample_pts=sample_pts)
+
+    else:
+        self.print_async("Skipping FORT Polarization optimization. difference_in_power_in_perc > -5%")
+
 
 
     self.dds_FORT.sw.off()
 
 
+
     ###############  same upto here with def run_feedback_and_record_FORT_MM_power(self)
 
 
-    power_MM = 0.0
-    difference_in_power_in_perc = 0.0
-
-    # difference_in_power: normalized over the setpoint, in %.
-    difference_in_power_in_perc = (power_MM - self.set_point_FORT_MM_loading) / self.set_point_FORT_MM_loading * 100
-
-    full_range = 0
-    #todo: think about the full_range
-    # Only run FORT pol stabilizer if the FORT power after polarizer is less than 5% of the setpoint.
-    if difference_in_power_in_perc < -5:
-        self.print_async("Running FORT Polarization optimization")
-        if difference_in_power_in_perc < -50:
-            full_range = 90
-        elif difference_in_power_in_perc < -30:
-            full_range = 45
-        elif difference_in_power_in_perc < -20:
-            full_range = 30
-        elif difference_in_power_in_perc < -10:
-            full_range = 15
-
-        self.core.reset()
-        delay(1*s)
-
-        # self.FORT_pol_stabilizer.run(tolerance_deg= self.tolerance_deg, full_range=full_range, sample_pts=self.sample_pts)
-        self.FORT_pol_stabilizer.run(best_HWP = self.best_852HWP_to_max, best_QWP=self.best_852QWP_to_max,
-                                     tolerance_deg= .5, full_range=full_range, sample_pts=9)
-        self.core.reset()
-    else:
-        self.print_async("Skipping FORT Polarization optimization. difference_in_power_in_perc < 5%")
 
 @kernel
 def FORT_power_stabilzation_test_experiment(self):
@@ -502,7 +494,8 @@ def load_MOT_and_FORT_until_atom(self):
 
         ### set the cooling DP AOM to the PGC settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-        delay(20 * ms) ### this is the PGC time
+        delay(self.t_PGC_in_MOT)
+        # delay(20 * ms) ### this is the PGC time
         ###################################################
 
         self.ttl_repump_switch.on()  ### turn off MOT RP
@@ -571,7 +564,8 @@ def load_MOT_and_FORT_until_atom_recycle(self):
 
             self.dds_cooling_DP.sw.on()  ### turn on cooling
             self.ttl_repump_switch.off()  ### turn on MOT RP
-            delay(20 * ms)  ### this is the PGC time
+            delay(self.t_PGC_in_MOT)
+            # delay(20 * ms)  ### this is the PGC time
             self.dds_cooling_DP.sw.off()  ### turn off cooling
             self.ttl_repump_switch.on()  ### turn off MOT RP
             ###################################################
