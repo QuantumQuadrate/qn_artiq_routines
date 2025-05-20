@@ -104,6 +104,10 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                                      self.AZ_top_volts_MOT,
                                      self.AX_volts_MOT,
                                      self.AY_volts_MOT])
+        self.coil_values_RO = np.array([self.AZ_bottom_volts_RO,
+                                     - self.AZ_bottom_volts_RO,
+                                     self.AX_volts_RO,
+                                     self.AY_volts_RO])
 
         self.volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
         self.setpoint_datasets = ["set_point_PD1_AOM_A1", "set_point_PD2_AOM_A2", "set_point_PD3_AOM_A3",
@@ -325,11 +329,17 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
             while not atom_loaded and try_n < max_tries:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
-                with parallel:
-                    self.ttl_SPCM0_counter.gate_rising(atom_check_time)
-                    self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+                if self.which_node == 'alice':
+                    with parallel:
+                        self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+                        self.ttl_SPCM1_counter.gate_rising(atom_check_time)
 
-                BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                    BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                else:
+                    with parallel:
+                        self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+
+                    BothSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count())
 
                 BothSPCMs_counts_per_s = BothSPCMs_atom_check / atom_check_time
                 delay(1 * ms)
@@ -384,12 +394,183 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         return cost
 
 
+
+    @kernel
+    def optimization_routine_test(self, params: TArray(TFloat)) -> TInt32:
+        """
+        For use with M-LOOP, this should be called in the interface's "get_next_cost_dict"
+        method.
+
+        Changes:
+        * every measurement starts by setting MOT_coils.
+        * then it ends wit RO_coil settings.
+
+
+
+        params: array of float values which we are trying to optimize
+        return:
+            cost: the cost for the optimizer
+        """
+
+        self.core.reset()
+        delay(1*ms)
+
+        delay(0.1 * ms)
+        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        delay(0.1 * ms)
+
+        if self.tune_coils:
+            self.coil_values = params[:4]
+            if self.tune_beams:
+                setpoint_multipliers = params[4:]
+            else:
+                setpoint_multipliers = np.array([1.0,1.0,1.0,1.0,1.0,1.0])
+        else:
+            setpoint_multipliers = params
+
+        if self.tune_beams:
+            self.stabilizer_AOM_A1.set_points[0] = self.default_setpoints[0] * setpoint_multipliers[0]
+            self.stabilizer_AOM_A2.set_points[0] = self.default_setpoints[1] * setpoint_multipliers[1]
+            self.stabilizer_AOM_A3.set_points[0] = self.default_setpoints[2] * setpoint_multipliers[2]
+            self.stabilizer_AOM_A4.set_points[0] = self.default_setpoints[3] * setpoint_multipliers[3]
+            if not self.disable_z_beam_tuning and not self.what_to_tune == self.coil_mode:
+                self.stabilizer_AOM_A5.set_points[0] = self.default_setpoints[4] * setpoint_multipliers[4]
+                self.stabilizer_AOM_A6.set_points[0] = self.default_setpoints[5] * setpoint_multipliers[5]
+
+            for i in range(3):
+                self.laser_stabilizer.run()
+        else:
+            self.laser_stabilizer.run()
+
+        # if self.tune_coils:
+        #     self.zotino0.set_dac(self.coil_values, channels=self.coil_channels)
+
+        delay(1 * ms)
+
+        ##################### This is the core of the optimizer that runs the sequence and get a cost:
+
+        ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
+        self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
+
+        for i in range(self.n_measurements):
+            if self.tune_coils:
+                self.zotino0.set_dac(self.coil_values, channels=self.coil_channels)
+            delay(10*ms)
+            # delay(1 * ms)
+            self.laser_stabilizer.run()
+            self.dds_cooling_DP.sw.on()  ### turn on cooling
+            self.ttl_repump_switch.off()  ### turn on MOT RP
+
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A4.sw.on()
+            delay(0.1 * ms)
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+            self.dds_FORT.sw.on()
+
+            delay(1 * ms)
+            # self.ttl_UV.pulse(self.t_UV_pulse)
+
+            max_tries = 100  ### Maximum number of attempts before running the feedback
+            atom_check_time   = 20 * ms
+            atom_loaded = False
+            try_n = 0
+            t_before_atom = now_mu()  ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
+            t_after_atom = now_mu()
+
+            while not atom_loaded and try_n < max_tries:
+                delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                if self.which_node == 'alice':
+                    with parallel:
+                        self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+                        self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+
+                    BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                else:
+                    with parallel:
+                        self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+
+                    BothSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count())
+
+                BothSPCMs_counts_per_s = BothSPCMs_atom_check / atom_check_time
+                delay(1 * ms)
+                self.append_to_dataset(self.BothSPCMs_rate_dataset, BothSPCMs_counts_per_s)
+                try_n += 1
+
+                if BothSPCMs_counts_per_s > self.atom_counts_per_s_threshold:
+                    delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                    atom_loaded = True
+
+            if atom_loaded:
+                t_after_atom = now_mu()
+                atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
+            else:
+                atom_loading_time = 10e9 ### Just a large number to show no atom loading. This is compared to the typical 0.5 second atom loading.
+
+            self.atom_loading_time_list[i] = atom_loading_time
+
+            ##########checking
+            self.zotino0.set_dac(self.coil_values_RO, channels=self.coil_channels)
+
+
+            delay(1 * ms)
+            ### Turning off AOMs to be ready to start atom loading from scratch
+            self.ttl_repump_switch.on()  ### turn off MOT RP
+            self.dds_cooling_DP.sw.off()  ### turn off cooling
+            self.dds_FORT.sw.off()  ### turn off FORT
+            delay(100 * ms)  ### to dissipate MOT
+
+        # #############todo: why does it give me error?
+        # # # delay(1 * ms)
+        # # # ### set the coils to the readout settings
+        # # # self.zotino0.set_dac(
+        # # #     [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        # # #     channels=self.coil_channels)
+        # # delay(1 * ms)
+        # # delay(1*s)
+        # # if True:
+        # #     ### set the coils to the readout settings
+        # #     self.zotino0.set_dac([0.0*V,0.0*V,0.0*V,0.0*V],channels=self.coil_channels)
+        #
+        # self.zotino0.set_dac(self.coil_values_RO, channels=self.coil_channels)
+
+        cost = self.get_cost(self.atom_loading_time_list)
+        self.append_to_dataset(self.cost_dataset, cost)
+
+        ################################################################################
+
+        param_idx = 0
+        if cost < self.current_best_cost:
+            self.current_best_cost = cost
+            self.print_async("NEW BEST COST:", cost)
+            if self.tune_coils:
+                self.print_async("BEST coil values:", params[:4])
+                self.best_params[:4] = params[:4]
+                param_idx = 3
+            if self.tune_beams:
+                for i in range(4):
+                    self.best_params[param_idx + i] = self.default_setpoints[i] * setpoint_multipliers[i]
+                    self.print_async("BEST setpoint",i+1,self.best_params[param_idx + i])
+                if not self.disable_z_beam_tuning:
+                    self.best_params[param_idx + 4] = self.default_setpoints[4] * setpoint_multipliers[4]
+                    self.best_params[param_idx + 5] = self.default_setpoints[5] * setpoint_multipliers[5]
+                    self.print_async("BEST setpoint", 5, self.best_params[param_idx + 4])
+                    self.print_async("BEST setpoint", 6, self.best_params[param_idx + 5])
+            self.set_dataset("best params", self.best_params)
+
+        return cost
+
+
     def get_next_cost_dict_for_mloop(self,params_dict):
 
         ### Get parameters from the provided dictionary
         params = params_dict['params']
 
-        cost = self.optimization_routine(params)
+        # cost = self.optimization_routine(params)
+        cost = self.optimization_routine_test(params)
+
         uncertainty = 1/np.sqrt(-1*cost) if cost < 0 else 0
 
         cost_dict = {'cost': cost, 'uncer': uncertainty}

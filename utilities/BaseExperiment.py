@@ -305,6 +305,7 @@ class BaseExperiment:
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
+            self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -753,6 +754,7 @@ class BaseExperiment:
         self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
 
+        self.experiment.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
 
         self.experiment.set_dataset("SPCM0_total_click_counter", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_total_click_counter", [0], broadcast=True)
@@ -792,6 +794,10 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
+
+        self.experiment.set_dataset("FORT_MM_monitor", [], broadcast=True)
+        self.experiment.set_dataset("FORT_APD_monitor", [], broadcast=True)
+
 
     @kernel
     def initialize_hardware(self, turn_off_dds_channels=True, turn_off_zotinos=True):

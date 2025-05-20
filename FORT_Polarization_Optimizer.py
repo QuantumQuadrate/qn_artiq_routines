@@ -1,4 +1,8 @@
 """
+2025.05.15
+previous path and name: qn_artiq_routines/tests/PolOptTest.py
+renamed to: FORT_Polarization_Optimizer.py
+
 This is a code for FORT polarization optimization
 
 - A few percent of the FORT light passes the parabolic mirror through a small hole.
@@ -47,7 +51,7 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
-class Polarization_Optimization_Test(EnvExperiment):
+class FORT_Polarization_Optimizer(EnvExperiment):
     def build(self):
         """
         declare hardware and user-configurable independent variables
@@ -316,12 +320,13 @@ class Polarization_Optimization_Test(EnvExperiment):
                             move_to_target_deg(self, name="852_HWP", target_deg=current_hwp)
                             move_to_target_deg(self, name="852_QWP", target_deg=current_qwp)
 
-                        delay(1*s)    # deleting this for full_range=10 scan works.
+                        delay(1*s)
 
                         power = record_FORT_MM_power(self)
-                        # power_APD = record_FORT_APD_power(self)
+                        power_APD = record_FORT_APD_power(self)
 
-                        delay(1*s)
+                        if half_range > 5:
+                            delay(1*s)          # deleting this for full_range=10 scan works.
 
                         if power > best_power:  # Update best power and angles if improved
                             best_power = power
