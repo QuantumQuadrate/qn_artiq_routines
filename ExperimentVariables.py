@@ -408,7 +408,7 @@ class ExperimentVariables(EnvExperiment):
                 else:
                     print(f"Exception {e}")
 
-        self.setattr_argument('which_node', EnumerationValue(['bob','alice','two_nodes']), "general")
+        self.setattr_argument('which_node', EnumerationValue(['alice','bob','two_nodes']), "general")
 
     def run(self):
 

@@ -206,7 +206,6 @@ def FORT_optimization_routine_zigzag(self):
     self.set_dataset("best_852QWP_to_max", best_QWP, broadcast=True, persist=True)
     self.set_dataset("best_852_power", best_power, broadcast=True, persist=True)
 
-
 @kernel
 def FORT_run_feedback_and_record_ref_power(self):
     """
@@ -230,17 +229,6 @@ def FORT_run_feedback_and_record_ref_power(self):
 
     print("After feedback - best_852_power set to ", power)
     self.set_dataset("best_852_power_ref", power, broadcast=True, persist=True)
-
-#
-# @kernel
-# def FORT_polarization_optimizer(self):
-#
-#     power_MM = 0.0
-#     difference_in_power_in_perc = 0.0
-#
-
-
-
 
 def FORT_polarization_check_and_optimize(self):
 
@@ -311,8 +299,6 @@ def FORT_polarization_check_and_optimize(self):
 
     ###############  same upto here with def run_feedback_and_record_FORT_MM_power(self)
 
-
-
 @kernel
 def FORT_power_stabilzation_test_experiment(self):
 
@@ -327,7 +313,6 @@ def FORT_power_stabilzation_test_experiment(self):
     delay(1*ms)
     self.stabilizer_FORT.run(setpoint_index=1)
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
 
 @kernel
 def rotator_test_experiment(self):
@@ -370,7 +355,6 @@ def rotator_test_experiment(self):
     # hwp780_deg = get_rotator_deg(self, '780_HWP')
     # delay(1*s)
     # self.print_async('hwp780 at ', hwp780_deg, ' deg')
-
 
 @kernel
 def zotino_stability_test(self):
@@ -420,7 +404,6 @@ def zotino_stability_test(self):
 
     delay(0.1 * ms)
 
-
 @kernel
 def shot_without_measurement(self):
     """
@@ -466,8 +449,6 @@ def shot_without_measurement(self):
 
     delay(self.t_SPCM_first_shot)
     self.dds_cooling_DP.sw.off()
-
-
 
 @kernel
 def load_MOT_and_FORT(self):
@@ -2389,8 +2370,8 @@ def atom_loading_2_experiment(self):
     self.require_D1_lock_to_advance = False # override experiment variable
 
     delay(1*ms)
-    move_to_target_deg(self, name="852_HWP", target_deg=self.hwp_move_to_deg)
-    move_to_target_deg(self, name="852_QWP", target_deg=self.qwp_move_to_deg)
+    move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
     delay(5*ms)
     self.core.reset()
 
