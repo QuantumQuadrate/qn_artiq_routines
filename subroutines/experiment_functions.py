@@ -190,6 +190,8 @@ def load_MOT_and_FORT_until_atom(self):
     t_after_atom = now_mu()
     time_without_atom = 0.0
 
+    atom_threshold = self.single_atom_threshold + 1000  ### to lstart with colder atoms
+
     while True:
         while not atom_loaded and try_n < max_tries:
             delay(100 * us)  ### Needs a delay of about 100us or maybe less
@@ -204,7 +206,7 @@ def load_MOT_and_FORT_until_atom(self):
 
             try_n += 1
 
-            if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold:
+            if BothSPCMs_atom_check / atom_check_time > atom_threshold:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
@@ -257,7 +259,7 @@ def load_MOT_and_FORT_until_atom(self):
     self.ttl_repump_switch.on()  ### turn off MOT RP
     self.dds_cooling_DP.sw.off()  ### turn off cooling
 
-    self.ttl7.pulse(10 * ms)  ### for triggering oscilloscope
+    # self.ttl7.pulse(10 * ms)  ### for triggering oscilloscope
 
     delay(1 * ms)
     self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
@@ -1299,8 +1301,6 @@ def measure_REPUMP(self):
 
     avgs = 50
 
-    # ttl7 - trigger
-
     # self.dds_FORT.sw.off() ### Why turnning of FORT?
     self.ttl_repump_switch.off()  # turns the RP AOM on
     self.dds_pumping_repump.sw.off()
@@ -1934,6 +1934,12 @@ def atom_loading_2_experiment(self):
     self.core.reset()
     self.require_D1_lock_to_advance = False # override experiment variable
 
+    delay(1*ms)
+    move_to_target_deg(self, name="852_HWP", target_deg=self.hwp_move_to_deg)
+    move_to_target_deg(self, name="852_QWP", target_deg=self.qwp_move_to_deg)
+    delay(5*ms)
+    self.core.reset()
+
     self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
     ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
     ### in each iteration.
@@ -1946,12 +1952,12 @@ def atom_loading_2_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
-        delay(0.1 * ms)
+        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
 
         # load_MOT_and_FORT(self)
-        load_MOT_and_FORT_until_atom(self)
-        # load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom(self)
+        load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1*ms)
         first_shot(self)
@@ -6044,170 +6050,6 @@ def atom_photon_tomography_experiment(self):
     # saves the total clicks in each SPCM0 and SPCM1 - applet
     self.append_to_dataset('SPCM0_total_click_counter', SPCM0_total_click_counter)
     self.append_to_dataset('SPCM1_total_click_counter', SPCM1_total_click_counter)
-
-def microwave_RAM_generator(self, MW_dwell_time):
-    """
-    preparation of smooth microwave pulse with RAM. This generates amplitudes_list representing a smooth pulse
-    to be used in experiment_functions to generate smooth MW pulses.
-    """
-    MW_ramp_time = 5 * us  # ramp time from low to high amplitude
-    MW_steps_rise = 30  # number of amplitude points during the rise and fall time
-    MW_amp_low, MW_amp_high = 0.0, dB_to_V_host(self.p_microwaves) # low and high amplitudes in scale from 0 to 1
-
-    MW_step_ticks = int(
-        (MW_ramp_time / MW_steps_rise) / (
-                    4 * ns))  ### Step size
-
-    MW_steps_dwell = int(
-        MW_steps_rise / MW_ramp_time * MW_dwell_time)  # Number of dwell points
-
-    ### Gaussian function.
-    MW_x_vals = [0.0 + 3.1 * i / (MW_steps_rise - 1) for i in range(MW_steps_rise)]
-    MW_raw = [math.exp(-0.5 * x * x) for x in MW_x_vals]
-    MW_g_min, MW_g_max = MW_raw[0], MW_raw[-1]
-    MW_norm = [(r - MW_g_min) / (MW_g_max - MW_g_min) for r in MW_raw]
-
-    ### scale into respective ramp according to amplitude.
-    MW_amp_points_rise = [MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]
-    MW_amp_points_fall = list(
-        reversed([MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]))
-
-    ### The full waveform.
-    MW_amp_points = (
-            MW_amp_points_rise +
-            [MW_amp_high] * MW_steps_dwell +
-            MW_amp_points_fall
-    )
-
-    print(f'microwave RAM MW_amp_points: {len(MW_amp_points)}')  ### Underflow error if larger than ~500
-
-    ### some data conversion needed for RAM
-    MW_amplitudes_arr = np.zeros(len(MW_amp_points), dtype=np.int32)
-    self.dds_microwaves.amplitude_to_ram(MW_amp_points, MW_amplitudes_arr)
-    MW_amplitudes_list = list(MW_amplitudes_arr)
-
-    ### This is calculation of steps based on above parameters
-    MW_total_points = len(MW_amplitudes_list)
-    return MW_step_ticks, MW_total_points, MW_amplitudes_list
-
-def testing_smooth_MW_experiment(self):
-    """
-    you can run this experiment in GVS without scanning any parameters. It will generate a single smooth MW pulse which
-    you can see on the scope.
-
-    """
-
-    self.MW_step_size, self.MW_total_points, self.MW_amplitudes_list  = microwave_RAM_generator(self, self.t_microwave_01_pulse)
-
-    # print("MW_step_ticks = ", self.MW_step_ticks)
-    # print("MW_total_points = ", self.MW_total_points)
-    # print("MW_amplitudes_list = ", self.MW_amplitudes_list)
-
-    @kernel
-    def exp_run(self):
-        self.core.reset()
-        self.ttl_microwave_switch.off()
-        self.dds_microwaves.cpld.init()
-        # self.dds_microwaves.cfg_sw(True)
-        # self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-        self.dds_microwaves.set_frequency(self.f_microwaves_dds)
-        self.dds_microwaves.set_att(0.0)
-        delay(1 * ms)
-        if self.t_microwave_01_pulse > 0.0:
-            self.ttl7.pulse(self.t_exp_trigger)  # to trigger oscilloscope
-            # self.ttl_microwave_switch.off()
-            delay(10 * us)
-
-
-            self.dds_microwaves.set_cfr1(ram_enable=0)  ### disable RAM mode to write the config
-            self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### pulse the ttl to update and implement settings
-
-            ### Configures the RAM playback engine
-            self.dds_microwaves.set_profile_ram(
-                start=0,
-                end=self.MW_total_points - 1,
-                step=self.MW_step_size,
-                profile=0,
-                mode=RAM_MODE_RAMPUP,
-            )
-
-            self.dds_microwaves.cpld.set_profile(0)
-            # self.dds.cpld.io_update.pulse_mu(8)
-            self.dds_microwaves.write_ram(self.MW_amplitudes_list)  ### write the data onto RAM
-
-            ### Enabling RAM playback, not playing yet.
-            self.dds_microwaves.set_cfr1(
-                internal_profile=0,
-                ram_enable=1,
-                ram_destination=RAM_DEST_ASF,
-            )
-
-            self.dds_microwaves.sw.on()
-            self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### This runs the RAM
-
-            delay(100 * us)  ### keep the delay as ramp time
-            # self.ttl_microwave_switch.on()
-            # delay(self.dwell_time)  ### keep the delay as ramp time
-
-            ### shutting off
-            self.dds_microwaves.set_cfr1(ram_enable=0)
-            self.dds_microwaves.cpld.io_update.pulse_mu(8)
-            self.dds_microwaves.sw.off()
-
-    exp_run(self)
-
-def microwave_RAM_generator_2(self, MW_ramp_time, MW_pulse_length):
-    """
-    preparation of smooth microwave pulse with RAM. This generates amplitudes_list representing a smooth pulse
-    to be used in experiment_functions to generate smooth MW pulses.
-    """
-    MW_steps_rise = 30  # number of amplitude points during the rise and fall time
-    MW_amp_low, MW_amp_high = 0.0, dB_to_V_host(self.p_microwaves) # low and high amplitudes in scale from 0 to 1
-
-    MW_step_ticks = int(
-        (MW_ramp_time / MW_steps_rise) / (
-                    4 * ns))  ### Step size
-
-    if MW_pulse_length > 2 * MW_ramp_time:
-        MW_dwell_time = MW_pulse_length - 2 * MW_ramp_time
-    else:
-        MW_dwell_time = 0.0
-
-    MW_steps_dwell = int(
-        MW_steps_rise / MW_ramp_time * MW_dwell_time)  # Number of dwell points
-
-
-    ### Gaussian function.
-    MW_x_vals = [0.0 + 3.1 * i / (MW_steps_rise - 1) for i in range(MW_steps_rise)]
-    MW_raw = [math.exp(-0.5 * x * x) for x in MW_x_vals]
-    MW_g_min, MW_g_max = MW_raw[0], MW_raw[-1]
-    MW_norm = [(r - MW_g_min) / (MW_g_max - MW_g_min) for r in MW_raw]
-
-    ### scale into respective ramp according to amplitude.
-    MW_amp_points_rise = [MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]
-    MW_amp_points_fall = list(
-        reversed([MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]))
-
-    ### The full waveform.
-    MW_amp_points = (
-            MW_amp_points_rise +
-            [MW_amp_high] * MW_steps_dwell +
-            MW_amp_points_fall
-    )
-
-    print(f'microwave RAM MW_amp_points: {len(MW_amp_points)}')  ### Underflow error if larger than ~500
-
-    ### some data conversion needed for RAM
-    MW_amplitudes_arr = np.zeros(len(MW_amp_points), dtype=np.int32)
-    self.dds_microwaves.amplitude_to_ram(MW_amp_points, MW_amplitudes_arr)
-    MW_amplitudes_list = list(MW_amplitudes_arr)
-
-    ### This is calculation of steps based on above parameters
-    MW_total_points = len(MW_amplitudes_list)
-
-    self.MW_step_size = MW_step_ticks
-    self.MW_total_points = MW_total_points
-    self.MW_amplitudes_list = MW_amplitudes_list
 
 @kernel
 def Pulse_microwave_smooth(self, MW_freq):
