@@ -79,14 +79,14 @@
                 {
                     "sampler_ch": 6,
                     "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
-                    "p": 0.7,
+                    "p": 0.3,
                     "i": 0.0,
                     "series": true,
                     "dataset":"FORT_monitor",
                     "power_dataset":"p_FORT_loading",
                     "t_measure_delay":0.001,
                     "max_dB": 5,
-                    "comment": "use p=0.7 if going through VCA, else use 0.4 - this was with the MM fiber monitor"
+                    "comment": "use p=0.7 if going through VCA, else use 0.3 for APD"
                 }
         },
     "sampler1":

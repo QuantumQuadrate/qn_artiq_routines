@@ -206,7 +206,6 @@ def FORT_optimization_routine_zigzag(self):
     self.set_dataset("best_852QWP_to_max", best_QWP, broadcast=True, persist=True)
     self.set_dataset("best_852_power", best_power, broadcast=True, persist=True)
 
-
 @kernel
 def FORT_run_feedback_and_record_ref_power(self):
     """
@@ -230,17 +229,6 @@ def FORT_run_feedback_and_record_ref_power(self):
 
     print("After feedback - best_852_power set to ", power)
     self.set_dataset("best_852_power_ref", power, broadcast=True, persist=True)
-
-#
-# @kernel
-# def FORT_polarization_optimizer(self):
-#
-#     power_MM = 0.0
-#     difference_in_power_in_perc = 0.0
-#
-
-
-
 
 def FORT_polarization_check_and_optimize(self):
 
@@ -311,8 +299,6 @@ def FORT_polarization_check_and_optimize(self):
 
     ###############  same upto here with def run_feedback_and_record_FORT_MM_power(self)
 
-
-
 @kernel
 def FORT_power_stabilzation_test_experiment(self):
 
@@ -327,7 +313,6 @@ def FORT_power_stabilzation_test_experiment(self):
     delay(1*ms)
     self.stabilizer_FORT.run(setpoint_index=1)
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
 
 @kernel
 def rotator_test_experiment(self):
@@ -370,7 +355,6 @@ def rotator_test_experiment(self):
     # hwp780_deg = get_rotator_deg(self, '780_HWP')
     # delay(1*s)
     # self.print_async('hwp780 at ', hwp780_deg, ' deg')
-
 
 @kernel
 def zotino_stability_test(self):
@@ -420,7 +404,6 @@ def zotino_stability_test(self):
 
     delay(0.1 * ms)
 
-
 @kernel
 def shot_without_measurement(self):
     """
@@ -467,8 +450,6 @@ def shot_without_measurement(self):
     delay(self.t_SPCM_first_shot)
     self.dds_cooling_DP.sw.off()
 
-
-
 @kernel
 def load_MOT_and_FORT(self):
     """
@@ -508,6 +489,8 @@ def load_MOT_and_FORT(self):
 
     # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
+    # self.ttl7.on()
+
     self.dds_cooling_DP.sw.on()
     self.ttl_repump_switch.off()
 
@@ -520,18 +503,12 @@ def load_MOT_and_FORT(self):
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
-     # if this delay is not here, the following line setting the dac doesn't execute
-
     self.ttl_UV.pulse(self.t_UV_pulse)
 
-    # wait for the MOT to load
+    ### wait for the MOT to load
     delay(self.t_MOT_loading)
 
-    zotino_stability_test(self)
-
-
-    # turn on the dipole trap and wait to load atoms
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    # zotino_stability_test(self)
 
 
     # todo: make this work for bob too.
@@ -547,6 +524,7 @@ def load_MOT_and_FORT(self):
     self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
     delay(1*ms)
 
+    # self.ttl7.off()
 
     if self.do_PGC_in_MOT and self.t_PGC_in_MOT > 0:
         self.dds_cooling_DP.sw.on()
@@ -609,7 +587,6 @@ def load_MOT_and_FORT_until_atom(self):
 
     delay(1 * ms)
     self.ttl_UV.pulse(self.t_UV_pulse)
-    # zotino_stability_test(self)  ### Record one Zotino output just to test its stability.
 
     max_tries = 100  ### Maximum number of attempts before running the feedback
     # atom_check_time = 20 * ms
@@ -726,11 +703,10 @@ def load_MOT_and_FORT_until_atom_recycle(self):
     :return:
     """
 
-    atom_threshold = self.single_atom_threshold + 1000 ### to lstart with colder atoms
     ### First check if there is already an atom in the FORT based on RO2
     delay(100 * us)
     if self.measurement > 0:
-        if self.BothSPCMs_RO2/self.t_SPCM_second_shot > atom_threshold:
+        if self.BothSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold_for_loading:
             atom_loaded = True
 
             ###########  PGC on the trapped atom  #############
@@ -809,7 +785,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
 
                 try_n += 1
 
-                if BothSPCMs_atom_check / atom_check_time > atom_threshold:
+                if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
 
@@ -2328,13 +2304,8 @@ def atom_loading_experiment(self):
     self.SPCM0_RO2 = 0
     self.SPCM1_RO1 = 0
     self.SPCM1_RO2 = 0
-    # rtio_log("2nd_shot_block", 0)
-
-    # self.print_async("in exp:",self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT)
 
     self.require_D1_lock_to_advance = False # override experiment variable
-
-    # self.set_dataset(self.SPCM0_rate_dataset,[0.0], broadcast=True)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -2388,11 +2359,76 @@ def atom_loading_2_experiment(self):
     self.core.reset()
     self.require_D1_lock_to_advance = False # override experiment variable
 
-    delay(1*ms)
-    move_to_target_deg(self, name="852_HWP", target_deg=self.hwp_move_to_deg)
-    move_to_target_deg(self, name="852_QWP", target_deg=self.qwp_move_to_deg)
-    delay(5*ms)
+    self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
+    ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
+    ### in each iteration.
+    self.n_atom_loaded_per_iteration = 0
+
+    if self.enable_laser_feedback:
+        # self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+        delay(10 * ms)
+
+        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+
+        # load_MOT_and_FORT(self)
+        # load_MOT_and_FORT_until_atom(self)
+        load_MOT_and_FORT_until_atom_recycle(self)
+
+        delay(1*ms)
+        first_shot(self)
+        delay(1 * ms)
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        delay(self.t_delay_between_shots)
+        second_shot(self)
+
+        end_measurement(self)
+
+    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+
+    self.dds_FORT.sw.off()
+
+@kernel
+def atom_loading_for_optimization_experiment(self):
+    """
+    Simple atom loading experiment based on load_MOT_and_FORT_until_atom. We use this function with additional stages
+    compared to atom_loading_2_experiment to scan and optimize different parameters like 852 waveplates.
+
+    :param self: an experiment instance.
+    :return:
+    """
+
     self.core.reset()
+    self.require_D1_lock_to_advance = False # override experiment variable
+
+
+    ######### to scan 852 waveplates with t_FORT_drop = 10us for example and find max retention (low T)
+    # delay(1*ms)
+    # move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    # move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+    #
+    # delay(5*ms)
+    # self.core.reset()
+    #
+    # position_852_HWP = get_rotator_deg(self, name="852_HWP")
+    # position_852_QWP = get_rotator_deg(self, name="852_QWP")
+    #
+    # delay(5 * ms)
+    # self.core.reset()
+    # self.print_async("position_852_HWP: ", position_852_HWP)
+    # self.print_async("position_852_QWP:", position_852_QWP)
+    ###################################################################################################
+
 
     self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
     ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
@@ -2423,9 +2459,11 @@ def atom_loading_2_experiment(self):
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
 
-        # ## to see if RO heats atoms
+
+        ################## to see if RO heats atoms
         # for i in range(5):
         #     shot_without_measurement(self)
+        ###########################################
 
         delay(self.t_delay_between_shots)
         second_shot(self)
@@ -3054,10 +3092,13 @@ def microwave_freq_scan_with_photons_experiment(self):
 
         ############################ microwave phase to transfer population from F=1 to F=2
         if self.t_microwave_pulse > 0.0:
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.8*self.stabilizer_FORT.amplitudes[1])
+            delay(5*us)
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
-            delay(0.1 * ms)
+            delay(10 * us)
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
 
         ############################ blow-away phase - push out atoms in F=2 only
