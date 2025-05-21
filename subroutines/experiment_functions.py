@@ -1161,7 +1161,7 @@ def second_shot(self):
         channels=self.coil_channels)
     delay(0.4 * ms)  ## coils relaxation time
 
-    # todo: debugging self.stabilizer_FORT.amplitudes[1];
+
     ### set the FORT AOM to the readout settings
     if self.which_node == 'alice':
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
@@ -1262,6 +1262,12 @@ def second_shot(self):
             self.dds_cooling_DP.sw.off() ### turn off cooling
             self.ttl_repump_switch.on()  ### turn off MOT RP
             delay(10 * us)
+
+    ### set the FORT AOM back to loading setting
+    if self.which_node == 'alice':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[0])
+    elif self.which_node == 'bob':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
 @kernel
 def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
