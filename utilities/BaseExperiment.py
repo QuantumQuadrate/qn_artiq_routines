@@ -883,8 +883,8 @@ class BaseExperiment:
         self.experiment.set_dataset("FORT_MM_monitor", [], broadcast=True)
         self.experiment.set_dataset("FORT_APD_monitor", [], broadcast=True)
 
-        # self.experiment.set_dataset("target_780_HWP", [], broadcast=True)
-        # self.experiment.set_dataset("target_780_QWP", [], broadcast=True)
+        self.experiment.set_dataset("angle_780_HWP", [], broadcast=True)
+        self.experiment.set_dataset("angle_780_QWP", [], broadcast=True)
 
 
     @kernel
