@@ -118,6 +118,7 @@ class BaseExperiment:
         self.experiment.SPCM1_RO2 = 0
         self.experiment.BothSPCMs_RO1 = 0
         self.experiment.BothSPCMs_RO2 = 0
+        self.experiment.BothSPCMs_parity_RO = 0
 
         self.experiment.SPCM0_FORT_science = 0
         self.experiment.measurement = 0
@@ -823,6 +824,7 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM1_RO2", [0], broadcast=True)
         self.experiment.set_dataset("BothSPCMs_RO1", [0], broadcast=True)
         self.experiment.set_dataset("BothSPCMs_RO2", [0], broadcast=True)
+        self.experiment.set_dataset("BothSPCMs_parity_RO", [0], broadcast=True)
         self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
@@ -880,6 +882,9 @@ class BaseExperiment:
 
         self.experiment.set_dataset("FORT_MM_monitor", [], broadcast=True)
         self.experiment.set_dataset("FORT_APD_monitor", [], broadcast=True)
+
+        # self.experiment.set_dataset("target_780_HWP", [], broadcast=True)
+        # self.experiment.set_dataset("target_780_QWP", [], broadcast=True)
 
 
     @kernel

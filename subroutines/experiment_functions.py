@@ -1270,6 +1270,81 @@ def second_shot(self):
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
 @kernel
+def atom_parity_shot(self):
+    """
+    non-chopped atom readout used in atom parity oscillation experiments.
+
+    Turns on:
+        Cooling DP
+        MOT RP
+        All 6 fiber AOMs
+
+    Turns off at the end:
+        Cooling DP
+        MOT RP
+
+    warning: assumes the fiber AOMs are already on, which is usually the case
+    :return:
+    """
+    ### set the coils to the readout settings
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        channels=self.coil_channels)
+    delay(0.4 * ms)  ## coils relaxation time
+
+
+    ### set the FORT AOM to the readout settings
+    if self.which_node == 'alice':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    elif self.which_node == 'bob':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+
+
+
+    ### set the cooling DP AOM to the readout settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                            amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+
+    self.ttl_repump_switch.off()  ### turn on MOT RP
+    self.dds_cooling_DP.sw.on()  ### Turn on cooling
+    delay(0.1 * ms)
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+    delay(0.1 * ms)
+
+    if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
+        t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
+        self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
+        self.BothSPCMs_parity_RO = int(self.SPCM0_RO2)
+        delay(0.1 * ms)
+        self.dds_cooling_DP.sw.off()
+
+    else:
+        with parallel:
+            self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
+            self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
+
+        self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
+        self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
+        self.BothSPCMs_parity_RO = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
+
+        delay(0.1 * ms)
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        delay(10 * us)
+
+    ### set the FORT AOM back to loading setting
+    if self.which_node == 'alice':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[0])
+    elif self.which_node == 'bob':
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+
+@kernel
 def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
     """
 
@@ -5199,7 +5274,7 @@ def atom_photon_partity_1_experiment(self):
         SPCM0_SinglePhoton = 0
         SPCM1_SinglePhoton = 0
 
-        BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        # BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         # SPCM0_SinglePhoton_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         # SPCM1_SinglePhoton_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
 
@@ -5323,30 +5398,34 @@ def atom_photon_partity_1_experiment(self):
             SPCM0_SinglePhoton = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_SinglePhoton = self.ttl_SPCM1_counter.fetch_count()
 
-            delay(30 * us)  ### 20us is not enough
+            delay(20 * us)  ### 20us is not enough
 
-            if SPCM0_SinglePhoton:
+            if SPCM0_SinglePhoton>0 or SPCM1_SinglePhoton>0:
+                if self.BothSPCMs_RO1/self.t_SPCM_first_shot > self.single_atom_threshold:
+                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.8 * self.stabilizer_FORT.amplitudes[1])
+                    delay(5 * us)
+                    self.ttl_microwave_switch.off()
+                    delay(self.t_microwave_11_pulse)
+                    self.ttl_microwave_switch.on()
+                    delay(5 * us)
+                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
+                    ############################ blow-away phase - push out atoms in F=2 only
+                    delay(10000 * us)
+                    chopped_blow_away(self)
+
+                    delay(20 * us)
+                    atom_parity_shot(self)
+                    # self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    # self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
+                    # self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+                    # self.append_to_dataset('target_780_HWP', self.target_780_HWP)
+                    # self.append_to_dataset('target_780_QWP', self.target_780_QWP)
+
                 break
 
         delay(20 * us)
         self.ttl_exc0_switch.on()  # block Excitation
-
-        if SPCM0_SinglePhoton and self.BothSPCMs_RO1/self.t_SPCM_first_shot > self.single_atom_threshold:
-            if self.t_microwave_11_pulse > 0.0:
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.8 * self.stabilizer_FORT.amplitudes[1])
-                delay(5 * us)
-                self.ttl_microwave_switch.off()
-                delay(self.t_microwave_11_pulse)
-                self.ttl_microwave_switch.on()
-                delay(5 * us)
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-            ############################ blow-away phase - push out atoms in F=2 only
-            delay(1*ms)
-            if self.t_blowaway > 0.0:
-                chopped_blow_away(self)
-
-
 
         delay(1 * ms)
         second_shot(self)
