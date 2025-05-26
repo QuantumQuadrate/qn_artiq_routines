@@ -5577,29 +5577,15 @@ def atom_photon_partity_2_experiment(self):
                 self.ttl_GRIN1_switch.on()
                 delay(10 * us)
 
-                ############ microwave phase - ONLY USED FOR VERIFYING OP.
-                if self.t_microwave_pulse > 0.0 and self.verify_OP_in_photon_experiment:
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.8 * self.stabilizer_FORT.amplitudes[1])
-                    delay(5 * us)
-                    self.ttl_microwave_switch.off()
-                    delay(self.t_microwave_pulse)
-                    self.ttl_microwave_switch.on()
-                    delay(5 * us)
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-                ############ blow-away phase - push out atoms in F=2 only
-                if self.t_blowaway > 0.0 and self.verify_OP_in_photon_experiment:
-                    chopped_blow_away(self)
-
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
 
             self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
-            delay(1 * ms)
+
 
             for excitation_attempt in range(self.n_excitation_attempts):
-
+                delay(50 * us)
                 t1 = now_mu()
 
                 self.dds_FORT.sw.off()  ### turns FORT off
@@ -5649,6 +5635,42 @@ def atom_photon_partity_2_experiment(self):
 
                     break
 
+            if self.measurement == self.n_measurements:
+                break
+
+            ############################ atom cooling phase with PGC settings
+            if self.t_recooling > 0:
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                    channels=self.coil_channels)
+
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+                delay(0.4 * ms)  ### coils relaxation time
+
+                self.dds_cooling_DP.sw.on()
+                self.ttl_repump_switch.off()
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                delay(1 * us)
+                self.dds_AOM_A4.sw.on()
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
+
+                delay(self.t_recooling)
+
+                self.dds_cooling_DP.sw.off()
+                self.ttl_repump_switch.on()
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                delay(1 * us)
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+                delay(1 * us)
+
+
             ############################# readout to see if the atom survived every self.atom_check_every_n
             if (excitation_cycle + 1) % self.atom_check_every_n == 0:
                 self.zotino0.set_dac(
@@ -5667,6 +5689,7 @@ def atom_photon_partity_2_experiment(self):
                 self.dds_AOM_A4.sw.on()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
+                delay(0.1 * ms)
 
                 with parallel:
                     self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
@@ -5675,34 +5698,24 @@ def atom_photon_partity_2_experiment(self):
                 SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
                 BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
-                # BothSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = BothSPCMs_RO_atom_check
+
+                delay(1*ms)
+
+                self.dds_cooling_DP.sw.off()
+                self.ttl_repump_switch.on()
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                delay(1 * us)
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+                delay(1 * us)
 
                 ### stopping the excitation cycle after the atom is lost
                 if BothSPCMs_RO_atom_check / self.t_SPCM_first_shot > self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
-
-                    ############################ atom cooling phase with PGC settings
-                    if self.t_recooling > 0:
-                        self.zotino0.set_dac(
-                            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                            channels=self.coil_channels)
-
-                        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-                        delay(0.4 * ms)  ### coils relaxation time
-
-                        delay(self.t_recooling)
-
-                        self.dds_cooling_DP.sw.off()
-                        self.ttl_repump_switch.on()
-                        self.dds_AOM_A1.sw.off()
-                        self.dds_AOM_A2.sw.off()
-                        self.dds_AOM_A3.sw.off()
-                        delay(1 * us)
-                        self.dds_AOM_A4.sw.off()
-                        self.dds_AOM_A5.sw.off()
-                        self.dds_AOM_A6.sw.off()
-                        delay(1 * us)
 
                 else:
                     atom_loaded = False
