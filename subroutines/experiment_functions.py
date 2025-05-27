@@ -615,6 +615,7 @@ def load_MOT_and_FORT_until_atom(self):
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
+            # ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
             # self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
 
         if atom_loaded:
@@ -5441,8 +5442,11 @@ def atom_photon_partity_1_experiment(self):
 @kernel
 def atom_photon_partity_2_experiment(self):
     """
-    A simple parity oscillation experiment. To speed up the experiment, I am including excitation_cycle loop
-    to do OP after say 5 excitation attempts and try excitation again, instead of loading an atom.
+    A simple parity oscillation experiment. To speed up the experiment, I am re0use the atom and
+    do OP after say 5 excitation attempts and try excitation again. I repeate the loop as long as
+    there is an atom measured every atom_check_every_n.
+    self.measurement advances only after single photon detection. Thus, n_measurements = 100, means
+    100 detected photons from either SPCM0 or 1.
 
     1- Load an atom
     2- OP
@@ -5585,7 +5589,7 @@ def atom_photon_partity_2_experiment(self):
 
 
             for excitation_attempt in range(self.n_excitation_attempts):
-                delay(50 * us)
+                delay(200 * us)
                 t1 = now_mu()
 
                 self.dds_FORT.sw.off()  ### turns FORT off
@@ -5620,7 +5624,7 @@ def atom_photon_partity_2_experiment(self):
                     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
                     ############################ blow-away phase - push out atoms in F=2 only
-                    delay(100 * us)
+                    delay(200 * us)
                     chopped_blow_away(self)
 
                     delay(20 * us)
