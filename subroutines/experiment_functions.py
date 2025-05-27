@@ -689,6 +689,12 @@ def load_MOT_and_FORT_until_atom(self):
 
         ### set the cooling DP AOM to the PGC settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+
+        if self.PGC_on_chip:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
+
         delay(self.t_PGC_in_MOT)
         # delay(20 * ms) ### this is the PGC time
         ###################################################
@@ -1115,8 +1121,9 @@ def first_shot(self):
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
     self.dds_AOM_A4.sw.on()
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
+    if not self.PGC_on_chip:
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
     delay(0.1 * ms)
 
     if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
@@ -1214,8 +1221,10 @@ def second_shot(self):
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
     self.dds_AOM_A4.sw.on()
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
+
+    if not self.PGC_on_chip:
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
     delay(0.1 * ms)
 
     if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far

@@ -78,7 +78,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("f_FORT", 80.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
             Variable("p_FORT_loading", -4, NumberValue,
                      {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1}, "FORT AOM"),
-            Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
+            Variable("p_FORT_RO", 1, NumberValue, {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 2},
                      "FORT AOM"),
             Variable("p_FORT_holding", 1, NumberValue,
                      {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 2},
@@ -106,10 +106,10 @@ class ExperimentVariables(EnvExperiment):
             Variable("p_cooling_DP_MOT", -4, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
             Variable("p_cooling_DP_RO", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
-                                                           'scale': 1, 'ndecimals': 1},
+                                                           'scale': 1, 'ndecimals': 2},
                      "Cooling double pass AOM"),
             Variable("p_cooling_DP_PGC", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
-                                                            'scale': 1, 'ndecimals': 1},
+                                                            'scale': 1, 'ndecimals': 2},
                      "Cooling double pass AOM"),
 
             # D1 optical pumping, pumping repumper, and excitation
@@ -281,6 +281,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("use_chopped_readout", True, BooleanValue, {}, "Booleans"),
             Variable("chopped_RO_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("verify_OP_in_photon_experiment", False, BooleanValue, {}, "Booleans"),
+            Variable("PGC_on_chip", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
