@@ -93,12 +93,12 @@
                 {
                     "sampler_ch": 6,
                     "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
-                    "p": 0.01,
+                    "p": 0.1,
                     "i": 0.0,
                     "series": true,
                     "dataset":"FORT_monitor",
                     "power_dataset":"p_FORT_loading",
-                    "t_measure_delay":0.00001,
+                    "t_measure_delay":0.001,
                     "max_dB": -1
                 }
 
