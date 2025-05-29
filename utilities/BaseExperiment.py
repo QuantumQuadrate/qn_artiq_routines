@@ -936,6 +936,10 @@ class BaseExperiment:
             self.experiment.sampler1.init() # for reading laser feedback
             self.experiment.sampler2.init() # for reading laser feedback
 
+            for i in range(8):
+                self.experiment.sampler0.set_gain_mu(i, 10)
+                delay(100 * us)
+
             ### turn on/off any switches. this ensures that switches always start in a default state,
             ### which might not happen if we abort an experiment in the middle and don't reset it
             self.experiment.ttl_exc0_switch.on()   # blocks excitation

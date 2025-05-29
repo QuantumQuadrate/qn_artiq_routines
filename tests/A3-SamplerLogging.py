@@ -15,8 +15,8 @@ class SamplerLogging(EnvExperiment):
 
         self.setattr_argument("n_average", NumberValue(5, type='int', ndecimals=0, scale=1, step=1))  # averaging over n in each measurement
         self.setattr_argument("n_measure", NumberValue(10, type='int', ndecimals=0, scale=1, step=1))  # number of measurements
-        self.setattr_argument("t_step", NumberValue(10, type='int', unit='ms', ndecimals=0, scale=1, step=1))  # delay between measurements
-        self.setattr_argument("t_step_in_average", NumberValue(1, type='int', unit='ms', ndecimals=0, scale=1, step=1))  # delay between measurements
+        self.setattr_argument("t_step", NumberValue(10, type='float', unit='ms', ndecimals=2, scale=1, step=1))  # delay between measurements
+        self.setattr_argument("t_step_in_average", NumberValue(1, type='float', unit='ms', ndecimals=2, scale=1, step=1))  # delay between measurements
 
     def prepare(self):
         self.n_channels = 8
@@ -34,6 +34,13 @@ class SamplerLogging(EnvExperiment):
         self.smp2List = [self.avg2]
 
 
+    @rpc(flags={"async"})
+    def print_async(*x):
+        """print asynchronously so we don't block the RTIO counter.
+        useful for debugging"""
+        print(*x)
+
+
     @kernel
     def run(self):
         self.core.reset()
@@ -42,10 +49,17 @@ class SamplerLogging(EnvExperiment):
         self.sampler1.init()
         self.sampler2.init()
 
-        self.set_dataset("Sampler0Values", self.smp0List, broadcast=True, persist=True)
-        self.set_dataset("Sampler1Values", self.smp1List, broadcast=True, persist=True)
-        self.set_dataset("Sampler2Values", self.smp2List, broadcast=True, persist=True)
-        self.set_dataset("t_step", self.t_step, broadcast=True, persist=True)
+        self.set_dataset("Sampler0Values", self.smp0List, broadcast=True, persist=False)
+        self.set_dataset("Sampler1Values", self.smp1List, broadcast=True, persist=False)
+        self.set_dataset("Sampler2Values", self.smp2List, broadcast=True, persist=False)
+        self.set_dataset("t_step", self.t_step, broadcast=True, persist=False)
+
+        # for i in range(8):
+        #     self.sampler0.set_gain_mu(i, 10)
+        #     delay(100 * us)
+
+        progress_steps = 10
+        step = max(1, self.n_measure // progress_steps)
 
         for i in range(self.n_measure):
             dummy0 = np.full(8, 0.0)
@@ -75,6 +89,10 @@ class SamplerLogging(EnvExperiment):
             self.append_to_dataset("Sampler0Values", self.avg0)
             self.append_to_dataset("Sampler1Values", self.avg1)
             self.append_to_dataset("Sampler2Values", self.avg2)
+
+            delay(1*ms)
+            if i % step == 0 or i == self.n_measure - 1:
+                self.print_async("Progress: ", 100 * i / self.n_measure)
 
 
 

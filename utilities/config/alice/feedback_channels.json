@@ -73,20 +73,6 @@
                     "power_dataset":"p_AOM_A6",
                     "t_measure_delay":0.0005,
                     "max_dB": -3
-                },
-
-            "dds_FORT":
-                {
-                    "sampler_ch": 6,
-                    "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
-                    "p": 0.3,
-                    "i": 0.0,
-                    "series": true,
-                    "dataset":"FORT_monitor",
-                    "power_dataset":"p_FORT_loading",
-                    "t_measure_delay":0.001,
-                    "max_dB": 5,
-                    "comment": "use p=0.7 if going through VCA, else use 0.3 for APD"
                 }
         },
     "sampler1":
@@ -115,6 +101,20 @@
                     "t_measure_delay":0.001,
                     "max_dB": 0.5,
                     "comment": ""
+                },
+
+            "dds_FORT":
+                {
+                    "sampler_ch": 6,
+                    "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
+                    "p": 0.3,
+                    "i": 0.0,
+                    "series": true,
+                    "dataset":"FORT_monitor",
+                    "power_dataset":"p_FORT_loading",
+                    "t_measure_delay":0.001,
+                    "max_dB": 5,
+                    "comment": "use p=0.7 if going through VCA, else use 0.3 for APD"
                 }
         }
 

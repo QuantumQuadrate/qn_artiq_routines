@@ -615,8 +615,8 @@ def load_MOT_and_FORT_until_atom(self):
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
-            # ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
-            # self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
+            ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
+            self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
 
         if atom_loaded:
             # t_before_atom = t_after_atom ### I don't know why I had this! Removed and seems working fine.
@@ -789,6 +789,10 @@ def load_MOT_and_FORT_until_atom_recycle(self):
                 if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
+
+                ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
+                self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
+                delay(1*ms)
 
             if atom_loaded:
                 self.set_dataset("time_without_atom", 0.0, broadcast=True) ### resetting time_without_atom when we load an atom
@@ -5642,6 +5646,7 @@ def atom_photon_partity_2_experiment(self):
             if self.measurement == self.n_measurements:
                 break
 
+            delay(100*us)
             ############################ atom cooling phase with PGC settings
             if self.t_recooling > 0:
                 self.zotino0.set_dac(
