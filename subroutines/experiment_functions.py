@@ -632,6 +632,7 @@ def load_MOT_and_FORT_until_atom(self):
 
         ### If max_tries reached and still no atom, run feedback
         if self.enable_laser_feedback:
+            # self.ttl7.pulse(10 * ms)  ### for triggering oscilloscope
             delay(0.1 * ms) ### necessary to avoid underflow
 
             ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -670,8 +671,6 @@ def load_MOT_and_FORT_until_atom(self):
     # self.ttl7.pulse(10 * ms)  ### for triggering oscilloscope
 
     delay(1 * ms)
-    if self.which_node == "alice":
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
     delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
     ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
@@ -846,7 +845,6 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         self.dds_cooling_DP.sw.off()  ### turn off cooling
 
         delay(1 * ms)
-        # self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
 
         ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
@@ -998,7 +996,7 @@ def first_shot_chopped(self):
     ### set the coils to the readout settings
 
     n_RO_total = 100
-    self.SPCM0_RO1 = 0
+    self.SPCM0_test_RO = 0
 
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
@@ -1043,10 +1041,10 @@ def first_shot_chopped(self):
         with parallel:
             self.ttl_SPCM0_counter.gate_rising(800 * ns)
 
-        SPCM0_RO1_n = self.ttl_SPCM0_counter.fetch_count()
+        SPCM0_test_RO_n = self.ttl_SPCM0_counter.fetch_count()
 
         delay(5 * us)
-        self.SPCM0_RO1 += SPCM0_RO1_n
+        self.SPCM0_test_RO += SPCM0_test_RO_n
 
 @kernel
 def first_shot(self):
@@ -1108,7 +1106,7 @@ def first_shot(self):
             self.dds_cooling_DP.sw.off()  # the chop sequence likes to turn the FORT off
 
             delay(1 * ms)
-            self.ttl7.pulse(100 * us)
+            # self.ttl7.pulse(100 * us)
             self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
 
             delay(0.1 * ms)
@@ -1129,7 +1127,7 @@ def first_shot(self):
 
         else:
             delay(1 * ms)
-            self.ttl7.pulse(100 * us)
+            # self.ttl7.pulse(100 * us)
             delay(1 * ms)
             with parallel:
                 self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
@@ -1212,7 +1210,7 @@ def second_shot(self):
             self.dds_cooling_DP.sw.off()  # the chop sequence likes to turn the FORT off
 
             delay(1 * ms)
-            self.ttl7.pulse(100 * us)  # todo delete
+            # self.ttl7.pulse(100 * us)
             self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
 
             delay(10 * ms)
@@ -2310,6 +2308,7 @@ def end_measurement(self):
         self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
         self.append_to_dataset('BothSPCMs_RO1', self.BothSPCMs_RO1)
         self.append_to_dataset('BothSPCMs_RO2', self.BothSPCMs_RO2)
+        self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
         delay(1 * ms)
 
 @rpc(flags={"async"})
@@ -2459,8 +2458,8 @@ def atom_loading_2_experiment(self):
         # delay(0.1 * ms)
 
         # load_MOT_and_FORT(self)
-        # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        load_MOT_and_FORT_until_atom(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1*ms)
         first_shot(self)
@@ -2543,12 +2542,21 @@ def atom_loading_for_optimization_experiment(self):
             self.dds_FORT.sw.on()
 
 
+
+
+        # first_shot_chopped(self)
+        delay(1*ms)
+
+
+
+
+
         ################## to see if RO heats atoms
         # for i in range(5):
         #     shot_without_measurement(self)
         ###########################################
 
-        delay(self.t_delay_between_shots)
+        # delay(self.t_delay_between_shots)
         second_shot(self)
 
         end_measurement(self)
@@ -2802,8 +2810,8 @@ def microwave_Rabi_2_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        load_MOT_and_FORT_until_atom(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1 * ms)
 
