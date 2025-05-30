@@ -302,9 +302,10 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
         self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
 
+        self.laser_stabilizer.run()
+
         for i in range(self.n_measurements):
             delay(1 * ms)
-            self.laser_stabilizer.run()
             self.dds_cooling_DP.sw.on()  ### turn on cooling
             self.ttl_repump_switch.off()  ### turn on MOT RP
 
@@ -364,7 +365,14 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.ttl_repump_switch.on()  ### turn off MOT RP
             self.dds_cooling_DP.sw.off()  ### turn off cooling
             self.dds_FORT.sw.off()  ### turn off FORT
-            delay(100 * ms)  ### to dissipate MOT
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            delay(0.1 * ms)
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A4.sw.on()
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+            delay(300 * ms)  ### to dissipate MOT
 
 
         cost = self.get_cost(self.atom_loading_time_list)
@@ -398,6 +406,11 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
     @kernel
     def optimization_routine_test(self, params: TArray(TFloat)) -> TInt32:
         """
+        Added by Eunji.
+        Requires explanation.
+        Does not turn on the coils in mode "beam powers only".
+
+
         For use with M-LOOP, this should be called in the interface's "get_next_cost_dict"
         method.
 
@@ -568,8 +581,8 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ### Get parameters from the provided dictionary
         params = params_dict['params']
 
-        # cost = self.optimization_routine(params)
-        cost = self.optimization_routine_test(params)
+        cost = self.optimization_routine(params)
+        # cost = self.optimization_routine_test(params) ### does not turn on coils in "beam powers only" mode.
 
         uncertainty = 1/np.sqrt(-1*cost) if cost < 0 else 0
 

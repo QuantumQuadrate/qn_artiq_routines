@@ -234,7 +234,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_SPCM_second_shot", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_recool_and_shot", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
-            Variable("t_PGC_in_MOT", 0 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_PGC_after_loading", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_MOT_dissipation", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_blowaway", 150 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 3000 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
@@ -271,7 +271,7 @@ class ExperimentVariables(EnvExperiment):
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),
-            Variable("do_PGC_in_MOT", False, BooleanValue, {}, "Booleans"),
+            Variable("do_PGC_after_loading", False, BooleanValue, {}, "Booleans"),
             Variable("pumping_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("blowaway_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("FORT_on_at_MOT_start", True, BooleanValue, {}, "Booleans"),

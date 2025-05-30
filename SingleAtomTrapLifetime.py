@@ -38,7 +38,7 @@ class SingleAtomTrapLifetime(EnvExperiment):
         self.setattr_argument("n_measurements", NumberValue(50, ndecimals=0, step=1))
         self.setattr_argument("no_first_shot", BooleanValue(default=False))
         self.setattr_argument("MOT_AOMs_always_on", BooleanValue(default=False)) # good for diagnosing readout heating
-        self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
+        self.setattr_argument("do_PGC_after_loading", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
         self.setattr_argument("enable_laser_feedback", BooleanValue(default=True),"Laser power stabilization")
 

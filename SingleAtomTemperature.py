@@ -34,7 +34,7 @@ class SingleAtomTemperature(EnvExperiment):
                 'np.array([1.0, 10.0, 50.0, 100.])*us'))
 
         self.setattr_argument("no_first_shot", BooleanValue(False))
-        self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
+        self.setattr_argument("do_PGC_after_loading", BooleanValue(False))
         self.setattr_argument("bins", NumberValue(50, ndecimals=0, step=1), "Histogram setup (set bins=0 for auto)")
 
         self.base.set_datasets_from_gui_args()

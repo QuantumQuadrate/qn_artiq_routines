@@ -943,6 +943,15 @@ class BaseExperiment:
                 delay(100 * us)
 
             self.experiment.sampler1.set_gain_mu(6, 10) ### gain for the FORT APD channel
+            delay(100 * us)
+
+            for i in range(8):
+                if i == 6:
+                    self.experiment.sampler1.set_gain_mu(i, 10) ### gain for the FORT APD channel
+                    delay(100 * us)
+                else:
+                    self.experiment.sampler1.set_gain_mu(i, 0)
+                    delay(100 * us)
 
             ### turn on/off any switches. this ensures that switches always start in a default state,
             ### which might not happen if we abort an experiment in the middle and don't reset it

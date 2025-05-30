@@ -10,7 +10,7 @@ Example strings for the variables_and_bounds argument:
 
     [('f_cooling_DP_RO',-2*MHz,2*MHz,'diff'),('p_cooling_DP_RO',0.75,1.0,'abs')]
     [('p_cooling_DP_PGC',0.1,1.0,'abs'),('f_cooling_DP_PGC',115*MHz,125*MHz,'abs'),
-('t_PGC_in_MOT',1*ms,40*ms,'abs')]
+('t_PGC_after_loading',1*ms,40*ms,'abs')]
 
     [('set_point_PD1_AOM_A1',0.95,1.05,'perc'),('set_point_PD2_AOM_A2',0.95,1.05,'perc'),
 ('set_point_PD3_AOM_A3',0.95,1.05,'perc'),('set_point_PD4_AOM_A4',0.95,1.05,'perc'),
@@ -222,10 +222,10 @@ class GeneralVariableOptimizer(EnvExperiment):
                              [float(self.initial_RF_dB_values[ch_i])], broadcast=True, persist=True)
 
 
-        self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
-        self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
-        self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
-        self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
+        # self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
+        # self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
+        # self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
+        # self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
 
 
     def reset_datasets(self):
@@ -256,7 +256,7 @@ class GeneralVariableOptimizer(EnvExperiment):
         for variable, value in self.override_ExperimentVariables_dict.items():
             setattr(self, variable, value)
 
-        self.warm_up()
+        # self.warm_up()
         self.initialize_hardware()
 
         # params is ignored when checking the initial cost
