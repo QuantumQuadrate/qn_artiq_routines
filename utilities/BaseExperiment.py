@@ -120,6 +120,7 @@ class BaseExperiment:
         self.experiment.BothSPCMs_RO2 = 0
         self.experiment.BothSPCMs_parity_RO = 0
         self.experiment.SPCM0_test_RO = 0
+        self.experiment.atom_loading_time = 0.0
 
         self.experiment.SPCM0_FORT_science = 0
         self.experiment.measurement = 0
@@ -592,6 +593,7 @@ class BaseExperiment:
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
 
             except:
                 ### if this fails, your experiment probably didn't need it
@@ -684,6 +686,8 @@ class BaseExperiment:
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
+
             except:
                 ### if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
@@ -761,6 +765,8 @@ class BaseExperiment:
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
+
             except:
                 ### if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")

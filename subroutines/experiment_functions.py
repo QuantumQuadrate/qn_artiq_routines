@@ -677,8 +677,8 @@ def load_MOT_and_FORT_until_atom(self):
         self.ttl_repump_switch.off()  ### turn on MOT RP
         self.dds_cooling_DP.sw.on()  ### turn on cooling
         delay(10 * us)
-        # self.dds_AOM_A5.sw.off()
-        # self.dds_AOM_A6.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
         delay(self.t_PGC_after_loading)  ### this is the PGC time
     ###################################################
     # self.ttl7.off()
@@ -689,7 +689,8 @@ def load_MOT_and_FORT_until_atom(self):
     # self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
 
     ### saving the atom loading time for each loaded atom.
-    self.append_to_dataset("Atom_loading_time", self.core.mu_to_seconds(t_after_atom - t_before_atom))
+    self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
+    self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
     self.n_atom_loaded_per_iteration += 1
     delay(1 * ms)
 
@@ -874,7 +875,8 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         # self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
 
         ### saving the atom loading time for each loaded atom.
-        self.append_to_dataset("Atom_loading_time", self.core.mu_to_seconds(t_after_atom - t_before_atom))
+        self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
+        self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
         self.n_atom_loaded_per_iteration += 1
         delay(10 * ms)
 
@@ -2277,6 +2279,7 @@ def end_measurement(self):
 
     self.BothSPCMs_RO1_list[self.measurement] = self.BothSPCMs_RO1
     self.BothSPCMs_RO2_list[self.measurement] = self.BothSPCMs_RO2
+    self.atom_loading_time_list[self.measurement] = self.atom_loading_time
 
     self.append_to_dataset("SPCM0_FORT_science", self.SPCM0_FORT_science)
 

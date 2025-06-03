@@ -70,8 +70,7 @@ def atom_loading_cost(self) -> TFloat:
 
     cost = -100 * loading_fraction
 
-    # todo delete
-    print("inside cost function:", self.iteration, cost)
+    # print("inside cost function:", self.iteration, cost)
     return cost
 
 
@@ -154,6 +153,8 @@ def atom_retention_cost(self) -> TFloat:
     :return: -100*retention_fraction, the negated percentage of atoms detected in the readout
     """
 
+
+
     shot1 = self.BothSPCMs_RO1_list
     shot2 = self.BothSPCMs_RO2_list
 
@@ -162,6 +163,8 @@ def atom_retention_cost(self) -> TFloat:
     atoms_retained = [x > self.single_atom_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
     loading_fraction = n_atoms_loaded/len(shot1)
+
+
 
     # # recompute the retention and loading with an Otsu threshold.
     # # this will typically give a more accurate cut-off in case the histogram cleanness or cut-off changes with the
@@ -175,10 +178,12 @@ def atom_retention_cost(self) -> TFloat:
     #     atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     #     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
-    return - 100 * retention_fraction
-    # return -100 * (1-retention_fraction)
-    ### use -100 * retention_fraction to maximize retention
-    ### use -100 * (1 - retention_fraction) to minimize retention
+    cost = - 100 * retention_fraction
+    # print("inside cost function:", self.iteration, cost)
+    return cost
+
+    ### use cost = -100 * retention_fraction to maximize retention
+    ### use cost = -100 * (1 - retention_fraction) to minimize retention
 
 
 
@@ -199,16 +204,13 @@ def atom_blowaway_cost(self) -> TFloat:
 
     return 100*(retention_fraction - 1)
 
-#
-#
-# def atom_lading_and_time_cost(self, data: TArray(TFloat,1)) -> TInt32:
-#     atom_loading_time_list = self.Atom_loading_time
-#
-#     total_t = 0.0
-#     for t in data:
-#         total_t += -1.0 / t
-#     average_t = total_t / len(data) ### Though I am naming these at _t, these are indeed 1/t to calculate the cost
-#     return int(round(average_t))
-#
-#
-# # use with this kind of format:  get_cost(self.atom_loading_time_list)
+def atom_lading_time_cost(self) -> TInt32:
+    atom_loading_time_list = self.atom_loading_time_list[1:]
+
+    total_t = 0.0
+    for t in atom_loading_time_list:
+        total_t += -10.0 / t
+    average_t = total_t / len(atom_loading_time_list) ### Though I am naming these at _t, these are indeed 1/t to calculate the cost
+    cost = int(round(average_t))
+    # print("inside cost function:", self.iteration, cost)
+    return cost
