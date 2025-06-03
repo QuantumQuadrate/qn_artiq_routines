@@ -669,7 +669,7 @@ def load_MOT_and_FORT_until_atom(self):
     ###########  PGC on the trapped atom  #############
     if self.do_PGC_after_loading:
         if self.which_node == 'alice':
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[0])
         elif self.which_node == 'bob':
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
         ### set the cooling DP AOM to the PGC settings
@@ -677,8 +677,8 @@ def load_MOT_and_FORT_until_atom(self):
         self.ttl_repump_switch.off()  ### turn on MOT RP
         self.dds_cooling_DP.sw.on()  ### turn on cooling
         delay(10 * us)
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
+        # self.dds_AOM_A5.sw.off()
+        # self.dds_AOM_A6.sw.off()
         delay(self.t_PGC_after_loading)  ### this is the PGC time
     ###################################################
     # self.ttl7.off()
@@ -858,13 +858,13 @@ def load_MOT_and_FORT_until_atom_recycle(self):
             self.dds_cooling_DP.sw.on()  ### turn on cooling
             delay(10 * us)
             if self.which_node == 'alice':
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[0])
             elif self.which_node == 'bob':
                 self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
             ### set the cooling DP AOM to the PGC settings
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
+            # self.dds_AOM_A5.sw.off()
+            # self.dds_AOM_A6.sw.off()
             delay(self.t_PGC_after_loading)  ### this is the PGC time
         ###################################################
 
@@ -2473,6 +2473,8 @@ def atom_loading_2_experiment(self):
 
     self.ttl7.on()
     if self.enable_laser_feedback:
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
@@ -2892,7 +2894,7 @@ def microwave_Rabi_2_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
-
+    # self.ttl7.on()
     if self.enable_laser_feedback:
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
@@ -2900,6 +2902,8 @@ def microwave_Rabi_2_experiment(self):
         delay(0.1 * ms)
         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         self.laser_stabilizer.run()
+
+    # self.ttl7.off()
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -2967,6 +2971,119 @@ def microwave_Rabi_2_experiment(self):
         # blow-away phase - push out atoms in F=2 only
         ############################
 
+        if self.t_blowaway > 0.0:
+            chopped_blow_away(self)
+
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(5 * ms) ### hopefully to avoid underflow.
+
+    delay(10*ms)
+    self.dds_FORT.sw.off()
+    delay(1*ms)
+    self.dds_microwaves.sw.off()
+
+@kernel
+def microwave_Ramsey_experiment(self):
+    """
+    Ramsey experiment with two pi/2 MW pulses with a variable time delay in the middle.
+
+    This experiment can be used to measure the T2* of the clock qubit.
+
+    """
+
+    self.core.reset()
+
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
+
+    if self.t_pumping > 0.0:
+        record_chopped_optical_pumping(self)
+        delay(100*ms)
+
+    if self.t_blowaway > 0.0:
+        record_chopped_blow_away(self)
+        delay(100*ms)
+
+
+    if self.enable_laser_feedback:
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        self.laser_stabilizer.run()
+
+    # delay(1 * ms)
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(1 * ms)
+    self.dds_microwaves.sw.on()
+    delay(1 * ms)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        # load_MOT_and_FORT_until_atom(self)
+        load_MOT_and_FORT_until_atom_recycle(self)
+
+        delay(1 * ms)
+
+        first_shot(self)
+
+        # todo: do we need to pump into F=2? Remove see what happens.
+        # self.ttl_repump_switch.off()  # turns the MOT RP AOM on
+        # delay(1 * ms) # leave the repump on so atoms are left in F=2
+        # self.ttl_repump_switch.on()  # turns the MOT RP AOM off
+        delay (1 * ms)
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        ############################
+        # optical pumping phase - pumps atoms into F=1,m_F=0
+        ############################
+        ### With chopped pumping:
+        if self.t_pumping > 0.0:
+            chopped_optical_pumping(self)
+            delay(1*ms)
+
+        ############################
+        # microwave phase
+        ############################
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        delay(5 * us)
+
+        ### first pi/2 pulse
+        self.ttl_microwave_switch.off()
+        delay(self.t_microwave_pulse)
+        self.ttl_microwave_switch.on()
+
+        delay(self.t_delay_between_shots)
+
+        ### second pi/2 pulse
+        self.ttl_microwave_switch.off()
+        delay(self.t_microwave_pulse)
+        self.ttl_microwave_switch.on()
+
+        delay(100*us)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        ############################
+        # blow-away phase - push out atoms in F=2 only
+        ############################
         if self.t_blowaway > 0.0:
             chopped_blow_away(self)
 

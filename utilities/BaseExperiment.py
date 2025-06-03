@@ -526,8 +526,6 @@ class BaseExperiment:
         set_MW_profile("01", self.experiment.t_MW_01_ramp, self.experiment.t_microwave_01_pulse)
         set_MW_profile("11", self.experiment.t_MW_11_ramp, self.experiment.t_microwave_11_pulse)
 
-
-
     def prepare(self):
         """
         Initialize DeviceAliases, compute DDS amplitudes from powers, instantiate the laser servo,
@@ -939,15 +937,15 @@ class BaseExperiment:
             self.experiment.sampler2.init() # for reading laser feedback
 
             for i in range(8):
-                self.experiment.sampler0.set_gain_mu(i, 10)
+                self.experiment.sampler0.set_gain_mu(i, 8)
                 delay(100 * us)
 
-            self.experiment.sampler1.set_gain_mu(6, 10) ### gain for the FORT APD channel
-            delay(100 * us)
+            # self.experiment.sampler1.set_gain_mu(6,5) ### gain for the FORT APD channel
+            # delay(100 * us)
 
             for i in range(8):
                 if i == 6:
-                    self.experiment.sampler1.set_gain_mu(i, 10) ### gain for the FORT APD channel
+                    self.experiment.sampler1.set_gain_mu(i, 0) ### gain for the FORT APD channel
                     delay(100 * us)
                 else:
                     self.experiment.sampler1.set_gain_mu(i, 0)
