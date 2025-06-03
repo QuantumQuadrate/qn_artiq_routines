@@ -104,10 +104,10 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                                      self.AZ_top_volts_MOT,
                                      self.AX_volts_MOT,
                                      self.AY_volts_MOT])
-        self.coil_values_RO = np.array([self.AZ_bottom_volts_RO,
-                                     - self.AZ_bottom_volts_RO,
-                                     self.AX_volts_RO,
-                                     self.AY_volts_RO])
+        self.coil_values_RO = np.array([self.AZ_bottom_volts_PGC,
+                                     - self.AZ_bottom_volts_PGC,
+                                     self.AX_volts_PGC,
+                                     self.AY_volts_PGC])
 
         self.volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
         self.setpoint_datasets = ["set_point_PD1_AOM_A1", "set_point_PD2_AOM_A2", "set_point_PD3_AOM_A3",
@@ -539,7 +539,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         # # # delay(1 * ms)
         # # # ### set the coils to the readout settings
         # # # self.zotino0.set_dac(
-        # # #     [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        # # #     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         # # #     channels=self.coil_channels)
         # # delay(1 * ms)
         # # delay(1*s)

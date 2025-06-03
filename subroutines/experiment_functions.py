@@ -420,9 +420,9 @@ def shot_without_measurement(self):
 
     :return:
     """
-    ### set the coils to the readout settings
+    ### set the coils to PGC settings
     self.zotino0.set_dac(
-        [self.AZ_bottom_volts_RO, self.AZ_top_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         channels=self.coil_channels)
     delay(0.4 * ms) ## coils relaxation time
 
@@ -1016,13 +1016,13 @@ def first_shot_chopped(self):
 
     :return:
     """
-    ### set the coils to the readout settings
+    ### set the coils to PGC settings
 
     n_RO_total = 500
     self.SPCM0_test_RO = 0
 
     # self.zotino0.set_dac(
-    #     [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+    #     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
     #     channels=self.coil_channels)
     # delay(0.4 * ms) ## coils relaxation time
     #
@@ -1095,9 +1095,9 @@ def first_shot(self):
     elif self.which_node == 'bob':
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
-    ### set the coils to the readout settings
+    ### set the coils to PGC settings
     self.zotino0.set_dac(
-        [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         channels=self.coil_channels)
     delay(0.4 * ms) ## coils relaxation time
 
@@ -1185,9 +1185,9 @@ def second_shot(self):
     warning: assumes the fiber AOMs are already on, which is usually the case
     :return:
     """
-    ### set the coils to the readout settings
+    ### set the coils to PGC settings
     self.zotino0.set_dac(
-        [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         channels=self.coil_channels)
     delay(0.4 * ms)  ## coils relaxation time
 
@@ -1316,9 +1316,9 @@ def atom_parity_shot(self):
     warning: assumes the fiber AOMs are already on, which is usually the case
     :return:
     """
-    ### set the coils to the readout settings
+    ### set the coils to PGC settings
     self.zotino0.set_dac(
-        [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         channels=self.coil_channels)
     delay(0.4 * ms)  ## coils relaxation time
 
@@ -2712,7 +2712,7 @@ def trap_frequency_experiment(self):
 
         delay(0.1*ms)
         self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
             channels=self.coil_channels)
 
         # set the FORT AOM to the science setting. this is only valid if we have run
@@ -4161,9 +4161,9 @@ def single_photon_experiment(self):
         load_MOT_and_FORT(self)
 
         delay(0.1 * ms)
-        ### set coils to the readout settings
+        ### set coils to PGC settings
         self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
             channels=self.coil_channels)
 
         ### set the FORT AOM to the readout settings
@@ -4321,7 +4321,7 @@ def single_photon_experiment(self):
             delay(1 * ms)
             if self.t_recooling > 0:
                 self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                     channels=self.coil_channels)
 
                 delay(0.4 * ms)
@@ -4372,7 +4372,7 @@ def single_photon_experiment(self):
 
             # take the second shot
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                 channels=self.coil_channels)
             delay(0.2 * ms)
 
@@ -4458,7 +4458,7 @@ def single_photon_experiment_atom_loading_advance(self):
 
             delay(0.1 * ms)
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                 channels=self.coil_channels)
 
             ### set the FORT AOM to the readout settings
@@ -4676,7 +4676,7 @@ def single_photon_experiment_atom_loading_advance(self):
             if self.t_recooling > 0 or self.record_every_shot:
 
                 self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                     channels=self.coil_channels)
 
                 delay(0.4*ms)
@@ -5012,7 +5012,7 @@ def single_photon_experiment_2_atom_loading_advance(self):
             # delay(1*ms)
 
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                 channels=self.coil_channels)
 
             delay(0.4*ms)
@@ -5373,7 +5373,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
             ############################# readout to see if the atom survived every self.atom_check_every_n
             if (excitation_cycle + 1) % self.atom_check_every_n == 0:
                 self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                     channels=self.coil_channels)
 
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
@@ -5911,7 +5911,7 @@ def atom_photon_partity_2_experiment(self):
             ############################# readout to see if the atom survived every self.atom_check_every_n
             if (excitation_cycle + 1) % self.atom_check_every_n == 0:
                 self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                     channels=self.coil_channels)
 
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
@@ -6065,7 +6065,7 @@ def test_exc_singe_photon_experiment(self):
 
             delay(0.1 * ms)
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                 channels=self.coil_channels)
 
             # set the FORT AOM to the readout settings
@@ -6220,7 +6220,7 @@ def test_exc_singe_photon_experiment(self):
 
             # take the second shot
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                 channels=self.coil_channels)
             delay(0.1 * ms)
 
@@ -6306,7 +6306,7 @@ def test_exc_microwave_Rabi_experiment(self):
 
             delay(0.1 * ms)
             self.zotino0.set_dac(
-                [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                 channels=self.coil_channels)
 
             # set the FORT AOM to the readout settings
@@ -6496,7 +6496,7 @@ def test_exc_microwave_Rabi_experiment(self):
 
         # take the second shot
         self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
             channels=self.coil_channels)
         delay(0.1 * ms)
 
@@ -6643,7 +6643,7 @@ def FORT_monitoring_with_Luca_experiment(self):
 
         delay(0.1*ms)
         self.zotino0.set_dac(
-            [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
             channels=self.coil_channels)
 
         # set the FORT AOM to the science setting. this is only valid if we have run

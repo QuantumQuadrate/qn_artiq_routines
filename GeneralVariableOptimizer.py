@@ -5,8 +5,8 @@ Any experiment function defined in experiment_functions.py can be optimized
 over any set of ExperimentVariables
 
 Example strings for the variables_and_bounds argument:
-    [('AZ_bottom_volts_RO',-0.4*V,0.0*V,'diff'),('AZ_top_volts_RO',-0.1*V,0.3*V,'diff'),
-('AX_volts_RO',-0.1*V,0.3*V,'diff'),('AY_volts_RO',-0.1*V,0.3*V,'diff')]
+    [('AZ_bottom_volts_PGC',-0.4*V,0.0*V,'diff'),('AZ_top_volts_PGC',-0.1*V,0.3*V,'diff'),
+('AX_volts_PGC',-0.1*V,0.3*V,'diff'),('AY_volts_PGC',-0.1*V,0.3*V,'diff')]
 
     [('f_cooling_DP_RO',-2*MHz,2*MHz,'diff'),('p_cooling_DP_RO',0.75,1.0,'abs')]
     [('p_cooling_DP_PGC',0.1,1.0,'abs'),('f_cooling_DP_PGC',115*MHz,125*MHz,'abs'),

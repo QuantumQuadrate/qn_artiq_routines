@@ -193,14 +193,6 @@ class ExperimentVariables(EnvExperiment):
             Variable("AY_volts_PGC", -0.291, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
                      "MOT coil settings"),
 
-            # Coils - Readout
-            Variable("AZ_bottom_volts_RO", -0.196, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
-                     "MOT coil settings"),
-            Variable("AX_volts_RO", 0.115, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
-                     "MOT coil settings"),
-            Variable("AY_volts_RO", -0.291, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals':3},
-                     "MOT coil settings"),
-
             # Coils - state prep and science
             Variable("AZ_bottom_volts_OP", -0.22, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),

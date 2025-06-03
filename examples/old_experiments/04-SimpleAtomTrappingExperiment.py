@@ -63,16 +63,16 @@ class SimpleAtomTrapping(EnvExperiment):
 
         self.setattr_argument("AZ_top_volts_MOT", NumberValue(1.8*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
         self.setattr_argument("AZ_top_volts_PGC", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
-        self.setattr_argument("AZ_top_volts_RO", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
+        self.setattr_argument("AZ_top_volts_PGC", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
         self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(-1.75*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
         self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
-        self.setattr_argument("AZ_bottom_volts_RO", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
+        self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
         self.setattr_argument("AX_volts_MOT", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
         self.setattr_argument("AX_volts_PGC", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
-        self.setattr_argument("AX_volts_RO", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
+        self.setattr_argument("AX_volts_PGC", NumberValue(0.5*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-X shim coils")
         self.setattr_argument("AY_volts_MOT", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
         self.setattr_argument("AY_volts_PGC", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
-        self.setattr_argument("AY_volts_RO", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
+        self.setattr_argument("AY_volts_PGC", NumberValue(0.4*(-1.64/2.5), unit="V", ndecimals=3, step=0.025),"A-Y shim coils")
 
         # define user-configurable independent variables in human-readable units
         # these will show up in the GUI
@@ -231,7 +231,7 @@ class SimpleAtomTrapping(EnvExperiment):
 
 
         # change the magnetic fields for imaging
-        self.zotino0.set_dac([-self.AZ_bottom_volts_RO, self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        self.zotino0.set_dac([-self.AZ_bottom_volts_PGC, self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                              channels=[0, 1, 2, 3])
 
         # take the shot
