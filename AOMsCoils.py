@@ -89,11 +89,9 @@ class AOMsCoils(EnvExperiment):
 
         delay(1 * ms)
         if self.D1_pumping_DP_AOM_ON == True:
-            self.ttl_GRIN1_switch.off()
             self.dds_D1_pumping_DP.sw.on()
         else:
             self.dds_D1_pumping_DP.sw.off()
-            self.ttl_GRIN1_switch.on()
 
         delay(1 * ms)
         if self.pumping_repump_AOM_ON == True:
