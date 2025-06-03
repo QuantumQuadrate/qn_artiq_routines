@@ -690,7 +690,7 @@ def load_MOT_and_FORT_until_atom(self):
         ### set the cooling DP AOM to the PGC settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
 
-        if self.PGC_on_chip:
+        if self.PGC_and_RO_with_on_chip_beams:
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
 
@@ -1121,7 +1121,7 @@ def first_shot(self):
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
     self.dds_AOM_A4.sw.on()
-    if not self.PGC_on_chip:
+    if not self.PGC_and_RO_with_on_chip_beams:
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
     delay(0.1 * ms)
@@ -1222,7 +1222,7 @@ def second_shot(self):
     self.dds_AOM_A3.sw.on()
     self.dds_AOM_A4.sw.on()
 
-    if not self.PGC_on_chip:
+    if not self.PGC_and_RO_with_on_chip_beams:
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
     delay(0.1 * ms)
@@ -1575,7 +1575,7 @@ def chopped_optical_pumping(self):
     self.dds_cooling_DP.sw.off()  # no cooling light
     delay(1 * us)
 
-    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  #todo: is this really 5dB?
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
     delay(1 * us)
