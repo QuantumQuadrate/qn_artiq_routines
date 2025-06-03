@@ -695,6 +695,153 @@ def load_MOT_and_FORT_until_atom(self):
     delay(1 * ms)
 
 @kernel
+def load_FORT_until_atom_optimizer(self):
+    """
+    To be used in GVO to optimize atom loading time.
+
+    Similar to load_MOT_and_FORT_until_atom(self), but does not try to load an atom forever. It stops after a few trials.
+    Otherwise, we cannot use this function to optimize atom loading time; with wrong shims settings, for example,
+    it keeps trying and never finishes the iteration.
+
+    Turning on the MOT and FORT light at the same time and monitor SPCM0. Turn off the MOT as soon as an atom is trapped.
+
+    Turns ON the following at the beginning:
+        FORT AOM
+        Cooling DP
+        All fiber AOMs
+        MOT RP
+
+    Leaves the following OFF at the end:
+        Cooling DP
+        MOT RP
+
+
+    :param self: the experiment instance
+    :return:
+    """
+
+    ### Set the coils to MOT loading setting
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        channels=self.coil_channels)
+
+    ### set the cooling DP AOM to the MOT settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    delay(0.1 * ms)
+
+    self.dds_cooling_DP.sw.on()  ### turn on cooling
+    self.ttl_repump_switch.off()  ### turn on MOT RP
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    delay(0.1 * ms)
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    self.dds_FORT.sw.off()
+    delay(15*ms)
+
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    self.dds_FORT.sw.on()
+
+    delay(1 * ms)
+    self.ttl_UV.pulse(self.t_UV_pulse)
+
+    max_tries = 100  ### Maximum number of attempts before running the feedback
+    atom_check_time = self.t_atom_check_time
+    atom_loaded = False
+    try_n = 0
+    t_before_atom = now_mu() ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
+    t_after_atom = now_mu()
+    time_without_atom = 0.0
+
+
+    while not atom_loaded and try_n < max_tries:
+        delay(100 * us)  ### Needs a delay of about 100us or maybe less
+        with parallel:
+            self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+            self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+
+        SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
+        SPCM1_atom_check = self.ttl_SPCM1_counter.fetch_count()
+
+        BothSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check) / 2)
+
+        try_n += 1
+
+        if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
+            delay(100 * us)  ### Needs a delay of about 100us or maybe less
+            atom_loaded = True
+
+        ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
+        self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
+
+    if atom_loaded:
+        # t_before_atom = t_after_atom ### I don't know why I had this! Removed and seems working fine.
+        self.set_dataset("time_without_atom", 0.0, broadcast=True) ### resetting time_without_atom when we load an atom
+        t_after_atom = now_mu()
+        self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
+    else:
+        self.atom_loading_time = 10e9
+        ### Just a large number to show no atom loading. This is compared to the typical 0.5 second atom loading.
+
+        ### If max_tries reached and still no atom, run feedback
+        if self.enable_laser_feedback:
+            delay(0.1 * ms) ### necessary to avoid underflow
+            ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            delay(0.1 * ms)
+            self.laser_stabilizer.run()
+            self.dds_FORT.sw.on()
+            delay(0.1 * ms)
+
+
+    ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
+    delay(10*ms)
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+        channels=self.coil_channels)
+    delay(0.4 * ms)
+
+    self.ttl_repump_switch.on()  ### turn off MOT RP
+    self.dds_cooling_DP.sw.off()  ### turn off cooling
+
+    delay(1 * ms)
+    delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+
+    # self.ttl7.on()  ### for triggering oscilloscope
+
+    ###########  PGC on the trapped atom  #############
+    if self.do_PGC_after_loading:
+        if self.which_node == 'alice':
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        elif self.which_node == 'bob':
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+        ### set the cooling DP AOM to the PGC settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+        self.ttl_repump_switch.off()  ### turn on MOT RP
+        self.dds_cooling_DP.sw.on()  ### turn on cooling
+        delay(10 * us)
+        # self.dds_AOM_A5.sw.off()
+        # self.dds_AOM_A6.sw.off()
+        delay(self.t_PGC_after_loading)  ### this is the PGC time
+    ###################################################
+    # self.ttl7.off()
+
+    ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
+    self.SPCM0_FORT_science = 0
+    # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
+    # self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
+
+    ### saving the atom loading time for each loaded atom.
+
+    self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
+    self.n_atom_loaded_per_iteration += 1
+    delay(1 * ms)
+
+@kernel
 def load_MOT_and_FORT_until_atom_recycle(self):
     """
     Before attempting to load MOT and FORT, it checks if there is already an atom in the FORT. If not, then it turns on the MOT and FORT
@@ -2493,6 +2640,7 @@ def atom_loading_2_experiment(self):
         # load_MOT_and_FORT(self)
         load_MOT_and_FORT_until_atom(self)
         # load_MOT_and_FORT_until_atom_recycle(self)
+        # load_FORT_until_atom_optimizer(self) ### use only with GVO to optimize loading time
 
         delay(1*ms)
         first_shot(self)
@@ -2510,6 +2658,52 @@ def atom_loading_2_experiment(self):
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+
+    self.dds_FORT.sw.off()
+
+@kernel
+def atom_loading_optimizer_experiment(self):
+    """
+    Simple atom loading experiment based on load_FORT_until_atom_optimizer to optimize atom loading time.
+    Use this in GVO aith atom_loading_time_cost. This measures the atom loading time based on RO1 rather in FORT loading.
+
+    turn on MOT and FORT until an atom is detected. Then turn off MOT to dissipate, and do RO1 and RO2.
+
+    :param self: an experiment instance.
+    :return:
+    """
+
+    self.core.reset()
+    self.require_D1_lock_to_advance = False # override experiment variable
+
+    self.ttl7.on()
+    if self.enable_laser_feedback:
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        run_feedback_and_record_FORT_MM_power(self)
+
+    self.ttl7.off()
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+        delay(10 * ms)
+
+        load_FORT_until_atom_optimizer(self) ### use only with GVO to optimize loading time
+
+        delay(1*ms)
+        first_shot(self)
+        delay(1 * ms)
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        delay(self.t_delay_between_shots)
+        second_shot(self)
+
+        end_measurement(self)
 
     self.dds_FORT.sw.off()
 
