@@ -354,11 +354,13 @@ class FORT_Polarization_Optimizer(EnvExperiment):
             print("iteration # ", iteration," : best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
             iteration += 1
 
+        delay(1*s)
         # move back to the best HWP, QWP
         move_to_target_deg(self, name="852_HWP", target_deg=best_HWP)
         move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
 
-        print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
+
+        # print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
         # print("difference in best_HWP, best_QWP, best_power = ", (self.best_852HWP_to_max - best_HWP), ", ", (self.best_852QWP_to_max - best_QWP), ", ", (self.best_852_power - best_power))
         delay(1*s)
 
@@ -386,6 +388,8 @@ class FORT_Polarization_Optimizer(EnvExperiment):
 
         This procedure is essential for reliable polarization optimization.
         """
+        #todo: why does this function underflows randomly?
+        delay(1 * s)
         self.core.reset()
 
         delay(1 * s)
