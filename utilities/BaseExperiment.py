@@ -527,6 +527,65 @@ class BaseExperiment:
         set_MW_profile("01", self.experiment.t_MW_01_ramp, self.experiment.t_microwave_01_pulse)
         set_MW_profile("11", self.experiment.t_MW_11_ramp, self.experiment.t_microwave_11_pulse)
 
+
+    def prepare_FORT_RAM_profile(self):
+        """
+        Prepares FORT RAM waveform to be used to ramp down and ramp up the FORT smoothly. Stores the resulting
+        step size, total points, and amplitude lists as attributes on self.experiment for use in experiment_functions.
+        This gets called in prepare() below.
+        """
+
+        FORT_steps_rise = 50  # number of amplitude points during the rise and fall time
+        FORT_amp_high = self.experiment.stabilizer_FORT.amplitudes[0] # low and high amplitudes in scale from 0 to 1
+        FORT_amp_low = self.experiment.stabilizer_FORT.amplitudes[1]
+
+        print(FORT_amp_high)
+        print(FORT_amp_low)
+
+
+        FORT_step_ticks = int(
+            (self.experiment.t_FORT_ramp / FORT_steps_rise) / (
+                    4 * ns))  ### Step size
+
+        FORT_dwell_time = 100*us
+
+        FORT_steps_dwell = int(
+            FORT_steps_rise / self.experiment.t_FORT_ramp * FORT_dwell_time)  # Number of dwell points
+
+        ### Gaussian function.
+        FORT_x_vals = [0.0 + 3.1 * i / (FORT_steps_rise - 1) for i in range(FORT_steps_rise)]
+        FORT_raw = [math.exp(-0.5 * x * x) for x in FORT_x_vals]
+        FORT_g_min, FORT_g_max = FORT_raw[0], FORT_raw[-1]
+        FORT_norm = [(r - FORT_g_min) / (FORT_g_max - FORT_g_min) for r in FORT_raw]
+
+        ### scale into respective ramp according to amplitude.
+        FORT_amp_points_rise = [FORT_amp_low + n * (FORT_amp_high - FORT_amp_low) for n in FORT_norm]
+        FORT_amp_points_fall = list(
+            reversed([FORT_amp_low + n * (FORT_amp_high - FORT_amp_low) for n in FORT_norm]))
+
+        ### The full waveform.
+        FORT_amp_points = (
+                FORT_amp_points_rise +
+                [FORT_amp_high] * FORT_steps_dwell +
+                FORT_amp_points_fall
+        )
+
+        print(f'FORT RAM FORT_amp_points: {len(FORT_amp_points)}')  ### Underflow error if larger than ~500
+
+        ### some data conversion needed for RAM
+        FORT_amplitudes_arr = np.zeros(len(FORT_amp_points), dtype=np.int32)
+        self.experiment.dds_FORT.amplitude_to_ram(FORT_amp_points, FORT_amplitudes_arr)
+        FORT_amplitudes_list = list(FORT_amplitudes_arr)
+
+        ### This is calculation of steps based on above parameters
+        FORT_total_points = len(FORT_amplitudes_list)
+
+        self.experiment.FORT_step_size = FORT_step_ticks
+        self.experiment.FORT_total_points = FORT_total_points
+        self.experiment.FORT_amplitudes_list = FORT_amplitudes_list
+
+
+
     def prepare(self):
         """
         Initialize DeviceAliases, compute DDS amplitudes from powers, instantiate the laser servo,
@@ -647,6 +706,7 @@ class BaseExperiment:
                                      [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
             self.prepare_all_microwave_RAM_profiles()
+            self.prepare_FORT_RAM_profile()
 
         elif self.node == "bob":
             # self.experiment.FORT_pol_stabilizer = FORTPolarizationStabilizer(experiment=self.experiment,
@@ -731,6 +791,7 @@ class BaseExperiment:
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
             self.prepare_all_microwave_RAM_profiles()
+            self.prepare_FORT_RAM_profile()
 
         elif self.node == "two_nodes":
             ### initialize named channels.
@@ -810,6 +871,7 @@ class BaseExperiment:
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
             self.prepare_all_microwave_RAM_profiles()
+            self.prepare_FORT_RAM_profile()
 
         else:
             raise KeyError

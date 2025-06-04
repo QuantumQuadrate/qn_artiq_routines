@@ -220,6 +220,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_FORT_loading", 100*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_drop", 0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_FORT_modulation", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_FORT_ramp", 1 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 15 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_atom_check_time", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
