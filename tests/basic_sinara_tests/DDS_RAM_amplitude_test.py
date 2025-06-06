@@ -153,7 +153,7 @@ class DDS_RAM_amplitude_test(EnvExperiment):
         self.dds2 = self.get_device("urukul0_ch1") ### Cooling DP dds
 
     def prepare(self):
-        self.ramp_time = 50 * us  # ramp time from first to max amplitude
+        self.ramp_time = 5 * ms  # ramp time from first to max amplitude
         self.ramp_points = 50  # number of amplitude points during the rise and fall time
         self.amp_low, self.amp_high = 0.0, 0.2  # low and high amplitudes in scale from 0 to 1
 
@@ -170,7 +170,7 @@ class DDS_RAM_amplitude_test(EnvExperiment):
         amp_points_rise = [self.amp_low + n * (self.amp_high - self.amp_low) for n in norm]
         amp_points_fall = list(reversed([self.amp_low + n * (self.amp_high - self.amp_low) for n in norm]))
 
-        ### The full waveform. Start with falling edge!
+        ### The full waveform
         amp_points = (
                 amp_points_rise +
                 amp_points_fall
@@ -225,7 +225,6 @@ class DDS_RAM_amplitude_test(EnvExperiment):
         self.ttl7.on()
 
 
-
         ### Configure the RAM to playback the first half
         self.dds1.set_profile_ram(
             start=0,
@@ -248,10 +247,9 @@ class DDS_RAM_amplitude_test(EnvExperiment):
 
         self.dds2.sw.on()
 
-
-
-        delay(8 * ms)   # Leave at-least enough time to cover up the first ram time, plus any extra time we want.
-
+        delay(5 * ms)   # Leave at-least enough time to cover up the first ram time, plus any extra time we want.
+        self.dds2.set(frequency=10 * MHz, amplitude=0.12, profile=0) ### this messes up dds1 and runs the RAM again!!
+        delay(5*ms)
 
 
         ### Configure the RAM to playback the second half
@@ -266,22 +264,19 @@ class DDS_RAM_amplitude_test(EnvExperiment):
 
         self.dds2.sw.off()
 
-
-
         self.ttl7.off()
 
-        delay(10 * us)
+        delay(5 * ms)
 
         self.cfr_reset(self.dds1) # Exit RAM Mode
 
-        self.dds1.set(frequency=245 * MHz, amplitude=0.1, profile=1)
-        self.dds1.sw.on()
+        # ### to show that we can change the dds settings after RAM
+        # self.dds1.set(frequency=245 * MHz, amplitude=0.1, profile=1)
+        # self.dds1.sw.on()
 
         delay(4 * ms)
 
         self.dds1.sw.off()
-
-
 
         # self.dds1.sw.off()
 
