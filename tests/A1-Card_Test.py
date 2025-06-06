@@ -75,28 +75,43 @@ class Card_Tests(EnvExperiment):
 ### Testing DDSs:
     def build(self):
        self.setattr_device("core")
-       # print("aaaa")
-       self.setattr_device("urukul2_cpld")
-       self.setattr_device("urukul2_ch0")
+       self.setattr_device("ttl7")
+
+       self.dds1 = self.get_device("urukul0_ch0")  ### FORT dds
+       self.dds2 = self.get_device("urukul0_ch1")
 
 
     @kernel
     def run(self):
         self.core.reset()
-        self.urukul2_ch0.cpld.init()
-        self.urukul2_ch0.init()
-        self.urukul2_ch0.set_att(float(0))
 
-        # self.urukul0_cpld.set_profile(0)
+        self.dds1.cpld.init()
+        self.dds1.init()
+        self.dds1.set_att(0.0)
 
-        delay(10 * ms)
+        self.dds1.cpld.set_profile(0)
 
-        dBm = -12
-        self.urukul2_ch0.set(78.682 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2)) #0.08)
-        self.urukul2_ch0.sw.on()
+        delay(10 * us)
 
-        delay(5 * ms)
-        # self.urukul2_ch3.sw.off()
+        dBm = -5
+        ampl = (2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2)
+        print(ampl)
+        delay(10*ms)
+
+        self.dds1.set(50 * MHz, amplitude=ampl, profile=0)
+        delay(10*us)
+
+        # ### This does not work; no error, but no effect; totally ignored:
+        # self.dds1.set_frequency(5*MHz)
+        # self.dds1.set_amplitude(0.5)
+
+
+        self.ttl7.on()
+        self.dds1.sw.on()
+
+        delay(500 * us)
+        self.dds1.sw.off()
+        self.ttl7.off()
 
         print("code done!")
 

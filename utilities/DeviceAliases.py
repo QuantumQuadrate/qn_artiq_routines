@@ -57,6 +57,22 @@ class DeviceAliases:
         self.experiment.urukul0_cpld.init()
         self.experiment.urukul1_cpld.init()
         self.experiment.urukul2_cpld.init()
+
+        self.experiment.urukul0_ch0.cpld.set_profile(0) ### FORT channel
+        self.experiment.urukul0_ch1.cpld.set_profile(0)
+        self.experiment.urukul0_ch2.cpld.set_profile(0)
+        self.experiment.urukul0_ch3.cpld.set_profile(0)
+
+        self.experiment.urukul1_ch0.cpld.set_profile(0)
+        self.experiment.urukul1_ch1.cpld.set_profile(0)
+        self.experiment.urukul1_ch2.cpld.set_profile(0)
+        self.experiment.urukul1_ch3.cpld.set_profile(0)
+
+        self.experiment.urukul2_ch0.cpld.set_profile(0)
+        self.experiment.urukul2_ch1.cpld.set_profile(0)
+        self.experiment.urukul2_ch2.cpld.set_profile(0)
+        self.experiment.urukul2_ch3.cpld.set_profile(0)
+
         self.experiment.core.break_realtime()
 
         for i in range(len(self.dds_list)):
@@ -64,7 +80,7 @@ class DeviceAliases:
             self.dds_list[i].set_att(float(0))  # set attenuator to 0
             ampl = (2*50*10**(self.dds_powers[i]/10 - 3))**(1/2) # convert dBm to volts
             self.dds_list[i].set(frequency=self.dds_frequencies[i],
-                                 amplitude=ampl)
+                                 amplitude=ampl, profile=0)
             delay(1*ms)
 
     @kernel
@@ -86,5 +102,6 @@ class DeviceAliases:
         for i in range(len(self.dds_list)):
             ampl = (2*50*10**(self.dds_powers[i]/10 - 3))**(1/2) # convert dBm to volts
             self.dds_list[i].set(frequency=self.dds_frequencies[i],
-                                 amplitude=ampl)
+                                 amplitude=ampl, profile=0)
+
             delay(1*ms)
