@@ -710,7 +710,7 @@ def load_atom_smooth_FORT(self):
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         channels=self.coil_channels)
 
-    # set the cooling DP AOM to the MOT settings
+    ### set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT, profile=0)
 
     self.dds_cooling_DP.sw.on()
@@ -1402,9 +1402,22 @@ def first_shot_smooth_FORT(self):
     :return:
     """
     # self.ttl7.on()
+
+
+    ### required to avoid FORT to drop
+    self.dds_FORT.set_profile_ram(
+        start=0,
+        end=0,
+        step=self.FORT_step_size,
+        profile=1,
+        mode=RAM_MODE_RAMPUP)
+    self.dds_FORT.cpld.set_profile(1)
+    self.dds_FORT.cpld.io_update.pulse_mu(8)
+
     ### set the cooling DP AOM to the readout settings.
     ### This causes the FORT to drop to science setpoint for about 2us!! What the hell!
     ### if I add a delay after this line, the FORT will drop to science and starts to ramp up!!
+    ### A solution is playing a single point for FORT on RAM as done above.
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                             amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO, profile=0)
 
@@ -1490,9 +1503,21 @@ def second_shot_smooth_FORT(self):
 
     self.ttl7.on()
 
-    # ### set the cooling DP AOM to the readout settings
-    # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-    #                         amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO, profile=0)
+    ### set the cooling DP AOM to the readout settings
+    ### required to avoid FORT to drop
+    self.dds_FORT.set_profile_ram(
+        start=len(self.FORT_amplitudes_list) // 2 - 1,
+        end=len(self.FORT_amplitudes_list) // 2 - 1,
+        step=self.FORT_step_size,
+        profile=1,
+        mode=RAM_MODE_RAMPUP)
+    self.dds_FORT.cpld.set_profile(1)
+    self.dds_FORT.cpld.io_update.pulse_mu(8)
+
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+                            amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO, profile=0)
+
+
 
     self.ttl_repump_switch.off()  ### turn on MOT RP
     self.dds_cooling_DP.sw.on()  ### Turn on cooling
@@ -2755,7 +2780,7 @@ def atom_loading_3_experiment(self):
     """
     Same as atom_loading_2_experiment but with smooth FORT ramp to science setpoint.
     No errors. But two issues:
-    1- changing the settings on cooling dds aftect the FORT output! It starts the RAM on FORT!
+    1- changing the settings on cooling dds affects the FORT output! It starts the RAM on FORT!
     2- I don't get atoms, the background is lower that expected. So, something is off!
 
     :param self: an experiment instance.
