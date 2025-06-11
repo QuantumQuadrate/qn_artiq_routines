@@ -3450,7 +3450,7 @@ def microwave_Rabi_2_experiment(self):
 
         if self.t_microwave_pulse > 0.0:
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.8 * self.stabilizer_FORT.amplitudes[1], profile=0)
-            delay(5 * us)
+            delay(2 * us)
 
             # ### Changing the bias field for testing.
             # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,self.AX_volts_microwave, self.AY_volts_microwave],
@@ -3462,7 +3462,7 @@ def microwave_Rabi_2_experiment(self):
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
-            delay(0.1 * ms)
+            delay(2 * us)
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1], profile=0)
 
         ############################
@@ -3518,13 +3518,13 @@ def microwave_Ramsey_experiment(self):
     if self.enable_laser_feedback:
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT, profile=0)
         delay(0.1 * ms)
         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         self.laser_stabilizer.run()
 
     # delay(1 * ms)
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves), profile=0)
     delay(1 * ms)
     self.dds_microwaves.sw.on()
     delay(1 * ms)
@@ -3561,23 +3561,34 @@ def microwave_Ramsey_experiment(self):
         ############################
         # microwave phase
         ############################
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        delay(5 * us)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1], profile=0)
+        delay(2 * us)
 
         ### first pi/2 pulse
         self.ttl_microwave_switch.off()
         delay(self.t_microwave_pulse)
         self.ttl_microwave_switch.on()
 
-        delay(self.t_delay_between_shots)
+        ### use only one of the following:
+
+        # ### without spin echo:
+        # delay(self.t_delay_between_shots)
+
+        ### with spin echo:
+        delay(self.t_delay_between_shots/2)
+        self.ttl_microwave_switch.off()
+        delay(self.t_microwave_00_pulse)
+        self.ttl_microwave_switch.on()
+        delay(self.t_delay_between_shots/2)
+
 
         ### second pi/2 pulse
         self.ttl_microwave_switch.off()
         delay(self.t_microwave_pulse)
         self.ttl_microwave_switch.on()
 
-        delay(100*us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        delay(2*us)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1], profile=0)
 
         ############################
         # blow-away phase - push out atoms in F=2 only
