@@ -3571,15 +3571,15 @@ def microwave_Ramsey_experiment(self):
 
         ### use only one of the following:
 
-        # ### without spin echo:
-        # delay(self.t_delay_between_shots)
+        ### without spin echo:
+        delay(self.t_delay_between_shots)
 
-        ### with spin echo:
-        delay(self.t_delay_between_shots/2)
-        self.ttl_microwave_switch.off()
-        delay(self.t_microwave_00_pulse)
-        self.ttl_microwave_switch.on()
-        delay(self.t_delay_between_shots/2)
+        # ### with spin echo. This does not work well. Needs debugging.
+        # delay(self.t_delay_between_shots/2)
+        # self.ttl_microwave_switch.off()
+        # delay(self.t_microwave_00_pulse)
+        # self.ttl_microwave_switch.on()
+        # delay(self.t_delay_between_shots/2)
 
 
         ### second pi/2 pulse
