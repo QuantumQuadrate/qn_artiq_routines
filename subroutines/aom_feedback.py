@@ -182,7 +182,7 @@ class FeedbackChannel:
                 self.amplitude = self.amplitudes[0] # for seamless backwards compatibility with older code
 
             # update the dds amplitude
-            self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index], profile=0)
+            self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index])
 
             return False
         else:
@@ -197,7 +197,7 @@ class FeedbackChannel:
         self.amplitude will be the one that was set at the end of the feedback routine.
         :param setpoint_index=0: the index of the setpoint, which specifies which amplitude we should use
         """
-        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index], profile=0)
+        self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index])
 
     @kernel
     def run(self, monitor_only=False, record_all_measurements=False, setpoint_index=0):
@@ -603,7 +603,7 @@ class AOMPowerStabilizer:
             #
             # todo: D1 feedback
             # if ch.name == 'dds_D1_pumping_DP':
-            #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0), profile=0)
+            #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
             #     self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
             #     delay(1*ms)
 
