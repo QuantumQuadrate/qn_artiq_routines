@@ -43,7 +43,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
         ### overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
-        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(10000))
+        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(14000))
         self.setattr_argument("n_measurements", NumberValue(10, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
         self.both_mode = "coils and beam powers"

@@ -198,9 +198,9 @@ class BaseExperiment:
             self.experiment.FORT_MM_sampler_ch = 7
             self.experiment.GRIN1_sampler_ch = 4  # Sampler1; function "measure_GRIN1" in experiment functions.py
 
-            self.experiment.Magnetometer_X_ch = 2 ### Magnetometer is connected to Sampler2
-            self.experiment.Magnetometer_Y_ch = 3
-            self.experiment.Magnetometer_Z_ch = 4
+            self.experiment.Magnetometer_X_ch = 1 ### Magnetometer is connected to Sampler2
+            self.experiment.Magnetometer_Y_ch = 2
+            self.experiment.Magnetometer_Z_ch = 3
 
             ### for zotino stability test
             # self.zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
@@ -307,9 +307,9 @@ class BaseExperiment:
                                              self.experiment.AX_Zotino_channel,
                                              self.experiment.AY_Zotino_channel]
 
-            self.experiment.Magnetometer_X_ch = 2  ### Magnetometer is connected to Sampler2
-            self.experiment.Magnetometer_Y_ch = 3
-            self.experiment.Magnetometer_Z_ch = 4
+            self.experiment.Magnetometer_X_ch = 1  ### Magnetometer is connected to Sampler2
+            self.experiment.Magnetometer_Y_ch = 2
+            self.experiment.Magnetometer_Z_ch = 3
 
             ### dataset names
             self.experiment.measurements_progress = 'measurements_progress'
@@ -890,6 +890,13 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
+
+        self.experiment.set_dataset("coil_driver_AZ_bottom_MOT", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AZ_top_MOT", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AX_MOT", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AY_MOT", [0.0], broadcast=True)
+
+        self.experiment.set_dataset("iteration_time", [0.0], broadcast=True)
 
         self.experiment.set_dataset("FORT_MM_monitor", [], broadcast=True)
         self.experiment.set_dataset("FORT_APD_monitor", [], broadcast=True)

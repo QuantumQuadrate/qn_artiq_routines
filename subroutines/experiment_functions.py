@@ -6,6 +6,7 @@ from artiq.coredevice.ad9910 import (
     RAM_DEST_ASF,
     RAM_MODE_RAMPUP
 )
+from artiq.coredevice.urukul import CFG_MASK_NU
 from artiq.language import us, ns, MHz
 import logging
 import numpy as np
@@ -357,54 +358,6 @@ def rotator_test_experiment(self):
     # self.print_async('hwp780 at ', hwp780_deg, ' deg')
 
 @kernel
-def zotino_stability_test(self):
-    '''
-    Zotino Stability test function to verify Zotino Voltage Output Drift.
-
-    this is called in load_MOT_and_FORT
-
-    * for testing purposes,
-    1) AZ_bottom_volts_MOT
-        zotino_test_1_Zotino_channel:
-        zotino_test_1_Sampler_channel:
-
-    # Defined in BaseExperiment.py
-    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
-    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
-
-    # Defined in BaseExperiment.py
-    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
-    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
-
-    '''
-
-    zotino_test1_Sampler_channel = 5 # Sampler 1 - ch5
-    zotino_test2_Sampler_channel = 6  # Sampler 1 - ch6
-
-    measurement_buf = np.array([0.0]*8)
-    measurement1 = 0.0 #  1
-    measurement2 = 0.0 #  2
-
-    avgs = 50
-
-    # Repump 1
-    for i in range(avgs):
-        self.sampler1.sample(measurement_buf)
-        delay(0.1 * ms)
-        measurement1 += measurement_buf[zotino_test1_Sampler_channel]
-        delay(0.1 * ms)
-        measurement2 += measurement_buf[zotino_test2_Sampler_channel]
-
-
-    measurement1 /= avgs
-    measurement2 /= avgs
-
-    self.append_to_dataset("zotino_test1_monitor", measurement1)
-    self.append_to_dataset("zotino_test2_monitor", measurement2)
-
-    delay(0.1 * ms)
-
-@kernel
 def shot_without_measurement(self):
     """
     non-chopped first atom readout.
@@ -694,6 +647,8 @@ def load_MOT_and_FORT_until_atom(self):
     ### saving the atom loading time for each loaded atom.
     self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
     self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
+    delay(1 * ms)
+    self.append_to_dataset("iteration_time", now_mu())  ### just to plot Atom_loading_time vs actual time in analysis
     self.n_atom_loaded_per_iteration += 1
     delay(1 * ms)
 
@@ -728,6 +683,8 @@ def load_atom_smooth_FORT(self):
 
     self.ttl_UV.on()
 
+    self.ttl7.on()
+
     ############################################  Turning on FORT in RAM mode
     prepare_FORT_RAM_profile(self)
     self.dds_FORT.set_cfr1(ram_enable=0)  ### disable RAM mode to write the config
@@ -738,12 +695,11 @@ def load_atom_smooth_FORT(self):
         start=0,
         end=self.FORT_total_points - 1,
         step=self.FORT_step_size,
-        profile=1,
+        profile=7,
         mode=RAM_MODE_RAMPUP,
     )
 
     ### write the data onto RAM
-    self.dds_FORT.cpld.set_profile(1)
     self.dds_FORT.cpld.io_update.pulse_mu(8)
     self.dds_FORT.write_ram(self.FORT_amplitudes_list)
 
@@ -758,20 +714,18 @@ def load_atom_smooth_FORT(self):
         start=self.FORT_total_points // 2,
         end=self.FORT_total_points - 1,
         step=self.FORT_step_size,
-        profile=1,
+        profile=7,
         mode=RAM_MODE_RAMPUP)
-    self.dds_FORT.cpld.set_profile(1)
     self.dds_FORT.cpld.io_update.pulse_mu(8)
     self.dds_FORT.sw.on()
     self.dds_FORT.cpld.io_update.pulse_mu(8)
-
     ########################################  End of Turning on FORT
-
 
     ### wait for the MOT to load
     delay(self.t_MOT_loading)
 
     self.ttl_UV.off()
+    self.ttl7.off()
 
     self.dds_cooling_DP.sw.off()
     self.ttl_repump_switch.on()
@@ -963,6 +917,8 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         ### saving the atom loading time for each loaded atom.
         self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
         self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
+        delay(1 * ms)
+        self.append_to_dataset("iteration_time", now_mu()) ### just to plot Atom_loading_time vs actual time in analysis
         self.n_atom_loaded_per_iteration += 1
         delay(10 * ms)
 
@@ -1403,23 +1359,10 @@ def first_shot_smooth_FORT(self):
     """
     # self.ttl7.on()
 
-
-    ### required to avoid FORT to drop
-    self.dds_FORT.set_profile_ram(
-        start=0,
-        end=0,
-        step=self.FORT_step_size,
-        profile=1,
-        mode=RAM_MODE_RAMPUP)
-    self.dds_FORT.cpld.set_profile(1)
-    self.dds_FORT.cpld.io_update.pulse_mu(8)
-
-    ### set the cooling DP AOM to the readout settings.
-    ### This causes the FORT to drop to science setpoint for about 2us!! What the hell!
-    ### if I add a delay after this line, the FORT will drop to science and starts to ramp up!!
-    ### A solution is playing a single point for FORT on RAM as done above.
+    self.dds_FORT.cpld.cfg_write(self.dds_FORT.cpld.cfg_reg | 1 << CFG_MASK_NU + 0)  # Mask the DDS channel which is on RAM mode
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                             amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+    self.dds_FORT.cpld.cfg_write(self.dds_FORT.cpld.cfg_reg & ~(1 << CFG_MASK_NU + 0))  # Unmask the DDS channel which in on RAM mode
 
 
     ### Configure the RAM to playback the first half (ramping down to science point)
@@ -1427,9 +1370,8 @@ def first_shot_smooth_FORT(self):
         start=0,
         end=len(self.FORT_amplitudes_list) // 2 - 1,
         step=self.FORT_step_size,
-        profile=1,
+        profile=7,
         mode=RAM_MODE_RAMPUP)
-    self.dds_FORT.cpld.set_profile(1)
     self.dds_FORT.cpld.io_update.pulse_mu(8)
 
     delay(self.t_FORT_ramp)
@@ -1501,29 +1443,20 @@ def second_shot_smooth_FORT(self):
         channels=self.coil_channels)
     delay(0.4 * ms)  ## coils relaxation time
 
-    self.ttl7.on()
+    # self.ttl7.on()
 
     ### set the cooling DP AOM to the readout settings
-    ### required to avoid FORT to drop
-    self.dds_FORT.set_profile_ram(
-        start=len(self.FORT_amplitudes_list) // 2 - 1,
-        end=len(self.FORT_amplitudes_list) // 2 - 1,
-        step=self.FORT_step_size,
-        profile=1,
-        mode=RAM_MODE_RAMPUP)
-    self.dds_FORT.cpld.set_profile(1)
-    self.dds_FORT.cpld.io_update.pulse_mu(8)
-
+    self.dds_FORT.cpld.cfg_write(self.dds_FORT.cpld.cfg_reg | 1 << CFG_MASK_NU + 0)  # Mask the DDS channel which is on RAM mode
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                             amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
-
+    self.dds_FORT.cpld.cfg_write(self.dds_FORT.cpld.cfg_reg & ~(1 << CFG_MASK_NU + 0))  # Unmask the DDS channel which in on RAM mode
 
 
     self.ttl_repump_switch.off()  ### turn on MOT RP
     self.dds_cooling_DP.sw.on()  ### Turn on cooling
     delay(0.1 * ms)
 
-    self.ttl7.off()
+    # self.ttl7.off()
 
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
@@ -1559,9 +1492,12 @@ def second_shot_smooth_FORT(self):
         start=self.FORT_total_points // 2,
         end=self.FORT_total_points - 1,
         step=self.FORT_step_size,
-        profile=1,
+        profile=7,
         mode=RAM_MODE_RAMPUP)
-    self.dds_FORT.cpld.set_profile(1)
+    self.dds_FORT.cpld.io_update.pulse_mu(8)
+
+    ### exit RAM
+    self.dds_FORT.set_cfr1(ram_enable=0)
     self.dds_FORT.cpld.io_update.pulse_mu(8)
 
 @kernel
@@ -2202,7 +2138,7 @@ def measure_PUMPING_REPUMP(self):
 @kernel
 def zotino_stability_test(self):
     '''
-    Zotino Stability test function to verify Zotino Voltage Output Drift.
+    Zotino Stability test function to see if Zotino voltage output drifts.
 
     this is called in load_MOT_and_FORT
 
@@ -2268,6 +2204,50 @@ def Sampler0_test(self):
     measurement1 /= avgs
 
     self.append_to_dataset("Sampler0_test", measurement1)
+
+    delay(0.1 * ms)
+
+@kernel
+def measure_coil_driver(self):
+    '''
+    I have connected "monitor out" of the coil drivers to Sampler2 ch4, 5, 6, and 7, to monitor the output
+    of the coils while loading MOT and atom to see if there is any correlation between bad atom loading
+    and coil driver outputs.
+
+    '''
+
+    avgs = 10
+
+    #####################################  Measure in the MOT phase
+    ### Set the coils to MOT loading setting
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        channels=self.coil_channels)
+    delay(100 * ms)
+
+    measurement_buf = np.array([0.0] * 8)
+    coilZ_bottom = 0.0
+    coilZ_top = 0.0
+    coilX = 0.0
+    coilY = 0.0
+
+    for i in range(avgs):
+        self.sampler2.sample(measurement_buf)
+        coilZ_bottom += measurement_buf[4]
+        coilZ_top += measurement_buf[7]
+        coilX += measurement_buf[6]
+        coilY += measurement_buf[5]
+
+        delay(0.1 * ms)
+    coilZ_bottom /= avgs
+    coilZ_top /= avgs
+    coilX /= avgs
+    coilY /= avgs
+
+    self.append_to_dataset("coil_driver_AZ_bottom_MOT", coilZ_bottom)
+    self.append_to_dataset("coil_driver_AZ_top_MOT", coilZ_top)
+    self.append_to_dataset("coil_driver_AX_MOT", coilX)
+    self.append_to_dataset("coil_driver_AY_MOT", coilY)
 
     delay(0.1 * ms)
 
@@ -2444,7 +2424,7 @@ def measure_MOT_end(self):
 
 @kernel
 def measure_Magnetometer(self):
-    ### x,y, and z axes are connected to Sampler2 Ch2,3, and 4, respectively.
+    ### x,y, and z axes are connected to Sampler2 Ch1,2, and 3, respectively.
     avgs = 10
 
     #####################################  Measure in the MOT phase
@@ -2565,10 +2545,12 @@ def end_measurement(self):
     measure_PUMPING_REPUMP(self)
     delay(1*ms)
 
-    # if self.which_node == "alice":
-    #     measure_Magnetometer(self)
-    #     delay(1*ms)
-    #     Sampler0_test(self)
+    if self.which_node == "alice":
+        measure_Magnetometer(self)
+        delay(1*ms)
+        Sampler0_test(self)
+        delay(1*ms)
+        measure_coil_driver(self)
 
     # measure_MOT_end(self)
     # delay(1*ms)
@@ -2820,7 +2802,7 @@ def atom_loading_3_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
         # delay(0.1 * ms)
 
         load_atom_smooth_FORT(self)
@@ -3389,6 +3371,11 @@ def microwave_Rabi_2_experiment(self):
     self.SPCM1_RO1 = 0
     self.SPCM1_RO2 = 0
 
+    self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
+    ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
+    ### in each iteration.
+    self.n_atom_loaded_per_iteration = 0
+
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
         delay(100*ms)
@@ -3494,6 +3481,9 @@ def microwave_Rabi_2_experiment(self):
     self.dds_FORT.sw.off()
     delay(1*ms)
     self.dds_microwaves.sw.off()
+
+    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
 @kernel
 def microwave_Ramsey_00_experiment(self):
@@ -6751,12 +6741,11 @@ def Testing_FORT_ramp_experiment(self):
         start=0,
         end=self.FORT_total_points - 1,
         step=self.FORT_step_size,
-        profile=1,
+        profile=7,
         mode=RAM_MODE_RAMPUP,
     )
 
     ### write the data onto RAM
-    self.dds_FORT.cpld.set_profile(1)
     self.dds_FORT.cpld.io_update.pulse_mu(8)
     self.dds_FORT.write_ram(self.FORT_amplitudes_list)
 
@@ -6780,9 +6769,8 @@ def Testing_FORT_ramp_experiment(self):
         start=self.FORT_total_points // 2,
         end=self.FORT_total_points - 1,
         step=self.FORT_step_size,
-        profile=1,
+        profile=7,
         mode=RAM_MODE_RAMPUP)
-    self.dds_FORT.cpld.set_profile(1)
     self.dds_FORT.cpld.io_update.pulse_mu(8)
 
     ### Running the RAM
@@ -6801,9 +6789,8 @@ def Testing_FORT_ramp_experiment(self):
             start=0,
             end=len(self.FORT_amplitudes_list) // 2 - 1,
             step=self.FORT_step_size,
-            profile=1,
+            profile=7,
             mode=RAM_MODE_RAMPUP)
-        self.dds_FORT.cpld.set_profile(1)
         self.dds_FORT.cpld.io_update.pulse_mu(8)
 
         delay(2 * ms)  # Leave at-least enough time to cover up the first ram time, plus any extra time we want.
@@ -6819,9 +6806,8 @@ def Testing_FORT_ramp_experiment(self):
             start=self.FORT_total_points // 2,
             end=self.FORT_total_points - 1,
             step=self.FORT_step_size,
-            profile=1,
+            profile=7,
             mode=RAM_MODE_RAMPUP)
-        self.dds_FORT.cpld.set_profile(1)
         self.dds_FORT.cpld.io_update.pulse_mu(8)
 
         self.ttl7.off()
@@ -6838,7 +6824,7 @@ def Testing_FORT_ramp_experiment(self):
     ### If we want to change frequency or amplitude after exiting RAM mode, we should do it like below
     ### with profile=0. The first time we change the amplitude the FORT gets off for about 2us.
     ### The second time, the FORT stays ON all the time, just the amplitude changes.
-    self.dds_FORT.cpld.set_profile(0)
+    # self.dds_FORT.cpld.set_profile(0)
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.2)
     delay(2*ms)
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.3)
