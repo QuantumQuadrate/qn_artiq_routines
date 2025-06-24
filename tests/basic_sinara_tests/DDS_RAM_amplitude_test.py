@@ -29,7 +29,7 @@ class DDS_RAM_amplitude_test(EnvExperiment):
         self.dds2 = self.get_device("urukul2_ch1") ### Cooling DP dds
 
     def prepare(self):
-        self.ramp_time = 5 * ms  # ramp time from first to max amplitude
+        self.ramp_time = 0.2 * ms  # ramp time from first to max amplitude
         self.ramp_points = 50  # number of amplitude points during the rise and fall time
         self.amp_low, self.amp_high = 0.0, 0.2  # low and high amplitudes in scale from 0 to 1
 
@@ -73,7 +73,7 @@ class DDS_RAM_amplitude_test(EnvExperiment):
         ### dds2 is used in non-RAM mode
         self.dds2.cpld.init()
         self.dds2.init()
-        self.dds2.set(frequency=1 * MHz, amplitude=0.1)
+        self.dds2.set(frequency=1.0 * MHz, amplitude=0.1)
         self.dds2.set_att(0.0)
         self.dds2.sw.off()
 
@@ -96,7 +96,7 @@ class DDS_RAM_amplitude_test(EnvExperiment):
         self.dds1.cpld.io_update.pulse_mu(8)
         self.dds1.write_ram(self.ram_data)
 
-        delay(1 * ms)
+        delay(0.1 * ms)
 
         self.ttl7.on()
 
@@ -120,21 +120,21 @@ class DDS_RAM_amplitude_test(EnvExperiment):
         ### Running the RAM
         self.dds1.sw.on()
         self.dds1.cpld.io_update.pulse_mu(8)
-        delay(5*ms)  # Leave at-least enough time to cover up the first ram time, plus any extra time we want.
+        delay(0.5*ms)  # Leave at-least enough time to cover up the first ram time, plus any extra time we want.
 
         ### We don't need to mask dds1 to turn on or off dds2. But we need to mask it when changing the settings of dds2.
         ### Otherwise, if we disable the two mask lines below, dds1 RAM restarts when we change dds2 setting.
         self.dds2.sw.on()
-        delay(2*ms)
+        delay(0.2*ms)
         self.dds2.sw.off()
-        delay(2 * ms)
+        delay(0.2 * ms)
         self.dds2.sw.on()
 
-        delay(5 * ms)
+        delay(0.5 * ms)
         self.dds1.cpld.cfg_write(self.dds1.cpld.cfg_reg | 1 << CFG_MASK_NU + 0)  # Mask the DDS channel which is on RAM mode
-        self.dds2.set(frequency=1 * MHz, amplitude=0.5)
+        self.dds2.set(frequency=1.0 * MHz, amplitude=0.1)
         self.dds1.cpld.cfg_write(self.dds1.cpld.cfg_reg & ~(1 << CFG_MASK_NU + 0))  # Unmask the DDS channel which in on RAM mode
-        delay(5*ms)
+        delay(0.5*ms)
 
 
         ### Configure the RAM to playback the second half
@@ -151,15 +151,22 @@ class DDS_RAM_amplitude_test(EnvExperiment):
 
         self.ttl7.off()
 
-        delay(5 * ms)
+        delay(0.5 * ms)
 
         self.cfr_reset(self.dds1) # Exit RAM Mode
 
-        ### to show that we can change the dds settings after RAM
-        self.dds1.set(frequency=1 * MHz, amplitude=0.2)
+        ### to show that we can change the dds settings after RAM. Note that we have to set the frequency and amplitude
+        ### after exiting the RAM (once is enough). Otherwise, the dds will not turn on.
+        self.dds1.set(frequency=1.0 * MHz, amplitude=0.1)
         self.dds1.sw.on()
+        delay(100*us)
+        self.dds1.sw.off()
+        delay(100*us)
+        self.dds1.sw.on()
+        delay(100 * us)
+        self.dds1.sw.off()
 
-        delay(4 * ms)
+        delay(0.4 * ms)
 
         self.dds1.sw.off()
 
