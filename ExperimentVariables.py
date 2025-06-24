@@ -274,6 +274,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("use_chopped_readout", False, BooleanValue, {}, "Booleans"),
             Variable("chopped_RO_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("verify_OP_in_photon_experiment", False, BooleanValue, {}, "Booleans"),
+            Variable("monitors_for_atom_loading", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),

@@ -896,7 +896,7 @@ class BaseExperiment:
         self.experiment.set_dataset("coil_driver_AX_MOT", [0.0], broadcast=True)
         self.experiment.set_dataset("coil_driver_AY_MOT", [0.0], broadcast=True)
 
-        self.experiment.set_dataset("iteration_time", [0.0], broadcast=True)
+        self.experiment.set_dataset("atom_loading_wall_clock", [0.0], broadcast=True)
 
         self.experiment.set_dataset("FORT_MM_monitor", [], broadcast=True)
         self.experiment.set_dataset("FORT_APD_monitor", [], broadcast=True)
@@ -957,9 +957,6 @@ class BaseExperiment:
             for i in range(8):
                 self.experiment.sampler0.set_gain_mu(i, 8)
                 delay(100 * us)
-
-            # self.experiment.sampler1.set_gain_mu(6,5) ### gain for the FORT APD channel
-            # delay(100 * us)
 
             for i in range(8):
                 if i == 6:

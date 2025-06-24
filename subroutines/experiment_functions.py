@@ -513,6 +513,13 @@ def load_MOT_and_FORT_until_atom(self):
     :return:
     """
 
+    if self.monitors_for_atom_loading:
+        measure_Magnetometer(self)
+        delay(1 * ms)
+        Sampler0_test(self)
+        delay(1 * ms)
+        measure_coil_driver(self)
+
     ### Set the coils to MOT loading setting
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
@@ -648,7 +655,7 @@ def load_MOT_and_FORT_until_atom(self):
     self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
     self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
     delay(1 * ms)
-    self.append_to_dataset("iteration_time", now_mu())  ### just to plot Atom_loading_time vs actual time in analysis
+    self.append_to_dataset("atom_loading_wall_clock", now_mu())  ### just to plot Atom_loading_time vs actual time in analysis
     self.n_atom_loaded_per_iteration += 1
     delay(1 * ms)
 
@@ -659,6 +666,12 @@ def load_atom_smooth_FORT(self):
     Turning on the MOT and FORT light at the same time and monitor SPCM0. Turn off the MOT as soon as an atom is trapped.
     """
 
+    if self.monitors_for_atom_loading:
+        measure_Magnetometer(self)
+        delay(1 * ms)
+        Sampler0_test(self)
+        delay(1 * ms)
+        measure_coil_driver(self)
 
     # Turn on the MOT coils and cooling light
     self.zotino0.set_dac(
@@ -790,6 +803,14 @@ def load_MOT_and_FORT_until_atom_recycle(self):
 
     ### load an atom if atom_loaded = False
     if not atom_loaded:
+
+        if self.monitors_for_atom_loading:
+            measure_Magnetometer(self)
+            delay(1*ms)
+            Sampler0_test(self)
+            delay(1*ms)
+            measure_coil_driver(self)
+
         ### Set the coils to MOT loading setting
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
@@ -918,7 +939,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
         self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
         delay(1 * ms)
-        self.append_to_dataset("iteration_time", now_mu()) ### just to plot Atom_loading_time vs actual time in analysis
+        self.append_to_dataset("atom_loading_wall_clock", now_mu()) ### just to plot Atom_loading_time vs actual time in analysis
         self.n_atom_loaded_per_iteration += 1
         delay(10 * ms)
 
@@ -2545,12 +2566,12 @@ def end_measurement(self):
     measure_PUMPING_REPUMP(self)
     delay(1*ms)
 
-    if self.which_node == "alice":
-        measure_Magnetometer(self)
-        delay(1*ms)
-        Sampler0_test(self)
-        delay(1*ms)
-        measure_coil_driver(self)
+    # if self.which_node == "alice":
+    #     measure_Magnetometer(self)
+    #     delay(1*ms)
+    #     Sampler0_test(self)
+    #     delay(1*ms)
+    #     measure_coil_driver(self)
 
     # measure_MOT_end(self)
     # delay(1*ms)
