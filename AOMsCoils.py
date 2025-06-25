@@ -55,9 +55,6 @@ class AOMsCoils(EnvExperiment):
     def prepare(self):
         self.base.prepare()
 
-        #todo: put this in BaseExperiment.py
-        self.setpoint_datasets = ["best_HWP_to_H","best_QWP_to_H"]
-        self.default_setpoints = [getattr(self, dataset) for dataset in self.setpoint_datasets]
 
     @kernel
     def turn_on_AOMs(self):
