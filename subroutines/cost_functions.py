@@ -153,8 +153,6 @@ def atom_retention_cost(self) -> TFloat:
     :return: -100*retention_fraction, the negated percentage of atoms detected in the readout
     """
 
-
-
     shot1 = self.BothSPCMs_RO1_list
     shot2 = self.BothSPCMs_RO2_list
 
@@ -163,8 +161,6 @@ def atom_retention_cost(self) -> TFloat:
     atoms_retained = [x > self.single_atom_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
     loading_fraction = n_atoms_loaded/len(shot1)
-
-
 
     # # recompute the retention and loading with an Otsu threshold.
     # # this will typically give a more accurate cut-off in case the histogram cleanness or cut-off changes with the
