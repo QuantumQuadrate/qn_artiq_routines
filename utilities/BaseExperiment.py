@@ -179,7 +179,7 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_RF_switch = self.experiment.ttl15
 
 
             ### for debugging/logging purposes in experiments
@@ -194,6 +194,8 @@ class BaseExperiment:
                                              self.experiment.AZ_top_Zotino_channel,
                                              self.experiment.AX_Zotino_channel,
                                              self.experiment.AY_Zotino_channel]
+
+            self.experiment.UV_trig_channel = [8]
 
             self.experiment.FORT_MM_sampler_ch = 7
             self.experiment.GRIN1_sampler_ch = 4  # Sampler1; function "measure_GRIN1" in experiment functions.py
@@ -283,7 +285,7 @@ class BaseExperiment:
             ### ttl12~15
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_RF_switch = self.experiment.ttl15
 
             ### in experiment_functions.py, measure_FORT_MM_fiber() function
             ### BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
@@ -306,6 +308,8 @@ class BaseExperiment:
                                              self.experiment.AZ_top_Zotino_channel,
                                              self.experiment.AX_Zotino_channel,
                                              self.experiment.AY_Zotino_channel]
+
+            self.experiment.UV_trig_channel = [8]
 
             self.experiment.Magnetometer_X_ch = 1  ### Magnetometer is connected to Sampler2
             self.experiment.Magnetometer_Y_ch = 2
@@ -371,7 +375,7 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_RF_switch = self.experiment.ttl15
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
 
             ### for debugging/logging purposes in experiments
@@ -386,6 +390,8 @@ class BaseExperiment:
                                              self.experiment.AZ_top_Zotino_channel,
                                              self.experiment.AX_Zotino_channel,
                                              self.experiment.AY_Zotino_channel]
+
+            self.experiment.UV_trig_channel = [8]
 
             ### dataset names
             self.experiment.measurements_progress = 'measurements_progress'
@@ -946,7 +952,7 @@ class BaseExperiment:
             self.experiment.ttl_GRIN1_switch.on()  ### ensure no excitation or D1 is on at the beginning
 
             self.experiment.FORT_mod_switch.output()
-            self.experiment.ttl_UV.output()
+            self.experiment.ttl_RF_switch.output()
 
             delay(1 * ms)
 
@@ -974,7 +980,7 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
-            self.experiment.ttl_UV.off()
+            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
             delay(1 * ms)
             self.experiment.FORT_mod_switch.off()  # off = no modulation
 
@@ -1029,7 +1035,7 @@ class BaseExperiment:
             self.experiment.ttl_GRIN2_switch.on() ### ensure no excitation or D1 is on at the beginning
             self.experiment.ttl_GRIN1_switch.on() ### ensure no excitation or D1 is on at the beginning
 
-            self.experiment.ttl_UV.output()
+            self.experiment.ttl_RF_switch.output()
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
@@ -1043,7 +1049,7 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_exc0_switch.on()
             delay(1 * ms)
-            self.experiment.ttl_UV.off()
+            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
@@ -1080,8 +1086,8 @@ class BaseExperiment:
             delay(1 * ms)
             self.experiment.ttl9.off()
 
-            self.experiment.ttl_UV.output()
-            self.experiment.ttl_UV.off()
+            self.experiment.ttl_RF_switch.output()
+            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback

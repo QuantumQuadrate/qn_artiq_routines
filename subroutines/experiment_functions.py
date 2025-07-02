@@ -458,8 +458,6 @@ def load_MOT_and_FORT(self):
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
-    self.ttl_UV.pulse(self.t_UV_pulse)
-
     ### wait for the MOT to load
     delay(self.t_MOT_loading)
 
@@ -561,7 +559,7 @@ def load_MOT_and_FORT_until_atom(self):
     self.dds_FORT.sw.on()
 
     delay(1 * ms)
-    self.ttl_UV.on()
+    self.zotino0.set_dac([3.5], self.UV_trig_channel)
 
     max_tries = 100  ### Maximum number of attempts before running the feedback
     atom_check_time = self.t_atom_check_time
@@ -624,7 +622,8 @@ def load_MOT_and_FORT_until_atom(self):
 
             try_n = 0
 
-    self.ttl_UV.off()
+    self.zotino0.set_dac([0.0], self.UV_trig_channel)
+    delay(100*us)
 
     ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
     self.zotino0.set_dac(
@@ -768,7 +767,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         self.dds_FORT.sw.on()
 
         delay(1 * ms)
-        self.ttl_UV.on()
+        self.zotino0.set_dac([3.5], self.UV_trig_channel)
 
         max_tries = 100  ### Maximum number of attempts before running the feedback
         atom_check_time = self.t_atom_check_time
@@ -824,7 +823,8 @@ def load_MOT_and_FORT_until_atom_recycle(self):
 
                 try_n = 0
 
-        self.ttl_UV.off()
+        self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        delay(100*us)
 
         ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
         self.zotino0.set_dac(
@@ -908,7 +908,7 @@ def load_atom_smooth_FORT(self):
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
-    self.ttl_UV.on()
+    self.zotino0.set_dac([3.5], self.UV_trig_channel)
 
     self.ttl7.on()
 
@@ -934,7 +934,8 @@ def load_atom_smooth_FORT(self):
     ### wait for the MOT to load
     delay(self.t_MOT_loading)
 
-    self.ttl_UV.off()
+    self.zotino0.set_dac([0.0], self.UV_trig_channel)
+    delay(100 * us)
     self.ttl7.off()
 
     self.dds_cooling_DP.sw.off()
@@ -976,7 +977,7 @@ def load_until_atom_smooth_FORT(self):
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
-    self.ttl_UV.on()
+    self.zotino0.set_dac([3.5], self.UV_trig_channel)
 
     # self.ttl7.on()
 
@@ -1076,7 +1077,8 @@ def load_until_atom_smooth_FORT(self):
             self.dds_FORT.cpld.io_update.pulse_mu(8)
             ########################################  End of Turning on FORT
 
-    self.ttl_UV.off()
+    self.zotino0.set_dac([0.0], self.UV_trig_channel)
+    delay(100 * us)
 
     ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
     self.zotino0.set_dac(
@@ -1217,7 +1219,7 @@ def load_until_atom_smooth_FORT_recycle(self):
         self.dds_AOM_A6.sw.on()
 
         delay(1 * ms)
-        self.ttl_UV.on()
+        self.zotino0.set_dac([3.5], self.UV_trig_channel)
 
         ############################################  Turning on FORT in RAM mode
         delay(1 * ms)
@@ -1311,7 +1313,8 @@ def load_until_atom_smooth_FORT_recycle(self):
                 self.dds_FORT.cpld.io_update.pulse_mu(8)
                 ########################################  End of Turning on FORT
 
-        self.ttl_UV.off()
+        self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        delay(100 * us)
 
         ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
         self.zotino0.set_dac(
@@ -3326,7 +3329,7 @@ def atom_loading_optimizer_experiment(self):
         self.dds_FORT.sw.on()
 
         delay(1 * ms)
-        self.ttl_UV.on()
+        self.zotino0.set_dac([3.5], self.UV_trig_channel)
 
         max_tries = 100  ### Maximum number of attempts before running the feedback
         atom_check_time = self.t_atom_check_time
@@ -3356,7 +3359,8 @@ def atom_loading_optimizer_experiment(self):
             self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check)
 
         delay(1 * ms)
-        self.ttl_UV.off()
+        self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        delay(100 * us)
 
         if not atom_loaded:
             ### If max_tries reached and still no atom, run feedback

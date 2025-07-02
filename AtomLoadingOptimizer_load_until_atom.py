@@ -319,7 +319,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.dds_FORT.sw.on()
 
             delay(1 * ms)
-            self.ttl_UV.on()
+            self.zotino0.set_dac([3.5], self.UV_trig_channel)
             self.ttl7.on()
 
             max_tries = 100  ### Maximum number of attempts before running the feedback
@@ -358,7 +358,8 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             else:
                 atom_loading_time = 10e9 ### Just a large number to show no atom loading. This is compared to the typical 0.5 second atom loading.
 
-            self.ttl_UV.off()
+            self.zotino0.set_dac([0.0], self.UV_trig_channel)
+            delay(100*us)
             self.ttl7.off()
             self.atom_loading_time_list[i] = atom_loading_time
 
@@ -487,7 +488,6 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.dds_FORT.sw.on()
 
             delay(1 * ms)
-            # self.ttl_UV.pulse(self.t_UV_pulse)
 
             max_tries = 100  ### Maximum number of attempts before running the feedback
             atom_check_time   = 20 * ms
