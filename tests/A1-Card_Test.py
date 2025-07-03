@@ -11,25 +11,23 @@ import numpy as np
 
 
 class Card_Tests(EnvExperiment):
-# ### Testing TTLs:
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("ttl13")
-#         ### slef.setattr_device() is a built-in method in artiq that declares and configures a device such as core
-#         ### and ttl4. These devices can be accessed like self.ttl4. //Akbar
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#
-#         delay(1 * us)
-#         self.ttl13.off()
-#
-#         for x in range(50):
-#             self.ttl13.pulse(1*us)
-#             delay(2*us)
-#
-#         print("code done!")
+### Testing TTLs:
+    def build(self):
+        self.setattr_device("core")
+        self.setattr_device("ttl15")
+
+    @kernel
+    def run(self):
+        self.core.reset()
+
+        delay(1 * us)
+        self.ttl15.off()
+
+        for x in range(200):
+            self.ttl15.pulse(100*ms)
+            delay(50*ms)
+
+        print("code done!")
 
 
 
@@ -116,35 +114,35 @@ class Card_Tests(EnvExperiment):
 #         print("code done!")
 
 
- #### Testing Zotino:
-    def build(self):
-       self.setattr_device("core")
-       self.setattr_device("zotino0")
-
-    @kernel
-    def run(self):
-       self.core.reset()
-       self.core.break_realtime()
-       self.zotino0.init()
-       delay(10 * ms)
-
-       # self.zotino0.write_dac(0, 2.0)
-       # self.zotino0.write_dac(1, 0.0)
-       # self.zotino0.write_dac(2, 0.0)
-       # self.zotino0.write_dac(3, 0.0)
-       # self.zotino0.write_dac(4, 0.0)
-       # self.zotino0.write_dac(5, 0.0)
-       # self.zotino0.load()
-
-       # self.zotino0.set_dac(0.0,0)
-
-       self.zotino0.set_dac([0.0], [8])
-       delay(100*us)
-       # self.zotino0.set_dac([2,2,2,2])
-
-       delay(10 * ms)
-
-       print("code done!")
+ # #### Testing Zotino:
+ #    def build(self):
+ #        self.setattr_device("core")
+ #        self.setattr_device("zotino0")
+ #
+ #    @kernel
+ #    def run(self):
+ #        self.core.reset()
+ #        self.core.break_realtime()
+ #        self.zotino0.init()
+ #        delay(10 * ms)
+ #
+ #        # self.zotino0.write_dac(0, 2.0)
+ #        # self.zotino0.write_dac(1, 0.0)
+ #        # self.zotino0.write_dac(2, 0.0)
+ #        # self.zotino0.write_dac(3, 0.0)
+ #        # self.zotino0.write_dac(4, 0.0)
+ #        # self.zotino0.write_dac(5, 0.0)
+ #        # self.zotino0.load()
+ #
+ #        self.zotino0.set_dac([3.5], [8])
+ #        delay(10*ms)
+ #        self.zotino0.set_dac([0.0], [8])
+ #
+ #        # self.zotino0.set_dac([2,2,2,2])
+ #
+ #        delay(10 * ms)
+ #
+ #        print("code done!")
 
 
 
