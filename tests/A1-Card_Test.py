@@ -27,6 +27,8 @@ class Card_Tests(EnvExperiment):
             self.ttl15.pulse(100*ms)
             delay(50*ms)
 
+        # self.ttl15.off()
+
         print("code done!")
 
 
