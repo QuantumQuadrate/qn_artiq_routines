@@ -11,7 +11,7 @@
                     "dataset": "MOT1_monitor",
                     "power_dataset":"p_AOM_A1",
                     "t_measure_delay":0.0005,
-                    "max_dB": -5
+                    "max_dB": -10
                 },
             "dds_AOM_A2":
                 {
