@@ -23,9 +23,9 @@ class Card_Tests(EnvExperiment):
         delay(1 * us)
         self.ttl15.off()
 
-        for x in range(200):
-            self.ttl15.pulse(100*ms)
-            delay(50*ms)
+        for x in range(1000):
+            self.ttl15.pulse(1*ms)
+            delay(100*ms)
 
         # self.ttl15.off()
 

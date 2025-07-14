@@ -5163,14 +5163,12 @@ def microwave_map01_map11_CORPSE_experiment(self):
 @kernel
 def microwave_map00_map0m1_experiment(self):
     """
-    Using the microwave frequencies found with microwave_freq_scan_with_photons_experiment, this experiment maps from
-    F=1,mF=0 to F=2,mF=0, then maps F=2,mF=0 to F=1,mF=-1. We should be able to transfer >90% of
-    population and find the microwave resonance frequencies more accurately than with microwave_freq_scan_with_photons_experiment.
+    This experiment maps from F=1,mF=0 to F=2,mF=0, then maps F=2,mF=0 to F=1,mF=-1.
 
     1- loads an atom using load_MOT_and_FORT_until_atom
     2- Pumps the atom into F=1,mF=0
     3- Uses microwave pi pulse to transfer population from F=1,mF=0 to F=2,mF=0
-    4- Apply another microwave pulse to do Rabi oscillation between F=2,mF=0 and F=1,mF=-1
+    4- Apply another microwave pulse to transfer from F=2,mF=0 to F=1,mF=-1
     5- Blow away F=2 manifold
     6- Measure retention
 
@@ -5389,6 +5387,11 @@ def microwave_map00_map0m1_MWRFm11_experiment(self):
         delay(5 * us)
 
         ############################ microwave + RF phase to transfer population from F=1,mF=-1 to F=2,mF=1
+
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
+        delay(0.4*ms)
+
         if self.t_MW_RF_pulse>0:
             self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
             delay(5 * us)
@@ -5404,6 +5407,138 @@ def microwave_map00_map0m1_MWRFm11_experiment(self):
                 self.ttl_RF_switch.off() ### turn off RF
         delay(10*us)
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
+        ############################ blow-away phase - push out atoms in F=2 only
+        if self.t_blowaway > 0.0:
+            chopped_blow_away(self)
+
+        delay(0.1 * ms)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(6 * ms)  ### hopefully to avoid underflow.
+        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
+        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+        delay(1 * ms)
+
+    self.core.break_realtime()
+    self.dds_FORT.sw.off()
+    self.ttl_RF_switch.off()  ### turn off RF
+    delay(1 * ms)
+    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+    self.dds_microwaves.sw.off()
+
+@kernel
+def microwave_MW00_RF01_MW00_experiment(self):
+    """
+    This experiment tries to find the RF transition rate and frequency around 2MHz.
+
+    1- loads an atom
+    2- Pumps the atom into F=1,mF=0
+    3- Uses microwave pi pulse to transfer population from F=1,mF=0 to F=2,mF=0
+    4- Uses RF on-resonance to transfer population from F=2,mF=0 to F=2,mF=1
+    5- Uses microwave pi pulse to transfer population from F=2,mF=0 back to F=1,mF=0
+    6- Blow away F=2 manifold
+    7- Measure retention
+
+    """
+
+    self.core.reset()
+    delay(1 * ms)
+
+    ### overwritten below but initialized here so they are always initialized
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
+    SPCM0_SinglePhoton = 0
+    SPCM1_SinglePhoton = 0
+
+    self.n_feedback_per_iteration = 2
+    self.n_atom_loaded_per_iteration = 0
+
+    max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
+    ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
+
+    record_chopped_blow_away(self)
+    delay(100 * ms)
+
+    record_chopped_optical_pumping(self)
+    delay(100 * ms)
+    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
+    delay(10 * ms)
+
+    if self.enable_laser_feedback:
+        delay(0.1 * ms)  ### necessary to avoid underflow
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        self.laser_stabilizer.run()
+
+    delay(1 * ms)
+
+    self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
+
+    self.ttl_RF_switch.off()  ### turn off RF
+
+    self.measurement = 0  # advances in end_measurement
+
+    while self.measurement < self.n_measurements:
+
+        self.ttl_exc0_switch.on()  # turns off the excitation
+
+        # load_MOT_and_FORT_until_atom(self)
+        load_MOT_and_FORT_until_atom_recycle(self)
+        delay(10 * us)
+
+        first_shot(self)
+        delay(1 * ms)
+
+        ############################
+        # optical pumping phase - pumps atoms into F=1,m_F=0
+        ############################
+        ### With chopped pumping:
+        if self.t_pumping > 0.0:
+            chopped_optical_pumping(self)
+            delay(1 * ms)
+
+        ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
+        self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.8 * self.stabilizer_FORT.amplitudes[1])
+        delay(5 * us)
+
+        if self.t_microwave_00_pulse > 0.0:
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_00_pulse)
+            self.ttl_microwave_switch.on()
+            delay(5 * us)
+
+        ############################ RF phase to transfer population from F=2,mF=0 to F=2,mF=1
+        if self.t_MW_RF_pulse>0.0:
+            self.ttl_RF_switch.on()  ### turn on RF
+            delay(self.t_MW_RF_pulse)
+            self.ttl_RF_switch.off()  ### turn off RF
+            delay(5 * us)
+
+        ############################ microwave phase to transfer population from F=2,mF=0 to F=1,mF=0
+        if self.t_microwave_00_pulse > 0.0:
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_00_pulse)
+            self.ttl_microwave_switch.on()
+            delay(5 * us)
+
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:

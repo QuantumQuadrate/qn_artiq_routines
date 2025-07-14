@@ -169,6 +169,9 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
             delay(1 * ms)
 
         print("ready!")
+        delay(10 * ms)
+        self.zotino0.set_dac([3.5], self.UV_trig_channel)
+        delay(1 * ms)
 
         for i in range(self.n_steps):
 
@@ -349,4 +352,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                             volts = sign * 9.9
                         self.set_dataset(self.volt_datasets[i], volts, broadcast=True, persist=True)
 
+        delay(10 * ms)
+        self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        delay(1 * ms)
         print("Experiment finished.")
