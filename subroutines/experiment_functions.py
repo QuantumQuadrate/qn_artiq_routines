@@ -2032,6 +2032,89 @@ def optical_pumping_with_GRIN_AO_sw(self):
     self.GRIN1and2_dds.sw.off()
     self.ttl_GRIN1_switch.on()
 
+
+
+@kernel
+def optical_pumping_with_GRIN_AO_sw_cleanup(self):
+    """
+    optical pumping without chopping the FORT
+
+    GRIN AOM is used to turn on/off the OP.
+
+    :param self:
+    :return:
+    """
+
+    self.dds_cooling_DP.sw.off()  # no MOT cooling light
+    self.ttl_repump_switch.on()   # no MOT RP AOM
+    self.ttl_exc0_switch.on()     # no excitation
+
+    ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
+
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    delay(10*us)
+
+    ### so that D1 can pass
+    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+    # self.GRIN1and2_dds.sw.on()
+    self.dds_D1_pumping_DP.set(frequency=self.f_D1_pumping_DP, amplitude=dB_to_V(self.p_D1_pumping_DP))
+
+
+    ### set coils for pumping
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        channels=self.coil_channels)
+    delay(0.4 * ms)  # coil relaxation time
+
+
+
+    ### Optical pumping phase ###
+
+    ## pumping repump ON
+    self.dds_pumping_repump.sw.on()
+
+    ## sending D1 through GRIN1
+    self.dds_D1_pumping_DP.sw.on()
+    self.GRIN1and2_dds.sw.on()
+    self.ttl_GRIN1_switch.off()
+
+
+    ## FORT OFF
+    self.dds_FORT.sw.off()
+
+    ## pumping time
+    delay(self.t_pumping)
+
+    ## FORT ON
+    self.dds_FORT.sw.on()
+
+    ## D1 OFF
+    self.GRIN1and2_dds.sw.off()
+    self.ttl_GRIN1_switch.on()
+    self.dds_D1_pumping_DP.sw.off()
+
+    delay(self.t_depumping)
+
+    ## depumping time
+    # delay(self.t_depumping)
+
+    ## pumping repump OFF
+    self.dds_pumping_repump.sw.off()
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+
+
+    delay(100 * us)
+
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
+    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+
 @kernel
 def measure_FORT_MM_fiber(self):
     # ALICE & BOB: both use Sampler1 - ch7
@@ -3210,14 +3293,10 @@ def microwave_Rabi_2_CW_OP_experiment(self):
         if self.t_pumping > 0.0:
             # chopped_optical_pumping(self)
             # optical_pumping(self)
-            optical_pumping_with_GRIN_AO_sw(self)
+            # optical_pumping_with_GRIN_AO_sw(self)
+            optical_pumping_with_GRIN_AO_sw_cleanup(self)
             delay(1*ms)
 
-        # ### with cw pumping:
-        # if self.t_pumping > 0.0:
-        #     delay (10 * us)
-        #     optical_pumping(self)
-        #     delay(1*ms)
 
         ############################
         # microwave phase
