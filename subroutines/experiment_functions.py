@@ -1805,6 +1805,9 @@ def optical_pumping(self):
     """
     optical pumping without chopping the FORT
 
+    ** OP AOM is driven with Urukul DDS ch
+    ** OP AOM is used to turn on/off the OP.
+
     :param self:
     :return:
     """
@@ -1914,9 +1917,12 @@ def optical_pumping(self):
     self.ttl_GRIN1_switch.on()
 
 @kernel
-def optical_pumping_with_GRIN_AO_sw(self):
+def optical_pumping_with_GRIN1_sw_OP_from_urukul(self):
     """
     optical pumping without chopping the FORT
+
+    ** OP AOM is driven with Urukul DDS ch
+    ** GRIN1 AOM is used to turn on/off the OP.
 
     :param self:
     :return:
@@ -1990,19 +1996,6 @@ def optical_pumping_with_GRIN_AO_sw(self):
 
 
     delay(2*us)
-    #
-    # additional_OP = True
-    #
-    # if additional_OP:
-    #     self.dds_FORT.sw.off()
-    #     self.dds_D1_pumping_DP.sw.on()
-    #     self.dds_pumping_repump.sw.on()
-    #     delay(self.t_pumping)
-    #     self.dds_D1_pumping_DP.sw.off()
-    #     delay(self.t_depumping)
-    #     self.dds_pumping_repump.sw.off()
-    #     self.dds_FORT.sw.on()
-    #
 
     if use_all_6_beams_for_PR:
         # self.dds_AOM_A1.sw.off()
@@ -2033,13 +2026,13 @@ def optical_pumping_with_GRIN_AO_sw(self):
     self.ttl_GRIN1_switch.on()
 
 
-
 @kernel
-def optical_pumping_with_GRIN_AO_sw_cleanup(self):
+def optical_pumping_with_GRIN1_sw_OP_from_novatech(self):
     """
     optical pumping without chopping the FORT
 
-    GRIN AOM is used to turn on/off the OP.
+    ** OP AOM is driven with external RF source.
+    ** GRIN1 AOM is used to turn on/off the OP.
 
     :param self:
     :return:
@@ -2048,6 +2041,7 @@ def optical_pumping_with_GRIN_AO_sw_cleanup(self):
     self.dds_cooling_DP.sw.off()  # no MOT cooling light
     self.ttl_repump_switch.on()   # no MOT RP AOM
     self.ttl_exc0_switch.on()     # no excitation
+    self.ttl_D1_pumping.on()      # no D1
 
     ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
@@ -2059,10 +2053,7 @@ def optical_pumping_with_GRIN_AO_sw_cleanup(self):
     delay(10*us)
 
     ### so that D1 can pass
-    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
-    # self.GRIN1and2_dds.sw.on()
-    self.dds_D1_pumping_DP.set(frequency=self.f_D1_pumping_DP, amplitude=dB_to_V(self.p_D1_pumping_DP))
-
+    self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(-5.0))
 
     ### set coils for pumping
     self.zotino0.set_dac(
@@ -2071,14 +2062,13 @@ def optical_pumping_with_GRIN_AO_sw_cleanup(self):
     delay(0.4 * ms)  # coil relaxation time
 
 
-
     ### Optical pumping phase ###
 
     ## pumping repump ON
     self.dds_pumping_repump.sw.on()
 
     ## sending D1 through GRIN1
-    self.dds_D1_pumping_DP.sw.on()
+    self.ttl_D1_pumping.off()  ##turning D1 ON
     self.GRIN1and2_dds.sw.on()
     self.ttl_GRIN1_switch.off()
 
@@ -2095,12 +2085,10 @@ def optical_pumping_with_GRIN_AO_sw_cleanup(self):
     ## D1 OFF
     self.GRIN1and2_dds.sw.off()
     self.ttl_GRIN1_switch.on()
-    self.dds_D1_pumping_DP.sw.off()
+    self.ttl_D1_pumping.on()  ##turning D1 OFF
 
+    # depumping time
     delay(self.t_depumping)
-
-    ## depumping time
-    # delay(self.t_depumping)
 
     ## pumping repump OFF
     self.dds_pumping_repump.sw.off()

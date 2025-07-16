@@ -86,9 +86,15 @@ class AOMsCoils(EnvExperiment):
 
         delay(1 * ms)
         if self.D1_pumping_DP_AOM_ON == True:
-            self.dds_D1_pumping_DP.sw.on()
+            if self.which_node == 'alice':
+                self.dds_D1_pumping_DP.sw.on()
+            elif self.which_node == 'bob':
+                self.ttl_D1_pumping.off()
         else:
-            self.dds_D1_pumping_DP.sw.off()
+            if self.which_node == 'alice':
+                self.dds_D1_pumping_DP.sw.off()
+            elif self.which_node == 'bob':
+                self.ttl_D1_pumping.on()
 
         delay(1 * ms)
         if self.pumping_repump_AOM_ON == True:

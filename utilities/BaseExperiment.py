@@ -271,6 +271,7 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch = self.experiment.ttl11
 
             ### ttl12~15
+            self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
             self.experiment.ttl_UV = self.experiment.ttl15
@@ -906,8 +907,10 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch.output()
 
             ### ttl12~15: already configured to be used as output at TTL card
+            self.experiment.ttl_D1_pumping.output()
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
+            self.experiment.ttl_D1_pumping.on()   ### ensure no D1 is on at the beginning
             self.experiment.ttl_GRIN2_switch.on() ### ensure no excitation or D1 is on at the beginning
             self.experiment.ttl_GRIN1_switch.on() ### ensure no excitation or D1 is on at the beginning
 
