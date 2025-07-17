@@ -126,6 +126,25 @@ class ExperimentVariables(EnvExperiment):
             Variable("p_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
 
+            # Node2 GRIN1 and GRIN2
+            Variable("f_GRIN1_D1_pumping", 150.50 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("p_GRIN1_D1_pumping", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("f_GRIN2_D1_pumping", 150.60 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("p_GRIN2_D1_pumping", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Node2 GRIN1 and GRIN2"),
+
+            Variable("f_GRIN1_excitation", 150.50 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("p_GRIN1_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("f_GRIN2_excitation", 150.60 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("p_GRIN2_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Node2 GRIN1 and GRIN2"),
+
             # Fiber AOMs
             Variable("AOM_A1_freq", 78.5 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
                      "Fiber AOMs"),

@@ -323,9 +323,9 @@ class BaseExperiment:
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
 
             ### not in alice
-            self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
+            # self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
             self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
-            self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
+            # self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
             self.experiment.ampl_AOM_A2 = dB_to_V(self.experiment.p_AOM_A2)
@@ -581,11 +581,14 @@ class BaseExperiment:
                 experiment=self.experiment,
                 device_aliases=[
                     'dds_FORT',
-                    'dds_D1_pumping_DP',
                     'dds_cooling_DP',
                     'dds_pumping_repump',
-                    'GRIN1and2_dds',
+                    # 'dds_GRIN1',
+                    # 'dds_GRIN2',
                     'dds_microwaves',
+                    'dds_D1_pumping_DP',
+                    'GRIN1and2_dds',
+
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
                 ]
             )
