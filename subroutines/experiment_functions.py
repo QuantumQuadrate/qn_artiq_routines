@@ -3921,6 +3921,7 @@ def microwave_Rabi_2_experiment(self):
     self.dds_microwaves.sw.off()
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
 @kernel
@@ -3984,7 +3985,6 @@ def microwave_Ramsey_00_experiment(self):
         ############################
         # microwave phase
         ############################
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
         delay(2 * us)
 
@@ -4019,7 +4019,6 @@ def microwave_Ramsey_00_experiment(self):
         ############################
         if self.t_blowaway > 0.0:
             chopped_blow_away(self)
-
 
         second_shot(self)
 
@@ -5514,7 +5513,7 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.6 * self.stabilizer_FORT.amplitudes[1])
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
         delay(5 * us)
 
         if self.t_microwave_00_pulse > 0.0:

@@ -169,7 +169,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
             delay(1 * ms)
 
         print("ready!")
-        delay(10 * ms)
+        delay(20 * ms)
         self.zotino0.set_dac([3.5], self.UV_trig_channel)
         delay(1 * ms)
 
