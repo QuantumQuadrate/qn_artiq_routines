@@ -127,6 +127,8 @@ class ExperimentVariables(EnvExperiment):
                      "OP and excitation AOMs"),
 
             # Node2 GRIN1 and GRIN2
+            Variable("max_pumping_cycles", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
+                     "Node2 GRIN1 and GRIN2"),
             Variable("f_GRIN1_D1_pumping", 150.50 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
                      "Node2 GRIN1 and GRIN2"),
             Variable("p_GRIN1_D1_pumping", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
