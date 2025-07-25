@@ -21,17 +21,17 @@
       "frequency": "f_cooling_DP_MOT",
       "power": "p_cooling_DP_MOT"
     },
+    "GRIN1and2_dds": {
+      "frequency": "f_GRIN1_D1_pumping",
+      "power": "p_GRIN1_D1_pumping"
+    },
     "dds_D1_pumping_DP": {
-      "frequency": "f_D1_pumping_DP",
-      "power": "p_D1_pumping_DP"
+      "frequency": "f_GRIN2_D1_pumping",
+      "power": "p_GRIN2_D1_pumping"
     },
     "dds_pumping_repump": {
       "frequency": "f_pumping_repump",
       "power": "p_pumping_repump"
-    },
-    "GRIN1and2_dds": {
-      "frequency": "f_excitation",
-      "power": "p_excitation"
     },
     "dds_microwaves": {
       "frequency": "f_microwaves_dds",

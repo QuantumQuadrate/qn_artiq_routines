@@ -106,10 +106,10 @@ class ExperimentVariables(EnvExperiment):
             Variable("p_cooling_DP_MOT", 2, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "Cooling double pass AOM"),
             Variable("p_cooling_DP_RO", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
-                                                           'scale': 1, 'ndecimals': 1},
+                                                           'scale': 1, 'ndecimals': 2},
                      "Cooling double pass AOM"),
             Variable("p_cooling_DP_PGC", 0.9, NumberValue, {'type': 'float', 'unit': "(fractional 0.0 to 1.0)",
-                                                            'scale': 1, 'ndecimals': 1},
+                                                            'scale': 1, 'ndecimals': 2},
                      "Cooling double pass AOM"),
 
             # D1 optical pumping, pumping repumper, and excitation
@@ -125,6 +125,27 @@ class ExperimentVariables(EnvExperiment):
                      "OP and excitation AOMs"),
             Variable("p_excitation", 2.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
                      "OP and excitation AOMs"),
+
+            # Node2 GRIN1 and GRIN2
+            Variable("max_pumping_cycles", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("f_GRIN1_D1_pumping", 150.50 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("p_GRIN1_D1_pumping", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("f_GRIN2_D1_pumping", 150.60 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("p_GRIN2_D1_pumping", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Node2 GRIN1 and GRIN2"),
+
+            Variable("f_GRIN1_excitation", 150.50 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("p_GRIN1_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("f_GRIN2_excitation", 150.60 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'},
+                     "Node2 GRIN1 and GRIN2"),
+            Variable("p_GRIN2_excitation", -8.0, NumberValue, {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1},
+                     "Node2 GRIN1 and GRIN2"),
 
             # Fiber AOMs
             Variable("AOM_A1_freq", 78.48 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz', 'ndecimals': 3},
@@ -280,6 +301,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("chopped_RO_light_off", False, BooleanValue, {}, "Booleans"),
             Variable("verify_OP_in_photon_experiment", False, BooleanValue, {}, "Booleans"),
             Variable("monitors_for_atom_loading", False, BooleanValue, {}, "Booleans"),
+            Variable("PGC_and_RO_with_on_chip_beams", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),

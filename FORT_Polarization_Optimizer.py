@@ -390,6 +390,8 @@ class FORT_Polarization_Optimizer(EnvExperiment):
 
         This procedure is essential for reliable polarization optimization.
         """
+        #todo: why does this function underflows randomly?
+        delay(1 * s)
         self.core.reset()
 
         delay(0.1 * ms)
