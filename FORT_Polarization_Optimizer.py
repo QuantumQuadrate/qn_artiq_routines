@@ -247,6 +247,7 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
         self.dds_FORT.sw.on()  ### turns FORT on
 
+        delay(2*s)   ## to ensure the FORT AOM power output is stabilized
 
         tolerance = float(self.tolerance_deg)   # rather than using fixed iteration, stop when step < tolerance
         full_range = float(self.full_range)  # Start with a full range
@@ -353,18 +354,23 @@ class FORT_Polarization_Optimizer(EnvExperiment):
             print("iteration # ", iteration," : best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
             iteration += 1
 
+        delay(1*s)
         # move back to the best HWP, QWP
         move_to_target_deg(self, name="852_HWP", target_deg=best_HWP)
         move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
 
-        print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
+
+        # print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
         # print("difference in best_HWP, best_QWP, best_power = ", (self.best_852HWP_to_max - best_HWP), ", ", (self.best_852QWP_to_max - best_QWP), ", ", (self.best_852_power - best_power))
+        delay(1*s)
 
         self.dds_FORT.sw.off()  ### turns FORT on
 
         self.set_dataset("best_852HWP_to_max", best_HWP, broadcast=True, persist=True)
         self.set_dataset("best_852QWP_to_max", best_QWP, broadcast=True, persist=True)
         self.set_dataset("best_852_power", best_power, broadcast=True, persist=True)
+
+        # self.run_feedback_and_record_ref_power()  # recording reference power
 
     @kernel
     def run_feedback_and_record_ref_power(self):
@@ -382,9 +388,11 @@ class FORT_Polarization_Optimizer(EnvExperiment):
 
         This procedure is essential for reliable polarization optimization.
         """
+        #todo: why does this function underflows randomly?
+        delay(1 * s)
         self.core.reset()
 
-        delay(0.1 * ms)
+        delay(1 * s)
         power = run_feedback_and_record_FORT_MM_power(self)  # in experiment_functions
 
         print("After feedback - best_852_power set to ", power)
