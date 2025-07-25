@@ -178,7 +178,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=self.max_runs,
-                                           target_cost=-10000.0, # Corresponds to average atom_loading_time = 100ms calculated from -1000/atom_loading_time.
+                                           target_cost=-5000.0, # -10000 corresponds to average atom_loading_time = 100ms calculated from -1000/atom_loading_time.
                                            num_params=n_params,
                                            min_boundary=min_bounds,
                                            max_boundary=max_bounds)
