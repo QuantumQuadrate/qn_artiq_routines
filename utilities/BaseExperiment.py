@@ -38,11 +38,14 @@ class MyExp(EnvExperiment):
 ----
 """
 from artiq.experiment import *
+from artiq.language import us, ns, MHz
 import logging
 import numpy as np
 from numpy import inf
 import sys, os
 import json
+import math
+
 
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
@@ -115,6 +118,9 @@ class BaseExperiment:
         self.experiment.SPCM1_RO2 = 0
         self.experiment.BothSPCMs_RO1 = 0
         self.experiment.BothSPCMs_RO2 = 0
+        self.experiment.BothSPCMs_parity_RO = 0
+        self.experiment.SPCM0_test_RO = 0
+        self.experiment.atom_loading_time = 0.0
 
         self.experiment.SPCM0_FORT_science = 0
         self.experiment.measurement = 0
@@ -123,6 +129,10 @@ class BaseExperiment:
 
         self.experiment.n_feedback_per_iteration = 0
         self.experiment.n_atom_loaded_per_iteration = 0
+
+        self.experiment.FORT_step_size = 1
+        self.experiment.FORT_total_points = 1
+        self.experiment.FORT_amplitudes_list = [0]
 
         if self.node == "alice":
             ### devices without nicknames. core should come first
@@ -169,7 +179,7 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_RF_switch = self.experiment.ttl15
 
 
             ### for debugging/logging purposes in experiments
@@ -185,12 +195,14 @@ class BaseExperiment:
                                              self.experiment.AX_Zotino_channel,
                                              self.experiment.AY_Zotino_channel]
 
+            self.experiment.UV_trig_channel = [8]
+
             self.experiment.FORT_MM_sampler_ch = 7
             self.experiment.GRIN1_sampler_ch = 4  # Sampler1; function "measure_GRIN1" in experiment functions.py
 
-            self.experiment.Magnetometer_X_ch = 2 ### Magnetometer is connected to Sampler2
-            self.experiment.Magnetometer_Y_ch = 3
-            self.experiment.Magnetometer_Z_ch = 4
+            self.experiment.Magnetometer_X_ch = 1 ### Magnetometer is connected to Sampler2
+            self.experiment.Magnetometer_Y_ch = 2
+            self.experiment.Magnetometer_Z_ch = 3
 
             ### for zotino stability test
             # self.zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
@@ -274,7 +286,7 @@ class BaseExperiment:
             self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_RF_switch = self.experiment.ttl15
 
             ### in experiment_functions.py, measure_FORT_MM_fiber() function
             ### BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
@@ -298,9 +310,11 @@ class BaseExperiment:
                                              self.experiment.AX_Zotino_channel,
                                              self.experiment.AY_Zotino_channel]
 
-            self.experiment.Magnetometer_X_ch = 2  ### Magnetometer is connected to Sampler2
-            self.experiment.Magnetometer_Y_ch = 3
-            self.experiment.Magnetometer_Z_ch = 4
+            self.experiment.UV_trig_channel = [8]
+
+            self.experiment.Magnetometer_X_ch = 1  ### Magnetometer is connected to Sampler2
+            self.experiment.Magnetometer_Y_ch = 2
+            self.experiment.Magnetometer_Z_ch = 3
 
             ### dataset names
             self.experiment.measurements_progress = 'measurements_progress'
@@ -362,7 +376,7 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_UV = self.experiment.ttl15
+            self.experiment.ttl_RF_switch = self.experiment.ttl15
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
 
             ### for debugging/logging purposes in experiments
@@ -377,6 +391,8 @@ class BaseExperiment:
                                              self.experiment.AZ_top_Zotino_channel,
                                              self.experiment.AX_Zotino_channel,
                                              self.experiment.AY_Zotino_channel]
+
+            self.experiment.UV_trig_channel = [8]
 
             ### dataset names
             self.experiment.measurements_progress = 'measurements_progress'
@@ -452,6 +468,77 @@ class BaseExperiment:
             except Exception as e:
                 logging.debug(e)
 
+
+    def prepare_microwave_RAM(self, MW_ramp_time, MW_pulse_length):
+        """
+        preparation of smooth microwave pulse with RAM. This generates amplitudes_list representing a smooth pulse
+        to be used in experiment_functions to generate smooth MW pulses.
+        """
+        MW_steps_rise = 30  # number of amplitude points during the rise and fall time
+        MW_amp_low, MW_amp_high = 0.0, dB_to_V(self.experiment.p_microwaves)  # low and high amplitudes in scale from 0 to 1
+
+        MW_step_ticks = int(
+            (MW_ramp_time / MW_steps_rise) / (
+                    4 * ns))  ### Step size
+
+        if MW_pulse_length > 2 * MW_ramp_time:
+            MW_dwell_time = MW_pulse_length - 2 * MW_ramp_time
+        else:
+            MW_dwell_time = 0.0
+
+        MW_steps_dwell = int(
+            MW_steps_rise / MW_ramp_time * MW_dwell_time)  # Number of dwell points
+
+        ### Gaussian function.
+        MW_x_vals = [0.0 + 3.1 * i / (MW_steps_rise - 1) for i in range(MW_steps_rise)]
+        MW_raw = [math.exp(-0.5 * x * x) for x in MW_x_vals]
+        MW_g_min, MW_g_max = MW_raw[0], MW_raw[-1]
+        MW_norm = [(r - MW_g_min) / (MW_g_max - MW_g_min) for r in MW_raw]
+
+        ### scale into respective ramp according to amplitude.
+        MW_amp_points_rise = [MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]
+        MW_amp_points_fall = list(
+            reversed([MW_amp_low + n * (MW_amp_high - MW_amp_low) for n in MW_norm]))
+
+        ### The full waveform.
+        MW_amp_points = (
+                MW_amp_points_rise +
+                [MW_amp_high] * MW_steps_dwell +
+                MW_amp_points_fall
+        )
+
+        print(f'microwave RAM MW_amp_points: {len(MW_amp_points)}')  ### Underflow error if larger than ~500
+
+        ### some data conversion needed for RAM
+        MW_amplitudes_arr = np.zeros(len(MW_amp_points), dtype=np.int32)
+        self.experiment.dds_microwaves.amplitude_to_ram(MW_amp_points, MW_amplitudes_arr)
+        MW_amplitudes_list = list(MW_amplitudes_arr)
+
+        ### This is calculation of steps based on above parameters
+        MW_total_points = len(MW_amplitudes_list)
+
+        self.experiment.MW_step_size = MW_step_ticks
+        self.experiment.MW_total_points = MW_total_points
+        self.experiment.MW_amplitudes_list = MW_amplitudes_list
+
+    def prepare_all_microwave_RAM_profiles(self):
+        """
+        Prepares microwave RAM waveforms for 00, 01, and 11 transitions. Stores the resulting step size, total points,
+        and amplitude lists as attributes on self.experiment for use in experiment_functions.
+        This gets called in prepare() below.
+        """
+
+        def set_MW_profile(suffix, ramp_time, pulse_length):
+            self.prepare_microwave_RAM(ramp_time, pulse_length)
+            setattr(self.experiment, f"MW_{suffix}_step_size", self.experiment.MW_step_size)
+            setattr(self.experiment, f"MW_{suffix}_total_points", self.experiment.MW_total_points)
+            setattr(self.experiment, f"MW_{suffix}_amplitudes_list", self.experiment.MW_amplitudes_list)
+
+        set_MW_profile("00", self.experiment.t_MW_00_ramp, self.experiment.t_microwave_00_pulse)
+        set_MW_profile("01", self.experiment.t_MW_01_ramp, self.experiment.t_microwave_01_pulse)
+        set_MW_profile("11", self.experiment.t_MW_11_ramp, self.experiment.t_microwave_11_pulse)
+
+
     def prepare(self):
         """
         Initialize DeviceAliases, compute DDS amplitudes from powers, instantiate the laser servo,
@@ -518,6 +605,7 @@ class BaseExperiment:
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
 
             except:
                 ### if this fails, your experiment probably didn't need it
@@ -570,6 +658,8 @@ class BaseExperiment:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                      [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
+            self.prepare_all_microwave_RAM_profiles()
+
         elif self.node == "bob":
             # self.experiment.FORT_pol_stabilizer = FORTPolarizationStabilizer(experiment=self.experiment,
             #                                                                  initialize_to_home = False,
@@ -611,6 +701,8 @@ class BaseExperiment:
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
+
             except:
                 ### if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
@@ -652,6 +744,9 @@ class BaseExperiment:
                 except KeyError:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
+
+            self.prepare_all_microwave_RAM_profiles()
+
         elif self.node == "two_nodes":
             ### initialize named channels.
             self.experiment.named_devices = DeviceAliases(
@@ -685,6 +780,8 @@ class BaseExperiment:
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
+
             except:
                 ### if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
@@ -726,6 +823,9 @@ class BaseExperiment:
                 except KeyError:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
+
+            self.prepare_all_microwave_RAM_profiles()
+
         else:
             raise KeyError
 
@@ -744,6 +844,8 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM1_RO2", [0], broadcast=True)
         self.experiment.set_dataset("BothSPCMs_RO1", [0], broadcast=True)
         self.experiment.set_dataset("BothSPCMs_RO2", [0], broadcast=True)
+        self.experiment.set_dataset("BothSPCMs_parity_RO", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_test_RO", [0], broadcast=True)
         self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
@@ -799,8 +901,18 @@ class BaseExperiment:
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
 
+        self.experiment.set_dataset("coil_driver_AZ_bottom_MOT", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AZ_top_MOT", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AX_MOT", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AY_MOT", [0.0], broadcast=True)
+
+        self.experiment.set_dataset("atom_loading_wall_clock", [0.0], broadcast=True)
+
         self.experiment.set_dataset("FORT_MM_monitor", [], broadcast=True)
         self.experiment.set_dataset("FORT_APD_monitor", [], broadcast=True)
+
+        self.experiment.set_dataset("angle_780_HWP", [], broadcast=True)
+        self.experiment.set_dataset("angle_780_QWP", [], broadcast=True)
 
 
     @kernel
@@ -844,13 +956,25 @@ class BaseExperiment:
             self.experiment.ttl_GRIN1_switch.on()  ### ensure no excitation or D1 is on at the beginning
 
             self.experiment.FORT_mod_switch.output()
-            self.experiment.ttl_UV.output()
+            self.experiment.ttl_RF_switch.output()
 
             delay(1 * ms)
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
             self.experiment.sampler2.init() # for reading laser feedback
+
+            for i in range(8):
+                self.experiment.sampler0.set_gain_mu(i, 8)
+                delay(100 * us)
+
+            for i in range(8):
+                if i == 6:
+                    self.experiment.sampler1.set_gain_mu(i, 0) ### gain for the FORT APD channel
+                    delay(100 * us)
+                else:
+                    self.experiment.sampler1.set_gain_mu(i, 0)
+                    delay(100 * us)
 
             ### turn on/off any switches. this ensures that switches always start in a default state,
             ### which might not happen if we abort an experiment in the middle and don't reset it
@@ -860,7 +984,7 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
-            self.experiment.ttl_UV.off()
+            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
             delay(1 * ms)
             self.experiment.FORT_mod_switch.off()  # off = no modulation
 
@@ -917,7 +1041,7 @@ class BaseExperiment:
             self.experiment.ttl_GRIN2_switch.on() ### ensure no excitation or D1 is on at the beginning
             self.experiment.ttl_GRIN1_switch.on() ### ensure no excitation or D1 is on at the beginning
 
-            self.experiment.ttl_UV.output()
+            self.experiment.ttl_RF_switch.output()
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
@@ -931,7 +1055,7 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_exc0_switch.on()
             delay(1 * ms)
-            self.experiment.ttl_UV.off()
+            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
@@ -968,8 +1092,8 @@ class BaseExperiment:
             delay(1 * ms)
             self.experiment.ttl9.off()
 
-            self.experiment.ttl_UV.output()
-            self.experiment.ttl_UV.off()
+            self.experiment.ttl_RF_switch.output()
+            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback

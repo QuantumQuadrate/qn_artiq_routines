@@ -11,25 +11,25 @@ import numpy as np
 
 
 class Card_Tests(EnvExperiment):
-# ### Testing TTLs:
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("ttl13")
-#         ### slef.setattr_device() is a built-in method in artiq that declares and configures a device such as core
-#         ### and ttl4. These devices can be accessed like self.ttl4. //Akbar
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#
-#         delay(1 * us)
-#         self.ttl13.off()
-#
-#         for x in range(50):
-#             self.ttl13.pulse(1*us)
-#             delay(2*us)
-#
-#         print("code done!")
+### Testing TTLs:
+    def build(self):
+        self.setattr_device("core")
+        self.setattr_device("ttl15")
+
+    @kernel
+    def run(self):
+        self.core.reset()
+
+        delay(1 * us)
+        self.ttl15.off()
+
+        for x in range(1000):
+            self.ttl15.pulse(1*ms)
+            delay(100*ms)
+
+        # self.ttl15.off()
+
+        print("code done!")
 
 
 
@@ -72,61 +72,79 @@ class Card_Tests(EnvExperiment):
 #         print("code done!")
 
 
-### Testing DDSs:
-    def build(self):
-       self.setattr_device("core")
-       # print("aaaa")
-       self.setattr_device("urukul2_cpld")
-       self.setattr_device("urukul2_ch3")
-
-
-    @kernel
-    def run(self):
-        self.core.reset()
-        self.urukul2_ch3.cpld.init()
-        self.urukul2_ch3.init()
-        self.urukul2_ch3.set_att(float(0))
-
-        # self.urukul0_cpld.set_profile(0)
-
-        delay(10 * ms)
-
-        dBm = -12
-        self.urukul2_ch3.set(334.682 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2)) #0.08)
-        self.urukul2_ch3.sw.on()
-
-        delay(2000 * ms)
-        self.urukul2_ch3.sw.off()
-
-        print("code done!")
+# ### Testing DDSs:
+#     def build(self):
+#        self.setattr_device("core")
+#        self.setattr_device("ttl7")
+#
+#        self.dds1 = self.get_device("urukul0_ch0")  ### FORT dds
+#        self.dds2 = self.get_device("urukul0_ch1")
+#
+#
+#     @kernel
+#     def run(self):
+#         self.core.reset()
+#
+#         self.dds1.cpld.init()
+#         self.dds1.init()
+#         self.dds1.set_att(0.0)
+#
+#         self.dds1.cpld.set_profile(0)
+#
+#         delay(10 * us)
+#
+#         dBm = -5
+#         ampl = (2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2)
+#         print(ampl)
+#         delay(10*ms)
+#
+#         self.dds1.set(50 * MHz, amplitude=ampl, profile=0)
+#         delay(10*us)
+#
+#         # ### This does not work; no error, but no effect; totally ignored:
+#         # self.dds1.set_frequency(5*MHz)
+#         # self.dds1.set_amplitude(0.5)
+#
+#
+#         self.ttl7.on()
+#         self.dds1.sw.on()
+#
+#         delay(500 * us)
+#         self.dds1.sw.off()
+#         self.ttl7.off()
+#
+#         print("code done!")
 
 
  # #### Testing Zotino:
  #    def build(self):
- #       self.setattr_device("core")
- #       self.setattr_device("zotino0")
+ #        self.setattr_device("core")
+ #        self.setattr_device("zotino0")
  #
  #    @kernel
  #    def run(self):
- #       self.core.reset()
- #       self.core.break_realtime()
- #       self.zotino0.init()
- #       delay(10 * ms)
+ #        self.core.reset()
+ #        self.core.break_realtime()
+ #        self.zotino0.init()
+ #        delay(10 * ms)
  #
- #       self.zotino0.write_dac(0, 0.0)
- #       self.zotino0.write_dac(1, 0.0)
- #       self.zotino0.write_dac(2, 0.0)
- #       self.zotino0.write_dac(3, 0.0)
- #       self.zotino0.write_dac(4, 0.0)
- #       self.zotino0.write_dac(5, 0.0)
- #       self.zotino0.load()
+ #        # self.zotino0.write_dac(0, 2.0)
+ #        # self.zotino0.write_dac(1, 0.0)
+ #        # self.zotino0.write_dac(2, 0.0)
+ #        # self.zotino0.write_dac(3, 0.0)
+ #        # self.zotino0.write_dac(4, 0.0)
+ #        # self.zotino0.write_dac(5, 0.0)
+ #        # self.zotino0.load()
  #
- #       # self.zotino0.set_dac([1.0], [6])
- #       # self.zotino0.set_dac([2,2,2,2])
+ #        self.zotino0.set_dac([3.5], [8])
+ #        delay(10*ms)
+ #        self.zotino0.set_dac([0.0], [8])
  #
- #       delay(10 * ms)
+ #        # self.zotino0.set_dac([2,2,2,2])
  #
- #       print("code done!")
+ #        delay(10 * ms)
+ #
+ #        print("code done!")
 
 
 

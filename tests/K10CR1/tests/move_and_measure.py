@@ -27,4 +27,5 @@ class MoveK10CR1andMeasure(EnvExperiment):
     @rpc
     def move_and_wait(self):
         # the rotor instance is destroyed at the end of each rpc call, so make it fresh each time
-        rotor = Thorlabs.KinesisMotor(conn=, **kwargs)
+        # rotor = Thorlabs.KinesisMotor(conn=, **kwargs)
+        pass

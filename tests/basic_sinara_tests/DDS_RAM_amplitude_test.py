@@ -1,567 +1,341 @@
 """
-Trying to add a long dwell time between rise and fall RAM modes.
+Uses dds1 in RAM mode, runs the first half of the RAM to ramp up the signal on dds1, leaves the dds ON for a while, runs the
+2nd half of the RAM to ramp down dds1. This works fine. But when I change the settings of dds2
+in the middle of the dwell time, that causes dds1 to start the RAM from beginning. This is because both dds are on the same card.
+To avoid this issue, we should mask dds1 while we want to change the settings of dds2. Masking is not necessary for just turning
+dds2 on/off.
 
-Akbar 2025-05-12
+Another point is that if we use profile 7 for RAM, we don't need to specify the profile after the RAM or the profile of other
+dds channels. See the 2nd experiment below.
 
+Akbar 2025-06-13
 """
-from artiq.coredevice.ad9910 import RAM_DEST_ASF, RAM_MODE_RAMPUP
+
 from artiq.experiment import *
-from artiq.language import us, ns, MHz
+from artiq.coredevice.ad9910 import RAM_MODE_RAMPUP, RAM_DEST_ASF
+from artiq.coredevice.urukul import CFG_MASK_NU
+from artiq.language.types import TInt32
+from artiq.language import ms, us, ns, MHz
 import numpy as np
 import math
+
 
 class DDS_RAM_amplitude_test(EnvExperiment):
 
     def build(self):
         self.setattr_device("core")
         self.setattr_device("ttl7")
-        self.dds = self.get_device("urukul2_ch0")
+        self.dds1 = self.get_device("urukul2_ch0")  ### FORT dds
+        self.dds2 = self.get_device("urukul2_ch1") ### Cooling DP dds
 
     def prepare(self):
+        self.ramp_time = 0.2 * ms  # ramp time from first to max amplitude
+        self.ramp_points = 50  # number of amplitude points during the rise and fall time
+        self.amp_low, self.amp_high = 0.0, 0.2  # low and high amplitudes in scale from 0 to 1
 
-        self.ramp_time = 2 * us            # ramp time from first to max amplitude
-        self.N = 100                        # number of amplitude points during the rise and fall time
-        self.amp_low, self.amp_high = 0.0, 1.0       # low and high amplitudes in scale from 0 to 1
-
-        self.step_ticks = int((self.ramp_time / self.N) / (4 * ns))  ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
+        self.step_ticks = int((self.ramp_time / self.ramp_points) / (4 * ns))  ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
         ### step_ticks=25, for example, means the dds is updated every 25*4ns = 100ns.
 
-        self.dwell_time = 2 * us
-
         ### Gaussian function. Put this in a python script and plot amp_points (without reversed()) to see the shape of the dds pulse.
-        x_vals = [0.0 + 3.1 * i/(self.N - 1) for i in range(self.N)] ### a list from 0 to 3.1
-        raw    = [math.exp(-0.5 * x*x) for x in x_vals]
+        x_vals = [0.0 + 3.1 * i / (self.ramp_points - 1) for i in range(self.ramp_points)]  ### a list from 0 to 3.1
+        raw = [math.exp(-0.5 * x * x) for x in x_vals]
         g_min, g_max = raw[0], raw[-1]
-        norm   = [(r - g_min)/(g_max - g_min) for r in raw]
-
+        norm = [(r - g_min) / (g_max - g_min) for r in raw]
 
         ### scale into respective ramp according to amplitude.
-        amp_points_fall = [self.amp_low + n * (self.amp_high - self.amp_low) for n in norm]
-        amp_points_rise = list(reversed([self.amp_low + n * (self.amp_high - self.amp_low) for n in norm]))
+        amp_points_rise = [self.amp_low + n * (self.amp_high - self.amp_low) for n in norm]
+        amp_points_fall = list(reversed([self.amp_low + n * (self.amp_high - self.amp_low) for n in norm]))
 
+        ### The full waveform
+        amp_points = (
+                amp_points_rise +
+                amp_points_fall
+        )
 
         ### some data conversion needed for RAM
-        amplitudes_rise_arr = np.zeros(len(amp_points_rise), dtype=np.int32)
-        self.dds.amplitude_to_ram(amp_points_rise, amplitudes_rise_arr) ### updates arr according to the amp_points profile
-        self.amplitudes_rise_list = list(amplitudes_rise_arr)
-
-        ### some data conversion needed for RAM
-        amplitudes_fall_arr = np.zeros(len(amp_points_fall), dtype=np.int32)
-        self.dds.amplitude_to_ram(amp_points_fall, amplitudes_fall_arr)  ### updates arr according to the amp_points profile
-        self.amplitudes_fall_list = list(amplitudes_fall_arr)
+        amplitudes_arr = np.zeros(len(amp_points), dtype=np.int32)
+        self.dds1.amplitude_to_ram(amp_points, amplitudes_arr)
+        self.ram_data = list(amplitudes_arr)
 
 
     @kernel
     def run(self):
         self.core.reset()
-        self.dds.cpld.init()
-        self.dds.init(blind=True)
-        self.dds.cfg_sw(True)
-        self.core.break_realtime() ### doesn't seem to be necessary
-        self.dds.sw.off()
-        self.dds.set_frequency(10 * MHz)   # the frequency we want
-        self.dds.set_att(0.0)
 
-        self.run_ram(self.step_ticks)
+        ### dds1 is used in RAM mode
+        self.dds1.cpld.init()
+        self.dds1.init()
+        self.dds1.set_frequency(1.0 * MHz)  # Use this to set the frequency.
+        ### Do not set freq like this: self.dds.set(frequency=338.0 * MHz).  It does not work for RAM, though no error!!
+        self.dds1.set_att(0.0)
+        self.dds1.sw.off()
 
-    @kernel
-    def run_ram(self, step_size):
-        # delay(5 * us)
-        self.dds.set_cfr1(ram_enable=0) ### disable RAM mode to write the config
-        self.dds.cpld.io_update.pulse_mu(8) ### pulse the ttl to update and implement settings
+        ### dds2 is used in non-RAM mode
+        self.dds2.cpld.init()
+        self.dds2.init()
+        self.dds2.set(frequency=1.0 * MHz, amplitude=0.1)
+        self.dds2.set_att(0.0)
+        self.dds2.sw.off()
 
+        delay(10 * us)
 
+        self.dds1.set_cfr1(ram_enable=0)  ### disable RAM mode to write the config
+        self.dds1.cpld.io_update.pulse_mu(8)  ### pulse the ttl to update and implement settings
 
-        with parallel:
-            with sequential:
-                ### Configures the RAM playback engine
-                self.dds.set_profile_ram(
-                    start=0,
-                    end=self.N - 1,
-                    step=step_size,
-                    profile=0,
-                    mode=RAM_MODE_RAMPUP,
-                )
+        ### Configures the RAM playback engine
+        self.dds1.set_profile_ram(
+            start=0,
+            end=len(self.ram_data) - 1,
+            step=self.step_ticks,
+            profile=7,
+            mode=RAM_MODE_RAMPUP,
+        )
 
-                self.dds.cpld.set_profile(0)
-                # self.dds.cpld.io_update.pulse_mu(8)
-                self.dds.write_ram(self.amplitudes_rise_list) ### write the data onto RAM
+        ### write the data onto RAM
+        # self.dds1.cpld.set_profile(1)
+        self.dds1.cpld.io_update.pulse_mu(8)
+        self.dds1.write_ram(self.ram_data)
 
-                ### Enabling RAM playback, not playing yet.
-                self.dds.set_cfr1(
-                    internal_profile=0,
-                    ram_enable=1,
-                    ram_destination=RAM_DEST_ASF,
-                )
+        delay(0.1 * ms)
 
-                with parallel:
-                    self.ttl7.on() ### Just for triggering the osc.
-                    self.dds.sw.on()
-                self.dds.cpld.io_update.pulse_mu(8)  ### This runs the RAM
-
-            with sequential:
-                delay(self.ramp_time)
-                ### Configures the RAM playback engine
-                self.dds.set_profile_ram(
-                    start=0,
-                    end=self.N - 1,
-                    step=step_size,
-                    profile=1,
-                    mode=RAM_MODE_RAMPUP,
-                )
-
-                self.dds.cpld.set_profile(1)
-                self.dds.cpld.io_update.pulse_mu(8)
-                self.dds.write_ram(self.amplitudes_fall_list)  ### write the data onto RAM
-
-                ### Enabling RAM playback, not playing yet.
-                self.dds.set_cfr1(
-                    internal_profile=1,
-                    ram_enable=1,
-                    ram_destination=RAM_DEST_ASF,
-                )
-                self.dds.cpld.io_update.pulse_mu(8)  ### This runs the RAM
+        self.ttl7.on()
 
 
+        ### Configure the RAM to playback the first half
+        self.dds1.set_profile_ram(
+            start=0,
+            end=len(self.ram_data)//2 -1,
+            step=self.step_ticks,
+            profile=7,
+            mode=RAM_MODE_RAMPUP)
+        # self.dds1.cpld.set_profile(1)
+        self.dds1.cpld.io_update.pulse_mu(8)
+
+        self.core.break_realtime()
+
+        ### Enabling RAM playback, not playing yet.
+        self.dds1.set_cfr1(ram_enable=1,
+                          ram_destination=RAM_DEST_ASF)
+
+        ### Running the RAM
+        self.dds1.sw.on()
+        self.dds1.cpld.io_update.pulse_mu(8)
+        delay(0.5*ms)  # Leave at-least enough time to cover up the first ram time, plus any extra time we want.
+
+        ### We don't need to mask dds1 to turn on or off dds2. But we need to mask it when changing the settings of dds2.
+        ### Otherwise, if we disable the two mask lines below, dds1 RAM restarts when we change dds2 setting.
+        self.dds2.sw.on()
+        delay(0.2*ms)
+        self.dds2.sw.off()
+        delay(0.2 * ms)
+        self.dds2.sw.on()
+
+        delay(0.5 * ms)
+        self.dds1.cpld.cfg_write(self.dds1.cpld.cfg_reg | 1 << CFG_MASK_NU + 0)  # Mask the DDS channel which is on RAM mode
+        self.dds2.set(frequency=1.0 * MHz, amplitude=0.1)
+        self.dds1.cpld.cfg_write(self.dds1.cpld.cfg_reg & ~(1 << CFG_MASK_NU + 0))  # Unmask the DDS channel which in on RAM mode
+        delay(0.5*ms)
 
 
-        # delay(1000 * us)  ### keep the delay as ramp time
-        delay(2*self.ramp_time)  ### keep the delay as ramp time
+        ### Configure the RAM to playback the second half
+        self.dds1.set_profile_ram(
+            start=len(self.ram_data)//2,
+            end=len(self.ram_data)-1,
+            step=self.step_ticks,
+            profile=7,
+            mode=RAM_MODE_RAMPUP)
+        # self.dds1.cpld.set_profile(1)
+        self.dds1.cpld.io_update.pulse_mu(8)
 
-        ### shutting off
-        self.dds.set_cfr1(ram_enable=0)
-        self.dds.cpld.io_update.pulse_mu(8)
-        self.dds.sw.off()
+        self.dds2.sw.off()
+
         self.ttl7.off()
 
+        delay(0.5 * ms)
+
+        self.cfr_reset(self.dds1) # Exit RAM Mode
+
+        ### to show that we can change the dds settings after RAM. Note that we have to set the frequency and amplitude
+        ### after exiting the RAM (once is enough). Otherwise, the dds will not turn on.
+        self.dds1.set(frequency=1.0 * MHz, amplitude=0.1)
+        self.dds1.sw.on()
+        delay(100*us)
+        self.dds1.sw.off()
+        delay(100*us)
+        self.dds1.sw.on()
+        delay(100 * us)
+        self.dds1.sw.off()
+
+        delay(0.4 * ms)
+
+        self.dds1.sw.off()
+
+        # self.dds1.sw.off()
+
+    @kernel
+    def cfr_reset(self, dds):
+        dds.set_cfr1(ram_enable=0)
+        dds.cpld.io_update.pulse_mu(8)
 
 
 
 
 
-
-
-
-
-#
 # """
-# This works well to generate a pulse with smooth rise and fall time. Works well if dwell_time is less than 5us. Other wise, len(amp_points)
-# gets too larg (>500) and we get Underflow error.
+# Uses dds1 in RAM mode, runs the first half of the RAM to ramp up the signal on dds1, leaves the dds ON for a while, runs the
+# 2nd half of the RAM to ramp down dds1. This works fine as long as dds2 is not used. but when I change the settings of dds2
+# in the middle of the dwell time, that causes dds1 to start the RAM from beginning!!
 #
-# Akbar 2025-05-12
+# You can use this example for how to run RAM in a profile other than 7.
 #
+# Akbar 2025-06-06
 # """
-# from artiq.coredevice.ad9910 import RAM_DEST_ASF, RAM_MODE_RAMPUP
+#
 # from artiq.experiment import *
-# from artiq.language import us, ns, MHz
+# from artiq.coredevice.ad9910 import RAM_MODE_RAMPUP, RAM_DEST_ASF
+# from artiq.language.types import TInt32
+# from artiq.language import ms, us, ns, MHz
 # import numpy as np
 # import math
+#
 #
 # class DDS_RAM_amplitude_test(EnvExperiment):
 #
 #     def build(self):
 #         self.setattr_device("core")
 #         self.setattr_device("ttl7")
-#         self.dds = self.get_device("urukul2_ch0")
+#         self.dds1 = self.get_device("urukul2_ch0")  ### FORT dds
+#         self.dds2 = self.get_device("urukul2_ch1") ### Cooling DP dds
 #
 #     def prepare(self):
+#         self.ramp_time = 5 * ms  # ramp time from first to max amplitude
+#         self.ramp_points = 50  # number of amplitude points during the rise and fall time
+#         self.amp_low, self.amp_high = 0.0, 0.2  # low and high amplitudes in scale from 0 to 1
 #
-#         self.ramp_time = 2 * us            # ramp time from first to max amplitude
-#         self.N = 100                        # number of amplitude points during the rise and fall time
-#         self.amp_low, self.amp_high = 0.0, 1.0       # low and high amplitudes in scale from 0 to 1
-#
-#         self.step_ticks = int((self.ramp_time / self.N) / (4 * ns))  ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
+#         self.step_ticks = int((self.ramp_time / self.ramp_points) / (4 * ns))  ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
 #         ### step_ticks=25, for example, means the dds is updated every 25*4ns = 100ns.
 #
-#         self.dwell_time = 2 * us
-#         self.M = int(self.N /self.ramp_time * self.dwell_time) # Number of dwell points
-#
 #         ### Gaussian function. Put this in a python script and plot amp_points (without reversed()) to see the shape of the dds pulse.
-#         x_vals = [0.0 + 3.1 * i/(self.N - 1) for i in range(self.N)] ### a list from 0 to 3.1
-#         raw    = [math.exp(-0.5 * x*x) for x in x_vals]
+#         x_vals = [0.0 + 3.1 * i / (self.ramp_points - 1) for i in range(self.ramp_points)]  ### a list from 0 to 3.1
+#         raw = [math.exp(-0.5 * x * x) for x in x_vals]
 #         g_min, g_max = raw[0], raw[-1]
-#         norm   = [(r - g_min)/(g_max - g_min) for r in raw]
-#
+#         norm = [(r - g_min) / (g_max - g_min) for r in raw]
 #
 #         ### scale into respective ramp according to amplitude.
 #         amp_points_rise = [self.amp_low + n * (self.amp_high - self.amp_low) for n in norm]
 #         amp_points_fall = list(reversed([self.amp_low + n * (self.amp_high - self.amp_low) for n in norm]))
 #
-#         ### The full waveform. Start with falling edge!
+#         ### The full waveform
 #         amp_points = (
 #                 amp_points_rise +
-#                 [self.amp_high] * self.M +
 #                 amp_points_fall
 #         )
 #
-#         print(len(amp_points))
-#
-#
 #         ### some data conversion needed for RAM
 #         amplitudes_arr = np.zeros(len(amp_points), dtype=np.int32)
-#         self.dds.amplitude_to_ram(amp_points, amplitudes_arr) ### updates arr according to the amp_points profile
-#         self.amplitudes_list = list(amplitudes_arr)
-#
-#         ### This is calculation of steps based on above parameters
-#         self.total_points = len(self.amplitudes_list)
+#         self.dds1.amplitude_to_ram(amp_points, amplitudes_arr)
+#         self.ram_data = list(amplitudes_arr)
 #
 #
 #     @kernel
 #     def run(self):
 #         self.core.reset()
-#         self.dds.cpld.init()
-#         self.dds.init(blind=True)
-#         self.dds.cfg_sw(True)
-#         self.core.break_realtime() ### doesn't seem to be necessary
-#         self.dds.sw.off()
-#         self.dds.set_frequency(10 * MHz)   # the frequency we want
-#         self.dds.set_att(0.0)
 #
-#         self.run_ram(self.step_ticks)
+#         ### dds1 is used in RAM mode
+#         self.dds1.cpld.init()
+#         self.dds1.init()
+#         self.dds1.set_frequency(1.0 * MHz)  # Use this to set the frequency.
+#         ### Do not set freq like this: self.dds.set(frequency=338.0 * MHz).  It does not work for RAM, though no error!!
+#         self.dds1.set_att(0.0)
+#         self.dds1.sw.off()
 #
-#     @kernel
-#     def run_ram(self, step_size):
-#         # delay(5 * us)
-#         self.dds.set_cfr1(ram_enable=0) ### disable RAM mode to write the config
-#         self.dds.cpld.io_update.pulse_mu(8) ### pulse the ttl to update and implement settings
+#         ### dds2 is used in non-RAM mode
+#         self.dds2.cpld.init()
+#         self.dds2.init()
+#         self.dds2.set(frequency=1 * MHz, amplitude=0.1)
+#         self.dds2.set_att(0.0)
+#         self.dds2.sw.off()
 #
+#         delay(10 * us)
+#
+#         self.dds1.set_cfr1(ram_enable=0)  ### disable RAM mode to write the config
+#         self.dds1.cpld.io_update.pulse_mu(8)  ### pulse the ttl to update and implement settings
 #
 #         ### Configures the RAM playback engine
-#         self.dds.set_profile_ram(
+#         self.dds1.set_profile_ram(
 #             start=0,
-#             end=self.total_points - 1,
-#             step=step_size,
-#             profile=0,
+#             end=len(self.ram_data) - 1,
+#             step=self.step_ticks,
+#             profile=1,
 #             mode=RAM_MODE_RAMPUP,
 #         )
 #
-#         self.dds.cpld.set_profile(0)
-#         # self.dds.cpld.io_update.pulse_mu(8)
-#         self.dds.write_ram(self.amplitudes_list) ### write the data onto RAM
-#         # self.write_ram_safe() ### write the data onto RAM
+#         ### write the data onto RAM
+#         self.dds1.cpld.set_profile(1)
+#         self.dds1.cpld.io_update.pulse_mu(8)
+#         self.dds1.write_ram(self.ram_data)
 #
+#         delay(1 * ms)
+#
+#         self.ttl7.on()
+#
+#
+#         ### Configure the RAM to playback the first half
+#         self.dds1.set_profile_ram(
+#             start=0,
+#             end=len(self.ram_data)//2 -1,
+#             step=self.step_ticks,
+#             profile=1,
+#             mode=RAM_MODE_RAMPUP)
+#         self.dds1.cpld.set_profile(1)
+#         self.dds1.cpld.io_update.pulse_mu(8)
+#
+#         self.core.break_realtime()
 #
 #         ### Enabling RAM playback, not playing yet.
-#         self.dds.set_cfr1(
-#             internal_profile=0,
-#             ram_enable=1,
-#             ram_destination=RAM_DEST_ASF,
-#         )
+#         self.dds1.set_cfr1(ram_enable=1,
+#                           ram_destination=RAM_DEST_ASF)
 #
-#         with parallel:
-#             self.ttl7.on() ### Just for triggering the osc.
-#             self.dds.sw.on()
-#         self.dds.cpld.io_update.pulse_mu(8)  ### This runs the RAM
+#         ### Running the RAM
+#         self.dds1.sw.on()
+#         self.dds1.cpld.io_update.pulse_mu(8)
 #
-#         delay(1000 * us)  ### keep the delay as ramp time
-#         # delay(self.dwell_time)  ### keep the delay as ramp time
+#         self.dds2.sw.on()
 #
-#         ### shutting off
-#         self.dds.set_cfr1(ram_enable=0)
-#         self.dds.cpld.io_update.pulse_mu(8)
-#         self.dds.sw.off()
+#         delay(5 * ms)   # Leave at-least enough time to cover up the first ram time, plus any extra time we want.
+#         self.dds2.set(frequency=1 * MHz, amplitude=0.5, profile=0) ### this messes up dds1 and runs the RAM again!!
+#         delay(5*ms)
+#
+#
+#         ### Configure the RAM to playback the second half
+#         self.dds1.set_profile_ram(
+#             start=len(self.ram_data)//2,
+#             end=len(self.ram_data)-1,
+#             step=self.step_ticks,
+#             profile=1,
+#             mode=RAM_MODE_RAMPUP)
+#         self.dds1.cpld.set_profile(1)
+#         self.dds1.cpld.io_update.pulse_mu(8)
+#
+#         self.dds2.sw.off()
+#
 #         self.ttl7.off()
-
-
-
-
-
-
-
-
-
 #
-# """
-# From Akshat. This works well to ramp up a dds amplitude from 0 to 1 within a time that I changed from 2us to 10ms and it worked well.
-# Akbar 2025-05-12
-#
-# """
-# from artiq.coredevice.ad9910 import RAM_DEST_ASF, RAM_MODE_RAMPUP
-# from artiq.experiment import *
-# from artiq.language import us, ns, MHz
-# import numpy as np
-# import math
-#
-# class DDS_RAM_amplitude_test(EnvExperiment):
-#
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("ttl7")
-#         self.dds = self.get_device("urukul2_ch0")
-#
-#     def prepare(self):
-#
-#         self.ramp_time = 2 * us            # ramp time from first to max amplitude
-#         self.N = 100                        # number of amplitude points
-#         amp_start, amp_end = 0.0, 1.0       # start and end points in scale from 0 to 1
-#
-#         ### Gaussian function. Put this in a python script and plot amp_points (without reversed()) to see the shape of the dds pulse.
-#         x_vals = [0.0 + 10.0 * i/(self.N - 1) for i in range(self.N)] ### a list from 0 to 10
-#         raw    = [math.exp(-0.5 * x*x) for x in x_vals]
-#         g_min, g_max = raw[0], raw[-1]
-#         norm   = [(r - g_min)/(g_max - g_min) for r in raw]
-#
-#         ### scale into respective ramp according to amplitude. For some reason, we have to generate the list in reverse.
-#         ### The RAM runs the last element of amp_points first, and the first element last.
-#         amp_points = list(reversed([amp_start + n*(amp_end - amp_start) for n in norm]))
-#
-#         ### some data conversion thats needed for RAM
-#         amplitudes_arr = np.zeros(self.N, dtype=np.int32)
-#         self.dds.amplitude_to_ram(amp_points, amplitudes_arr) ### updates arr according to the amp_points profile
-#         self.amplitudes_list = list(amplitudes_arr)
-#
-#         ### This is calculation of steps based on above parameters
-#         self.step_ticks = int((self.ramp_time / self.N) / (4 * ns)) ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
-#         ### step_ticks=25, for example, mean the dds is updated every 25*4ns = 100ns.
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#         self.dds.cpld.init()
-#         self.dds.init(blind=True)
-#         self.dds.cfg_sw(True)
-#         # self.core.break_realtime() ### doesn't seem to be necessary
-#         self.dds.sw.off()
-#         self.dds.set_frequency(10 * MHz)   # the frequency we want
-#         self.dds.set_att(0.0)
-#
-#         self.run_ram(self.step_ticks)
-#
-#     @kernel
-#     def run_ram(self, step_size):
-#         delay(5 * us)
-#         self.dds.set_cfr1(ram_enable=0) ### disable RAM mode to write the config
-#         self.dds.cpld.io_update.pulse_mu(8) ### pulse the ttl to update and implement settings
-#
-#         ### Configures the RAM playback engine
-#         self.dds.set_profile_ram(
-#             start=0,
-#             end=self.N - 1,
-#             step=step_size,
-#             profile=0,
-#             mode=RAM_MODE_RAMPUP,
-#         )
-#
-#         self.dds.cpld.set_profile(0)
-#         self.dds.cpld.io_update.pulse_mu(8)
-#         self.dds.write_ram(self.amplitudes_list) ### write the data onto RAM
-#
-#         ### Enabling RAM playback, not playing yet.
-#         self.dds.set_cfr1(
-#             internal_profile=0,
-#             ram_enable=1,
-#             ram_destination=RAM_DEST_ASF,
-#         )
-#
-#         with parallel:
-#             self.ttl7.on() ### Just for triggering the osc.
-#             self.dds.sw.on()
-#         self.dds.cpld.io_update.pulse_mu(8) ### This runs the RAM
-#
-#         delay(self.ramp_time)  ### keep the delay as ramp time
-#
-#         ### shutting off
-#         self.dds.set_cfr1(ram_enable=0)
-#         self.dds.cpld.io_update.pulse_mu(8)
-#         self.dds.sw.off()
-#         self.ttl7.off()
-
-
-
-
-
-
-
-
-# ############ from Akshat. Generates a pulse, but does not ramp smoothly.
-#
-# from artiq.experiment import EnvExperiment, kernel, delay
-# from artiq.language.units import us
-# from artiq.coredevice.ad9910 import RAM_MODE_CONT_RAMPUP, RAM_DEST_ASF
-# from numpy import int32
-#
-# class DDS_RAM_amplitude_test(EnvExperiment):
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("urukul2_cpld")
-#         self.setattr_device("urukul2_ch0")
-#
-#     def prepare(self):
-#         self.N         = 150          # number of amplitude steps
-#         self.freq      = 10e6        # frequency set
-#         self.ramp_time = 20 * us      # ramp time
-#
-#     @kernel
-#     def run(self):
-#         core = self.core
-#         cpld = self.urukul2_cpld
-#         dds  = self.urukul2_ch0
-#
-#         core.reset()
-#         cpld.init()
-#         dds.init(blind=True)
-#         dds.cfg_sw(True)
-#         start_amp = 0.10
-#         end_amp   = 1.00
-#         amp_list = [
-#             start_amp + (end_amp - start_amp) * i / (self.N - 1)
-#             for i in range(self.N)
-#         ]
-#
-#         ram_data = [int32(0)] * self.N
-#
-#         dds.set_cfr1(ram_enable=0)    # disable OSK
-#         cpld.io_update.pulse_mu(8)
-#         dds.set_profile_ram(
-#             start=0,
-#             end=self.N - 1,
-#             step=1,
-#             profile=0,
-#             mode=RAM_MODE_CONT_RAMPUP
-#         )
-#         cpld.io_update.pulse_mu(8)
-#
-#         dds.amplitude_to_ram(amp_list, ram_data)
-#         dds.write_ram(ram_data)
-#
-#         dds.set(frequency=self.freq)
-#         dds.set_cfr1(
-#             ram_enable=1,
-#             ram_destination=RAM_DEST_ASF
-#         )
-#         cpld.io_update.pulse_mu(8)
-#
-#         delay(self.ramp_time)
-#
-#         dds.set_cfr1(ram_enable=0)
-#         cpld.io_update.pulse_mu(8)
-#         dds.cfg_sw(False)
-#
-#         delay(self.ramp_time)
-#         self.core.reset()
-#         self.urukul2_cpld.init()
-#         self.urukul2_ch0.init()
-#         self.urukul2_ch0.set_att(0.0)
-
-
-
-
-
-
-# ########## from artiq manual. Does not work.
-# from artiq.experiment import *
-# from artiq.coredevice.ad9910 import RAM_MODE_CONT_RAMPUP
-#
-# class DDS_RAM_amplitude_test(EnvExperiment):
-#     def prepare(self):
-#         self.amp = [0.0, 0.0, 0.0, 0.7, 0.0, 0.7, 0.7]  # Reversed Order
-#         self.asf_ram = [0] * len(self.amp)
-#
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("urukul2_cpld")
-#         self.setattr_device("urukul2_ch0")
-#
-#     @kernel
-#     def init_dds(self, dds):
-#         self.core.break_realtime()
-#         dds.init()
-#         dds.set_att(6. * dB)
-#         dds.cfg_sw(True)
-#
-#     @kernel
-#     def configure_ram_mode(self, dds):
-#         self.core.break_realtime()
-#         dds.set_cfr1(ram_enable=0)
-#         self.cpld.io_update.pulse_mu(8)
-#         self.cpld.set_profile(0)  # Enable the corresponding RAM profile
-#         # Profile 0 is the default
-#         dds.set_profile_ram(start=0, end=len(self.asf_ram) - 1,
-#                             step=250, profile=0, mode=RAM_MODE_CONT_RAMPUP)
-#         self.cpld.io_update.pulse_mu(8)
-#         dds.amplitude_to_ram(self.amp, self.asf_ram)
-#         dds.write_ram(self.asf_ram)
-#         self.core.break_realtime()
-#         dds.set(frequency=5 * MHz, ram_destination=RAM_DEST_ASF)
-#         # Pass osk_enable=1 to set_cfr1() if it is not an amplitude RAM
-#         dds.set_cfr1(ram_enable=1, ram_destination=RAM_DEST_ASF)
-#         self.cpld.io_update.pulse_mu(8)
-#
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#         self.core.break_realtime()
-#         self.urukul2_cpld.init()
-#         self.urukul2_ch0.init()
-#         self.configure_ram_mode(self.urukul2_ch0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-########### from gpt. Gives no error, but no output on scope either:
-# from artiq.experiment import *
-# from artiq.coredevice.ad9910 import AD9910, RAM_MODE_CONT_RAMPUP, RAM_DEST_ASF
-#
-# class DDS_RAM_amplitude_test(EnvExperiment):
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("urukul2_cpld")
-#         self.setattr_device("urukul2_ch0")
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#         self.urukul2_cpld.init()
-#         self.urukul2_ch0.init()
-#         self.urukul2_ch0.set_att(0.0)
-#
-#         # Set the RAM profile with Gaussian pulse (example data)
-#         ram_data = [int(1000 * (2.718281828459045 ** (-((i - 50) ** 2) / 100))) for i in range(100)]
-#
-#         # Set up RAM profile (using the mode constant from the manual example)
-#         self.urukul2_ch0.set_profile_ram(
-#             start=0,
-#             end=len(ram_data) - 1,
-#             step=1,
-#             profile=0,
-#             mode=RAM_MODE_CONT_RAMPUP  # Use the constant from the manual
-#         )
-#
-#         # Load data into RAM
-#         self.urukul2_ch0.write_ram(ram_data)  # Use write_ram to load the data
-#
-#         # Set frequency and RAM destination (from example)
-#         self.urukul2_ch0.set(frequency=50 * MHz, ram_destination=RAM_DEST_ASF)
-#
-#         # Enable RAM (if it's not an amplitude RAM, use the osk_enable flag)
-#         self.urukul2_ch0.set_cfr1(ram_enable=1, ram_destination=RAM_DEST_ASF)
-#
-#         # Update the CPLD
-#         self.urukul2_cpld.io_update.pulse_mu(8)
-#
-#         # Play the RAM profile
-#         self.urukul2_ch0.sw.on()
 #         delay(5 * ms)
-#         self.urukul2_ch0.sw.off()
 #
-#         delay(10*ms)
-#         self.core.reset()
-#         self.urukul2_cpld.init()
-#         self.urukul2_ch0.init()
-#         self.urukul2_ch0.set_att(0.0)
+#         self.cfr_reset(self.dds1) # Exit RAM Mode
+#
+#         # ### to show that we can change the dds settings after RAM
+#         # self.dds1.set(frequency=245 * MHz, amplitude=0.1, profile=1)
+#         # self.dds1.sw.on()
+#
+#         delay(4 * ms)
+#
+#         self.dds1.sw.off()
+#
+#         # self.dds1.sw.off()
+#
+#     @kernel
+#     def cfr_reset(self, dds):
+#         dds.set_cfr1(ram_enable=0)
+#         dds.cpld.io_update.pulse_mu(8)
