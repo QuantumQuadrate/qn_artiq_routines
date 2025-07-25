@@ -1,5 +1,5 @@
 """
-This code turns on the MOT AOMs and also the MOT coils, plus 852 waveplates.
+This code turns on the MOT AOMs and also the MOT coils, plus 780 and 852 waveplates.
 
 """
 from artiq.experiment import *
