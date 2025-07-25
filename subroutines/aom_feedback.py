@@ -73,7 +73,7 @@ from utilities.helper_functions import print_async
 class FeedbackChannel:
 
     def __init__(self, stabilizer, name, dds_obj, buffer_index, set_points, p, i, frequency, amplitude, dataset,
-                 dB_dataset, t_measure_delay, error_history_length, max_dB, tol=0.01):
+                 dB_dataset, t_measure_delay, error_history_length, max_dB, tol=0.02):
         """
         class which defines a DDS feedback channel
 
@@ -183,6 +183,7 @@ class FeedbackChannel:
 
             # update the dds amplitude
             self.dds_obj.set(frequency=self.frequency,amplitude=self.amplitudes[setpoint_index])
+
             return False
         else:
             return True
@@ -219,25 +220,36 @@ class FeedbackChannel:
         if not self.stabilizer.exp.enable_laser_feedback:
             monitor_only = True
 
-        self.dds_obj.sw.on()
+        if self.stabilizer.exp.which_node == "alice":
+            # make sure we're feeding back without the modulation on
+            self.stabilizer.exp.FORT_mod_switch.off()
+            delay(0.1*ms)
+
         self.set_dds_to_defaults(setpoint_index)
+        delay(10*us)
+        self.dds_obj.sw.on()
+
         delay(0.1 * ms)
 
-        # do feedback on the "parallel" channels
+        ### do feedback on the channel
         for i in range(self.stabilizer.iterations):
+            delay(0.1 * ms)
             self.stabilizer.measure()
             delay(0.1 * ms)
 
             if not (self.stabilizer.dry_run or monitor_only):
-                in_tol = self.feedback(self.stabilizer.measurement_array - self.stabilizer.background_array, setpoint_index)
+                # in_tol = self.feedback(self.stabilizer.measurement_array - self.stabilizer.background_array, setpoint_index)
+                in_tol = self.feedback(self.stabilizer.measurement_array, setpoint_index)
             else:
-                self.set_value((self.stabilizer.measurement_array - self.stabilizer.background_array)[
-                                   self.buffer_index], setpoint_index)
+                # self.set_value((self.stabilizer.measurement_array - self.stabilizer.background_array)[
+                #                    self.buffer_index], setpoint_index)
+                self.set_value((self.stabilizer.measurement_array)[self.buffer_index], setpoint_index)
 
             if record_all_measurements:
                 self.stabilizer.exp.append_to_dataset(self.dataset, self.value_normalized)
 
-            delay(0.1 * ms)
+            if in_tol:
+                break
 
         # self.stabilizer.measure_background()
         # delay(1*ms)
@@ -392,10 +404,10 @@ class AOMPowerStabilizer:
         for sampler in self.sampler_list:
             measurement_array = np.full(8, 0.0)
             for j in range(self.averages):
-                sampler.sample(measurement_array)
-                delay(0.1*ms)
-                dummy[i * 8:(i + 1) * 8] += measurement_array
                 delay(0.1 * ms)
+                sampler.sample(measurement_array)
+                delay(10 * us)
+                dummy[i * 8:(i + 1) * 8] += measurement_array
             i += 1
         dummy /= self.averages
         self.measurement_array = dummy
@@ -528,113 +540,119 @@ class AOMPowerStabilizer:
 
         if self.exp.which_node == "alice":
             # make sure we're feeding back without the modulation on
-            delay(1*ms)
+            delay(0.1*ms)
             self.exp.FORT_mod_switch.off()
-            delay(1*ms)
-
-        with sequential:
-
-            for ch in self.series_channels:
-                ch.dds_obj.sw.off()
-
-            delay(0.1*ms)
-            for ch in self.parallel_channels:
-                ch.dds_obj.sw.on()
             delay(0.1*ms)
 
-            # do feedback on the "parallel" channels
+        for ch in self.series_channels:
+            ch.dds_obj.sw.off()
+            delay(100*us)
+
+        for ch in self.parallel_channels:
+            ch.dds_obj.sw.on()
+            delay(100 * us)
+
+
+        # ### do feedback on the "parallel" channels. We do not have any parallel channel and this is consuming time.
+        # ### So, I have commented this out. Akbar 2025-06-03.
+        # for i in range(self.iterations):
+        #     self.measure()
+        #     delay(0.1 * ms)
+        #
+        #     # strictly speaking, doesn't really matter if these are parallel
+        #     for ch in self.parallel_channels:
+        #         delay(0.1*ms)
+        #         if not (self.dry_run or monitor_only):
+        #             # in_tol = ch.feedback(self.measurement_array - self.background_array)
+        #             in_tol = ch.feedback(self.measurement_array)
+        #         else:
+        #             # ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
+        #             ch.set_value((self.measurement_array)[ch.buffer_index])
+        #
+        #         if record_all_measurements:
+        #             self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+        #
+        #     delay(0.1 * ms)
+        #
+        # for ch in self.parallel_channels:
+        #     ch.dds_obj.sw.off()
+        #     delay(100 * us)
+        # # delay(10 * ms)  # the Femto fW detector is slow
+
+
+        # need to have this on for MOT feedback
+        self.exp.dds_cooling_DP.sw.on() # todo: only turn this on if one of the FeedbackChannels depends on it
+        delay(1 * ms)
+
+
+        # self.measure_background() # todo: doesn't work
+        # delay(1*ms)
+
+
+        ### do feedback on the series channels
+        for ch in self.series_channels:
+
+            if ch.name == 'GRIN1and2_dds':
+                # self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
+                self.exp.GRIN1and2_dds.sw.on()
+                delay(1*ms)
+                # self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
+                self.exp.ttl_exc0_switch.off()
+                self.exp.ttl_GRIN1_switch.off()
+                delay(1*ms)
+            #
+            # todo: D1 feedback
+            # if ch.name == 'dds_D1_pumping_DP':
+            #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+            #     self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
+            #     delay(1*ms)
+
+            ch.dds_obj.sw.on()
+
+            delay(ch.t_measure_delay) # allows for detector rise time
             for i in range(self.iterations):
+                delay(0.1 * ms)
                 self.measure()
                 delay(0.1 * ms)
+                # if ch.name == 'GRIN1and2_dds':
+                #     self.exp.print_async("in feedback loop:",self.measurement_array[ch.buffer_index])
 
-                # strictly speaking, doesn't really matter if these are parallel
-                for ch in self.parallel_channels:
-                    delay(0.1*ms)
-                    if not (self.dry_run or monitor_only):
-                        in_tol = ch.feedback(self.measurement_array - self.background_array)
-                    else:
-                        ch.set_value((self.measurement_array - self.background_array)[ch.buffer_index])
-
-                    if record_all_measurements:
-                        self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
-
-                delay(0.1 * ms)
-
-            for ch in self.parallel_channels:
-                ch.dds_obj.sw.off()
-            # delay(10 * ms)  # the Femto fW detector is slow
-
-            # need to have this on for MOT feedback
-            self.exp.dds_cooling_DP.sw.on() # todo: only turn this on if the one of the FeedbackChannels depends on it
-            delay(1 * ms)
-
-            # self.measure_background() # todo: doesn't work
-            # delay(1*ms)
-
-            # do feedback on the series channels
-            with sequential:
-                for ch in self.series_channels:
-
-                    if ch.name == 'GRIN1and2_dds':
-                        # self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
-                        self.exp.GRIN1and2_dds.sw.on()
-                        delay(1*ms)
-                        # self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
-                        self.exp.ttl_exc0_switch.off()
-                        self.exp.ttl_GRIN1_switch.off()
-                        delay(1*ms)
-                    #
-                    # todo: D1 feedback
-                    # if ch.name == 'dds_D1_pumping_DP':
-                    #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
-                    #     self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
-                    #     delay(1*ms)
-
-                    ch.dds_obj.sw.on()
-
-                    delay(ch.t_measure_delay) # allows for detector rise time
-                    for i in range(self.iterations):
-                        self.measure()
-                        delay(0.1 * ms)
-                        # if ch.name == 'GRIN1and2_dds':
-                        #     self.exp.print_async("in feedback loop:",self.measurement_array[ch.buffer_index])
-
-                        if not (self.dry_run or monitor_only):
-                            in_tol = ch.feedback(self.measurement_array)
-                        else:
-                            ch.set_value((self.measurement_array)[ch.buffer_index])
-                        if record_all_measurements:
-                            self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
-                        if in_tol:
-                            break
-
-                    ## trigger for Andor Luca camera for independent verification of the measured signals
-                    if self.exp.Luca_trigger_for_feedback_verification:
-                        self.exp.ttl6.pulse(5 * ms)
-                        delay(60*ms)
-                    delay(1*ms)
-
-                    if ch.name == 'GRIN1and2_dds':
-                        # self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
-                        self.exp.GRIN1and2_dds.sw.off()
-                        delay(1 * ms)
-                        # self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
-                        self.exp.ttl_exc0_switch.on()
-                        self.exp.ttl_GRIN1_switch.on()
-
-                        delay(1 * ms)
-
-                    # todo: d1 feedback
-                    # if ch.name == 'dds_D1_pumping_DP':
-                    #     self.exp.ttl_excitation_switch.on()
-                    #     delay(1 * ms)
-
-                    ch.dds_obj.sw.off()
-
-            # update the datasets with the last values if we have not already done so
-            if not record_all_measurements:
-                for ch in self.all_channels:
+                if not (self.dry_run or monitor_only):
+                    in_tol = ch.feedback(self.measurement_array)
+                else:
+                    ch.set_value((self.measurement_array)[ch.buffer_index])
+                if record_all_measurements:
                     self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
+                if in_tol:
+                    break
+
+            ## trigger for Andor Luca camera for independent verification of the measured signals
+            if self.exp.Luca_trigger_for_feedback_verification:
+                self.exp.ttl6.pulse(5 * ms)
+                delay(60*ms)
+            delay(1*ms)
+
+            if ch.name == 'GRIN1and2_dds':
+                # self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
+                self.exp.GRIN1and2_dds.sw.off()
+                delay(1 * ms)
+                # self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
+                self.exp.ttl_exc0_switch.on()
+                self.exp.ttl_GRIN1_switch.on()
+
+                delay(1 * ms)
+
+            # todo: d1 feedback
+            # if ch.name == 'dds_D1_pumping_DP':
+            #     self.exp.ttl_excitation_switch.on()
+            #     delay(1 * ms)
+
+            ch.dds_obj.sw.off()
+
+        # update the datasets with the last values if we have not already done so
+        if not record_all_measurements:
+            for ch in self.all_channels:
+                self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
         delay(1*ms)
         self.exp.dds_cooling_DP.sw.on() # todo: only turn this on if the one of the FeedbackChannels depends on it
@@ -645,15 +663,17 @@ class AOMPowerStabilizer:
         if self.leave_AOMs_on:
             for ch in self.all_channels:
                 ch.dds_obj.sw.on()
+                delay(10*us)
         elif self.leave_MOT_AOMs_on:
             self.exp.dds_cooling_DP.sw.on()
             self.exp.dds_AOM_A1.sw.on()
             self.exp.dds_AOM_A2.sw.on()
             self.exp.dds_AOM_A3.sw.on()
+            delay(10 * us)
             self.exp.dds_AOM_A4.sw.on()
             self.exp.dds_AOM_A5.sw.on()
             self.exp.dds_AOM_A6.sw.on()
-            delay(0.1*ms)
+            delay(100 * us)
 
         delay(0.1* ms)
         if self.update_dds_settings:

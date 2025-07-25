@@ -43,7 +43,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
         ### overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
-        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(10000))
+        self.setattr_argument("atom_counts_per_s_threshold", NumberValue(14000))
         self.setattr_argument("n_measurements", NumberValue(10, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
         self.both_mode = "coils and beam powers"
@@ -104,10 +104,10 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                                      self.AZ_top_volts_MOT,
                                      self.AX_volts_MOT,
                                      self.AY_volts_MOT])
-        self.coil_values_RO = np.array([self.AZ_bottom_volts_RO,
-                                     - self.AZ_bottom_volts_RO,
-                                     self.AX_volts_RO,
-                                     self.AY_volts_RO])
+        self.coil_values_RO = np.array([self.AZ_bottom_volts_PGC,
+                                     - self.AZ_bottom_volts_PGC,
+                                     self.AX_volts_PGC,
+                                     self.AY_volts_PGC])
 
         self.volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
         self.setpoint_datasets = ["set_point_PD1_AOM_A1", "set_point_PD2_AOM_A2", "set_point_PD3_AOM_A3",
@@ -178,7 +178,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=self.max_runs,
-                                           target_cost=-10000.0, # Corresponds to average atom_loading_time = 100ms calculated from -1000/atom_loading_time.
+                                           target_cost=-5000.0, # -10000 corresponds to average atom_loading_time = 100ms calculated from -1000/atom_loading_time.
                                            num_params=n_params,
                                            min_boundary=min_bounds,
                                            max_boundary=max_bounds)
@@ -302,9 +302,10 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
         self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
 
+        self.laser_stabilizer.run()
+
         for i in range(self.n_measurements):
             delay(1 * ms)
-            self.laser_stabilizer.run()
             self.dds_cooling_DP.sw.on()  ### turn on cooling
             self.ttl_repump_switch.off()  ### turn on MOT RP
 
@@ -318,7 +319,10 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.dds_FORT.sw.on()
 
             delay(1 * ms)
-            # self.ttl_UV.pulse(self.t_UV_pulse)
+            # self.zotino0.set_dac([3.5], self.UV_trig_channel) ### for some reason it complains about this line. So, no UV for now
+            ### in the optimizer.
+            delay(1*ms)
+            self.ttl7.on()
 
             max_tries = 100  ### Maximum number of attempts before running the feedback
             atom_check_time   = 20 * ms
@@ -356,6 +360,9 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             else:
                 atom_loading_time = 10e9 ### Just a large number to show no atom loading. This is compared to the typical 0.5 second atom loading.
 
+            # self.zotino0.set_dac([0.0], self.UV_trig_channel)
+            delay(100*us)
+            self.ttl7.off()
             self.atom_loading_time_list[i] = atom_loading_time
 
 
@@ -364,7 +371,14 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.ttl_repump_switch.on()  ### turn off MOT RP
             self.dds_cooling_DP.sw.off()  ### turn off cooling
             self.dds_FORT.sw.off()  ### turn off FORT
-            delay(100 * ms)  ### to dissipate MOT
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            delay(0.1 * ms)
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A4.sw.on()
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+            delay(300 * ms)  ### to dissipate MOT
 
 
         cost = self.get_cost(self.atom_loading_time_list)
@@ -398,6 +412,11 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
     @kernel
     def optimization_routine_test(self, params: TArray(TFloat)) -> TInt32:
         """
+        Added by Eunji.
+        Requires explanation.
+        Does not turn on the coils in mode "beam powers only".
+
+
         For use with M-LOOP, this should be called in the interface's "get_next_cost_dict"
         method.
 
@@ -471,7 +490,6 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.dds_FORT.sw.on()
 
             delay(1 * ms)
-            # self.ttl_UV.pulse(self.t_UV_pulse)
 
             max_tries = 100  ### Maximum number of attempts before running the feedback
             atom_check_time   = 20 * ms
@@ -526,7 +544,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         # # # delay(1 * ms)
         # # # ### set the coils to the readout settings
         # # # self.zotino0.set_dac(
-        # # #     [self.AZ_bottom_volts_RO, -self.AZ_bottom_volts_RO, self.AX_volts_RO, self.AY_volts_RO],
+        # # #     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         # # #     channels=self.coil_channels)
         # # delay(1 * ms)
         # # delay(1*s)
@@ -568,8 +586,8 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ### Get parameters from the provided dictionary
         params = params_dict['params']
 
-        # cost = self.optimization_routine(params)
-        cost = self.optimization_routine_test(params)
+        cost = self.optimization_routine(params)
+        # cost = self.optimization_routine_test(params) ### does not turn on coils in "beam powers only" mode.
 
         uncertainty = 1/np.sqrt(-1*cost) if cost < 0 else 0
 

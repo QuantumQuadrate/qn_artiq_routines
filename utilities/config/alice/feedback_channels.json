@@ -5,7 +5,7 @@
                 {
                     "sampler_ch": 7,
                     "set_points": ["set_point_PD1_AOM_A1"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.000,
                     "series": true,
                     "dataset": "MOT1_monitor",
@@ -17,7 +17,7 @@
                 {
                     "sampler_ch": 5,
                     "set_points": ["set_point_PD2_AOM_A2"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.00,
                     "series": true,
                     "dataset": "MOT2_monitor",
@@ -29,7 +29,7 @@
                 {
                     "sampler_ch": 3,
                     "set_points": ["set_point_PD3_AOM_A3"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.000,
                     "series": true,
                     "dataset": "MOT3_monitor",
@@ -41,7 +41,7 @@
                 {
                     "sampler_ch": 4,
                     "set_points": ["set_point_PD4_AOM_A4"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.0,
                     "series": true,
                     "dataset": "MOT4_monitor",
@@ -53,7 +53,7 @@
                 {
                     "sampler_ch": 1,
                     "set_points": ["set_point_PD5_AOM_A5"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.00,
                     "series": true,
                     "dataset":"MOT5_monitor",
@@ -66,27 +66,13 @@
                 {
                     "sampler_ch": 2,
                     "set_points": ["set_point_PD6_AOM_A6"],
-                    "p": 0.1,
+                    "p": 0.05,
                     "i": 0.00,
                     "series": true,
                     "dataset": "MOT6_monitor",
                     "power_dataset":"p_AOM_A6",
                     "t_measure_delay":0.0005,
                     "max_dB": -3
-                },
-
-            "dds_FORT":
-                {
-                    "sampler_ch": 6,
-                    "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
-                    "p": 0.7,
-                    "i": 0.0,
-                    "series": true,
-                    "dataset":"FORT_monitor",
-                    "power_dataset":"p_FORT_loading",
-                    "t_measure_delay":0.001,
-                    "max_dB": 5,
-                    "comment": "use p=0.7 if going through VCA, else use 0.4 - this was with the MM fiber monitor"
                 }
         },
     "sampler1":
@@ -115,6 +101,20 @@
                     "t_measure_delay":0.001,
                     "max_dB": 0.5,
                     "comment": ""
+                },
+
+            "dds_FORT":
+                {
+                    "sampler_ch": 6,
+                    "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
+                    "p": 0.3,
+                    "i": 0.0,
+                    "series": true,
+                    "dataset":"FORT_monitor",
+                    "power_dataset":"p_FORT_loading",
+                    "t_measure_delay":0.001,
+                    "max_dB": 5,
+                    "comment": "use p=0.7 if going through VCA, else use 0.4 for APD. Change the gain for the channel in BaseExperiment"
                 }
         }
 

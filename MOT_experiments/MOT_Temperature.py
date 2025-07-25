@@ -38,7 +38,7 @@ class MOTTemperature(EnvExperiment):
         # wait for the camera to take the shot
         self.setattr_argument("t_exposure", NumberValue(0.5*ms, unit='ms'))
         self.setattr_argument("averages", NumberValue(70, type='int', ndecimals=0, scale=1, step=1))
-        self.setattr_argument("do_PGC_in_MOT", BooleanValue(False))
+        self.setattr_argument("do_PGC_after_loading", BooleanValue(False))
 
         self.base.set_datasets_from_gui_args()
 
@@ -64,7 +64,7 @@ class MOTTemperature(EnvExperiment):
     #     if PGC:
     #         # todo: for now, use the same amplitude as the MOT. see my note in BaseExperiment.prepare
     #         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
-    #         delay(self.t_PGC_in_MOT)
+    #         delay(self.t_PGC_after_loading)
 
     @kernel
     def run(self):
@@ -105,12 +105,12 @@ class MOTTemperature(EnvExperiment):
 
                 delay(self.t_MOT_loading)
 
-                # self.load_MOT(PGC=self.do_PGC_in_MOT)
+                # self.load_MOT(PGC=self.do_PGC_after_loading)
 
-                if self.do_PGC_in_MOT:
+                if self.do_PGC_after_loading:
                     # todo: for now, use the same amplitude as the MOT. see my note in BaseExperiment.prepare
                     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_MOT)
-                    delay(self.t_PGC_in_MOT)
+                    delay(self.t_PGC_after_loading)
 
                 # # trigger Luca to save an image - sanity check to make sure there is a MOT
                 # self.ttl6.pulse(5 * ms)

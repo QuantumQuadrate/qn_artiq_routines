@@ -241,10 +241,12 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         delay(1*s)
 
         # run stabilizer
+        self.core.break_realtime()
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()
 
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+        delay(100*us)
         self.dds_FORT.sw.on()  ### turns FORT on
 
 
@@ -273,6 +275,7 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         while not tolerance_satisfied:
         # for iteration in range(max_iterations):
             print("starting iteration no.", iteration) # this statement has to be here for it to run,,,, why...
+            delay(10 * ms)
             time_ite = time_to_rotate_in_ms(self, half_range)
 
             delay(2 * time_ite * ms + 1*s)  # rotate two waveplates - okay for full_range = 50
@@ -351,6 +354,7 @@ class FORT_Polarization_Optimizer(EnvExperiment):
 
             delay(1 * s)
             print("iteration # ", iteration," : best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
+            delay(10*ms)
             iteration += 1
 
         # move back to the best HWP, QWP
@@ -358,9 +362,13 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
 
         print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
+        delay(10*ms)
         # print("difference in best_HWP, best_QWP, best_power = ", (self.best_852HWP_to_max - best_HWP), ", ", (self.best_852QWP_to_max - best_QWP), ", ", (self.best_852_power - best_power))
+        # delay(10 * ms)
 
+        self.core.break_realtime()
         self.dds_FORT.sw.off()  ### turns FORT on
+        delay(1*ms)
 
         self.set_dataset("best_852HWP_to_max", best_HWP, broadcast=True, persist=True)
         self.set_dataset("best_852QWP_to_max", best_QWP, broadcast=True, persist=True)
@@ -388,6 +396,7 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         power = run_feedback_and_record_FORT_MM_power(self)  # in experiment_functions
 
         print("After feedback - best_852_power set to ", power)
+        delay(10 * ms)
         self.set_dataset("best_852_power_ref", power, broadcast=True, persist=True)
 
     @kernel
