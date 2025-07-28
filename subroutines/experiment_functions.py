@@ -817,6 +817,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
                 ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
                 delay(0.1 * ms)
+                self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
                 self.laser_stabilizer.run()
                 self.n_feedback_per_iteration += 1
                 # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
@@ -1550,7 +1551,6 @@ def load_MOT_and_FORT_until_atom_recycle_node2_temporary(self):
         self.append_to_dataset("Atom_loading_time", self.core.mu_to_seconds(t_after_atom - t_before_atom))
         self.n_atom_loaded_per_iteration += 1
         delay(10 * ms)
-
 
 @kernel
 def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
@@ -2669,7 +2669,6 @@ def optical_pumping_with_GRIN1_sw_OP_from_urukul(self):
     self.GRIN1and2_dds.sw.off()
     self.ttl_GRIN1_switch.on()
 
-
 @kernel
 def optical_pumping_with_GRIN1_sw_OP_from_novatech(self):
     """
@@ -2841,7 +2840,6 @@ def optical_pumping_with_GRIN2_sw_OP_from_novatech(self):
 
     # self.dds_D1_pumping_DP.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
 
-
 @kernel
 def optical_pumping_both_sides(self):
     """
@@ -2932,9 +2930,6 @@ def optical_pumping_both_sides(self):
 
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
-
-
 
 @kernel
 def optical_pumping_both_sides_PR_34(self):
@@ -3043,7 +3038,6 @@ def optical_pumping_both_sides_PR_34(self):
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
     # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-
 
 @kernel
 def optical_pumping_both_sides_alternate(self):
@@ -3248,7 +3242,6 @@ def optical_pumping_both_sides_with_FORT_ON(self):
 
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
 
 @kernel
 def optical_pumping_GRIN1_with_FORT_ON(self):
@@ -4570,6 +4563,110 @@ def atom_loading_for_PGC_optimization_experiment(self):
     self.dds_FORT.sw.off()
 
 @kernel
+def beam_balancing_with_atoms_experiment(self):
+    """
+    The idea is to use the loaded atom to balance the MOT beam pairs one by one.
+    1- Load an atom
+    2- Do optical pumping
+    3- Turn on MOT 1 and 3 for a time t such that retention drops to 50%
+    4- Use MOT1 power as is (constant) and change MOT3 power (the opposite beam to MOT1) to maximize retention.
+
+    Repeat this for MOT 2 and 4, and MOT5 and 6.
+    """
+
+    self.core.reset()
+
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
+
+    if self.t_pumping > 0.0:
+        record_chopped_optical_pumping(self)
+        delay(100 * ms)
+
+    if self.t_blowaway > 0.0:
+        record_chopped_blow_away(self)
+        delay(100 * ms)
+
+    # self.ttl7.on()
+    if self.enable_laser_feedback:
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        run_feedback_and_record_FORT_MM_power(self)
+
+    # self.ttl7.off()
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        if self.which_node == 'alice':
+            # load_MOT_and_FORT_until_atom(self)
+            load_MOT_and_FORT_until_atom_recycle(self)
+        else:
+            load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
+
+        delay(1 * ms)
+
+        first_shot(self)
+
+
+        # ############################# optical pumping phase - pumps atoms into F=1,m_F=0
+        # ### With chopped pumping:
+        # if self.t_pumping > 0.0:
+        #     chopped_optical_pumping(self)
+        #     delay(1 * ms)
+
+        delay(1*ms)
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+        delay(1*ms)
+
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.7*self.stabilizer_FORT.amplitudes[1])
+
+        ### Changing power of fiber AOM3
+        self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=dB_to_V(self.p_excitation))
+
+        if self.t_blowaway > 0:
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_blowaway, amplitude=self.ampl_cooling_DP_MOT)
+            delay(10*us)
+            self.dds_cooling_DP.sw.on()  ### turn on cooling
+            self.ttl_repump_switch.off()  ### turn on MOT RP
+            with parallel:
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A3.sw.on()
+            delay(self.t_blowaway)
+            with parallel:
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A3.sw.off()
+
+        self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
+
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(5 * ms)  ### hopefully to avoid underflow.
+
+    delay(10 * ms)
+    self.dds_FORT.sw.off()
+    delay(1 * ms)
+
+@kernel
 def trap_frequency_experiment(self):
     """
     For spectroscopy of the trap vibrational frequencies with the Rigol D11022Z function generator.
@@ -4967,6 +5064,10 @@ def microwave_Ramsey_00_experiment(self):
         ############################
         # microwave phase
         ############################
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
+        delay(0.4 * ms)
+
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
         delay(2 * us)
 
@@ -6081,54 +6182,13 @@ def microwave_map01_map11_experiment(self):
 
         delay(1 * ms)
 
-        ### low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
         ############################
-        ### optical pumping phase - pumps atoms into F=1,m_F=0
+        # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
-
+        ### With chopped pumping:
         if self.t_pumping > 0.0:
-            self.ttl_repump_switch.on()  # turns off the MOT RP AOM
-            self.ttl_exc0_switch.on()  # turns off the excitation
-            self.dds_cooling_DP.sw.off()  # no cooling light
-            delay(1 * us)
-
-            ### set coils for pumping
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-                channels=self.coil_channels)
-            delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
-
-            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  ### set to 5V for optical pumping
-            self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
-            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
-            delay(1 * us)
-
-            ### Tunring on pumping RP:
-            self.dds_pumping_repump.sw.on()
-            self.dds_AOM_A5.sw.on()
-            self.dds_AOM_A6.sw.on()
-
+            chopped_optical_pumping(self)
             delay(1 * ms)
-
-            self.ttl_GRIN1_switch.off()  ### Turn on GRIN1 AOM
-            delay(10 * us)
-
-            self.core_dma.playback_handle(op_dma_handle)
-            delay(self.t_depumping)
-            self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-            self.dds_pumping_repump.sw.off()  ### turning off pumping RP
-
-            delay(2 * us)
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-            delay(100 * us)
-
-            self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-            delay(1 * ms)
-
-            self.ttl_GRIN1_switch.on()  ### Turn off GRIN1 AOM
-            delay(10 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -8548,7 +8608,7 @@ def atom_photon_partity_1_experiment(self):
 def atom_photon_partity_2_experiment(self):
     """
     A simple parity oscillation experiment. To speed up the experiment, I reuse the atom and
-    do OP after say 5 excitation attempts and try excitation again. I repeate the loop as long as
+    do OP after say 5 excitation attempts and try excitation again. I repeat the loop as long as
     there is an atom measured every atom_check_every_n.
     self.measurement advances only after single photon detection. Thus, n_measurements = 100, means
     100 detected photons from either SPCM0 or 1.

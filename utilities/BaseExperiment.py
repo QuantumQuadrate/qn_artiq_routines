@@ -176,6 +176,7 @@ class BaseExperiment:
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
 
             ### ttl12~15
+            self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
