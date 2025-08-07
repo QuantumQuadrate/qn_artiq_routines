@@ -877,6 +877,213 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         delay(10 * ms)
 
 @kernel
+def load_MOT_and_FORT_until_atom_recycle_linear_FORT(self):
+    """
+    Based on load_MOT_and_FORT_until_atom_recycle but lowering FORT linearly instead of step function to Science set point.
+
+    Before attempting to load MOT and FORT, it checks if there is already an atom in the FORT. If not, then it turns on the MOT and FORT
+    light at the same time and monitor SPCM0. Turn off the MOT as soon as an atom is trapped.
+
+    Turns ON the following at the beginning:
+        FORT AOM
+        Cooling DP
+        All fiber AOMs
+        MOT RP
+
+    Leaves the following OFF at the end:
+        Cooling DP
+        MOT RP
+
+    :param self: the experiment instance
+    :return:
+    """
+
+    ### First check if there is already an atom in the FORT based on RO2
+    delay(100 * us)
+    if self.measurement > 0:
+        if self.BothSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold:
+            atom_loaded = True
+
+            # ### Lower the FORT to science setpoint
+            # if self.which_node == 'alice':
+            #     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            #     FORT_ramp_down_linearly(self)
+            # elif self.which_node == 'bob':
+            #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+
+            ###########  PGC on the trapped atom  #############
+            if self.do_PGC_after_loading:
+                ### Set the coils to PGC setting
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                    channels=self.coil_channels)
+                delay(0.4 * ms)
+                ### set the cooling DP AOM to the PGC settings
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                delay(0.1 * ms)
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
+
+                self.dds_cooling_DP.sw.on()  ### turn on cooling
+                self.ttl_repump_switch.off()  ### turn on MOT RP
+                delay(self.t_PGC_after_loading)  ### this is the PGC time
+                self.dds_cooling_DP.sw.off()  ### turn off cooling
+                self.ttl_repump_switch.on()  ### turn off MOT RP
+            ###################################################
+        else:
+            atom_loaded = False
+    else:
+        atom_loaded = False
+
+
+    ### load an atom if atom_loaded = False
+    if not atom_loaded:
+
+        if self.monitors_for_atom_loading:
+            measure_Magnetometer(self)
+            delay(1*ms)
+            Sampler0_test(self)
+            delay(1*ms)
+            measure_coil_driver(self)
+
+        ### Set the coils to MOT loading setting
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+            channels=self.coil_channels)
+
+        ### set the cooling DP AOM to the MOT settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+
+        self.dds_cooling_DP.sw.on()  ### turn on cooling
+        self.ttl_repump_switch.off()  ### turn on MOT RP
+
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        delay(0.1 * ms)
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+        self.dds_FORT.sw.on()
+
+        delay(1 * ms)
+        self.zotino0.set_dac([3.5], self.UV_trig_channel)
+
+        max_tries = 100  ### Maximum number of attempts before running the feedback
+        atom_check_time = self.t_atom_check_time
+        try_n = 0
+        t_before_atom = now_mu() ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
+        t_after_atom = now_mu()
+        time_without_atom = 0.0
+
+        while True:
+            while not atom_loaded and try_n < max_tries:
+                delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+
+                BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+
+                try_n += 1
+
+                if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
+                    delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                    atom_loaded = True
+
+                ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
+                self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
+                delay(1*ms)
+
+            if atom_loaded:
+                self.set_dataset("time_without_atom", 0.0, broadcast=True) ### resetting time_without_atom when we load an atom
+                t_after_atom = now_mu()
+                break  ### Exit the outer loop if an atom is loaded
+
+            #### time_without_atom shows how long is passed from the previous atom loading. Calculated only when try_n > max_tries
+            delay(0.1 * ms)
+            t_no_atom = now_mu()
+            time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
+            self.set_dataset("time_without_atom", time_without_atom, broadcast=True)
+
+            ### If max_tries reached and still no atom, run feedback
+            if self.enable_laser_feedback:
+                delay(0.1 * ms) ### necessary to avoid underflow
+
+                ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+                ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+                delay(0.1 * ms)
+                self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+                self.laser_stabilizer.run()
+                self.n_feedback_per_iteration += 1
+                # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
+                self.dds_microwaves.sw.on()
+                self.dds_FORT.sw.on()
+                delay(0.1 * ms)
+
+                try_n = 0
+
+        self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        delay(100*us)
+
+        ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+            channels=self.coil_channels)
+        delay(0.4 * ms)
+
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+
+        delay(1 * ms)
+        delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+
+        ### Lower the FORT to science setpoint
+        if self.which_node == 'alice':
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            # FORT_ramp_down_linearly(self)
+            # FORT_ramp_down_smoothstep(self)
+            FORT_ramp_smoothstep(self, direction="down")
+        elif self.which_node == 'bob':
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+
+        ###########  PGC on the trapped atom  #############
+        if self.do_PGC_after_loading:
+            ### set the cooling DP AOM to the PGC settings
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+            self.ttl_repump_switch.off()  ### turn on MOT RP
+            self.dds_cooling_DP.sw.on()  ### turn on cooling
+            delay(10 * us)
+            # self.dds_AOM_A5.sw.off()
+            # self.dds_AOM_A6.sw.off()
+            delay(self.t_PGC_after_loading)  ### this is the PGC time
+            self.ttl_repump_switch.on()  ### turn off MOT RP
+            self.dds_cooling_DP.sw.off()  ### turn off cooling
+        ###################################################
+
+        ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
+        self.SPCM0_FORT_science = 0
+        # t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_first_shot)
+        # self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
+
+        ### saving the atom loading time for each loaded atom.
+        self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
+        self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
+        delay(1 * ms)
+        self.append_to_dataset("atom_loading_wall_clock", now_mu()) ### just to plot Atom_loading_time vs actual time in analysis
+        self.n_atom_loaded_per_iteration += 1
+        delay(10 * ms)
+
+@kernel
 def load_atom_smooth_FORT(self):
     """
     The same as load_MOT_and_FORT, but with FORT ramped down to science setpoint smoothly to cool the atom.
@@ -1770,6 +1977,8 @@ def first_shot(self):
     self.dds_cooling_DP.sw.on() ### Turn on cooling
     delay(0.1 * ms)
 
+    self.ttl7.on()
+
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
@@ -1830,6 +2039,9 @@ def first_shot(self):
             self.ttl_repump_switch.on() ### turn off MOT RP
             delay(10 * us)
 
+
+    self.ttl7.off()
+
 @kernel
 def second_shot(self):
     """
@@ -1859,7 +2071,6 @@ def second_shot(self):
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
     elif self.which_node == 'bob':
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
-
 
 
     ### set the cooling DP AOM to the readout settings
@@ -1956,11 +2167,11 @@ def second_shot(self):
             self.ttl_repump_switch.on()  ### turn off MOT RP
             delay(10 * us)
 
-    ### set the FORT AOM back to loading setting
-    if self.which_node == 'alice':
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[0])
-    elif self.which_node == 'bob':
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+    # ### set the FORT AOM back to loading setting
+    # if self.which_node == 'alice':
+    #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[0])
+    # elif self.which_node == 'bob':
+    #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
 @kernel
 def first_shot_smooth_FORT(self):
@@ -4024,6 +4235,69 @@ def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
     assert actual_vdc == vdc, "Oops! The device V_DC is not set to the requested value!"
     print(f"Vdc: {actual_vdc} V")
 
+@kernel
+def FORT_ramp_down_linearly(self):
+    """
+    delete
+    """
+
+    p_FORT_high = self.stabilizer_FORT.amplitudes[0]
+    p_FORT_low = self.stabilizer_FORT.amplitudes[1]
+    n_FORT_steps = 100
+    dp_FORT = (p_FORT_high - p_FORT_low)/n_FORT_steps
+    p_FORT = p_FORT_high
+
+    for i in range(n_FORT_steps):
+        delay(10 * us)
+        p_FORT -= dp_FORT
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude = p_FORT)
+        delay(10*us)
+
+@kernel
+def FORT_ramp_down_smoothstep(self):
+    """
+    Delete
+    """
+    p_FORT_high = self.stabilizer_FORT.amplitudes[0]
+    p_FORT_low = self.stabilizer_FORT.amplitudes[1]
+    n_FORT_steps = 100
+
+    for i in range(n_FORT_steps):
+        x = i / (n_FORT_steps - 1)  # normalized ramp position from 0 to 1
+        smoothstep = 6*x**5 - 15*x**4 + 10*x**3
+        p_FORT = p_FORT_high - smoothstep * (p_FORT_high - p_FORT_low)
+
+        delay(10 * us)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
+        delay(10 * us)
+
+@kernel
+def FORT_ramp_smoothstep(self, direction="down"):
+    """
+    Smoothly ramp FORT power using a quintic smoothstep profile.
+
+    direction: "down" or "up"
+    """
+    assert (direction == "down" or direction == "up"), "Direction must be 'down' or 'up'"
+
+    p_high = self.stabilizer_FORT.amplitudes[0]
+    p_low = self.stabilizer_FORT.amplitudes[1]
+    n_steps = 100
+    step_delay = self.t_FORT_ramp / n_steps
+
+    for i in range(n_steps):
+        x = i / (n_steps - 1)  # normalized ramp position in [0,1]
+        smoothstep = 6 * x ** 5 - 15 * x ** 4 + 10 * x ** 3
+
+        if direction == "down":
+            p_FORT = p_high - smoothstep * (p_high - p_low)
+        else:  # direction == "up"
+            p_FORT = p_low + smoothstep * (p_high - p_low)
+
+        delay(step_delay / 2)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
+        delay(step_delay / 2)
+
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS
 # These are the experiments we run, and the name of each should end with
@@ -4132,7 +4406,8 @@ def atom_loading_2_experiment(self):
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
             # load_MOT_and_FORT_until_atom(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_MOT_and_FORT_until_atom_recycle_linear_FORT(self)
         elif self.which_node == 'bob':
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
             # load_MOT_and_FORT_until_atom(self)
@@ -4213,9 +4488,9 @@ def atom_loading_3_experiment(self):
     while self.measurement < self.n_measurements:
         delay(1 * ms)
 
-        # load_atom_smooth_FORT(self)
+        load_atom_smooth_FORT(self)
         # load_until_atom_smooth_FORT(self)
-        load_until_atom_smooth_FORT_recycle(self)
+        # load_until_atom_smooth_FORT_recycle(self)
 
         self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
 
@@ -4917,6 +5192,7 @@ def microwave_Rabi_2_experiment(self):
         if self.which_node == 'alice':
             # load_MOT_and_FORT_until_atom(self)
             load_MOT_and_FORT_until_atom_recycle(self)
+            load_MOT_and_FORT_until_atom_recycle_linear_FORT(self)
         else:
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
 
@@ -4949,9 +5225,6 @@ def microwave_Rabi_2_experiment(self):
         ############################
 
         if self.t_microwave_pulse > 0.0:
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-            delay(2 * us)
-
             ### Changing the bias field for testing.
             self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
                                   self.AX_volts_microwave, self.AY_volts_microwave],
@@ -4959,6 +5232,9 @@ def microwave_Rabi_2_experiment(self):
             delay(0.4*ms)
 
             # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            delay(2 * us)
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
