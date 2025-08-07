@@ -877,9 +877,9 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         delay(10 * ms)
 
 @kernel
-def load_MOT_and_FORT_until_atom_recycle_linear_FORT(self):
+def load_until_atom_smooth_FORT_recycle(self):
     """
-    Based on load_MOT_and_FORT_until_atom_recycle but lowering FORT linearly instead of step function to Science set point.
+    Based on load_MOT_and_FORT_until_atom_recycle but lowering FORT smoothly to Science set point instead of step function.
 
     Before attempting to load MOT and FORT, it checks if there is already an atom in the FORT. If not, then it turns on the MOT and FORT
     light at the same time and monitor SPCM0. Turn off the MOT as soon as an atom is trapped.
@@ -907,7 +907,6 @@ def load_MOT_and_FORT_until_atom_recycle_linear_FORT(self):
             # ### Lower the FORT to science setpoint
             # if self.which_node == 'alice':
             #     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            #     FORT_ramp_down_linearly(self)
             # elif self.which_node == 'bob':
             #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
@@ -1050,8 +1049,6 @@ def load_MOT_and_FORT_until_atom_recycle_linear_FORT(self):
         ### Lower the FORT to science setpoint
         if self.which_node == 'alice':
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            # FORT_ramp_down_linearly(self)
-            # FORT_ramp_down_smoothstep(self)
             FORT_ramp_smoothstep(self, direction="down")
         elif self.which_node == 'bob':
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
@@ -1084,7 +1081,7 @@ def load_MOT_and_FORT_until_atom_recycle_linear_FORT(self):
         delay(10 * ms)
 
 @kernel
-def load_atom_smooth_FORT(self):
+def load_atom_smooth_FORT_RAM(self):
     """
     The same as load_MOT_and_FORT, but with FORT ramped down to science setpoint smoothly to cool the atom.
     Turning on the MOT and FORT light at the same time and monitor SPCM0. Turn off the MOT as soon as an atom is trapped.
@@ -1156,7 +1153,7 @@ def load_atom_smooth_FORT(self):
     delay(1 * ms)
 
 @kernel
-def load_until_atom_smooth_FORT(self):
+def load_until_atom_smooth_FORT_RAM(self):
     """
     The same as load_MOT_and_FORT_until_atom, but with FORT ramped down to science setpoint smoothly to cool the atom.
     """
@@ -1346,7 +1343,7 @@ def load_until_atom_smooth_FORT(self):
     delay(1 * ms)
 
 @kernel
-def load_until_atom_smooth_FORT_recycle(self):
+def load_until_atom_smooth_FORT_RAM_recycle(self):
     """
     The same as load_MOT_and_FORT_until_atom_recycle, but with FORT ramped down to science setpoint smoothly to cool the atom.
     """
@@ -4236,42 +4233,6 @@ def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
     print(f"Vdc: {actual_vdc} V")
 
 @kernel
-def FORT_ramp_down_linearly(self):
-    """
-    delete
-    """
-
-    p_FORT_high = self.stabilizer_FORT.amplitudes[0]
-    p_FORT_low = self.stabilizer_FORT.amplitudes[1]
-    n_FORT_steps = 100
-    dp_FORT = (p_FORT_high - p_FORT_low)/n_FORT_steps
-    p_FORT = p_FORT_high
-
-    for i in range(n_FORT_steps):
-        delay(10 * us)
-        p_FORT -= dp_FORT
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude = p_FORT)
-        delay(10*us)
-
-@kernel
-def FORT_ramp_down_smoothstep(self):
-    """
-    Delete
-    """
-    p_FORT_high = self.stabilizer_FORT.amplitudes[0]
-    p_FORT_low = self.stabilizer_FORT.amplitudes[1]
-    n_FORT_steps = 100
-
-    for i in range(n_FORT_steps):
-        x = i / (n_FORT_steps - 1)  # normalized ramp position from 0 to 1
-        smoothstep = 6*x**5 - 15*x**4 + 10*x**3
-        p_FORT = p_FORT_high - smoothstep * (p_FORT_high - p_FORT_low)
-
-        delay(10 * us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
-        delay(10 * us)
-
-@kernel
 def FORT_ramp_smoothstep(self, direction="down"):
     """
     Smoothly ramp FORT power using a quintic smoothstep profile.
@@ -4488,9 +4449,9 @@ def atom_loading_3_experiment(self):
     while self.measurement < self.n_measurements:
         delay(1 * ms)
 
-        load_atom_smooth_FORT(self)
-        # load_until_atom_smooth_FORT(self)
-        # load_until_atom_smooth_FORT_recycle(self)
+        load_atom_smooth_FORT_RAM(self)
+        # load_until_atom_smooth_FORT_RAM(self)
+        # load_until_atom_smooth_FORT_RAM_recycle(self)
 
         self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
 
