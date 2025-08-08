@@ -245,6 +245,20 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()
 
+        delay(1*ms)
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+
+        delay(1*ms)
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+        delay(1 * ms)
+
+
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
         delay(100*us)
         self.dds_FORT.sw.on()  ### turns FORT on
