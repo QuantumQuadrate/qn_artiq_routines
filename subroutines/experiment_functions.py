@@ -570,6 +570,9 @@ def load_MOT_and_FORT_until_atom(self):
     t_after_atom = now_mu()
     time_without_atom = 0.0
 
+    BothSPCMs_atom_check_loaded = 0  ### for initilization
+    BothSPCMs_atom_check_not_loaded = 0
+
     # self.ttl7.on()  ### for triggering oscilloscope
 
     while True:
@@ -586,17 +589,26 @@ def load_MOT_and_FORT_until_atom(self):
 
             try_n += 1
 
+            ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
+            ### would overwhelm the dataset.
+            if try_n == 1:
+                BothSPCMs_atom_check_not_loaded = BothSPCMs_atom_check
+
             if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
+                BothSPCMs_atom_check_loaded = BothSPCMs_atom_check
 
-            ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
-            self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
 
         if atom_loaded:
             # t_before_atom = t_after_atom ### I don't know why I had this! Removed and seems working fine.
             self.set_dataset("time_without_atom", 0.0, broadcast=True) ### resetting time_without_atom when we load an atom
             t_after_atom = now_mu()
+
+            ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
+            self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_loaded)
+            self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_not_loaded)
+            delay(1 * ms)
             break  ### Exit the outer loop if an atom is loaded
 
         #### time_without_atom shows how long is passed from the previous atom loading. Calculated only when try_n > max_tries
@@ -780,6 +792,9 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         t_after_atom = now_mu()
         time_without_atom = 0.0
 
+        BothSPCMs_atom_check_loaded = 0 ### for initilization
+        BothSPCMs_atom_check_not_loaded = 0
+
         while True:
             while not atom_loaded and try_n < max_tries:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
@@ -791,17 +806,25 @@ def load_MOT_and_FORT_until_atom_recycle(self):
 
                 try_n += 1
 
+                ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
+                ### would overwhelm the dataset.
+                if try_n==1:
+                    BothSPCMs_atom_check_not_loaded = BothSPCMs_atom_check
+
                 if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
+                    BothSPCMs_atom_check_loaded = BothSPCMs_atom_check
 
-                ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
-                self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
-                delay(1*ms)
 
             if atom_loaded:
                 self.set_dataset("time_without_atom", 0.0, broadcast=True) ### resetting time_without_atom when we load an atom
                 t_after_atom = now_mu()
+
+                ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
+                self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_loaded)
+                self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_not_loaded)
+                delay(1 * ms)
                 break  ### Exit the outer loop if an atom is loaded
 
             #### time_without_atom shows how long is passed from the previous atom loading. Calculated only when try_n > max_tries
@@ -983,6 +1006,9 @@ def load_until_atom_smooth_FORT_recycle(self):
         t_after_atom = now_mu()
         time_without_atom = 0.0
 
+        BothSPCMs_atom_check_loaded = 0  ### for initilization
+        BothSPCMs_atom_check_not_loaded = 0
+
         while True:
             while not atom_loaded and try_n < max_tries:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
@@ -994,17 +1020,25 @@ def load_until_atom_smooth_FORT_recycle(self):
 
                 try_n += 1
 
+                ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
+                ### would overwhelm the dataset.
+                if try_n == 1:
+                    BothSPCMs_atom_check_not_loaded = BothSPCMs_atom_check
+
                 if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
+                    BothSPCMs_atom_check_loaded = BothSPCMs_atom_check
 
-                ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
-                self.append_to_dataset("BothSPCMs_atom_check_in_loading",BothSPCMs_atom_check)
-                delay(1*ms)
 
             if atom_loaded:
                 self.set_dataset("time_without_atom", 0.0, broadcast=True) ### resetting time_without_atom when we load an atom
                 t_after_atom = now_mu()
+
+                ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
+                self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_loaded)
+                self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_not_loaded)
+                delay(1 * ms)
                 break  ### Exit the outer loop if an atom is loaded
 
             #### time_without_atom shows how long is passed from the previous atom loading. Calculated only when try_n > max_tries
@@ -3754,9 +3788,9 @@ def atom_loading_2_experiment(self):
 
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
-            # load_MOT_and_FORT_until_atom(self)
+            load_MOT_and_FORT_until_atom(self)
             # load_MOT_and_FORT_until_atom_recycle(self)
-            load_until_atom_smooth_FORT_recycle(self)
+            # load_until_atom_smooth_FORT_recycle(self)
         elif self.which_node == 'bob':
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
             # load_MOT_and_FORT_until_atom(self)
@@ -3781,8 +3815,6 @@ def atom_loading_2_experiment(self):
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
     self.dds_FORT.sw.off()
-
-
 
 @kernel
 def atom_loading_optimizer_experiment(self):
@@ -3995,11 +4027,39 @@ def atom_loading_for_optimization_experiment(self):
 
         # load_MOT_and_FORT(self)
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
 
         delay(1*ms)
         first_shot(self)
         delay(1 * ms)
+
+        ###########  PGC on the trapped atom to optimize coils, for example #############
+        ### Set the coils to PGC_optimization setting:
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
+            channels=self.coil_channels)
+        delay(0.4 * ms)
+        ### set the cooling DP AOM to the PGC settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+        self.ttl_repump_switch.off()  ### turn on MOT RP
+        self.dds_cooling_DP.sw.on()  ### turn on cooling
+        delay(10 * us)
+        # self.dds_AOM_A5.sw.off()
+        # self.dds_AOM_A6.sw.off()
+        delay(self.t_PGC_after_loading)  ### this is the PGC time
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        delay(10*us)
+
+        ### Set the coils to PGC setting:
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
+             self.AY_volts_PGC],
+            channels=self.coil_channels)
+        delay(0.4 * ms)
+        ###################################################
+
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -4007,13 +4067,13 @@ def atom_loading_for_optimization_experiment(self):
             self.dds_FORT.sw.on()
 
 
-        ################## to see if RO heats atoms
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-        delay(5*us)
-        shot_without_measurement(self)
-        delay(10*us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        ###########################################
+        # ################## to see if RO heats atoms
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        # delay(5*us)
+        # shot_without_measurement(self)
+        # delay(10*us)
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # ###########################################
 
         # delay(self.t_delay_between_shots)
         second_shot(self)
@@ -4456,7 +4516,6 @@ def microwave_Rabi_2_experiment(self):
         if self.which_node == 'alice':
             # load_MOT_and_FORT_until_atom(self)
             load_MOT_and_FORT_until_atom_recycle(self)
-            load_MOT_and_FORT_until_atom_recycle_linear_FORT(self)
         else:
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
 
