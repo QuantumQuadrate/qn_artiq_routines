@@ -3788,9 +3788,9 @@ def atom_loading_2_experiment(self):
 
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
-            load_MOT_and_FORT_until_atom(self)
+            # load_MOT_and_FORT_until_atom(self)
             # load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
+            load_until_atom_smooth_FORT_recycle(self)
         elif self.which_node == 'bob':
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
             # load_MOT_and_FORT_until_atom(self)
