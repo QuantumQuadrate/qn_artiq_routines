@@ -170,7 +170,8 @@ class BaseExperiment:
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             # self.experiment.ttl_Luca_trigger = self.experiment.ttl6 # Luca no longer used.
             self.experiment.ttl_exc0_switch = self.experiment.ttl6
-            self.experiment.ttl_scope_trigger = self.experiment.ttl7
+            # self.experiment.ttl_scope_trigger = self.experiment.ttl7
+            self.experiment.ttl_pumping_repump = self.experiment.ttl7
 
             ### ttl8~11
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
@@ -277,7 +278,8 @@ class BaseExperiment:
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             self.experiment.ttl_exc0_switch = self.experiment.ttl6
-            self.experiment.ttl_scope_trigger = self.experiment.ttl7
+            # self.experiment.ttl_scope_trigger = self.experiment.ttl7
+            self.experiment.ttl_pumping_repump = self.experiment.ttl7
 
             ### ttl8~11
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
@@ -339,7 +341,7 @@ class BaseExperiment:
 
             ### not in alice
             # self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
-            self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
+            self.experiment.ampl_free_ch = dB_to_V(self.experiment.p_free_ch)
             # self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -375,7 +377,8 @@ class BaseExperiment:
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
-            self.experiment.ttl_scope_trigger = self.experiment.ttl7
+            # self.experiment.ttl_scope_trigger = self.experiment.ttl7
+            self.experiment.ttl_pumping_repump = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_RF_switch = self.experiment.ttl15
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
@@ -413,7 +416,7 @@ class BaseExperiment:
             ### converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-            self.experiment.ampl_pumping_repump = dB_to_V(self.experiment.p_pumping_repump)
+            self.experiment.ampl_free_ch = dB_to_V(self.experiment.p_free_ch)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -581,7 +584,7 @@ class BaseExperiment:
                     'dds_FORT',
                     'dds_D1_pumping_DP',
                     'dds_cooling_DP',
-                    'dds_pumping_repump',
+                    'dds_free_ch',
                     'GRIN1and2_dds',
                     'dds_microwaves',
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
@@ -673,7 +676,7 @@ class BaseExperiment:
                 device_aliases=[
                     'dds_FORT',
                     'dds_cooling_DP',
-                    'dds_pumping_repump',
+                    'dds_free_ch',
                     # 'dds_GRIN1',
                     # 'dds_GRIN2',
                     'dds_microwaves',
@@ -756,7 +759,7 @@ class BaseExperiment:
                     'dds_FORT',
                     'dds_D1_pumping_DP',
                     'dds_cooling_DP',
-                    'dds_pumping_repump',
+                    'dds_free_ch',
                     'GRIN1and2_dds',
                     'dds_microwaves',
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
@@ -945,7 +948,8 @@ class BaseExperiment:
             self.experiment.ttl_microwave_switch.output()
             self.experiment.ttl_repump_switch.output()
             self.experiment.ttl_exc0_switch.output()
-            self.experiment.ttl_scope_trigger.output()
+            # self.experiment.ttl_scope_trigger.output()
+            self.experiment.ttl_pumping_repump.output()
 
             ### ttl8~11
             self.experiment.ttl_D1_lock_monitor.input()
@@ -1028,7 +1032,8 @@ class BaseExperiment:
             self.experiment.ttl_microwave_switch.output()
             self.experiment.ttl_repump_switch.output()
             self.experiment.ttl_exc0_switch.output()
-            self.experiment.ttl_scope_trigger.output()
+            # self.experiment.ttl_scope_trigger.output()
+            self.experiment.ttl_pumping_repump.output()
 
             ### ttl8~11
             self.experiment.ttl_D1_lock_monitor.input()
