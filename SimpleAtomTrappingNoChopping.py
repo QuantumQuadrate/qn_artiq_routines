@@ -108,7 +108,7 @@ class SimpleAtomTrapNoChop(EnvExperiment):
                 self.dds_FORT.sw.on()
                 self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
-            self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
+            # self.ttl7.pulse(self.t_exp_trigger) # in case we want to look at signals on an oscilloscope
 
             if self.control_experiment and measurement % 2 == 0:
                 # change the Y MOT coil enough to lose the MOT but not enough to significantly change the fluorescence

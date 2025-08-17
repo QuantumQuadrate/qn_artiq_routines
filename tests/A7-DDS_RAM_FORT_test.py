@@ -124,7 +124,7 @@ class DDS_RAM_FORT_test(EnvExperiment):
         delay(2 * ms)
 
         for measurement in range(self.n_measurements):
-            self.ttl7.on()
+            # self.ttl7.on()
 
             ### Configure the RAM to playback the first half (ramping down to science point)
             self.dds_FORT.set_profile_ram(
@@ -136,7 +136,7 @@ class DDS_RAM_FORT_test(EnvExperiment):
             self.dds_FORT.cpld.io_update.pulse_mu(8)
             delay(5*ms)
 
-            self.ttl7.off()
+            # self.ttl7.off()
 
 
             ########## test 2

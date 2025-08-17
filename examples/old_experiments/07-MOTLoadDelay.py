@@ -120,7 +120,7 @@ class MOT_Load_Time(EnvExperiment):
         self.zotino0.init()
 
         self.ttl6.output()  # for outputting a trigger
-        self.ttl7.output()  # for outputting a trigger
+        # self.ttl7.output()  # for outputting a trigger
         self.ttl1.input()
 
         # delay(1000 * ms)

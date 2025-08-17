@@ -265,8 +265,8 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         self.core.reset()
         delay(1*ms)
 
-        delay(0.1 * ms)
-        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
         delay(0.1 * ms)
 
         if self.tune_coils:
@@ -322,7 +322,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             # self.zotino0.set_dac([3.5], self.UV_trig_channel) ### for some reason it complains about this line. So, no UV for now
             ### in the optimizer.
             delay(1*ms)
-            self.ttl7.on()
+            # self.ttl7.on()
 
             max_tries = 100  ### Maximum number of attempts before running the feedback
             atom_check_time   = 20 * ms
@@ -362,7 +362,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
             # self.zotino0.set_dac([0.0], self.UV_trig_channel)
             delay(100*us)
-            self.ttl7.off()
+            # self.ttl7.off()
             self.atom_loading_time_list[i] = atom_loading_time
 
 
@@ -434,8 +434,8 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         self.core.reset()
         delay(1*ms)
 
-        delay(0.1 * ms)
-        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
         delay(0.1 * ms)
 
         if self.tune_coils:

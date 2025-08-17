@@ -1463,7 +1463,7 @@ def first_shot_chopped(self):
     # self.dds_cooling_DP.sw.off()  ### turn off cooling
     # self.ttl_repump_switch.on()  ### turn off MOT RP
 
-    self.ttl7.on()
+    # self.ttl7.on()
     delay(100 * us)
 
     for n_RO in range(n_RO_total):
@@ -1488,7 +1488,7 @@ def first_shot_chopped(self):
         delay(5 * us)
         # self.SPCM0_test_RO += SPCM0_test_RO_n
 
-    self.ttl7.off()
+    # self.ttl7.off()
 
 @kernel
 def first_shot(self):
@@ -1514,7 +1514,7 @@ def first_shot(self):
     self.dds_cooling_DP.sw.on() ### Turn on cooling
     delay(0.1 * ms)
 
-    self.ttl7.on()
+    # self.ttl7.on()
 
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
@@ -1577,7 +1577,7 @@ def first_shot(self):
             delay(10 * us)
 
 
-    self.ttl7.off()
+    # self.ttl7.off()
 
 @kernel
 def second_shot(self):
@@ -3795,7 +3795,7 @@ def atom_loading_2_experiment(self):
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
             # load_MOT_and_FORT_until_atom(self)
 
-        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
 
         delay(1*ms)
         first_shot(self)
@@ -9515,7 +9515,7 @@ def Pulse_microwave_smooth(self, MW_freq):
             ram_destination=RAM_DEST_ASF,
         )
 
-        self.ttl7.on() ## for triggering scope
+        # self.ttl7.on() ## for triggering scope
         self.dds_microwaves.sw.on()
         self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### This runs the RAM
 
@@ -9534,7 +9534,7 @@ def Pulse_microwave_smooth(self, MW_freq):
         self.urukul2_ch3.cpld.init()
 
         self.ttl_microwave_switch.on()
-        self.ttl7.off()
+        # self.ttl7.off()
 
 @kernel
 def track_1_microwave_transition_experiment(self):

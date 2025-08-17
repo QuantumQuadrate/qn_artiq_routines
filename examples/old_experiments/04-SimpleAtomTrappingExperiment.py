@@ -302,7 +302,7 @@ class SimpleAtomTrapping(EnvExperiment):
         for measurement in range(self.n_measurements):
 
             # do the experiment sequence
-            self.ttl7.pulse(self.t_exp_trigger)
+            # self.ttl7.pulse(self.t_exp_trigger)
             data = self.mot_and_shot()
             if self.print_measurement_number:
                 print("measurement", measurement)
@@ -323,7 +323,7 @@ class SimpleAtomTrapping(EnvExperiment):
 
         self.core.reset()
         self.ttl0.input()  # for reading pulses from SPCM
-        self.ttl7.output()  # for outputting a trigger each cycle
+        # self.ttl7.output()  # for outputting a trigger each cycle
 
         self.urukul0_ch0.init()
         self.urukul0_ch1.init()

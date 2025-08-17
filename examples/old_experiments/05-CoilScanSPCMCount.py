@@ -229,7 +229,7 @@ class CoilScan_SPCMCount(EnvExperiment):
                     self.core.break_realtime()
 
                     # do the experiment sequence
-                    self.ttl7.pulse(self.t_exp_trigger)
+                    # self.ttl7.pulse(self.t_exp_trigger)
 
                     # update coil values
                     delay(1 * ms)
@@ -347,7 +347,7 @@ class CoilScan_SPCMCount(EnvExperiment):
 
         self.core.reset()
         self.ttl0.input()  # for reading pulses from SPCM
-        self.ttl7.output()  # for outputting a trigger each cycle
+        # self.ttl7.output()  # for outputting a trigger each cycle
 
         self.urukul0_ch0.init()
         self.urukul0_ch1.init()

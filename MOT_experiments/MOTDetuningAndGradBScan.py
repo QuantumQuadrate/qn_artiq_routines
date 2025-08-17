@@ -143,7 +143,7 @@ class MOTDetuningAndGradBScan(EnvExperiment):
                     # set the cooling DP AOM to the MOT settings
                     self.dds_cooling_DP.set(frequency=f_cooling_DP, amplitude=self.ampl_cooling_DP_MOT)
 
-                    self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+                    # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
 
                     ############################
                     # load the MOT

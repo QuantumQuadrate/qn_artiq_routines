@@ -47,7 +47,7 @@ class DDS_profile_test(EnvExperiment):
 
         delay(10 * ms)
 
-        self.ttl7.on()
+        # self.ttl7.on()
         self.dds2.sw.on()
 
         ### Select profile 0
@@ -64,7 +64,7 @@ class DDS_profile_test(EnvExperiment):
         self.dds1.sw.off()
         self.dds2.sw.off()
 
-        self.ttl7.off()
+        # self.ttl7.off()
 
     @kernel
     def without_profile(self):
@@ -73,7 +73,7 @@ class DDS_profile_test(EnvExperiment):
         self.dds1.set(10.0 * MHz, amplitude=0.2)
         self.dds2.set(10.0 * MHz, amplitude=0.5)
 
-        self.ttl7.on()
+        # self.ttl7.on()
         self.dds1.sw.on()
         self.dds2.sw.on()
 
@@ -87,7 +87,7 @@ class DDS_profile_test(EnvExperiment):
         self.dds1.sw.off()
         self.dds2.sw.off()
 
-        self.ttl7.off()
+        # self.ttl7.off()
 
 
 
