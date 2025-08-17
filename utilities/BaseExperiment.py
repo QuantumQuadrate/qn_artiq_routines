@@ -341,7 +341,7 @@ class BaseExperiment:
 
             ### not in alice
             # self.experiment.ampl_D1_pumping_DP = dB_to_V(self.experiment.p_D1_pumping_DP)
-            self.experiment.ampl_free_ch = dB_to_V(self.experiment.p_free_ch)
+            # self.experiment.ampl_free_ch = dB_to_V(self.experiment.p_free_ch)
             # self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -416,7 +416,7 @@ class BaseExperiment:
             ### converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-            self.experiment.ampl_free_ch = dB_to_V(self.experiment.p_free_ch)
+            # self.experiment.ampl_free_ch = dB_to_V(self.experiment.p_free_ch)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -987,6 +987,8 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_repump_switch.on() # block RF to get to the RP AOM
             delay(1*ms)
+            self.experiment.ttl_pumping_repump.on() # block RF to get to the PR AOM
+            delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
             self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
@@ -1059,6 +1061,8 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
             delay(1*ms)
+            self.experiment.ttl_pumping_repump.on() # block RF to get to the PR AOM
+            delay(1*ms)
             self.experiment.ttl_exc0_switch.on()
             delay(1 * ms)
             self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
@@ -1108,6 +1112,8 @@ class BaseExperiment:
             ### turn on/off any switches. this ensures that switches always start in a default state,
             ### which might not happen if we abort an experiment in the middle and don't reset it
             self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
+            delay(1*ms)
+            self.experiment.ttl_pumping_repump.on() # block RF to get to the PR AOM
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
