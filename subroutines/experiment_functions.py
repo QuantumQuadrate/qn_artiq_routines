@@ -443,9 +443,11 @@ def load_MOT_and_FORT(self):
     # set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-    # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+    # delay(0.1 * ms)
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-    # self.ttl7.on()
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
     self.dds_cooling_DP.sw.on()
     self.ttl_repump_switch.off()
@@ -478,7 +480,7 @@ def load_MOT_and_FORT(self):
     self.SPCM0_FORT_science = self.ttl_SPCM0.count(t_gate_end)
     delay(1*ms)
 
-    # self.ttl7.off()
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
     ### set the coils to PGC settings
     self.zotino0.set_dac(
@@ -573,7 +575,7 @@ def load_MOT_and_FORT_until_atom(self):
     BothSPCMs_atom_check_loaded = 0  ### for initilization
     BothSPCMs_atom_check_not_loaded = 0
 
-    # self.ttl7.on()  ### for triggering oscilloscope
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
     while True:
         while not atom_loaded and try_n < max_tries:
@@ -619,7 +621,9 @@ def load_MOT_and_FORT_until_atom(self):
 
         ### If max_tries reached and still no atom, run feedback
         if self.enable_laser_feedback:
-            # self.ttl7.pulse(10 * ms)  ### for triggering oscilloscope
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
             delay(0.1 * ms) ### necessary to avoid underflow
 
             ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -672,7 +676,7 @@ def load_MOT_and_FORT_until_atom(self):
         self.ttl_repump_switch.on()  ### turn off MOT RP
         self.dds_cooling_DP.sw.off()  ### turn off cooling
     ###################################################
-    # self.ttl7.off()
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
     ### I don't know what this SPCM0_FORT_science is used for. Set to 0 for now:
     self.SPCM0_FORT_science = 0
@@ -1233,9 +1237,9 @@ def load_MOT_and_FORT_until_atom_recycle_node2_temporary(self):
             if self.enable_laser_feedback:
                 delay(0.1 * ms) ### necessary to avoid underflow
 
+                # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
                 # delay(0.1 * ms)
-                # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
-                # delay(0.1 * ms)
+                # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
                 ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
                 ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
@@ -1344,7 +1348,9 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     # set the cooling DP AOM to the MOT settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
 
-    # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+    # delay(0.1 * ms)
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
     if not self.MOT_light_off:
         self.dds_cooling_DP.sw.on()
@@ -1463,7 +1469,7 @@ def first_shot_chopped(self):
     # self.dds_cooling_DP.sw.off()  ### turn off cooling
     # self.ttl_repump_switch.on()  ### turn off MOT RP
 
-    # self.ttl7.on()
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
     delay(100 * us)
 
     for n_RO in range(n_RO_total):
@@ -1488,7 +1494,7 @@ def first_shot_chopped(self):
         delay(5 * us)
         # self.SPCM0_test_RO += SPCM0_test_RO_n
 
-    # self.ttl7.off()
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
 @kernel
 def first_shot(self):
@@ -1514,7 +1520,7 @@ def first_shot(self):
     self.dds_cooling_DP.sw.on() ### Turn on cooling
     delay(0.1 * ms)
 
-    # self.ttl7.on()
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
@@ -1541,7 +1547,9 @@ def first_shot(self):
             self.dds_cooling_DP.sw.off()  # the chop sequence likes to turn the FORT off
 
             delay(1 * ms)
-            # self.ttl7.pulse(100 * us)
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
             self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
 
             delay(0.1 * ms)
@@ -1562,7 +1570,9 @@ def first_shot(self):
 
         else:
             delay(1 * ms)
-            # self.ttl7.pulse(100 * us)
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
             delay(1 * ms)
             with parallel:
                 self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
@@ -1576,8 +1586,7 @@ def first_shot(self):
             self.ttl_repump_switch.on() ### turn off MOT RP
             delay(10 * us)
 
-
-    # self.ttl7.off()
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
 @kernel
 def second_shot(self):
@@ -1648,7 +1657,9 @@ def second_shot(self):
             self.dds_cooling_DP.sw.off()  # the chop sequence likes to turn the FORT off
 
             delay(1 * ms)
-            # self.ttl7.pulse(100 * us)
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
             self.dds_FORT.sw.on()  # the chop sequence likes to turn the FORT off
 
             delay(10 * ms)
@@ -3783,8 +3794,9 @@ def atom_loading_2_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
@@ -3795,7 +3807,9 @@ def atom_loading_2_experiment(self):
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
             # load_MOT_and_FORT_until_atom(self)
 
-        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         delay(1*ms)
         first_shot(self)
@@ -4022,8 +4036,9 @@ def atom_loading_for_optimization_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         # load_MOT_and_FORT(self)
         # load_MOT_and_FORT_until_atom(self)
@@ -4107,8 +4122,9 @@ def atom_loading_for_PGC_optimization_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        # self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         # load_MOT_and_FORT(self)
         # load_MOT_and_FORT_until_atom(self)
@@ -4184,7 +4200,8 @@ def beam_balancing_with_atoms_experiment(self):
         record_chopped_blow_away(self)
         delay(100 * ms)
 
-    # self.ttl7.on()
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+
     if self.enable_laser_feedback:
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
@@ -4193,7 +4210,7 @@ def beam_balancing_with_atoms_experiment(self):
         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
-    # self.ttl7.off()
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -4492,7 +4509,8 @@ def microwave_Rabi_2_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
-    # self.ttl7.on()
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+
     if self.enable_laser_feedback:
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
@@ -4501,7 +4519,7 @@ def microwave_Rabi_2_experiment(self):
         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
-    # self.ttl7.off()
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -4554,7 +4572,9 @@ def microwave_Rabi_2_experiment(self):
                                  channels=self.coil_channels)
             delay(0.4*ms)
 
-            # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
             delay(2 * us)
@@ -4926,7 +4946,9 @@ def microwave_Rabi_2_CW_OP_experiment(self):
             #                      channels=self.coil_channels)
             delay(0.5*ms)
 
-            # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
@@ -5054,7 +5076,9 @@ def microwave_Rabi_2_CW_OP_experiment_and_FORT(self):
             #                      channels=self.coil_channels)
             delay(0.5*ms)
 
-            # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
@@ -6720,7 +6744,9 @@ def single_photon_experiment(self):
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
 
-        # self.ttl7.pulse(10 * us)  # in case we want to look at signals on an oscilloscope
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         ########################################################
         # lower level optical pumping and excitation sequence to optimize for speed
@@ -9515,7 +9541,8 @@ def Pulse_microwave_smooth(self, MW_freq):
             ram_destination=RAM_DEST_ASF,
         )
 
-        # self.ttl7.on() ## for triggering scope
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+
         self.dds_microwaves.sw.on()
         self.dds_microwaves.cpld.io_update.pulse_mu(8)  ### This runs the RAM
 
@@ -9534,7 +9561,7 @@ def Pulse_microwave_smooth(self, MW_freq):
         self.urukul2_ch3.cpld.init()
 
         self.ttl_microwave_switch.on()
-        # self.ttl7.off()
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
 @kernel
 def track_1_microwave_transition_experiment(self):

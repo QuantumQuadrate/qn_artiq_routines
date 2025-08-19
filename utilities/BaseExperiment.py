@@ -170,7 +170,6 @@ class BaseExperiment:
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             # self.experiment.ttl_Luca_trigger = self.experiment.ttl6 # Luca no longer used.
             self.experiment.ttl_exc0_switch = self.experiment.ttl6
-            # self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
 
             ### ttl8~11
@@ -198,6 +197,7 @@ class BaseExperiment:
                                              self.experiment.AY_Zotino_channel]
 
             self.experiment.UV_trig_channel = [8]
+            self.experiment.Osc_trig_channel = [10]
 
             self.experiment.FORT_MM_sampler_ch = 7
             self.experiment.GRIN1_sampler_ch = 4  # Sampler1; function "measure_GRIN1" in experiment functions.py
@@ -278,7 +278,6 @@ class BaseExperiment:
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             self.experiment.ttl_exc0_switch = self.experiment.ttl6
-            # self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
 
             ### ttl8~11
@@ -314,6 +313,7 @@ class BaseExperiment:
                                              self.experiment.AY_Zotino_channel]
 
             self.experiment.UV_trig_channel = [8]
+            self.experiment.Osc_trig_channel = [10]
 
             self.experiment.Magnetometer_X_ch = 1  ### Magnetometer is connected to Sampler2
             self.experiment.Magnetometer_Y_ch = 2
@@ -377,7 +377,6 @@ class BaseExperiment:
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
-            # self.experiment.ttl_scope_trigger = self.experiment.ttl7
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
             self.experiment.ttl_RF_switch = self.experiment.ttl15
@@ -397,6 +396,7 @@ class BaseExperiment:
                                              self.experiment.AY_Zotino_channel]
 
             self.experiment.UV_trig_channel = [8]
+            self.experiment.Osc_trig_channel = [10]
 
             ### dataset names
             self.experiment.measurements_progress = 'measurements_progress'

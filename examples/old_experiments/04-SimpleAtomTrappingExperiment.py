@@ -59,7 +59,6 @@ class SimpleAtomTrapping(EnvExperiment):
         self.setattr_device("urukul1_ch3")
         self.setattr_device("zotino0") # for controlling coils
         self.setattr_device("ttl0")  # input for counting SPCM clicks
-        self.setattr_device("ttl7")  # output for experiment trigger
 
         self.setattr_argument("AZ_top_volts_MOT", NumberValue(1.8*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
         self.setattr_argument("AZ_top_volts_PGC", NumberValue(0 * (-1.64 / 2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad top coil")
@@ -302,7 +301,6 @@ class SimpleAtomTrapping(EnvExperiment):
         for measurement in range(self.n_measurements):
 
             # do the experiment sequence
-            # self.ttl7.pulse(self.t_exp_trigger)
             data = self.mot_and_shot()
             if self.print_measurement_number:
                 print("measurement", measurement)
@@ -323,7 +321,6 @@ class SimpleAtomTrapping(EnvExperiment):
 
         self.core.reset()
         self.ttl0.input()  # for reading pulses from SPCM
-        # self.ttl7.output()  # for outputting a trigger each cycle
 
         self.urukul0_ch0.init()
         self.urukul0_ch1.init()

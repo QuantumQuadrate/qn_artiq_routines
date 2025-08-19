@@ -24,7 +24,6 @@ class MOT_Load_Time(EnvExperiment):
         self.setattr_device("urukul1_ch2")
         self.setattr_device("urukul1_ch3")
         self.setattr_device("zotino0")  # for controlling coils
-        self.setattr_device("ttl7")  # output for experiment trigger
         self.setattr_device("ttl6")
         self.setattr_device("ttl1")
 
@@ -120,7 +119,6 @@ class MOT_Load_Time(EnvExperiment):
         self.zotino0.init()
 
         self.ttl6.output()  # for outputting a trigger
-        # self.ttl7.output()  # for outputting a trigger
         self.ttl1.input()
 
         # delay(1000 * ms)

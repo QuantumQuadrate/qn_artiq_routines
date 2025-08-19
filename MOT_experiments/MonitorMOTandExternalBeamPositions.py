@@ -127,7 +127,9 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
                 self.dds_FORT.sw.on()
                 self.dds_FORT.set(frequency=self.f_FORT - 30 * MHz, amplitude=self.stabilizer_FORT.amplitude)
 
-            # self.ttl7.pulse(self.t_exp_trigger)  # in case we want to look at signals on an oscilloscope
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
             ############################
             # load the MOT

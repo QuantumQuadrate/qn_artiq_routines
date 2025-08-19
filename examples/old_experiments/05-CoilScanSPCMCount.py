@@ -35,7 +35,7 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.setattr_device("urukul1_ch3")
         self.setattr_device("zotino0") # for controlling coils
         self.setattr_device("ttl0")  # input for counting SPCM clicks
-        self.setattr_device("ttl7")  # output for experiment trigger
+        # self.setattr_device("ttl7")  # output for experiment trigger
 
         self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
         # self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
@@ -229,7 +229,9 @@ class CoilScan_SPCMCount(EnvExperiment):
                     self.core.break_realtime()
 
                     # do the experiment sequence
-                    # self.ttl7.pulse(self.t_exp_trigger)
+                    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+                    # delay(0.1 * ms)
+                    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
                     # update coil values
                     delay(1 * ms)
@@ -347,7 +349,9 @@ class CoilScan_SPCMCount(EnvExperiment):
 
         self.core.reset()
         self.ttl0.input()  # for reading pulses from SPCM
-        # self.ttl7.output()  # for outputting a trigger each cycle
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         self.urukul0_ch0.init()
         self.urukul0_ch1.init()
