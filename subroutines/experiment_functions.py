@@ -2000,7 +2000,7 @@ def record_chopped_optical_pumping(self):
             # turn off the pumping repump
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
-            self.ttl_pumping_repump.on()
+            self.ttl_pumping_repump_switch.on()
             start = now_mu() + self.core.seconds_to_mu(0.5 * us)
 
             if not (self.pumping_light_off or self.D1_off_in_depump_phase):
@@ -2064,7 +2064,7 @@ def chopped_optical_pumping(self):
     delay(1 * us)
 
     ### Tunring on pumping RP:
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
@@ -2083,7 +2083,7 @@ def chopped_optical_pumping(self):
     self.core_dma.playback_handle(op_dma_handle)
     delay(self.t_depumping)
     self.dds_D1_pumping_DP.sw.off() ### turning off D1 DP
-    self.ttl_pumping_repump.on() ### turning off pumping RP
+    self.ttl_pumping_repump_switch.on() ### turning off pumping RP
 
     delay(2*us)
     self.dds_AOM_A5.sw.off()
@@ -2140,13 +2140,13 @@ def optical_pumping(self):
     delay (10 * us)
 
     self.dds_FORT.sw.off()
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
     self.dds_D1_pumping_DP.sw.on()
     delay(self.t_pumping)
 
     self.dds_D1_pumping_DP.sw.off()
     delay(self.t_depumping)
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_FORT.sw.on()
 
     delay(2*us)
@@ -2229,7 +2229,7 @@ def optical_pumping_with_GRIN1_sw_OP_from_urukul(self):
     delay (10 * us)
 
     self.dds_FORT.sw.off()
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
     # self.dds_D1_pumping_DP.sw.on()
     self.ttl_GRIN1_switch.off()
 
@@ -2239,7 +2239,7 @@ def optical_pumping_with_GRIN1_sw_OP_from_urukul(self):
     self.ttl_GRIN1_switch.on()
     delay(self.t_depumping)
     self.dds_D1_pumping_DP.sw.off()
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_FORT.sw.on()
 
 
@@ -2319,7 +2319,7 @@ def optical_pumping_with_GRIN1_sw_OP_from_novatech(self):
     ### Optical pumping phase ###
 
     ## pumping repump ON
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
 
     ## sending D1 through GRIN1
     self.ttl_D1_pumping.off()  ##turning D1 ON
@@ -2345,7 +2345,7 @@ def optical_pumping_with_GRIN1_sw_OP_from_novatech(self):
     delay(self.t_depumping)
 
     ## pumping repump OFF
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
@@ -2406,7 +2406,7 @@ def optical_pumping_with_GRIN2_sw_OP_from_novatech(self):
     ### Optical pumping phase ###
 
     ## pumping repump ON
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
 
     ## sending D1 through GRIN2
     self.ttl_D1_pumping.off()  ##turning D1 ON
@@ -2432,7 +2432,7 @@ def optical_pumping_with_GRIN2_sw_OP_from_novatech(self):
     delay(self.t_depumping)
 
     ## pumping repump OFF
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
@@ -2493,7 +2493,7 @@ def optical_pumping_both_sides(self):
 
     ### Optical pumping phase ###
     ## pumping repump ON
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
 
     delay(0.5 * us)
 
@@ -2520,7 +2520,7 @@ def optical_pumping_both_sides(self):
     delay(self.t_depumping)
 
     ## pumping repump OFF
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
@@ -2591,7 +2591,7 @@ def optical_pumping_both_sides_PR_34(self):
 
     ### Optical pumping phase ###
     ## pumping repump ON
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
 
     delay(0.5 * us)
 
@@ -2618,7 +2618,7 @@ def optical_pumping_both_sides_PR_34(self):
     delay(self.t_depumping)
 
     ## pumping repump OFF
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A3.sw.off()
     self.dds_AOM_A4.sw.off()
 
@@ -2692,7 +2692,7 @@ def optical_pumping_both_sides_alternate(self):
 
     ### Optical pumping phase ###
     ## pumping repump ON
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
 
     delay(0.5 * us)
 
@@ -2742,7 +2742,7 @@ def optical_pumping_both_sides_alternate(self):
     delay(self.t_depumping)
 
     ## pumping repump OFF
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
@@ -2806,7 +2806,7 @@ def optical_pumping_both_sides_with_FORT_ON(self):
 
     ### Optical pumping phase ###
     ## pumping repump ON
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
 
     delay(0.5 * us)
 
@@ -2832,7 +2832,7 @@ def optical_pumping_both_sides_with_FORT_ON(self):
     delay(self.t_depumping)
 
     ## pumping repump OFF
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
@@ -2896,7 +2896,7 @@ def optical_pumping_GRIN1_with_FORT_ON(self):
 
     ### Optical pumping phase ###
     ## pumping repump ON
-    self.ttl_pumping_repump.off()
+    self.ttl_pumping_repump_switch.off()
 
     delay(0.5 * us)
 
@@ -2922,7 +2922,7 @@ def optical_pumping_GRIN1_with_FORT_ON(self):
     delay(self.t_depumping)
 
     ## pumping repump OFF
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
@@ -3035,7 +3035,7 @@ def measure_REPUMP(self):
 
     # self.dds_FORT.sw.off() ### Why turnning of FORT?
     self.ttl_repump_switch.off()  # turns the RP AOM on
-    self.ttl_pumping_repump.on()
+    self.ttl_pumping_repump_switch.on()
     self.dds_cooling_DP.sw.off()
 
     delay(0.1 * ms)
@@ -3090,7 +3090,7 @@ def measure_PUMPING_REPUMP(self):
     self.ttl_repump_switch.on()  # turns the RP AOM off
     self.dds_cooling_DP.sw.off()
 
-    self.ttl_pumping_repump.off() # turns on PR AOM
+    self.ttl_pumping_repump_switch.off() # turns on PR AOM
 
     # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-8.0))
     # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-8.0))
@@ -3115,7 +3115,7 @@ def measure_PUMPING_REPUMP(self):
     self.append_to_dataset("PUMPING_REPUMP1_monitor", measurement1)
     self.append_to_dataset("PUMPING_REPUMP2_monitor", measurement2)
 
-    self.ttl_pumping_repump.on()  # turns the PR AOM off
+    self.ttl_pumping_repump_switch.on()  # turns the PR AOM off
 
     # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
@@ -5165,9 +5165,9 @@ def microwave_freq_scan_experiment(self):
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
-        self.ttl_pumping_repump.off() ### turning on pumping RP
+        self.ttl_pumping_repump_switch.off() ### turning on pumping RP
         delay(3 * ms)  # leave the repump on
-        self.ttl_pumping_repump.on() ### turning off pumping RP
+        self.ttl_pumping_repump_switch.on() ### turning off pumping RP
         delay(1 * ms)
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
@@ -5345,7 +5345,7 @@ def microwave_freq_scan_with_photons_experiment(self):
         #     delay(1 * us)
         #
         #     ### Tunring on pumping RP:
-        #     self.ttl_pumping_repump.off()
+        #     self.ttl_pumping_repump_switch.off()
         #     self.dds_AOM_A5.sw.on()
         #     self.dds_AOM_A6.sw.on()
         #
@@ -5357,7 +5357,7 @@ def microwave_freq_scan_with_photons_experiment(self):
         #     self.core_dma.playback_handle(op_dma_handle)
         #     delay(self.t_depumping)
         #     self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-        #     self.ttl_pumping_repump.on()  ### turning off pumping RP
+        #     self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
         #
         #     delay(2 * us)
         #     self.dds_AOM_A5.sw.off()
@@ -5588,7 +5588,7 @@ def microwave_freq_scan_2_with_photons_experiment(self):
             delay(1 * us)
 
             ### Tunring on pumping RP:
-            self.ttl_pumping_repump.off()
+            self.ttl_pumping_repump_switch.off()
             self.dds_AOM_A5.sw.on()
             self.dds_AOM_A6.sw.on()
 
@@ -5600,7 +5600,7 @@ def microwave_freq_scan_2_with_photons_experiment(self):
             self.core_dma.playback_handle(op_dma_handle)
             delay(self.t_depumping)
             self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-            self.ttl_pumping_repump.on()  ### turning off pumping RP
+            self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
             delay(2 * us)
             self.dds_AOM_A5.sw.off()
@@ -5961,7 +5961,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
             delay(1 * us)
 
             ### Tunring on pumping RP:
-            self.ttl_pumping_repump.off()
+            self.ttl_pumping_repump_switch.off()
             self.dds_AOM_A5.sw.on()
             self.dds_AOM_A6.sw.on()
 
@@ -5973,7 +5973,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
             self.core_dma.playback_handle(op_dma_handle)
             delay(self.t_depumping)
             self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-            self.ttl_pumping_repump.on()  ### turning off pumping RP
+            self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
             delay(2 * us)
             self.dds_AOM_A5.sw.off()
@@ -6765,7 +6765,7 @@ def single_photon_experiment(self):
                 # self.ttl_repump_switch.on()  # turns off the MOT RP AOM
 
                 if not self.pumping_light_off:
-                    self.ttl_pumping_repump.off()
+                    self.ttl_pumping_repump_switch.off()
 
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
@@ -6784,7 +6784,7 @@ def single_photon_experiment(self):
                     delay(self.t_depumping)
 
                     self.dds_D1_pumping_DP.sw.off()
-                    self.ttl_pumping_repump.on()  # turn the repump back on
+                    self.ttl_pumping_repump_switch.on()  # turn the repump back on
 
                 delay(2 * us)
                 self.dds_AOM_A5.sw.off()
@@ -7074,7 +7074,7 @@ def single_photon_experiment_atom_loading_advance(self):
                 delay(1 * us)
 
                 ### Tunring on pumping RP:
-                self.ttl_pumping_repump.off()
+                self.ttl_pumping_repump_switch.off()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
@@ -7091,7 +7091,7 @@ def single_photon_experiment_atom_loading_advance(self):
                 self.core_dma.playback_handle(op_dma_handle)
                 delay(self.t_depumping)
                 self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-                self.ttl_pumping_repump.on()  ### turning off pumping RP
+                self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
                 delay(2 * us)
                 self.dds_AOM_A5.sw.off()
@@ -7414,7 +7414,7 @@ def single_photon_experiment_2_atom_loading_advance(self):
                 delay(1 * us)
 
                 ### Tunring on pumping RP:
-                self.ttl_pumping_repump.off()
+                self.ttl_pumping_repump_switch.off()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
@@ -7431,7 +7431,7 @@ def single_photon_experiment_2_atom_loading_advance(self):
                 self.core_dma.playback_handle(op_dma_handle)
                 delay(self.t_depumping)
                 self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-                self.ttl_pumping_repump.on()  ### turning off pumping RP
+                self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
                 delay(2 * us)
                 self.dds_AOM_A5.sw.off()
@@ -7770,7 +7770,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
                 delay(1 * us)
 
                 ### Tunring on pumping RP:
-                self.ttl_pumping_repump.off()
+                self.ttl_pumping_repump_switch.off()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
@@ -7782,7 +7782,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
                 self.core_dma.playback_handle(op_dma_handle)
                 delay(self.t_depumping)
                 self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-                self.ttl_pumping_repump.on()  ### turning off pumping RP
+                self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
                 delay(2 * us)
                 self.dds_AOM_A5.sw.off()
@@ -8086,7 +8086,7 @@ def atom_photon_parity_1_experiment(self):
             delay(1 * us)
 
             ### Tunring on pumping RP:
-            self.ttl_pumping_repump.off()
+            self.ttl_pumping_repump_switch.off()
             self.dds_AOM_A5.sw.on()
             self.dds_AOM_A6.sw.on()
 
@@ -8098,7 +8098,7 @@ def atom_photon_parity_1_experiment(self):
             self.core_dma.playback_handle(op_dma_handle)
             delay(self.t_depumping)
             self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-            self.ttl_pumping_repump.on()  ### turning off pumping RP
+            self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
             delay(2 * us)
             self.dds_AOM_A5.sw.off()
@@ -8217,7 +8217,7 @@ def atom_photon_parity_2_experiment(self):
     1- Load an atom
     2- OP
     3- Excite
-    4- gate the SPCMs, conditioned on detection from SPCM0 proceed with microwave mapping
+    4- gate the SPCMs, conditioned on detection of a photon (either from SPCM0 or 1) proceeds with microwave mapping
     5- microwave mapping from F=1,mF=1 to F=2,mF=1
     6- Blow away F=2 and measure retention
     7- Change the 780 waveplates in GVS and repeat the experiment
@@ -8322,7 +8322,7 @@ def atom_photon_parity_2_experiment(self):
                 delay(1 * us)
 
                 ### Tunring on pumping RP:
-                self.ttl_pumping_repump.off()
+                self.ttl_pumping_repump_switch.off()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
@@ -8334,7 +8334,7 @@ def atom_photon_parity_2_experiment(self):
                 self.core_dma.playback_handle(op_dma_handle)
                 delay(self.t_depumping)
                 self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-                self.ttl_pumping_repump.on()  ### turning off pumping RP
+                self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
                 delay(2 * us)
                 self.dds_AOM_A5.sw.off()
@@ -8647,7 +8647,7 @@ def atom_photon_parity_3_experiment(self):
                 delay(1 * us)
 
                 ### Tunring on pumping RP:
-                self.ttl_pumping_repump.off()
+                self.ttl_pumping_repump_switch.off()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
@@ -8659,7 +8659,7 @@ def atom_photon_parity_3_experiment(self):
                 self.core_dma.playback_handle(op_dma_handle)
                 delay(self.t_depumping)
                 self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-                self.ttl_pumping_repump.on()  ### turning off pumping RP
+                self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
                 delay(2 * us)
                 self.dds_AOM_A5.sw.off()
@@ -9265,7 +9265,7 @@ def atom_photon_tomography_experiment(self):
                 delay(1 * us)
 
                 ### Tunring on pumping RP:
-                self.ttl_pumping_repump.off()
+                self.ttl_pumping_repump_switch.off()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
@@ -9276,7 +9276,7 @@ def atom_photon_tomography_experiment(self):
                 self.core_dma.playback_handle(op_dma_handle)
                 delay(self.t_depumping)
                 self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-                self.ttl_pumping_repump.on()  ### turning off pumping RP
+                self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
 
                 delay(2 * us)
                 self.dds_AOM_A5.sw.off()

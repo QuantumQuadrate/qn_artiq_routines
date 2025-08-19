@@ -531,7 +531,7 @@ class AOMPowerStabilizer:
 
         # turn off the repumps which are mixed into the cooling light
         self.exp.ttl_repump_switch.on() # block RF to the RP AOM
-        self.exp.ttl_pumping_repump.on() # block RF to the Pumping Repump AOM
+        self.exp.ttl_pumping_repump_switch.on() # block RF to the Pumping Repump AOM
 
         if defaults_at_start:
             for ch in self.all_channels:

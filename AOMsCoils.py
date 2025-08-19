@@ -103,9 +103,9 @@ class AOMsCoils(EnvExperiment):
 
         delay(1 * ms)
         if self.pumping_repump_AOM_ON == True:
-            self.ttl_pumping_repump.off()
+            self.ttl_pumping_repump_switch.off()
         else:
-            self.ttl_pumping_repump.on()
+            self.ttl_pumping_repump_switch.on()
 
         delay(1 * ms)
         if self.Excitation0_AOM_switch_ON == True:
