@@ -4524,9 +4524,6 @@ def microwave_Rabi_2_experiment(self):
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(1 * ms)
-    self.dds_MW_RF.set_phase_mode(PHASE_MODE_TRACKING)
-    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase = 0.0)
-    delay(1 * ms)
     self.dds_microwaves.sw.on()
     delay(1 * ms)
 
@@ -4535,9 +4532,9 @@ def microwave_Rabi_2_experiment(self):
 
         
         if self.which_node == 'alice':
-            load_MOT_and_FORT(self)
+            # load_MOT_and_FORT(self)
             # load_MOT_and_FORT_until_atom(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_MOT_and_FORT_until_atom_recycle(self)
         else:
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
 
@@ -4583,19 +4580,12 @@ def microwave_Rabi_2_experiment(self):
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
             delay(2 * us)
 
-            self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
-            delay(10 * us)
-            self.dds_MW_RF.sw.on()
-
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(2 * us)
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-
-            self.dds_MW_RF.sw.off()
 
         ############################
         # blow-away phase - push out atoms in F=2 only
@@ -8026,6 +8016,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
 @kernel
 def atom_photon_parity_1_experiment(self):
     """
+    Never used.
     A simple parity oscillation experiment. It uses a few excitation_attempts, but not excitation_cycle. So, goes
     back to atom loading after say 5 excitation attempts. However, it recycles atoms. So effectively, we are
     attempting excitation after about 100ms.
@@ -8246,6 +8237,8 @@ def atom_photon_parity_1_experiment(self):
 @kernel
 def atom_photon_parity_2_experiment(self):
     """
+    Used to get nice parity oscillation before state rotation.
+
     A simple parity oscillation experiment. To speed up the experiment, I reuse the atom and
     do OP after say 5 excitation attempts and try excitation again. I repeat the loop as long as
     there is an atom measured every atom_check_every_n.
@@ -8603,6 +8596,10 @@ def atom_photon_parity_3_experiment(self):
     delay(10 * ms)
     self.dds_microwaves.sw.on() ### turns on the DDS not the switches.
 
+    # self.dds_MW_RF.set_phase_mode(PHASE_MODE_TRACKING)
+    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
+    delay(1 * ms)
+
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
 
     if self.enable_laser_feedback:
@@ -8760,13 +8757,15 @@ def atom_photon_parity_3_experiment(self):
 
                     with parallel:
                         self.ttl_microwave_switch.off()  ### turn on MW
-                        self.ttl_RF_switch.on()  ### turn on RF
+                        # self.ttl_RF_switch.on()  ### turn on RF
+                        self.dds_MW_RF.sw.on()  ### turn on RF
 
                     delay(self.t_MW_RF_pulse)
 
                     with parallel:
                         self.ttl_microwave_switch.on()  ### turn off MW
-                        self.ttl_RF_switch.off()  ### turn off RF
+                        # self.ttl_RF_switch.off()  ### turn off RF
+                        self.dds_MW_RF.sw.off()  ### turn off RF
 
                 delay(2 * us)
 

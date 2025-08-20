@@ -19,7 +19,7 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Repump_AOM_switch_ON", BooleanValue(default=True))
         self.setattr_argument("D1_pumping_DP_AOM_ON", BooleanValue(default=False))
-        self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False))
+        self.setattr_argument("pumping_repump_switch_ON", BooleanValue(default=False))
         self.setattr_argument("Excitation0_AOM_switch_ON", BooleanValue(default=False))
         self.setattr_argument("GRIN1and2_DDS_ON", BooleanValue(default=False))
         self.setattr_argument("GRIN1_AOM_switch_ON", BooleanValue(default=False))
@@ -33,7 +33,8 @@ class AOMsCoils(EnvExperiment):
         self.setattr_argument("AOM_A5_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("AOM_A6_ON", BooleanValue(default=False), "Fiber AOMs")
         self.setattr_argument("microwave_dds_ON", BooleanValue(default=False), "Microwaves")
-        self.setattr_argument("yes_Im_sure_I_want_the_microwave_dds_ON", BooleanValue(default=False), "Microwaves")
+        self.setattr_argument("MW_RF_dds_ON", BooleanValue(default=False), "Microwaves")
+        self.setattr_argument("yes_Im_sure_I_want_MW_or_RF_dds_ON", BooleanValue(default=False), "Microwaves")
         self.setattr_argument("run_laser_feedback", BooleanValue(default=False), "Laser power stabilization")
 
         self.setattr_argument("go_to_home_780HWP", BooleanValue(default=False), "K10CR1 780 waveplates")
@@ -102,7 +103,7 @@ class AOMsCoils(EnvExperiment):
                 self.ttl_D1_pumping.on()
 
         delay(1 * ms)
-        if self.pumping_repump_AOM_ON == True:
+        if self.pumping_repump_switch_ON == True:
             self.ttl_pumping_repump_switch.off()
         else:
             self.ttl_pumping_repump_switch.on()
@@ -187,13 +188,19 @@ class AOMsCoils(EnvExperiment):
             self.dds_AOM_A5.sw.off()
 
         delay(1*ms)
-        if self.microwave_dds_ON and self.yes_Im_sure_I_want_the_microwave_dds_ON:
+        if self.microwave_dds_ON and self.yes_Im_sure_I_want_MW_or_RF_dds_ON:
             self.dds_microwaves.sw.on()
             self.ttl_microwave_switch.off()
         else:
             self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
-        delay(1*ms)
+
+        delay(1 * ms)
+        if self.MW_RF_dds_ON and self.yes_Im_sure_I_want_MW_or_RF_dds_ON:
+            self.dds_MW_RF.sw.on()
+        else:
+            self.dds_MW_RF.sw.off()
+        delay(1 * ms)
 
     @kernel
     def run_feedback(self):
