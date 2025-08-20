@@ -416,7 +416,7 @@ class BaseExperiment:
             ### converts RF power in dBm to amplitudes in V
             self.experiment.ampl_FORT_loading = dB_to_V(self.experiment.p_FORT_loading)
             self.experiment.ampl_cooling_DP_MOT = dB_to_V(self.experiment.p_cooling_DP_MOT)
-            # self.experiment.ampl_free_ch = dB_to_V(self.experiment.p_free_ch)
+            self.experiment.ampl_MW_RF_dds = dB_to_V(self.experiment.p_MW_RF_dds)
             self.experiment.ampl_excitation = dB_to_V(self.experiment.p_excitation)
             self.experiment.ampl_microwaves = dB_to_V(self.experiment.p_microwaves)
             self.experiment.ampl_AOM_A1 = dB_to_V(self.experiment.p_AOM_A1)
@@ -584,7 +584,7 @@ class BaseExperiment:
                     'dds_FORT',
                     'dds_D1_pumping_DP',
                     'dds_cooling_DP',
-                    'dds_free_ch',
+                    'dds_MW_RF',
                     'GRIN1and2_dds',
                     'dds_microwaves',
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
@@ -676,7 +676,7 @@ class BaseExperiment:
                 device_aliases=[
                     'dds_FORT',
                     'dds_cooling_DP',
-                    'dds_free_ch',
+                    'dds_MW_RF',
                     # 'dds_GRIN1',
                     # 'dds_GRIN2',
                     'dds_microwaves',
@@ -759,7 +759,7 @@ class BaseExperiment:
                     'dds_FORT',
                     'dds_D1_pumping_DP',
                     'dds_cooling_DP',
-                    'dds_free_ch',
+                    'dds_MW_RF',
                     'GRIN1and2_dds',
                     'dds_microwaves',
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs

@@ -2,7 +2,7 @@
   "dds_FORT": "urukul0_ch0",
   "dds_cooling_DP": "urukul0_ch1",
   "dds_D1_pumping_DP": "urukul2_ch2",
-  "dds_free_ch": "urukul0_ch2",
+  "dds_MW_RF": "urukul0_ch2",
   "dds_AOM_A2": "urukul1_ch0",
   "dds_AOM_A3": "urukul1_ch1",
   "dds_AOM_A1": "urukul1_ch2",
@@ -25,9 +25,9 @@
       "frequency": "f_D1_pumping_DP",
       "power": "p_D1_pumping_DP"
     },
-    "dds_free_ch": {
-      "frequency": "f_free_ch",
-      "power": "p_free_ch"
+    "dds_MW_RF": {
+      "frequency": "f_MW_RF_dds",
+      "power": "p_MW_RF_dds"
     },
     "GRIN1and2_dds": {
       "frequency": "f_excitation",

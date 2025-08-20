@@ -4524,6 +4524,9 @@ def microwave_Rabi_2_experiment(self):
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(1 * ms)
+    self.dds_MW_RF.set_phase_mode(PHASE_MODE_TRACKING)
+    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase = 0.0)
+    delay(1 * ms)
     self.dds_microwaves.sw.on()
     delay(1 * ms)
 
@@ -4532,8 +4535,9 @@ def microwave_Rabi_2_experiment(self):
 
         
         if self.which_node == 'alice':
+            load_MOT_and_FORT(self)
             # load_MOT_and_FORT_until_atom(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
         else:
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
 
@@ -4579,11 +4583,19 @@ def microwave_Rabi_2_experiment(self):
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
             delay(2 * us)
 
+            self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
+            delay(10 * us)
+            self.dds_MW_RF.sw.on()
+
+
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(2 * us)
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
+
+            self.dds_MW_RF.sw.off()
 
         ############################
         # blow-away phase - push out atoms in F=2 only
