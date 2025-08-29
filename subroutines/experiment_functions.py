@@ -4049,31 +4049,31 @@ def atom_loading_for_optimization_experiment(self):
         first_shot(self)
         delay(1 * ms)
 
-        ###########  PGC on the trapped atom to optimize coils, for example #############
-        ### Set the coils to PGC_optimization setting:
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
-            channels=self.coil_channels)
-        delay(0.4 * ms)
-        ### set the cooling DP AOM to the PGC settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-        self.ttl_repump_switch.off()  ### turn on MOT RP
-        self.dds_cooling_DP.sw.on()  ### turn on cooling
-        delay(10 * us)
-        # self.dds_AOM_A5.sw.off()
-        # self.dds_AOM_A6.sw.off()
-        delay(self.t_PGC_after_loading)  ### this is the PGC time
-        self.ttl_repump_switch.on()  ### turn off MOT RP
-        self.dds_cooling_DP.sw.off()  ### turn off cooling
-        delay(10*us)
-
-        ### Set the coils to PGC setting:
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
-             self.AY_volts_PGC],
-            channels=self.coil_channels)
-        delay(0.4 * ms)
-        ###################################################
+        # ###########  PGC on the trapped atom to optimize coils, for example #############
+        # ### Set the coils to PGC_optimization setting:
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
+        #     channels=self.coil_channels)
+        # delay(0.4 * ms)
+        # ### set the cooling DP AOM to the PGC settings
+        # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+        # self.ttl_repump_switch.off()  ### turn on MOT RP
+        # self.dds_cooling_DP.sw.on()  ### turn on cooling
+        # delay(10 * us)
+        # # self.dds_AOM_A5.sw.off()
+        # # self.dds_AOM_A6.sw.off()
+        # delay(self.t_PGC_after_loading)  ### this is the PGC time
+        # self.ttl_repump_switch.on()  ### turn off MOT RP
+        # self.dds_cooling_DP.sw.off()  ### turn off cooling
+        # delay(10*us)
+        #
+        # ### Set the coils to PGC setting:
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
+        #      self.AY_volts_PGC],
+        #     channels=self.coil_channels)
+        # delay(0.4 * ms)
+        # ###################################################
 
 
         if self.t_FORT_drop > 0:
@@ -4082,13 +4082,13 @@ def atom_loading_for_optimization_experiment(self):
             self.dds_FORT.sw.on()
 
 
-        # ################## to see if RO heats atoms
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-        # delay(5*us)
-        # shot_without_measurement(self)
-        # delay(10*us)
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        # ###########################################
+        ################## to see if RO heats atoms
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        delay(5*us)
+        shot_without_measurement(self)
+        delay(10*us)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        ###########################################
 
         # delay(self.t_delay_between_shots)
         second_shot(self)
@@ -4128,7 +4128,8 @@ def atom_loading_for_PGC_optimization_experiment(self):
 
         # load_MOT_and_FORT(self)
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
 
         delay(1*ms)
         first_shot(self)
@@ -4217,7 +4218,8 @@ def beam_balancing_with_atoms_experiment(self):
 
         if self.which_node == 'alice':
             # load_MOT_and_FORT_until_atom(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_until_atom_smooth_FORT_recycle(self)
         else:
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
 
@@ -4534,7 +4536,8 @@ def microwave_Rabi_2_experiment(self):
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
             # load_MOT_and_FORT_until_atom(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_until_atom_smooth_FORT_recycle(self)
         else:
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
 
@@ -4661,7 +4664,8 @@ def microwave_Ramsey_00_experiment(self):
     while self.measurement < self.n_measurements:
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
 
         delay(1 * ms)
 
@@ -4786,7 +4790,8 @@ def microwave_Ramsey_11_experiment(self):
     while self.measurement < self.n_measurements:
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
 
         delay(1 * ms)
 
@@ -4910,7 +4915,8 @@ def microwave_Rabi_2_CW_OP_experiment(self):
 
         # load_MOT_and_FORT_until_atom(self)
         if self.which_node == 'alice':
-            load_MOT_and_FORT_until_atom_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_until_atom_smooth_FORT_recycle(self)
         else:
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
 
@@ -5041,7 +5047,8 @@ def microwave_Rabi_2_CW_OP_experiment_and_FORT(self):
 
         # load_MOT_and_FORT_until_atom(self)
         if self.which_node == 'alice':
-            load_MOT_and_FORT_until_atom_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_until_atom_smooth_FORT_recycle(self)
         else:
             load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
 
@@ -5168,7 +5175,8 @@ def microwave_freq_scan_experiment(self):
     while self.measurement < self.n_measurements:
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -5314,7 +5322,8 @@ def microwave_freq_scan_with_photons_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -5567,7 +5576,8 @@ def microwave_freq_scan_2_with_photons_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -5785,7 +5795,8 @@ def microwave_map01_map11_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -5939,8 +5950,9 @@ def microwave_map01_map11_CORPSE_experiment(self):
 
         self.ttl_exc0_switch.on()  # turns off the excitation
 
-        load_MOT_and_FORT_until_atom(self)
+        # load_MOT_and_FORT_until_atom(self)
         # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -6143,7 +6155,8 @@ def microwave_map00_map0m1_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -6211,16 +6224,15 @@ def microwave_map00_map0m1_experiment(self):
     self.dds_microwaves.sw.off()
 
 @kernel
-def microwave_map00_map0m1_MWRFm11_experiment(self):
+def microwave_map01_MWRFm11_experiment(self):
     """
-    This experiment tests the MW+RF two-photon transition from F=1,mF=-1 to F=2,mF=1. Can be used to find the transition
+    This experiment tests the MW+RF two-photon transition from F=2,mF=1 to F=1,mF=-1. Can be used to find the transition
     resonance or Rabi frequency
 
     1- loads an atom
     2- Pumps the atom into F=1,mF=0
-    3- Uses microwave pi pulse to transfer population from F=1,mF=0 to F=2,mF=0
-    4- Uses microwave pi pulse to transfer population from F=2,mF=0 to F=1,mF=-1
-    5- Apply microwave + RF pulses to do Rabi oscillation between F=1,mF=-1 and F=2,mF=1
+    3- Uses microwave pi pulse to transfer population from F=1,mF=0 to F=2,mF=1
+    4- Apply microwave + RF pulses to do Rabi oscillation between F=1,mF=-1 and F=2,mF=1
     6- Blow away F=2 manifold
     7- Measure retention
 
@@ -6264,7 +6276,10 @@ def microwave_map00_map0m1_MWRFm11_experiment(self):
 
     self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
 
-    self.ttl_RF_switch.off()  ### turn off RF
+    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
+    delay(1 * ms)
+
+    self.dds_MW_RF.sw.off()  ### turn off RF
 
     self.measurement = 0  # advances in end_measurement
 
@@ -6273,7 +6288,8 @@ def microwave_map00_map0m1_MWRFm11_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -6288,47 +6304,35 @@ def microwave_map00_map0m1_MWRFm11_experiment(self):
             delay(1 * ms)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
-        self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
+        delay(0.4 * ms)
+
+        self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
         delay(5 * us)
 
-        if self.t_microwave_00_pulse > 0.0:
+        if self.t_microwave_01_pulse > 0.0:
             delay(5 * us)
             self.ttl_microwave_switch.off()
-            delay(self.t_microwave_00_pulse)
+            delay(self.t_microwave_01_pulse)
             self.ttl_microwave_switch.on()
             delay(5 * us)
 
-        ############################ microwave phase to transfer population from F=2,mF=0 to F=1,mF=-1
-        self.dds_microwaves.set(frequency=self.f_microwaves_m10_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(5 * us)
-
-        if self.t_microwave_m10_pulse > 0.0:
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_m10_pulse)
-            self.ttl_microwave_switch.on()
-
-        delay(5 * us)
-
-        ############################ microwave + RF phase to transfer population from F=1,mF=-1 to F=2,mF=1
-
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
-        delay(0.4*ms)
-
+        ############################ microwave + RF phase to transfer population from F=2,mF=1 to F=1,mF=-1
         if self.t_MW_RF_pulse>0:
             self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
             delay(5 * us)
 
             with parallel:
                 self.ttl_microwave_switch.off() ### turn on MW
-                self.ttl_RF_switch.on() ### turn on RF
+                self.dds_MW_RF.sw.on()  ### turn on RF
 
             delay(self.t_MW_RF_pulse)
 
             with parallel:
                 self.ttl_microwave_switch.on() ### turn off MW
-                self.ttl_RF_switch.off() ### turn off RF
+                self.dds_MW_RF.sw.off()  ### turn off RF
         delay(10*us)
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
@@ -6355,7 +6359,7 @@ def microwave_map00_map0m1_MWRFm11_experiment(self):
 
     self.core.break_realtime()
     self.dds_FORT.sw.off()
-    self.ttl_RF_switch.off()  ### turn off RF
+    self.dds_MW_RF.sw.off()  ### turn off RF
     delay(1 * ms)
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
@@ -6424,7 +6428,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -6590,7 +6595,8 @@ def microwave_MW00_RF01_MW00_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
 
         # load_MOT_and_FORT_until_atom(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
 
         first_shot(self)
@@ -6718,7 +6724,8 @@ def single_photon_experiment(self):
                 self.dds_microwaves.sw.on()
 
         delay(10 * ms)
-        load_MOT_and_FORT(self)
+        # load_MOT_and_FORT(self)
+        load_until_atom_smooth_FORT_recycle(self)
 
         delay(0.1 * ms)
         ### set coils to PGC settings
@@ -7393,7 +7400,8 @@ def single_photon_experiment_2_atom_loading_advance(self):
 
         self.ttl_exc0_switch.on()  # turns off the excitation
 
-        load_MOT_and_FORT_until_atom(self)
+        # load_MOT_and_FORT_until_atom(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -7748,7 +7756,8 @@ def single_photon_experiment_3_atom_loading_advance(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_MOT_and_FORT_until_atom(self)
+        # load_MOT_and_FORT_until_atom(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -8071,7 +8080,8 @@ def atom_photon_parity_1_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(0.1 * ms)
 
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -8299,7 +8309,8 @@ def atom_photon_parity_2_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -8628,7 +8639,8 @@ def atom_photon_parity_3_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
 
         first_shot(self)

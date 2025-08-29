@@ -39,50 +39,117 @@ class Card_Tests(EnvExperiment):
 ### are on different cards. Adding a delay (turning a channel on with some delay after the other channel) does not
 ### affect the phase relation between different channels.
 
+    # def build(self):
+    #    self.setattr_device("core")
+    #    self.setattr_device("urukul2_cpld")
+    #    self.setattr_device("urukul2_ch0")
+    #    self.setattr_device("urukul2_ch1")
+    #
+    # @kernel
+    # def run(self):
+    #     self.core.reset()
+    #     self.urukul2_cpld.init()
+    #     self.urukul2_ch0.init()
+    #     self.urukul2_ch0.set_att(float(0))
+    #
+    #     self.urukul2_ch1.init()
+    #     self.urukul2_ch1.set_att(float(0))
+    #
+    #     delay(1 * ms)
+    #
+    #     dBm = -5
+    #     # self.urukul2_ch0.set_phase_mode(PHASE_MODE_TRACKING)
+    #     # self.urukul2_ch1.set_phase_mode(PHASE_MODE_TRACKING)
+    #
+    #     self.urukul2_ch0.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    #     self.urukul2_ch1.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    #
+    #     self.core.break_realtime()
+    #     t = now_mu() + 200_000  # ~2 ms in the future; plenty of slack
+    #
+    #     self.urukul2_ch0.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
+    #     self.urukul2_ch1.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
+    #
+    #     # self.urukul2_ch0.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
+    #     # self.urukul2_ch1.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
+    #
+    #     with parallel:
+    #
+    #         self.urukul2_ch0.sw.on()
+    #         self.urukul2_ch1.sw.on()
+    #
+    #     # self.urukul2_cpld.io_update.pulse(8 * ns)
+    #
+    #     delay(100*us)
+    #
+    #     #
+    #     # self.urukul2_ch0.sw.off()
+    #     # self.urukul2_ch1.sw.off()
+    #
+    #     print("code done!")
+
+
+
+
     def build(self):
        self.setattr_device("core")
        self.setattr_device("urukul2_cpld")
+       self.setattr_device("urukul1_cpld")
        self.setattr_device("urukul2_ch0")
-       self.setattr_device("urukul2_ch1")
+       self.setattr_device("urukul1_ch0")
 
     @kernel
     def run(self):
         self.core.reset()
-        self.urukul2_ch0.cpld.init()
+        self.urukul1_cpld.init()
+        self.urukul2_cpld.init()
         self.urukul2_ch0.init()
         self.urukul2_ch0.set_att(float(0))
 
-        self.urukul2_ch1.cpld.init()
-        self.urukul2_ch1.init()
-        self.urukul2_ch1.set_att(float(0))
+        self.urukul1_ch0.init()
+        self.urukul1_ch0.set_att(float(0))
 
         delay(1 * ms)
 
-        dBm = -10
-        self.urukul2_ch0.set_phase_mode(PHASE_MODE_TRACKING)
-        self.urukul2_ch1.set_phase_mode(PHASE_MODE_TRACKING)
+        dBm = -5
 
-        self.urukul2_ch0.set(10.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.1)
-        self.urukul2_ch1.set(10.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0)
+        # self.urukul1_ch0.set_phase_mode(PHASE_MODE_TRACKING)
+        # self.urukul2_ch0.set_phase_mode(PHASE_MODE_TRACKING)
 
+        self.urukul2_ch0.set_phase_mode(PHASE_MODE_ABSOLUTE)
+        self.urukul1_ch0.set_phase_mode(PHASE_MODE_ABSOLUTE)
 
-        self.urukul2_ch0.sw.on()
-        self.urukul2_ch1.sw.on()
+        self.core.break_realtime()
+        t = now_mu() + 200_000  # ~2 ms in the future; plenty of slack
+
+        # self.urukul1_ch0.set(21.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
+        # self.urukul2_ch0.set(21.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
+
+        self.urukul1_ch0.set(21.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
+        self.urukul2_ch0.set(21.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
+
+        with parallel:
+
+            self.urukul1_ch0.sw.on()
+            self.urukul2_ch0.sw.on()
+
+        delay(500*ns)
+
+        with parallel:
+
+            self.urukul1_ch0.sw.off()
+            self.urukul2_ch0.sw.off()
+
+        # self.urukul1_cpld.io_update.pulse(8 * ns)
+        # self.urukul2_cpld.io_update.pulse(8 * ns)
 
         delay(100*us)
 
-        self.urukul2_ch0.sw.off()
-        self.urukul2_ch1.sw.off()
-
-        # delay(5000 * ms)
-        # self.urukul2_ch1.set(10.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase=0.5)
-
+        #
+        # self.urukul1_ch0.sw.off()
         # self.urukul2_ch0.sw.off()
-        # self.urukul2_ch1.sw.off()
 
         print("code done!")
-
-
 
 
 
