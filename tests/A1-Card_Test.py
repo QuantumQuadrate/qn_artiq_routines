@@ -11,25 +11,25 @@ import numpy as np
 
 
 class Card_Tests(EnvExperiment):
-# ### Testing TTLs:
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("ttl15")
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#
-#         delay(1 * us)
-#         self.ttl15.off()
-#
-#         for x in range(1000):
-#             self.ttl15.pulse(1*ms)
-#             delay(100*ms)
-#
-#         # self.ttl15.off()
-#
-#         print("code done!")
+### Testing TTLs:
+    def build(self):
+        self.setattr_device("core")
+        self.setattr_device("ttl15")
+
+    @kernel
+    def run(self):
+        self.core.reset()
+
+        delay(1 * us)
+        self.ttl15.off()
+
+        for x in range(1000):
+            self.ttl15.pulse(1*ms)
+            delay(100*ms)
+
+        # self.ttl15.off()
+
+        print("code done!")
 
 
 
@@ -78,7 +78,6 @@ class Card_Tests(EnvExperiment):
     #         self.urukul2_ch0.sw.on()
     #         self.urukul2_ch1.sw.on()
     #
-    #     # self.urukul2_cpld.io_update.pulse(8 * ns)
     #
     #     delay(100*us)
     #
@@ -89,67 +88,6 @@ class Card_Tests(EnvExperiment):
     #     print("code done!")
 
 
-
-
-    def build(self):
-       self.setattr_device("core")
-       self.setattr_device("urukul2_cpld")
-       self.setattr_device("urukul1_cpld")
-       self.setattr_device("urukul2_ch0")
-       self.setattr_device("urukul1_ch0")
-
-    @kernel
-    def run(self):
-        self.core.reset()
-        self.urukul1_cpld.init()
-        self.urukul2_cpld.init()
-        self.urukul2_ch0.init()
-        self.urukul2_ch0.set_att(float(0))
-
-        self.urukul1_ch0.init()
-        self.urukul1_ch0.set_att(float(0))
-
-        delay(1 * ms)
-
-        dBm = -5
-
-        # self.urukul1_ch0.set_phase_mode(PHASE_MODE_TRACKING)
-        # self.urukul2_ch0.set_phase_mode(PHASE_MODE_TRACKING)
-
-        self.urukul2_ch0.set_phase_mode(PHASE_MODE_ABSOLUTE)
-        self.urukul1_ch0.set_phase_mode(PHASE_MODE_ABSOLUTE)
-
-        self.core.break_realtime()
-        t = now_mu() + 200_000  # ~2 ms in the future; plenty of slack
-
-        # self.urukul1_ch0.set(21.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
-        # self.urukul2_ch0.set(21.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
-
-        self.urukul1_ch0.set(21.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
-        self.urukul2_ch0.set(21.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
-
-        with parallel:
-
-            self.urukul1_ch0.sw.on()
-            self.urukul2_ch0.sw.on()
-
-        delay(500*ns)
-
-        with parallel:
-
-            self.urukul1_ch0.sw.off()
-            self.urukul2_ch0.sw.off()
-
-        # self.urukul1_cpld.io_update.pulse(8 * ns)
-        # self.urukul2_cpld.io_update.pulse(8 * ns)
-
-        delay(100*us)
-
-        #
-        # self.urukul1_ch0.sw.off()
-        # self.urukul2_ch0.sw.off()
-
-        print("code done!")
 
 
 

@@ -943,7 +943,7 @@ def load_until_atom_smooth_FORT_recycle(self):
                 self.zotino0.set_dac(
                     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                     channels=self.coil_channels)
-                delay(0.4 * ms)
+                delay(1 * ms)
                 ### set the cooling DP AOM to the PGC settings
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
 
@@ -1076,7 +1076,7 @@ def load_until_atom_smooth_FORT_recycle(self):
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
             channels=self.coil_channels)
-        delay(0.4 * ms)
+        delay(1 * ms)
 
         self.ttl_repump_switch.on()  ### turn off MOT RP
         self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -1609,7 +1609,7 @@ def second_shot(self):
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         channels=self.coil_channels)
-    delay(0.4 * ms)  ## coils relaxation time
+    delay(1 * ms)  ## coils relaxation time
 
 
     ### set the FORT AOM to the readout settings
@@ -2988,7 +2988,6 @@ def measure_GRIN1(self):
     self.ttl_GRIN1_switch.off()
     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
     self.GRIN1and2_dds.sw.on()
-    # self.ttl_excitation_switch.off()
 
     #turning D1 ON
     self.dds_D1_pumping_DP.sw.on()
@@ -3021,7 +3020,6 @@ def measure_GRIN1(self):
 
     # turning EXC OFF
     self.GRIN1and2_dds.sw.off()
-    # self.ttl_excitation_switch.on()
     self.ttl_GRIN1_switch.on()
     self.ttl_exc0_switch.on()
 
@@ -4049,31 +4047,32 @@ def atom_loading_for_optimization_experiment(self):
         first_shot(self)
         delay(1 * ms)
 
-        # ###########  PGC on the trapped atom to optimize coils, for example #############
-        # ### Set the coils to PGC_optimization setting:
-        # self.zotino0.set_dac(
-        #     [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
-        #     channels=self.coil_channels)
-        # delay(0.4 * ms)
-        # ### set the cooling DP AOM to the PGC settings
-        # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-        # self.ttl_repump_switch.off()  ### turn on MOT RP
-        # self.dds_cooling_DP.sw.on()  ### turn on cooling
-        # delay(10 * us)
-        # # self.dds_AOM_A5.sw.off()
-        # # self.dds_AOM_A6.sw.off()
-        # delay(self.t_PGC_after_loading)  ### this is the PGC time
-        # self.ttl_repump_switch.on()  ### turn off MOT RP
-        # self.dds_cooling_DP.sw.off()  ### turn off cooling
-        # delay(10*us)
-        #
-        # ### Set the coils to PGC setting:
-        # self.zotino0.set_dac(
-        #     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
-        #      self.AY_volts_PGC],
-        #     channels=self.coil_channels)
-        # delay(0.4 * ms)
-        # ###################################################
+        ###########  PGC on the trapped atom to optimize coils and cooling_DP_PGC, for example #############
+        ### Set the coils to PGC_optimization setting:
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
+            channels=self.coil_channels)
+        delay(1 * ms)
+        ### set the cooling DP AOM to the PGC settings
+        ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
+        self.ttl_repump_switch.off()  ### turn on MOT RP
+        self.dds_cooling_DP.sw.on()  ### turn on cooling
+        delay(10 * us)
+        # self.dds_AOM_A5.sw.off()
+        # self.dds_AOM_A6.sw.off()
+        delay(self.t_PGC_after_loading)  ### this is the PGC time
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        delay(10*us)
+
+        ### Set the coils to PGC setting:
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
+             self.AY_volts_PGC],
+            channels=self.coil_channels)
+        delay(0.4 * ms)
+        ###################################################
 
 
         if self.t_FORT_drop > 0:
@@ -4082,13 +4081,13 @@ def atom_loading_for_optimization_experiment(self):
             self.dds_FORT.sw.on()
 
 
-        ################## to see if RO heats atoms
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-        delay(5*us)
-        shot_without_measurement(self)
-        delay(10*us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        ###########################################
+        # ################## to see if RO heats atoms
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        # delay(5*us)
+        # shot_without_measurement(self)
+        # delay(10*us)
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # ###########################################
 
         # delay(self.t_delay_between_shots)
         second_shot(self)
@@ -4104,7 +4103,7 @@ def atom_loading_for_optimization_experiment(self):
 def atom_loading_for_PGC_optimization_experiment(self):
     """
     Simple atom loading experiment based on load_MOT_and_FORT_until_atom and an extra RO or PGC between the shots
-    to optimize PGC settings without affeting loading.
+    to optimize PGC settings without affecting loading.
 
     :param self: an experiment instance.
     :return:
@@ -4179,7 +4178,7 @@ def beam_balancing_with_atoms_experiment(self):
     """
     The idea is to use the loaded atom to balance the MOT beam pairs one by one.
     1- Load an atom
-    2- Do optical pumping
+    2- Do optical pumping (not neccesary)
     3- Turn on MOT 1 and 3 for a time t such that retention drops to 50%
     4- Use MOT1 power as is (constant) and change MOT3 power (the opposite beam to MOT1) to maximize retention.
 
@@ -4263,6 +4262,109 @@ def beam_balancing_with_atoms_experiment(self):
 
         self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
 
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(5 * ms)  ### hopefully to avoid underflow.
+
+    delay(10 * ms)
+    self.dds_FORT.sw.off()
+    delay(1 * ms)
+
+@kernel
+def beam_balancing_with_atoms2_experiment(self):
+    """
+    In beam_balancing_with_atoms_experiment the retention was not sensitive enough to beam imbalance. So, here, I am dropping the
+    FORT for 10us before measuring retention to see if imbalance heats up the atoms. With this we are basically
+    mimizing the temperature, which we care about. With t_recooling=50ms, I see a nice trend in atom retention vs beam imbalance.
+
+    The idea is to use the loaded atom to balance the MOT beam pairs one by one.
+    1- Load an atom, and do RO1.
+    2- Turn on MOT 1 and 3 for a time t (say 20ms similar to RO time).
+    3- Keep MOT1 power as is (constant) and change MOT3 power (the opposite beam to MOT1) to maximize retention after 10us FORT
+    drop.
+
+    Repeat this for MOT 2 and 4, and MOT5 and 6.
+    """
+
+    self.core.reset()
+    self.require_D1_lock_to_advance = False  # override experiment variable
+
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
+
+
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+
+    if self.enable_laser_feedback:
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        run_feedback_and_record_FORT_MM_power(self)
+
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        if self.which_node == 'alice':
+            # load_MOT_and_FORT_until_atom(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_until_atom_smooth_FORT_recycle(self)
+        else:
+            load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
+
+        delay(1 * ms)
+
+        first_shot(self)
+
+
+        delay(1*ms)
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+        delay(1*ms)
+
+
+        ### Changing power of fiber AOM3
+        self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=dB_to_V(self.p_AOM_A3_optimization))
+
+        if self.t_recooling > 0:
+            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_blowaway, amplitude=self.ampl_cooling_DP_MOT)
+            delay(10*us)
+            self.dds_cooling_DP.sw.on()  ### turn on cooling
+            self.ttl_repump_switch.off()  ### turn on MOT RP
+            with parallel:
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A3.sw.on()
+            delay(self.t_recooling)
+            with parallel:
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A3.sw.off()
+
+        self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
+
+        if self.t_FORT_drop > 0:
+            self.dds_FORT.sw.off()
+            delay(self.t_FORT_drop)
+            self.dds_FORT.sw.on()
+
+        delay(10*us)
 
         second_shot(self)
 
@@ -5352,7 +5454,7 @@ def microwave_freq_scan_with_photons_experiment(self):
         # delay(1 * us)
         #
         # ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        # ### use ttl_excitation to swith on/off D1 or Exc light
+        # ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         # self.GRIN1and2_dds.sw.on()
         #
         # delay(1 * ms)
@@ -5596,7 +5698,7 @@ def microwave_freq_scan_2_with_photons_experiment(self):
         delay(1 * us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use ttl_excitation to swith on/off D1 or Exc light
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         delay(1 * ms)
@@ -5815,7 +5917,7 @@ def microwave_map01_map11_experiment(self):
         delay(1 * us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use ttl_excitation to swith on/off D1 or Exc light
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         delay(1 * ms)
@@ -5971,7 +6073,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
         delay(1 * us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use ttl_excitation to swith on/off D1 or Exc light
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         delay(1 * ms)
@@ -6779,7 +6881,7 @@ def single_photon_experiment(self):
         delay(0.4 * ms)  # coil relaxation time
 
         # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        # use ttl_excitation to swith on/off D1 or Exc light
+        # use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
 
@@ -6808,7 +6910,6 @@ def single_photon_experiment(self):
                 delay(.1 * ms)  # maybe this can be even shorter
 
                 # GRIN1 on
-                # self.ttl_excitation_switch.off()
                 self.ttl_GRIN1_switch.off()
 
                 with sequential:
@@ -6825,7 +6926,6 @@ def single_photon_experiment(self):
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
 
-                # self.ttl_excitation_switch.on()
                 self.ttl_GRIN1_switch.on()
 
                 ############################
@@ -7083,7 +7183,7 @@ def single_photon_experiment_atom_loading_advance(self):
         delay(0.4 * ms)  # coil relaxation time
 
         # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        # use ttl_excitation to swith on/off D1 or Exc light
+        # use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
 
@@ -7424,7 +7524,7 @@ def single_photon_experiment_2_atom_loading_advance(self):
         delay(0.4 * ms)  # coil relaxation time
 
         # this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        # use ttl_excitation to swith on/off D1 or Exc light
+        # use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 1 ### just for initialization.
@@ -7776,7 +7876,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
         delay(1*us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use ttl_excitation to swith on/off D1 or Exc light
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 1 ### just for initialization.
@@ -8100,7 +8200,7 @@ def atom_photon_parity_1_experiment(self):
         delay(1*us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use ttl_excitation to swith on/off D1 or Exc light
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         delay(1000 * us)
@@ -8325,7 +8425,7 @@ def atom_photon_parity_2_experiment(self):
         delay(1*us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use ttl_excitation to swith on/off D1 or Exc light
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 0  ### just for initialization.
@@ -8655,7 +8755,7 @@ def atom_photon_parity_3_experiment(self):
         delay(1*us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use ttl_excitation to swith on/off D1 or Exc light
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 0  ### just for initialization.
@@ -9276,7 +9376,7 @@ def atom_photon_tomography_experiment(self):
         delay(1 * us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use ttl_excitation to swith on/off D1 or Exc light
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
         self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 1  ### just for initialization.

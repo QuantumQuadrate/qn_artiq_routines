@@ -596,7 +596,6 @@ class AOMPowerStabilizer:
                 # self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
                 self.exp.GRIN1and2_dds.sw.on()
                 delay(1*ms)
-                # self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
                 self.exp.ttl_exc0_switch.off()
                 self.exp.ttl_GRIN1_switch.off()
                 delay(1*ms)
@@ -604,7 +603,7 @@ class AOMPowerStabilizer:
             # todo: D1 feedback
             # if ch.name == 'dds_D1_pumping_DP':
             #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
-            #     self.exp.ttl_excitation_switch.off() # allows RF to pass to excitation AOM
+            #     self.exp.ttl_excitation_switch.off() ### ttl_excitation_switch does not exist anymore; replaced by GRIN 1 and 2 switches
             #     delay(1*ms)
 
             ch.dds_obj.sw.on()
@@ -636,7 +635,6 @@ class AOMPowerStabilizer:
                 # self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
                 self.exp.GRIN1and2_dds.sw.off()
                 delay(1 * ms)
-                # self.exp.ttl_excitation_switch.on()  # allows RF to pass to excitation AOM
                 self.exp.ttl_exc0_switch.on()
                 self.exp.ttl_GRIN1_switch.on()
 
@@ -644,7 +642,7 @@ class AOMPowerStabilizer:
 
             # todo: d1 feedback
             # if ch.name == 'dds_D1_pumping_DP':
-            #     self.exp.ttl_excitation_switch.on()
+            #     self.exp.ttl_excitation_switch.on() ### ttl_excitation_switch does not exist anymore; replaced by GRIN 1 and 2 switches
             #     delay(1 * ms)
 
             ch.dds_obj.sw.off()
