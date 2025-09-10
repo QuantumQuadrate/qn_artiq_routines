@@ -79,10 +79,10 @@ def test_excitation_rise_time_experiment(self):
     delay(1* s)
     for i in range(10000000):
         self.ttl_GRIN2_switch.off()        # turn on GRIN2 AOM
-        delay(100*ns)
+        delay(30*ns)
         self.ttl_GRIN2_switch.on()          # turn off GRIN2 AOM
         # delay(4 * ms)  # coil relaxation time
-        delay(10*us)
+        delay(100*us)
 
 @kernel
 def run_feedback_and_record_FORT_MM_power(self):
@@ -5033,31 +5033,103 @@ def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
             optical_pumping_GRIN1(self)
             # optical_pumping_both_sides_and_PR_with_on_chip_beams(self)
             # optical_pumping_both_sides_with_precise_timing(self)
-            delay(1*ms)
+            delay(0.1*ms)
 
-        excitation_test = True
-        self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
-        self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
-        self.ttl_exc0_switch.off()  # EXC0 AOM ON
+        if self.t_excitation_pulse > 0:
+            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            self.ttl_exc0_switch.off()  # EXC0 AOM ON
 
-        delay(10*us)
+            delay(10 * us)
 
-        if excitation_test:
+            for excitation_attempt in range(self.n_excitation_attempts):
+                #######testing without fine tuning
+                t1 = now_mu()
+                self.dds_FORT.sw.off()  ### turns FORT off
 
-            t1 = now_mu()
-            self.dds_FORT.sw.off()  ### turns FORT off
+                at_mu(t1 + 250)
+                # turning on excitation DDS and switch
+                self.ttl_GRIN2_switch.off()      # GRIN2 AOM ON
 
-            at_mu(t1 + 150)
-            # turning on excitation DDS and switch
-            self.ttl_GRIN2_switch.off()      # GRIN2 AOM ON
+                at_mu(t1 + 250 + int(self.t_excitation_pulse/ns))
+                self.ttl_GRIN2_switch.on()  # GRIN2 AOM OFF
+                self.dds_FORT.sw.on()  ### turns FORT ON
+                #
 
-            at_mu(t1 + 150 + int(self.t_excitation_pulse/ns))
-            self.ttl_GRIN2_switch.on()  # GRIN2 AOM OFF
-            self.dds_FORT.sw.on()  ### turns FORT ON
+            # ####### testing with fine tuning FORT ON/OFF timing
+            # FORT_offset = 145
+            #
+            # t1 = now_mu()
+            # at_mu(t1 + int(self.t_excitation_offset_mu))
+            # self.ttl_GRIN2_switch.off()  # turns on excitation
+            #
+            # at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+            # self.ttl_GRIN2_switch.on()  # turns off excitation
+            #
+            # at_mu(t1 + int(
+            #     self.t_excitation_offset_mu) + FORT_offset - 100)  # turn off the FORT 100ns earlier than EXC pulse
+            # self.dds_FORT.sw.off()  ### turns FORT off
+            #
+            # at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset + int(self.t_photon_collection_time / ns))
+            # self.dds_FORT.sw.on()  ### turns FORT on
+            #
 
-            delay(1*us)
-            self.dds_D1_pumping_DP.sw.on()
-            self.ttl_exc0_switch.on()  # EXC0 AOM ON
+
+            # ##### testing with multiple excitations
+            # for excitation_attempt in range(self.n_excitation_attempts):
+            #     FORT_offset = 145
+            #
+            #     t1 = now_mu()
+            #     at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset - 250)  # turn off the FORT 250ns earlier than EXC pulse
+            #     self.dds_FORT.sw.off()  ### turns FORT off
+            #
+            #
+            #     at_mu(t1 + int(self.t_excitation_offset_mu))
+            #     self.ttl_GRIN2_switch.off()  # turns on excitation
+            #
+            #     at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+            #     self.ttl_GRIN2_switch.on()  # turns off excitation
+            #     # at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset + int(self.t_photon_collection_time / ns))
+            #     at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns) + int(self.t_photon_collection_time / ns))
+            #     self.dds_FORT.sw.on()  ### turns FORT on
+            #
+            #     delay(1 * us)
+
+
+
+            # ###########timing arrangement???????????? why!!!!!!!!!!!!!!!!!!!!!
+            # ##### testing with multiple excitations
+            # ## todo: respect to Excitation pulse, these offsets are necessary to turn these on at the same time.
+            # ## exc: t0
+            # ## FORT: t0 + 145       FORT_start_offset_mu = 145
+            # ## SPCM: t0 + 780       gate_start_offset_mu = 780
+            #
+            # FORT_start_offset_mu = 145
+            # gate_start_offset_mu = 780
+            #
+            # for excitation_attempt in range(self.n_excitation_attempts):
+            #
+            #     t1 = now_mu()
+            #
+            #     at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_start_offset_mu - 250)  # turn off the FORT 250ns earlier than EXC pulse
+            #     self.dds_FORT.sw.off()  ### turns FORT off
+            #
+            #     at_mu(t1 + int(self.t_excitation_offset_mu))
+            #     self.ttl_GRIN2_switch.off()  # turns on excitation
+            #
+            #     at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+            #     self.ttl_GRIN2_switch.on()  # turns off excitation
+            #
+            #
+            #     # at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset + int(self.t_photon_collection_time / ns))
+            #     at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_start_offset_mu + int(self.t_photon_collection_time / ns))
+            #     self.dds_FORT.sw.on()  ### turns FORT on
+            #
+            #     delay(1 * us)
+
+            self.dds_D1_pumping_DP.sw.off()
+            self.ttl_exc0_switch.on()  # EXC0 AOM OFF
+
 
         ############################
         # microwave phase
@@ -8242,7 +8314,7 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_MOT_and_FORT_until_atom_recycle(self)
+        load_MOT_and_FORT_until_atom(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -8301,23 +8373,25 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
             self.ttl_exc0_switch.off() # turns on the excitation0 AOM
             delay(1 * ms)
 
             for excitation_attempt in range(self.n_excitation_attempts):
 
-                t1 = now_mu()
-                self.dds_FORT.sw.off()  ### turns FORT off
+                # t1 = now_mu()
+                # self.dds_FORT.sw.off()  ### turns FORT off
+                #
+                # at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_photon_collection_time / ns))
+                # self.dds_FORT.sw.on()  ### turns FORT on
+                #
+                # at_mu(t1 + int(self.t_excitation_offset_mu))
+                # self.ttl_GRIN2_switch.off()  # turns on excitation
+                #
+                # at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+                # self.ttl_GRIN2_switch.on()  # turns off excitation
 
-                at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
-                self.dds_FORT.sw.on()  ### turns FORT on
 
-                at_mu(t1 + int(self.t_excitation_offset_mu))
-                self.ttl_GRIN2_switch.off()  # turns on excitation
-
-                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-                self.ttl_GRIN2_switch.on()  # turns off excitation
 
                 ######### time stamping the photons. Counting to be done in analysis.
                 SPCM0_click_counter = 0
@@ -8325,12 +8399,46 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
 
                 ## SPCMs are gated 40ns before excitation pulse is on.
                 ##
-                at_mu(t1 + int(self.gate_start_offset_mu))
-                with parallel:
-                    t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
-                    t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
-                # at_mu(t1 + int(self.gate_start_offset_mu) - 40)   #SPCM1 has 40ns delay.
+
+                # ####  turning SPCMs on at the same time ###
+                # at_mu(t1 + int(self.gate_start_offset_mu))
+                # with parallel:
+                #     t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
+                #     t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
+
+                # ####  turning SPCM1 40ns earlier than SPCM0 ###
+                # at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.gate_start_offset_mu))
+                # t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
+                # at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.gate_start_offset_mu) - 40)   #SPCM1 has 40ns delay.
                 # t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
+
+
+                ############## somethings wrong now
+                FORT_offset = 145
+
+                t1 = now_mu()
+                at_mu(t1 + int(self.t_excitation_offset_mu))
+                self.ttl_GRIN2_switch.off()  # turns on excitation
+
+                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+                self.ttl_GRIN2_switch.on()  # turns off excitation
+
+                #todo: Turn FORT OFF earlier than 100ns. fall time is ~100ns
+                # at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset - 100)  # turn off the FORT 100ns earlier than EXC pulse
+                # at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset - 145)  # turn off the FORT 145ns earlier than EXC pulse
+
+
+                at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset - 250)  # turn off the FORT 145ns earlier than EXC pulse
+                self.dds_FORT.sw.off()  ### turns FORT off
+
+                at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset + int(self.t_photon_collection_time / ns))
+                self.dds_FORT.sw.on()  ### turns FORT on
+
+                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.gate_start_offset_mu))  # turn the gate on 50ns earlier than the EXC pulse
+                t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
+
+                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.gate_start_offset_mu) - 40)  # turn the gate on 50ns earlier than the EXC pulse (40ns earlier than SPCM0)
+                t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
 
                 ### timestamping SPCM0 events
                 while SPCM0_click_counter < max_clicks:
@@ -8374,7 +8482,6 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
                 self.dds_AOM_A3.sw.on()
                 self.dds_AOM_A4.sw.on()
                 delay(1 * us)
-
                 if not self.PGC_and_RO_with_on_chip_beams:
                     self.dds_AOM_A5.sw.on()
                     self.dds_AOM_A6.sw.on()
@@ -8428,6 +8535,19 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
                 if BothSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     break
+
+                delay(10 * us)
+                self.dds_cooling_DP.sw.off()
+                self.ttl_repump_switch.on()
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                delay(1 * us)
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.sw.off()
+                    self.dds_AOM_A6.sw.off()
+                delay(1 * us)
 
             delay(10 * us)
 

@@ -93,7 +93,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.GRIN1and2_dds.sw.off()         # In Node2: GRIN1 AOM
         self.dds_D1_pumping_DP.sw.off()     # In Node2: GRIN2 AOM
 
-        delay(10*ms)
+        delay(1*ms)
 
     @kernel
     def specific_ao_setting(self):
@@ -401,6 +401,8 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
             t_exc_on_mu = 1500  # 500ns delay before turning excitation on.
 
             for i in range(self.n_measurements):
+
+                delay(10*us)
                 t1 = now_mu()
                 ### excitation pulse. This pulses the TTL for a few ns, which turns OFF the beam for a few ns.
                 ### This is not what we want.
@@ -573,19 +575,18 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.ttl_exc0_switch.on()  # EXC0 AOM OFF
         self.ttl_D1_pumping.on()  ## turning D1 OFF
 
-
     @kernel
-    def experiment_run_WO_SPCMswitch_edge_counter_node2_check_FORT(self):
+    def experiment_run_WO_SPCMswitch_edge_counter_and_FORT_node2(self):
         ### This uses the edge counter without external switch to gate and count the SPCM events.
         self.core.reset()
-
-        delay(10 * ms)
+        # self.turn_off_everything()
+        delay(1 * ms)
 
         # setting excitation aom to 1dBm
         # self.GRIN1and2_dds.set(frequency=self.f_excitation,amplitude=dB_to_V(self.exc_RF_in_dBm))
         # self.GRIN1and2_dds.set(frequency=self.f_GRIN1_excitation, amplitude=dB_to_V(self.p_GRIN1_excitation))
-        # (self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation)))
-        # # don't have to set it back; any code that runs feedback will do
+        # self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+        # don't have to set it back; any code that runs feedback will do
 
         # turning on excitation DDS and switch
         # self.ttl_exc0_switch.off()      # EXC0 AOM ON
@@ -595,8 +596,11 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
         # self.GRIN1and2_dds.sw.on()      # GRIN1 RF ON, external sw not activated yet
         # self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet
-        self.dds_FORT.sw.off()
-        # delay(10 * ms)
+        self.laser_stabilizer.run()
+        self.turn_off_everything()
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+        self.dds_FORT.sw.off()  ### turns FORT off
+        delay(1 * ms)
 
         for t_pulse_mu in self.t_pulse_mu_list:
 
@@ -620,22 +624,31 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
                 # excitation on
                 at_mu(t1 + t_exc_on_mu)
                 with parallel:
-                    self.dds_FORT.sw.on()
                     # self.ttl_GRIN1_switch.off()
                     # self.ttl_GRIN2_switch.off()
+                    self.dds_FORT.sw.on()  ### turns FORT off
 
                 # excitation off
                 at_mu(t1 + t_exc_on_mu + self.exc_pulse_length_mu)
                 with parallel:
-                    self.dds_FORT.sw.off()
                     # self.ttl_GRIN1_switch.on()
                     # self.ttl_GRIN2_switch.on()
+                    self.dds_FORT.sw.off()  ### turns FORT off
+
+                ## normal SPCM operation - turning both on at the same time
+                # at_mu(t1 + t_exc_on_mu + t_pulse_mu)
+
+                # with parallel:
+                #     self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_mu * ns)
+                #     self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_mu * ns)
+
+                ## turning SPCMs with 40ns delay (There is a 40ns delay in SPCM1)
 
                 at_mu(t1 + t_exc_on_mu + t_pulse_mu)
+                self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_mu * ns)
 
-                with parallel:
-                    self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_mu * ns)
-                    self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_mu * ns)
+                at_mu(t1 + t_exc_on_mu + t_pulse_mu - 40)
+                self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_mu * ns)
 
                 SPCM0_counts = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_counts = self.ttl_SPCM1_counter.fetch_count()
@@ -650,10 +663,11 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
 
             delay(1 * ms)
 
-        delay(10 * ms)
+        delay(1 * ms)
 
-        self.ttl_exc0_switch.on()  # EXC0 AOM OFF
-        self.ttl_D1_pumping.on()  ## turning D1 OFF
+        # self.ttl_exc0_switch.on()  # EXC0 AOM OFF
+        # self.ttl_D1_pumping.on()  ## turning D1 OFF
+
 
     def run(self):
 
@@ -665,9 +679,10 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         else:
             self.turn_off_everything()
 
+
         # self.experiment_fun()
         # self.experiment_run_WO_SPCMswitch()
         # self.experiment_run_WO_SPCMswitch_edge_counter()
-        # self.experiment_run_WO_SPCMswitch_edge_counter_node2()
-        self.experiment_run_WO_SPCMswitch_edge_counter_timetagging_node2()
-        # self.experiment_run_WO_SPCMswitch_edge_counter_node2_check_FORT()
+        self.experiment_run_WO_SPCMswitch_edge_counter_node2()
+        # self.experiment_run_WO_SPCMswitch_edge_counter_and_FORT_node2()
+        # self.experiment_run_WO_SPCMswitch_edge_counter_timetagging_node2()
