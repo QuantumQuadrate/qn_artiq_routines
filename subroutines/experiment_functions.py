@@ -6637,6 +6637,174 @@ def microwave_Ramsey_MWRFm11_experiment(self):
     self.dds_microwaves.sw.off()
 
 @kernel
+def microwave_Ramsey_F1m1_F11_experiment(self):
+    """
+    Ramsey experiment to measure the T2* of F=1,mF=-1 and F=1,mF=1 qubit.
+
+    1- loads an atom
+    2- Pumps the atom into F=1,mF=0
+    3- Uses microwave pi pulse to transfer population from F=1,mF=0 to F=2,mF=0
+    4- Uses microwave pi pulse to transfer population from F=2,mF=0 to F=1,mF=-1
+    5- Applies two MW + RF pi/2 pulse with a variable delay in between
+    6- Blow away F=2 manifold
+    7- Measure retention
+
+    """
+
+    self.core.reset()
+    delay(1 * ms)
+
+    ### overwritten below but initialized here so they are always initialized
+    self.SPCM0_RO1 = 0
+    self.SPCM0_RO2 = 0
+    self.SPCM1_RO1 = 0
+    self.SPCM1_RO2 = 0
+    SPCM0_SinglePhoton = 0
+    SPCM1_SinglePhoton = 0
+
+    self.n_feedback_per_iteration = 2
+    self.n_atom_loaded_per_iteration = 0
+
+    max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
+    ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
+
+    record_chopped_blow_away(self)
+    delay(100 * ms)
+
+    record_chopped_optical_pumping(self)
+    delay(100 * ms)
+    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
+    delay(10 * ms)
+
+    if self.enable_laser_feedback:
+        delay(0.1 * ms)  ### necessary to avoid underflow
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        self.laser_stabilizer.run()
+
+    delay(1 * ms)
+
+    self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
+
+    self.ttl_RF_switch.off()  ### turn off RF
+
+    self.measurement = 0  # advances in end_measurement
+
+    while self.measurement < self.n_measurements:
+
+        self.ttl_exc0_switch.on()  # turns off the excitation
+
+        # load_MOT_and_FORT_until_atom(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        delay(10 * us)
+
+        first_shot(self)
+        delay(1 * ms)
+
+        ############################
+        # optical pumping phase - pumps atoms into F=1,m_F=0
+        ############################
+        ### With chopped pumping:
+        if self.t_pumping > 0.0:
+            chopped_optical_pumping(self)
+            delay(1 * ms)
+
+        ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
+        self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        delay(5 * us)
+
+        if self.t_microwave_00_pulse > 0.0:
+            delay(5 * us)
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_00_pulse)
+            self.ttl_microwave_switch.on()
+            delay(5 * us)
+
+        ############################ microwave phase to transfer population from F=2,mF=0 to F=1,mF=-1
+        self.dds_microwaves.set(frequency=self.f_microwaves_m10_dds, amplitude=dB_to_V(self.p_microwaves))
+        delay(5 * us)
+
+        if self.t_microwave_m10_pulse > 0.0:
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_m10_pulse)
+            self.ttl_microwave_switch.on()
+
+        delay(5 * us)
+
+
+        ############################################### Ramsey phase
+        ####### First MW+RF pi/2 pulse
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
+        delay(0.4*ms)
+
+        if self.t_MW_RF_pulse>0:
+            self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
+            delay(5 * us)
+
+            with parallel:
+                self.ttl_microwave_switch.off() ### turn on MW
+                self.ttl_RF_switch.on() ### turn on RF
+
+            delay(self.t_MW_RF_pulse)
+
+            with parallel:
+                self.ttl_microwave_switch.on() ### turn off MW
+                self.ttl_RF_switch.off() ### turn off RF
+
+
+        delay(self.t_delay_between_shots)
+
+        ####### Second MW+RF pi/2 pulse
+        if self.t_MW_RF_pulse > 0:
+            with parallel:
+                self.ttl_microwave_switch.off()  ### turn on MW
+                self.ttl_RF_switch.on()  ### turn on RF
+
+            delay(self.t_MW_RF_pulse)
+
+            with parallel:
+                self.ttl_microwave_switch.on()  ### turn off MW
+                self.ttl_RF_switch.off()  ### turn off RF
+
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
+
+        ############################ blow-away phase - push out atoms in F=2 only
+        if self.t_blowaway > 0.0:
+            chopped_blow_away(self)
+
+        delay(0.1 * ms)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(6 * ms)  ### hopefully to avoid underflow.
+        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
+        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+        delay(1 * ms)
+
+    self.core.break_realtime()
+    self.dds_FORT.sw.off()
+    self.ttl_RF_switch.off()  ### turn off RF
+    delay(1 * ms)
+    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+    self.dds_microwaves.sw.off()
+
+@kernel
 def microwave_MW00_RF01_MW00_experiment(self):
     """
     This experiment tries to find the RF transition rate and frequency around 2MHz.
@@ -9064,6 +9232,9 @@ def atom_photon_parity_4_experiment(self):
     self.core.reset()
     delay(1 * ms)
 
+    self.set_dataset("Slack_tracking", [0.0], broadcast=True)
+    delay(1*ms)
+
     record_chopped_optical_pumping(self)
     delay(200*ms)
 
@@ -9092,6 +9263,8 @@ def atom_photon_parity_4_experiment(self):
     self.core.reset()
 
     self.measurement = 0  # advances in end_measurement
+
+    self.core.break_realtime()
 
     while self.measurement < self.n_measurements:
         SPCM0_SinglePhoton = 0
@@ -9182,6 +9355,9 @@ def atom_photon_parity_4_experiment(self):
                 self.ttl_GRIN1_switch.on()
                 delay(10 * us)
 
+            slack = (now_mu() - self.core.get_rtio_counter_mu()) * 10e-9
+            self.append_to_dataset('Slack_tracking', slack)
+
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
@@ -9191,9 +9367,9 @@ def atom_photon_parity_4_experiment(self):
             delay(2*us)
 
             for excitation_attempt in range(self.n_excitation_attempts):
-                delay(20 * us)
+                delay(100 * us)
                 self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
-                delay(20 * us)
+                delay(5 * us)
                 t1 = now_mu()
 
                 self.dds_FORT.sw.off()  ### turns FORT off
@@ -9209,13 +9385,6 @@ def atom_photon_parity_4_experiment(self):
 
                 at_mu(t1 + int(self.gate_start_offset_mu))
 
-                # ######### Using the edge_counter (works well):
-                # with parallel:
-                #     self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_time)
-                #     self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_time)
-                # SPCM0_SinglePhoton = self.ttl_SPCM0_counter.fetch_count()
-                # SPCM1_SinglePhoton = self.ttl_SPCM1_counter.fetch_count()
-
                 with parallel:
                     t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
                     t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
@@ -9223,11 +9392,9 @@ def atom_photon_parity_4_experiment(self):
                 SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
                 SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
 
-                delay(2 * us)
-
                 if SPCM0_click_time>0 and SPCM1_click_time<0:
 
-                    at_mu(SPCM0_click_time + 1000)
+                    at_mu(SPCM0_click_time + 10000) ### 5000 delay is not enough with 100 measurement
                     self.ttl_microwave_switch.off()
                     delay(self.t_microwave_11_pulse)
                     self.ttl_microwave_switch.on()
@@ -9249,14 +9416,14 @@ def atom_photon_parity_4_experiment(self):
                             self.dds_MW_RF.sw.off()  ### turn off RF
 
                     ############################ blow-away phase - push out atoms in F=2 only
-                    delay(20 * us)
+                    delay(150 * us)
                     chopped_blow_away(self)
 
-                    delay(20 * us)
+                    delay(150 * us)
                     atom_parity_shot(self)
                     self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
-                    self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-                    self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+                    self.append_to_dataset('SPCM0_SinglePhoton', 1)
+                    self.append_to_dataset('SPCM1_SinglePhoton', 0)
                     self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
                     self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
                     delay(20 * us)
@@ -9267,7 +9434,7 @@ def atom_photon_parity_4_experiment(self):
 
                 if SPCM0_click_time<0 and SPCM1_click_time>0:
 
-                    at_mu(SPCM1_click_time + 1000)
+                    at_mu(SPCM1_click_time + 10000)
                     self.ttl_microwave_switch.off()
                     delay(self.t_microwave_11_pulse)
                     self.ttl_microwave_switch.on()
@@ -9289,14 +9456,14 @@ def atom_photon_parity_4_experiment(self):
                             self.dds_MW_RF.sw.off()  ### turn off RF
 
                     ############################ blow-away phase - push out atoms in F=2 only
-                    delay(20 * us)
+                    delay(150 * us)
                     chopped_blow_away(self)
 
-                    delay(20 * us)
+                    delay(5 * us)
                     atom_parity_shot(self)
                     self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
-                    self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-                    self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+                    self.append_to_dataset('SPCM0_SinglePhoton', 0)
+                    self.append_to_dataset('SPCM1_SinglePhoton', 1)
                     self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
                     self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
                     delay(20 * us)
@@ -9308,7 +9475,7 @@ def atom_photon_parity_4_experiment(self):
             if self.measurement == self.n_measurements:
                 break
 
-            delay(100*us)
+            delay(200*us)
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
             ############################ atom cooling phase with PGC settings
             if self.t_recooling > 0:
@@ -9414,19 +9581,7 @@ def atom_photon_parity_4_experiment(self):
         self.measurement -= 1
         end_measurement(self)
 
-
         delay(5 * ms)
-
-        ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
-        ### the atom is lost. +1 is because python stops the loop one count earlier.
-        # for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
-        #     self.append_to_dataset('BothSPCMs_RO_atom_check', val)
-
-        # delay(1 * ms)
-        # for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
-        #     self.append_to_dataset('SPCM0_SinglePhoton_tStamps', SPCM0_timestamps[i])
-        #     self.append_to_dataset('SPCM1_SinglePhoton_tStamps', SPCM1_timestamps[i])
-        #     self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
 
         self.append_to_dataset('n_excitation_cycles', excitation_cycle)
         delay(1 * ms)
