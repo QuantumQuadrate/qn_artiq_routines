@@ -310,6 +310,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_excitation_pulse", 30 * ns, NumberValue, {'type': 'float', 'unit': 'ns'}, "Timing"),
             Variable("t_excitation_offset_mu", -250, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
                      "Timing"),
+            Variable("t_start_MW_mapping_mu", 10000, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Timing"),
 
             # Booleans
             Variable("no_first_shot", False, BooleanValue, {}, "Booleans"),

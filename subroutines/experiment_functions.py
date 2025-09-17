@@ -9302,7 +9302,7 @@ def atom_photon_parity_4_experiment(self):
 
         while atom_loaded:
 
-            delay(1000 * us)
+            delay(20 * ms)
 
             ############################### optical pumping phase - pumps atoms into F=1,m_F=0
             ### strange that with chopped_optical_pumping function, the experiment does not advance after a while!! I am guessing the excitation
@@ -9355,9 +9355,6 @@ def atom_photon_parity_4_experiment(self):
                 self.ttl_GRIN1_switch.on()
                 delay(10 * us)
 
-            slack = (now_mu() - self.core.get_rtio_counter_mu()) * 10e-9
-            self.append_to_dataset('Slack_tracking', slack)
-
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
@@ -9394,7 +9391,8 @@ def atom_photon_parity_4_experiment(self):
 
                 if SPCM0_click_time>0 and SPCM1_click_time<0:
 
-                    at_mu(SPCM0_click_time + 10000) ### 5000 delay is not enough with 100 measurement
+                    at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu) ### 10000 delay is needed with 100 measurement
+
                     self.ttl_microwave_switch.off()
                     delay(self.t_microwave_11_pulse)
                     self.ttl_microwave_switch.on()
@@ -9421,12 +9419,14 @@ def atom_photon_parity_4_experiment(self):
 
                     delay(150 * us)
                     atom_parity_shot(self)
+                    self.core.break_realtime()
                     self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
                     self.append_to_dataset('SPCM0_SinglePhoton', 1)
                     self.append_to_dataset('SPCM1_SinglePhoton', 0)
                     self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
                     self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
                     delay(20 * us)
+                    self.core.break_realtime()
 
                     self.measurement += 1
 
@@ -9434,7 +9434,8 @@ def atom_photon_parity_4_experiment(self):
 
                 if SPCM0_click_time<0 and SPCM1_click_time>0:
 
-                    at_mu(SPCM1_click_time + 10000)
+                    at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
+
                     self.ttl_microwave_switch.off()
                     delay(self.t_microwave_11_pulse)
                     self.ttl_microwave_switch.on()
@@ -9461,12 +9462,14 @@ def atom_photon_parity_4_experiment(self):
 
                     delay(5 * us)
                     atom_parity_shot(self)
+                    self.core.break_realtime()
                     self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
                     self.append_to_dataset('SPCM0_SinglePhoton', 0)
                     self.append_to_dataset('SPCM1_SinglePhoton', 1)
                     self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
                     self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
                     delay(20 * us)
+                    self.core.break_realtime()
 
                     self.measurement += 1
 
