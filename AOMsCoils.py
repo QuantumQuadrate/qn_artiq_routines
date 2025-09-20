@@ -232,6 +232,10 @@ class AOMsCoils(EnvExperiment):
                 [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                 channels=self.coil_channels)
 
+            # self.zotino0.set_dac(
+            #     [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+            #     channels=self.coil_channels)
+
     @kernel
     def k10cr1_operations(self):
         self.core.reset()
