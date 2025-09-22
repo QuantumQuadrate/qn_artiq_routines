@@ -24,7 +24,7 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
-class GeneralVariableScan(EnvExperiment):
+class GeneralVariableScan_Microwaves(EnvExperiment):
 
     def build(self):
         """
@@ -39,13 +39,16 @@ class GeneralVariableScan(EnvExperiment):
         self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
 
         self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
-        self.setattr_argument("Time_00_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
-
         self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
-        self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
-
         self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
+
+        self.setattr_argument("Time_00_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
+        self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
         self.setattr_argument("Time_11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
+
+        self.setattr_argument("Ramsey_00_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
+        self.setattr_argument("Ramsey_01_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
+        self.setattr_argument("Ramsey_11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
 
         #### Frequency scan variables
         self.setattr_argument("freq_scan_range_left_kHz", NumberValue(100.0, ndecimals=1, step=1), "Freq Scan variables - centered at resonance")
@@ -177,6 +180,61 @@ class GeneralVariableScan(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
+        elif self.Ramsey_00_Scan:
+            print("Ramsey_00_Scan")
+            self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_00_dds
+            self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_00_pulse
+
+            self.scan_variable1_name = 't_delay_between_shots'
+            self.scan_variable1 = str(self.scan_variable1_name)
+
+            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
+                                             self.time_scan_range_end_us * us,
+                                             self.time_scan_step_size_us * us))
+
+            ### experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment"
+            elif self.which_node == 'alice':
+                self.experiment_name = "microwave_Rabi_2_experiment"
+
+        elif self.Ramsey_01_Scan:
+            print("Ramsey_01_Scan")
+            self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_01_dds
+            self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_01_pulse
+
+            self.scan_variable1_name = 't_delay_between_shots'
+            self.scan_variable1 = str(self.scan_variable1_name)
+
+            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
+                                             self.time_scan_range_end_us * us,
+                                             self.time_scan_step_size_us * us))
+
+            ### experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment"
+            elif self.which_node == 'alice':
+                self.experiment_name = "microwave_Rabi_2_experiment"
+
+        elif self.Ramsey_11_Scan:
+            print("Ramsey_11_Scan")
+
+            self.scan_variable1_name = 't_delay_between_shots'
+            self.scan_variable1 = str(self.scan_variable1_name)
+
+            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
+                                             self.time_scan_range_end_us * us,
+                                             self.time_scan_step_size_us * us))
+
+            ### experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment"
+            elif self.which_node == 'alice':
+                self.experiment_name = "microwave_Rabi_2_experiment"
+
+        else:
+            assert "Microwave Scan is not selected!"
+
         #### some more lines to be compatible with GVS
         self.experiment_function = lambda: eval(self.experiment_name)(self)
 
@@ -190,6 +248,11 @@ class GeneralVariableScan(EnvExperiment):
         scan_vars = [x for x in scan_vars if x != '']
         self.scan_var_labels = ','.join(scan_vars)
         self.scan_var_filesuffix = '_and_'.join(scan_vars)
+
+        self.set_dataset('scan_variable1_name', self.scan_variable1_name, broadcast=True)
+        self.set_dataset('scan_sequence1', self.scan_sequence1, broadcast=True)
+        self.set_dataset('scan_variable2_name', self.scan_variable2_name, broadcast=True)
+        self.set_dataset('scan_sequence2', self.scan_sequence2, broadcast=True)
 
         self.measurement = 0
         self.SPCM0_RO1 = 0
