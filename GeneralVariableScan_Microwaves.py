@@ -38,19 +38,19 @@ class GeneralVariableScan(EnvExperiment):
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
         self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
 
-        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwaves 00 Transition")
-        self.setattr_argument("Time_00_Scan", BooleanValue(default=False), "Microwaves 00 Transition")
+        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
+        self.setattr_argument("Time_00_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
 
-        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwaves 01 Transition")
-        self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwaves 01 Transition")
+        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
+        self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
 
-        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwaves 11 Transition")
-        self.setattr_argument("Time_11_Scan", BooleanValue(default=False), "Microwaves 11 Transition")
+        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
+        self.setattr_argument("Time_11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
 
         #### Frequency scan variables
-        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(100.0, ndecimals=1, step=1), "Freq Scan variables")
-        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(100.0, ndecimals=1, step=1), "Freq Scan variables")
-        self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "Freq Scan variables")
+        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(100.0, ndecimals=1, step=1), "Freq Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(100.0, ndecimals=1, step=1), "Freq Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "Freq Scan variables - centered at resonance")
 
         #### Time scan variables
         self.setattr_argument("time_scan_range_start_us", NumberValue(0.0, ndecimals=2, step=1), "Time Scan variables")
@@ -59,30 +59,6 @@ class GeneralVariableScan(EnvExperiment):
 
         self.base.set_datasets_from_gui_args()
         print("build - done")
-
-
-
-        # #####################delete the rest
-        # self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
-        # self.setattr_argument("scan_sequence1", StringValue(
-        #     'np.array([0.000,0.005,0.02,0.05])*ms'))
-        #
-        # # this variable is optional
-        # self.setattr_argument('scan_variable2_name', StringValue(''))
-        # self.setattr_argument("scan_sequence2", StringValue(
-        #     'np.linspace(-2,2,5)*V'))
-        #
-        # experiment_function_names_list = [x for x in dir(exp_functions)
-        #     if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"
-        #         and 'experiment' in x)]
-        #
-        # # a function that take no arguments that gets imported and run
-        # self.setattr_argument('experiment_function', EnumerationValue(experiment_function_names_list))
-        #
-        # # toggles an interleaved control experiment, but what this means or whether
-        # # it has an effect depends on experiment_function
-        # self.setattr_argument("control_experiment", BooleanValue(False), "Control experiment")
-        # #####################
 
 
     def prepare(self):
@@ -133,7 +109,6 @@ class GeneralVariableScan(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
-
         elif self.Frequency_11_Scan:
             print("Frequency_11_Scan with pi pulse")
             self.override_ExperimentVariables_dict["t_microwave_11_pulse"] = self.t_microwave_11_pulse
@@ -151,6 +126,56 @@ class GeneralVariableScan(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
+        elif self.Time_00_Scan:
+            print("Time_00_Scan")
+            self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_00_dds
+
+            self.scan_variable1_name = 't_microwave_pulse'
+            self.scan_variable1 = str(self.scan_variable1_name)
+
+            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
+                                             self.time_scan_range_end_us * us,
+                                             self.time_scan_step_size_us * us))
+
+            ### experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
+            elif self.which_node == 'alice':
+                self.experiment_name = "microwave_Rabi_2_experiment"
+
+        elif self.Time_01_Scan:
+            print("Time_01_Scan")
+            self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_01_dds
+
+            self.scan_variable1_name = 't_microwave_pulse'
+            self.scan_variable1 = str(self.scan_variable1_name)
+
+            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
+                                             self.time_scan_range_end_us * us,
+                                             self.time_scan_step_size_us * us))
+
+            ### experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
+            elif self.which_node == 'alice':
+                self.experiment_name = "microwave_Rabi_2_experiment"
+
+        elif self.Time_11_Scan:
+            print("Time_11_Scan")
+            self.override_ExperimentVariables_dict["f_microwaves_11_dds"] = self.f_microwaves_11_dds
+
+            self.scan_variable1_name = 't_microwave_11_pulse'
+            self.scan_variable1 = str(self.scan_variable1_name)
+
+            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
+                                             self.time_scan_range_end_us * us,
+                                             self.time_scan_step_size_us * us))
+
+            ### experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment"
+            elif self.which_node == 'alice':
+                self.experiment_name = "microwave_Rabi_2_experiment"
 
         #### some more lines to be compatible with GVS
         self.experiment_function = lambda: eval(self.experiment_name)(self)
