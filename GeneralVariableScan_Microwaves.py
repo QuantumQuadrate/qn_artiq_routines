@@ -254,6 +254,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.set_dataset('scan_variable2_name', self.scan_variable2_name, broadcast=True)
         self.set_dataset('scan_sequence2', self.scan_sequence2, broadcast=True)
 
+        self.set_dataset('experiment_function', self.experiment_name, broadcast=True)
+
         self.measurement = 0
         self.SPCM0_RO1 = 0
         self.SPCM0_RO2 = 0
