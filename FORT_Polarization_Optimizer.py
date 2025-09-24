@@ -297,10 +297,10 @@ class FORT_Polarization_Optimizer(EnvExperiment):
             steps = half_range * 2 / (sample_pts - 1)
 
             # power difference with steps less than 1 is negligible.
-            if steps < 1:
+            if steps < self.tolerance_deg:
                 tolerance_satisfied = True
 
-                steps = 1.0
+                steps = self.tolerance_deg
                 sample_pts = int(half_range/steps) * 2 + 1 # how many sample pts to cover the range
                 half_range = steps * (sample_pts - 1) / 2
 
