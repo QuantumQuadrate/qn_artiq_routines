@@ -24,6 +24,9 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
+from fitting_oxford.rabi_flop import rabi_flop
+
+
 class GeneralVariableScan_Microwaves(EnvExperiment):
 
     def build(self):
@@ -404,12 +407,74 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 # the measurement loop.
                 self.experiment_function()
 
-
                 # write and overwrite the file here so we can quit the experiment early without losing data
                 self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                 iteration += 1
 
+        #### for fitting
+        BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
+        BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+
+        retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
+                           self.single_atom_threshold * self.t_SPCM_first_shot)
+
+        if self.Time_00_Scan or self.Time_01_Scan or self.Time_11_Scan:
+            self.fit_to_rabi_flop(retention_array)
+
         print("****************    General Variable Scan DONE   *****************")
 
+
+    def fit_to_rabi_flop(self, retention_array):
+        t = self.scan_sequence1
+        y = retention_array
+        p, p_err= rabi_flop.fit(t, y, evaluate_function=False)
+        print(p)
+
+    #
+    # def get_loading_and_retention(self):
+    #     retention_array = np.zeros(iterations)
+
+    def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
+        """
+        Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
+        cutoff1 and cutoff2 (optional) are the atom loading thresholds in units counts.
+        """
+
+        retention_array = np.zeros(iterations)
+        loading_rate_array = np.zeros(iterations)
+        n_atoms_loaded_array = np.zeros(iterations)
+
+        for i in range(iterations):
+            shot1 = photocounts[i * measurements:(i + 1) * measurements]
+            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+
+            atoms_loaded = [x > cutoff for x in shot1]
+            n_atoms_loaded = sum(atoms_loaded)
+            atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
+            retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / sum(atoms_loaded)
+            loading_rate_array[i] = n_atoms_loaded / measurements
+            n_atoms_loaded_array[i] = n_atoms_loaded
+            retention_array[i] = retention_fraction
+        return retention_array, loading_rate_array, n_atoms_loaded_array
+
+    def get_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
+        """
+        Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
+        cutoff1 and cutoff2 (optional) are the atom loading thresholds in units counts.
+        """
+
+        retention_array = np.zeros(iterations)
+
+        for i in range(iterations):
+            shot1 = photocounts[i * measurements:(i + 1) * measurements]
+            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+
+            atoms_loaded = [x > cutoff for x in shot1]
+            n_atoms_loaded = sum(atoms_loaded)
+            atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
+            retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / sum(atoms_loaded)
+            retention_array[i] = retention_fraction
+
+        return retention_array
 
