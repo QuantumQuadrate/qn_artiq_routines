@@ -4607,11 +4607,11 @@ def microwave_Rabi_2_experiment(self):
 
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
-        delay(100*ms)
+        delay(100 * ms)
 
     if self.t_blowaway > 0.0:
         record_chopped_blow_away(self)
-        delay(100*ms)
+        delay(100 * ms)
 
     # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
@@ -4634,7 +4634,6 @@ def microwave_Rabi_2_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
             # load_MOT_and_FORT_until_atom(self)
@@ -4651,7 +4650,7 @@ def microwave_Rabi_2_experiment(self):
         # self.ttl_repump_switch.off()  # turns the MOT RP AOM on
         # delay(1 * ms) # leave the repump on so atoms are left in F=2
         # self.ttl_repump_switch.on()  # turns the MOT RP AOM off
-        delay (1 * ms)
+        delay(1 * ms)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -4659,7 +4658,7 @@ def microwave_Rabi_2_experiment(self):
         ### With chopped pumping:
         if self.t_pumping > 0.0:
             chopped_optical_pumping(self)
-            delay(1*ms)
+            delay(1 * ms)
 
         # ### with cw pumping:
         # if self.t_pumping > 0.0:
@@ -4676,7 +4675,7 @@ def microwave_Rabi_2_experiment(self):
             self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
                                   self.AX_volts_microwave, self.AY_volts_microwave],
                                  channels=self.coil_channels)
-            delay(0.4*ms)
+            delay(1 * ms)
 
             # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
             # delay(0.1 * ms)
@@ -4684,7 +4683,6 @@ def microwave_Rabi_2_experiment(self):
 
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
             delay(2 * us)
-
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
@@ -4714,11 +4712,11 @@ def microwave_Rabi_2_experiment(self):
         self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
-        delay(5 * ms) ### hopefully to avoid underflow.
+        delay(5 * ms)  ### hopefully to avoid underflow.
 
     # delay(10*ms)
     # self.dds_FORT.sw.off()
-    delay(1*ms)
+    delay(1 * ms)
     self.dds_microwaves.sw.off()
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
@@ -4788,7 +4786,7 @@ def microwave_Ramsey_00_experiment(self):
         ############################
         self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
                               self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
-        delay(0.4 * ms)
+        delay(1 * ms)
 
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
         delay(2 * us)
@@ -4905,10 +4903,16 @@ def microwave_Ramsey_11_experiment(self):
             chopped_optical_pumping(self)
             delay(1*ms)
 
+        ### Changing the bias field
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave],
+                             channels=self.coil_channels)
+        delay(1 * ms)
+
         ############################ microwave 1: transfer mF=0 to mF'=1
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding*self.stabilizer_FORT.amplitudes[1])
-        delay(2 * us)
+        delay(5 * us)
 
         self.ttl_microwave_switch.off()
         delay(self.t_microwave_01_pulse)
@@ -5931,6 +5935,13 @@ def microwave_map01_map11_experiment(self):
             delay(1 * ms)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
+
+        ### Changing the bias field for microwave
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave],
+                             channels=self.coil_channels)
+        delay(1 * ms)
+
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
         delay(5 * us)
@@ -6272,6 +6283,11 @@ def microwave_map00_map0m1_experiment(self):
             chopped_optical_pumping(self)
             delay(1 * ms)
 
+        ### Changing the bias field
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave],
+                             channels=self.coil_channels)
+        delay(1 * ms)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6405,10 +6421,10 @@ def microwave_map01_MWRFm11_experiment(self):
             chopped_optical_pumping(self)
             delay(1 * ms)
 
-        ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
+        ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
         self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
                               self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
-        delay(0.4 * ms)
+        delay(1 * ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
@@ -6522,6 +6538,7 @@ def microwave_Ramsey_MWRFm11_experiment(self):
     self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
 
     self.ttl_RF_switch.off()  ### turn off RF
+    delay(1 * ms)
 
     self.measurement = 0  # advances in end_measurement
 
@@ -6544,6 +6561,12 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         if self.t_pumping > 0.0:
             chopped_optical_pumping(self)
             delay(1 * ms)
+
+        ### Changing the bias field
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave],
+                             channels=self.coil_channels)
+        delay(1 * ms)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6571,10 +6594,6 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
         ############################################### Ramsey phase
         ####### First MW+RF pi/2 pulse
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
-        delay(0.4*ms)
-
         if self.t_MW_RF_pulse>0:
             self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
             delay(5 * us)
@@ -6711,6 +6730,12 @@ def microwave_MW00_RF01_MW00_experiment(self):
         if self.t_pumping > 0.0:
             chopped_optical_pumping(self)
             delay(1 * ms)
+
+        ### Changing the bias field
+        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                              self.AX_volts_microwave, self.AY_volts_microwave],
+                             channels=self.coil_channels)
+        delay(1 * ms)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -9072,10 +9097,12 @@ def atom_photon_parity_4_experiment(self):
 
     self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(1 * ms)
-    self.dds_microwaves.sw.on() ### turns on the DDS not the switches.
+    self.dds_microwaves.sw.on() ### turns on the DDS not the switch
+    self.ttl_microwave_switch.on() ### close the switch
 
     # self.dds_MW_RF.set_phase_mode(PHASE_MODE_TRACKING)
     self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
+    self.dds_MW_RF.sw.off()
     delay(1 * ms)
 
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
@@ -9087,6 +9114,7 @@ def atom_photon_parity_4_experiment(self):
         delay(0.1 * ms)
         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         self.laser_stabilizer.run()
+        self.dds_microwaves.sw.on()
 
     delay(1*ms)
     move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
@@ -9109,17 +9137,19 @@ def atom_photon_parity_4_experiment(self):
 
         load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
+        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+        self.ttl_microwave_switch.on()  ### close the switch
 
         first_shot(self)
 
-        delay(1 * us)
+        delay(10 * us)
         self.dds_AOM_A1.sw.off()
         self.dds_AOM_A2.sw.off()
         self.dds_AOM_A3.sw.off()
         self.dds_AOM_A4.sw.off()
         self.dds_AOM_A5.sw.off()
         self.dds_AOM_A6.sw.off()
-        delay(1*us)
+        delay(10*us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
@@ -9187,6 +9217,12 @@ def atom_photon_parity_4_experiment(self):
                 self.ttl_GRIN1_switch.on()
                 delay(10 * us)
 
+            ### Changing the bias field.
+            self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                                  self.AX_volts_microwave, self.AY_volts_microwave],
+                                 channels=self.coil_channels)
+            delay(1 * ms)
+
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
@@ -9239,7 +9275,7 @@ def atom_photon_parity_4_experiment(self):
 
                     if self.t_MW_RF_pulse > 0:
                         self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
-                        delay(3 * us)
+                        delay(5 * us)
 
                         with parallel:
                             self.ttl_microwave_switch.off()  ### turn on MW
@@ -9282,7 +9318,7 @@ def atom_photon_parity_4_experiment(self):
 
                     if self.t_MW_RF_pulse > 0:
                         self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
-                        delay(3 * us)
+                        delay(5 * us)
 
                         with parallel:
                             self.ttl_microwave_switch.off()  ### turn on MW
