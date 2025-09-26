@@ -1743,7 +1743,7 @@ def atom_parity_shot(self):
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         channels=self.coil_channels)
-    delay(0.4 * ms)  ## coils relaxation time
+    delay(1 * ms)  ## coils relaxation time
 
 
     ### set the FORT AOM to the readout settings
@@ -9095,12 +9095,13 @@ def atom_photon_parity_4_experiment(self):
     record_chopped_optical_pumping(self)
     delay(200*ms)
 
+    self.dds_microwaves.set_phase_mode(PHASE_MODE_ABSOLUTE)
     self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(1 * ms)
     self.dds_microwaves.sw.on() ### turns on the DDS not the switch
     self.ttl_microwave_switch.on() ### close the switch
 
-    # self.dds_MW_RF.set_phase_mode(PHASE_MODE_TRACKING)
+    self.dds_MW_RF.set_phase_mode(PHASE_MODE_ABSOLUTE)
     self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
     self.dds_MW_RF.sw.off()
     delay(1 * ms)
@@ -9268,24 +9269,50 @@ def atom_photon_parity_4_experiment(self):
                 SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
 
                 if SPCM0_click_time>0 and SPCM1_click_time<0:
+                #     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
+                #
+                #     self.ttl_microwave_switch.off()
+                #     delay(self.t_microwave_11_pulse)
+                #     self.ttl_microwave_switch.on()
+                #
+                #     delay(2 * us)
+                #
+                #     if self.t_MW_RF_pulse > 0:
+                #         self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
+                #         delay(5 * us)
+                #
+                #         with parallel:
+                #             self.ttl_microwave_switch.off()  ### turn on MW
+                #             self.dds_MW_RF.sw.on()  ### turn on RF
+                #
+                #         delay(self.t_MW_RF_pulse)
+                #
+                #         with parallel:
+                #             self.ttl_microwave_switch.on()  ### turn off MW
+                #             self.dds_MW_RF.sw.off()  ### turn off RF
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
+                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase = 0.0)
 
+                    at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 3000)
                     self.ttl_microwave_switch.off()
-                    delay(self.t_microwave_11_pulse)
+                    at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 3000 + int(self.t_microwave_11_pulse / ns))
                     self.ttl_microwave_switch.on()
 
-                    delay(2 * us)
-
                     if self.t_MW_RF_pulse > 0:
-                        self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
-                        delay(5 * us)
+                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 10000 + int(self.t_microwave_11_pulse / ns))
+                        self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves), phase = 0.0)
 
+                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 20000 + int(self.t_microwave_11_pulse / ns))
+                        self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
+
+                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 25000 + int(self.t_microwave_11_pulse / ns))
                         with parallel:
                             self.ttl_microwave_switch.off()  ### turn on MW
                             self.dds_MW_RF.sw.on()  ### turn on RF
 
-                        delay(self.t_MW_RF_pulse)
+                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 25000 + int(self.t_microwave_11_pulse / ns) +
+                              int(self.t_MW_RF_pulse / ns))
 
                         with parallel:
                             self.ttl_microwave_switch.on()  ### turn off MW
@@ -9318,31 +9345,55 @@ def atom_photon_parity_4_experiment(self):
                     angle_780_QWP[self.measurement] = self.target_780_QWP
                     delay(1 * ms)
 
-
-
                     self.measurement += 1
 
                     break
 
                 if SPCM0_click_time<0 and SPCM1_click_time>0:
+                    # at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
+                    #
+                    # self.ttl_microwave_switch.off()
+                    # delay(self.t_microwave_11_pulse)
+                    # self.ttl_microwave_switch.on()
+                    #
+                    # delay(2 * us)
+                    #
+                    # if self.t_MW_RF_pulse > 0:
+                    #     self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
+                    #     delay(5 * us)
+                    #
+                    #     with parallel:
+                    #         self.ttl_microwave_switch.off()  ### turn on MW
+                    #         self.dds_MW_RF.sw.on()  ### turn on RF
+                    #
+                    #     delay(self.t_MW_RF_pulse)
+                    #
+                    #     with parallel:
+                    #         self.ttl_microwave_switch.on()  ### turn off MW
+                    #         self.dds_MW_RF.sw.off()  ### turn off RF
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
+                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
 
+                    at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 3000)
                     self.ttl_microwave_switch.off()
-                    delay(self.t_microwave_11_pulse)
+                    at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 3000 + int(self.t_microwave_11_pulse / ns))
                     self.ttl_microwave_switch.on()
 
-                    delay(2 * us)
-
                     if self.t_MW_RF_pulse > 0:
-                        self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
-                        delay(5 * us)
+                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 10000 + int(self.t_microwave_11_pulse / ns))
+                        self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
 
+                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 20000 + int(self.t_microwave_11_pulse / ns))
+                        self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
+
+                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 25000 + int(self.t_microwave_11_pulse / ns))
                         with parallel:
                             self.ttl_microwave_switch.off()  ### turn on MW
                             self.dds_MW_RF.sw.on()  ### turn on RF
 
-                        delay(self.t_MW_RF_pulse)
+                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 25000 + int(self.t_microwave_11_pulse / ns) +
+                              int(self.t_MW_RF_pulse / ns))
 
                         with parallel:
                             self.ttl_microwave_switch.on()  ### turn off MW
@@ -9383,7 +9434,56 @@ def atom_photon_parity_4_experiment(self):
 
             delay(200*us)
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            ############################ atom cooling phase with PGC settings
+
+            ####################################### atom check
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                channels=self.coil_channels)
+
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+            delay(1 * ms)
+
+            self.dds_cooling_DP.sw.on()
+            self.ttl_repump_switch.off()
+            delay(1 * us)
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A4.sw.on()
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+            delay(0.1 * ms)
+
+            with parallel:
+                self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
+                self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
+
+            SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
+            SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
+            BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+
+            delay(1 * ms)
+
+            self.dds_cooling_DP.sw.off()
+            self.ttl_repump_switch.on()
+            delay(1 * us)
+            self.dds_AOM_A1.sw.off()
+            self.dds_AOM_A2.sw.off()
+            self.dds_AOM_A3.sw.off()
+            self.dds_AOM_A4.sw.off()
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+            delay(1 * us)
+
+            ### stopping the excitation cycle after the atom is lost
+            if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+                delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                atom_loaded = True
+
+            else:
+                atom_loaded = False
+
+            ################################### atom cooling phase with PGC settings
             if self.t_recooling > 0:
                 self.zotino0.set_dac(
                     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
@@ -9416,54 +9516,54 @@ def atom_photon_parity_4_experiment(self):
                 delay(1 * us)
 
 
-            ############################# readout every self.atom_check_every_n to see if the atom survived
-            if (excitation_cycle + 1) % self.atom_check_every_n == 0:
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                    channels=self.coil_channels)
-
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
-                delay(1 * ms)
-
-                self.dds_cooling_DP.sw.on()
-                self.ttl_repump_switch.off()
-                delay(1 * us)
-                self.dds_AOM_A1.sw.on()
-                self.dds_AOM_A2.sw.on()
-                self.dds_AOM_A3.sw.on()
-                self.dds_AOM_A4.sw.on()
-                self.dds_AOM_A5.sw.on()
-                self.dds_AOM_A6.sw.on()
-                delay(0.1 * ms)
-
-                with parallel:
-                    self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
-                    self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
-
-                SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
-                SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
-
-                delay(1*ms)
-
-                self.dds_cooling_DP.sw.off()
-                self.ttl_repump_switch.on()
-                delay(1 * us)
-                self.dds_AOM_A1.sw.off()
-                self.dds_AOM_A2.sw.off()
-                self.dds_AOM_A3.sw.off()
-                self.dds_AOM_A4.sw.off()
-                self.dds_AOM_A5.sw.off()
-                self.dds_AOM_A6.sw.off()
-                delay(1 * us)
-
-                ### stopping the excitation cycle after the atom is lost
-                if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
-                    delay(100 * us)  ### Needs a delay of about 100us or maybe less
-                    atom_loaded = True
-
-                else:
-                    atom_loaded = False
+            # ############################# readout every self.atom_check_every_n to see if the atom survived
+            # if (excitation_cycle + 1) % self.atom_check_every_n == 0:
+            #     self.zotino0.set_dac(
+            #         [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+            #         channels=self.coil_channels)
+            #
+            #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+            #     delay(1 * ms)
+            #
+            #     self.dds_cooling_DP.sw.on()
+            #     self.ttl_repump_switch.off()
+            #     delay(1 * us)
+            #     self.dds_AOM_A1.sw.on()
+            #     self.dds_AOM_A2.sw.on()
+            #     self.dds_AOM_A3.sw.on()
+            #     self.dds_AOM_A4.sw.on()
+            #     self.dds_AOM_A5.sw.on()
+            #     self.dds_AOM_A6.sw.on()
+            #     delay(0.1 * ms)
+            #
+            #     with parallel:
+            #         self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
+            #         self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
+            #
+            #     SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
+            #     SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
+            #     BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+            #
+            #     delay(1*ms)
+            #
+            #     self.dds_cooling_DP.sw.off()
+            #     self.ttl_repump_switch.on()
+            #     delay(1 * us)
+            #     self.dds_AOM_A1.sw.off()
+            #     self.dds_AOM_A2.sw.off()
+            #     self.dds_AOM_A3.sw.off()
+            #     self.dds_AOM_A4.sw.off()
+            #     self.dds_AOM_A5.sw.off()
+            #     self.dds_AOM_A6.sw.off()
+            #     delay(1 * us)
+            #
+            #     ### stopping the excitation cycle after the atom is lost
+            #     if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+            #         delay(100 * us)  ### Needs a delay of about 100us or maybe less
+            #         atom_loaded = True
+            #
+            #     else:
+            #         atom_loaded = False
 
             excitation_cycle +=1
 
