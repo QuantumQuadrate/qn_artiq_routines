@@ -9124,11 +9124,15 @@ def atom_photon_parity_4_experiment(self):
 
     self.measurement = 0  # advances in end_measurement
 
+    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    SPCM0_SinglePhoton = [-1.0] * self.n_measurements
+    SPCM1_SinglePhoton = [-1.0] * self.n_measurements
+    angle_780_HWP = [-1] * self.n_measurements
+    angle_780_QWP = [-1] * self.n_measurements
+
     self.core.break_realtime()
 
     while self.measurement < self.n_measurements:
-        SPCM0_SinglePhoton = 0
-        SPCM1_SinglePhoton = 0
 
         self.core.break_realtime()
 
@@ -9293,14 +9297,28 @@ def atom_photon_parity_4_experiment(self):
 
                     delay(150 * us)
                     atom_parity_shot(self)
-                    self.core.break_realtime()
-                    self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
-                    self.append_to_dataset('SPCM0_SinglePhoton', 1)
-                    self.append_to_dataset('SPCM1_SinglePhoton', 0)
-                    self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
-                    self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
-                    delay(20 * us)
-                    self.core.break_realtime()
+
+
+
+                    # self.core.break_realtime()
+                    # self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    # self.append_to_dataset('SPCM0_SinglePhoton', 1)
+                    # self.append_to_dataset('SPCM1_SinglePhoton', 0)
+                    # self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
+                    # self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
+                    # delay(20 * us)
+                    # self.core.break_realtime()
+
+
+                    delay(1*ms)
+                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    SPCM0_SinglePhoton[self.measurement] = 1.0
+                    SPCM1_SinglePhoton[self.measurement] = 0.0
+                    angle_780_HWP[self.measurement] = self.target_780_HWP
+                    angle_780_QWP[self.measurement] = self.target_780_QWP
+                    delay(1 * ms)
+
+
 
                     self.measurement += 1
 
@@ -9336,14 +9354,25 @@ def atom_photon_parity_4_experiment(self):
 
                     delay(5 * us)
                     atom_parity_shot(self)
-                    self.core.break_realtime()
-                    self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
-                    self.append_to_dataset('SPCM0_SinglePhoton', 0)
-                    self.append_to_dataset('SPCM1_SinglePhoton', 1)
-                    self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
-                    self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
-                    delay(20 * us)
-                    self.core.break_realtime()
+
+
+
+                    # self.core.break_realtime()
+                    # self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    # self.append_to_dataset('SPCM0_SinglePhoton', 0)
+                    # self.append_to_dataset('SPCM1_SinglePhoton', 1)
+                    # self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
+                    # self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
+                    # delay(20 * us)
+                    # self.core.break_realtime()
+
+                    delay(1 * ms)
+                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    SPCM0_SinglePhoton[self.measurement] = 0.0
+                    SPCM1_SinglePhoton[self.measurement] = 1.0
+                    angle_780_HWP[self.measurement] = self.target_780_HWP
+                    angle_780_QWP[self.measurement] = self.target_780_QWP
+                    delay(1 * ms)
 
                     self.measurement += 1
 
@@ -9465,6 +9494,13 @@ def atom_photon_parity_4_experiment(self):
 
     # delay(15 * ms)
     self.core.break_realtime()
+    for i in range(self.n_measurements):
+        self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
+        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton[i])
+        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton[i])
+        self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
+        self.append_to_dataset('angle_780_QWP', angle_780_QWP[i])
+    delay(50 * ms)
 
 @kernel
 def rotator_test_experiment(self):
