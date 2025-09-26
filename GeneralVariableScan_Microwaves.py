@@ -2,6 +2,8 @@
 GeneralVariableScan for Microwave transition scans
 
 compatible with GVS analysis
+
+Added fitting functionality
 """
 
 
@@ -24,7 +26,23 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
+
+#### fitting functions
 from fitting_oxford.rabi_flop import rabi_flop
+from fitting_oxford.rabi_flop_reversed import rabi_flop_reversed
+from fitting_oxford.resonance_dip import resonance_dip
+from fitting_oxford.resonance_positive_dip import resonance_positive_dip
+
+# from fitting_oxford.lorentzian import lorentzian
+# from fitting_oxford.gaussian import gaussian
+
+
+fit_model_dict = {
+    "rabi_flop": rabi_flop,
+    "rabi_flop_reversed": rabi_flop_reversed,
+    "resonance_dip": resonance_dip,
+    "resonance_positive_dip": resonance_positive_dip,
+}
 
 
 class GeneralVariableScan_Microwaves(EnvExperiment):
@@ -38,8 +56,10 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
-        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
-        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
+        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Setting")
+        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Setting")
+        self.setattr_argument('enable_fitting', BooleanValue(default=False), "General Setting")
+        self.setattr_argument('update_dataset', BooleanValue(default=False), "General Setting")
 
         self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
         self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
@@ -78,10 +98,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         assert type(self.override_ExperimentVariables_dict) == dict, \
             "override_ExperimentVariables should be a python dictionary"
 
-        for variable, value in self.override_ExperimentVariables_dict.items():
-            assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
-                                                    ". Did you mistype it?")
-
         if self.Frequency_00_Scan:
             print("Frequency_00_Scan with pi pulse")
             self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_00_pulse
@@ -99,6 +115,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
+            fit_model = "resonance_dip"
+            self.which_fit_model = fit_model_dict[fit_model]
+
         elif self.Frequency_01_Scan:
             print("Frequency_01_Scan with pi pulse")
             self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_01_pulse
@@ -114,6 +133,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
+
+            fit_model = "resonance_dip"
+            self.which_fit_model = fit_model_dict[fit_model]
 
         elif self.Frequency_11_Scan:
             print("Frequency_11_Scan with pi pulse")
@@ -132,6 +154,10 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
+            fit_model = "resonance_positive_dip"
+            self.which_fit_model = fit_model_dict[fit_model]
+
+
         elif self.Time_00_Scan:
             print("Time_00_Scan")
             self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_00_dds
@@ -148,6 +174,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
+
+            fit_model = "rabi_flop"
+            self.which_fit_model = fit_model_dict[fit_model]
 
         elif self.Time_01_Scan:
             print("Time_01_Scan")
@@ -166,6 +195,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
+            fit_model = "rabi_flop"
+            self.which_fit_model = fit_model_dict[fit_model]
+
         elif self.Time_11_Scan:
             print("Time_11_Scan")
             self.override_ExperimentVariables_dict["f_microwaves_11_dds"] = self.f_microwaves_11_dds
@@ -182,6 +214,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment"
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
+
+            fit_model = "rabi_flop_reversed"
+            self.which_fit_model = fit_model_dict[fit_model]
 
         elif self.Ramsey_00_Scan:
             print("Ramsey_00_Scan")
@@ -201,6 +236,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
+            ###todo:  fitting not ready for Ramsey yet
+            self.enable_fitting = False
+
         elif self.Ramsey_01_Scan:
             print("Ramsey_01_Scan")
             self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_01_dds
@@ -219,6 +257,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
+            ###todo:  fitting not ready for Ramsey yet
+            self.enable_fitting = False
+
         elif self.Ramsey_11_Scan:
             print("Ramsey_11_Scan")
 
@@ -235,10 +276,13 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
+            ###todo:  fitting not ready for Ramsey yet
+            self.enable_fitting = False
+
         else:
             assert "Microwave Scan is not selected!"
 
-        #### some more lines to be compatible with GVS
+        #### some more lines to be compatible with GVS analysis
         self.experiment_function = lambda: eval(self.experiment_name)(self)
 
         self.n_iterations1 = len(self.scan_sequence1) # this might not get used
@@ -258,6 +302,11 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.set_dataset('scan_sequence2', self.scan_sequence2, broadcast=True)
 
         self.set_dataset('experiment_function', self.experiment_name, broadcast=True)
+
+
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
+                                                    ". Did you mistype it?")
 
         self.measurement = 0
         self.SPCM0_RO1 = 0
@@ -383,6 +432,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         # self.warm_up()
 
+        ##### Scan sequence
         for variable1_value in self.scan_sequence1:
             # update the variable. setattr can't be called on the kernel, and this is what
             # allows us to update an experiment variable without hardcoding it, i.e.
@@ -413,27 +463,51 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 iteration += 1
 
         #### for fitting
-        BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
-        BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+        if self.enable_fitting:
+            BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
+            BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
 
-        retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
-                           self.single_atom_threshold * self.t_SPCM_first_shot)
+            retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
+                               self.single_atom_threshold * self.t_SPCM_first_shot)
 
-        if self.Time_00_Scan or self.Time_01_Scan or self.Time_11_Scan:
-            self.fit_to_rabi_flop(retention_array)
+            #  ### todo: fit this to reversed rabi
+            # self.scan_sequence1 = np.array(np.arange(0,8,1))
+            # retention_array = np.array([0.06666667, 0.12244898, 0.36170213, 0.67391304, 0.92,
+            #        0.89795918, 0.89583333, 0.55319149])
+
+            #  ### todo: this is for resonance_dip   f0 = 334.662MHz
+            # self.scan_sequence1 = np.array([3.34565e+08, 3.34575e+08, 3.34585e+08, 3.34595e+08, 3.34605e+08,
+            # 3.34615e+08, 3.34625e+08, 3.34635e+08, 3.34645e+08, 3.34655e+08,
+            # 3.34665e+08, 3.34675e+08, 3.34685e+08, 3.34695e+08, 3.34705e+08,
+            # 3.34715e+08, 3.34725e+08, 3.34735e+08, 3.34745e+08, 3.34755e+08])
+            #
+            # retention_array = np.array([0.4893617 , 0.42777778, 0.34078212, 0.3038674 , 0.27071823,
+            # 0.15384615, 0.16292135, 0.05586592, 0.08333333, 0.08839779,
+            # 0.04945055, 0.06741573, 0.10169492, 0.11666667, 0.17127072,
+            # 0.21590909, 0.27513228, 0.34920635, 0.37837838, 0.43243243])
+
+            #  ### todo: fit this to resonance_positive_dip
+            #  self.scan_sequence1 = np.array([3.39846e+08, 3.39856e+08, 3.39866e+08, 3.39876e+08, 3.39886e+08,
+            # 3.39896e+08, 3.39906e+08, 3.39916e+08, 3.39926e+08, 3.39936e+08,
+            # 3.39946e+08, 3.39956e+08, 3.39966e+08, 3.39976e+08, 3.39986e+08,
+            # 3.39996e+08, 3.40006e+08, 3.40016e+08, 3.40026e+08, 3.40036e+08])
+            #
+            #  retention_array = np.array([0.42328042, 0.52150538, 0.57297297, 0.62105263, 0.71428571,
+            # 0.68253968, 0.77604167, 0.80829016, 0.89447236, 0.92746114,
+            # 0.95744681, 0.96315789, 0.92346939, 0.91282051, 0.93877551,
+            # 0.87434555, 0.86010363, 0.79274611, 0.66489362, 0.57671958])
+
+            t = self.scan_sequence1
+            y = retention_array
+
+            p, p_err = self.which_fit_model.fit(t, y, evaluate_function=False)
+            print(p)
+
+
+
 
         print("****************    General Variable Scan DONE   *****************")
 
-
-    def fit_to_rabi_flop(self, retention_array):
-        t = self.scan_sequence1
-        y = retention_array
-        p, p_err= rabi_flop.fit(t, y, evaluate_function=False)
-        print(p)
-
-    #
-    # def get_loading_and_retention(self):
-    #     retention_array = np.zeros(iterations)
 
     def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """
