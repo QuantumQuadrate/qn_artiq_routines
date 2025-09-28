@@ -1,3 +1,17 @@
+"""
+FitBase.py is a general-purpose wrapper for fitting experimental data.
+It provides the common fitting engine, so you only need to specify the model function
+you want to fit to.
+
+Example fitters built on top of it can be found in the same folder. For instance,
+rabiflop.py (used to fit Rabi oscillations) defines the fitting function, initial parameters,
+and parameter bounds while all the actual fitting is handled by FitBase.py.
+
+The basis code is originally from OxfordIonGroup. Most of the functions here are from their group
+with additional fitting models to match our needs, such as resonance_dip.py
+
+"""
+
 import numpy as np
 from scipy.optimize import curve_fit
 
