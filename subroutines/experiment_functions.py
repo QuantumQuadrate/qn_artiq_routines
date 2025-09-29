@@ -984,18 +984,19 @@ def load_until_atom_smooth_FORT_recycle(self):
 
         ### set the cooling DP AOM to the MOT settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
+        delay(1 * ms)
 
         self.dds_cooling_DP.sw.on()  ### turn on cooling
         self.ttl_repump_switch.off()  ### turn on MOT RP
+        delay(0.1 * ms)
 
         self.dds_AOM_A1.sw.on()
         self.dds_AOM_A2.sw.on()
         self.dds_AOM_A3.sw.on()
         self.dds_AOM_A4.sw.on()
-        delay(0.1 * ms)
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
+        delay(0.1 * ms)
 
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
         self.dds_FORT.sw.on()
@@ -1087,7 +1088,7 @@ def load_until_atom_smooth_FORT_recycle(self):
         ### Lower the FORT to science setpoint
         if self.which_node == 'alice':
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            FORT_ramp_smoothstep(self, direction="down")
+            FORT_ramp1_smoothstep(self, direction="down")
         elif self.which_node == 'bob':
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
@@ -1744,15 +1745,6 @@ def atom_parity_shot(self):
         [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         channels=self.coil_channels)
     delay(1 * ms)  ## coils relaxation time
-
-
-    ### set the FORT AOM to the readout settings
-    if self.which_node == 'alice':
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-    elif self.which_node == 'bob':
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
-
-
 
     ### set the cooling DP AOM to the readout settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -3636,8 +3628,9 @@ def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
     print(f"Vdc: {actual_vdc} V")
 
 @kernel
-def FORT_ramp_smoothstep(self, direction="down"):
+def FORT_ramp1_smoothstep(self, direction="down"):
     """
+    For ramping FORT from loading setpoint to science and vice versa.
     Smoothly ramp FORT power using a quintic smoothstep profile. If t_FORT_ramp is too short (<1ms), it uses less
     number of steps to avoid Underflow errors. This can handle any t_FORT_ramp, from 1us to 10ms, for example.
 
@@ -3691,6 +3684,43 @@ def FORT_ramp_smoothstep(self, direction="down"):
         delay(step_delay)
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
 
+@kernel
+def FORT_ramp2_smoothstep(self, direction="down"):
+    """
+    For ramping FORT from science setpoint to holding (microwave) and vice versa.
+    Smoothly ramp FORT power using a quintic smoothstep profile. If t_FORT_ramp is too short (<1ms), it uses less
+    number of steps to avoid Underflow errors. This can handle any t_FORT_ramp, from 1us to 10ms, for example.
+
+    direction: "down" or "up"
+    """
+
+    assert (direction == "down" or direction == "up"), "Direction must be 'down' or 'up'"
+
+    p_high = self.stabilizer_FORT.amplitudes[1]
+    p_low = self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1]
+    n_steps_max = 100
+    step_delay_min = 10 * us
+
+    ### Choose step count so delay >= step_delay_min, but not more than n_steps_max
+    n_steps = int(self.t_FORT_ramp / step_delay_min)
+    if n_steps > n_steps_max:
+        n_steps = n_steps_max
+    elif n_steps < 1:
+        n_steps = 1  # safety in extreme case
+
+    step_delay = self.t_FORT_ramp / n_steps
+
+    for i in range(n_steps):
+        x = i / (n_steps - 1) if n_steps > 1 else 1.0
+        smoothstep = 6 * x ** 5 - 15 * x ** 4 + 10 * x ** 3
+
+        if direction == "down":
+            p_FORT = p_high - smoothstep * (p_high - p_low)
+        else:
+            p_FORT = p_low + smoothstep * (p_high - p_low)
+
+        delay(step_delay)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
 
 
 ###############################################################################
@@ -9233,8 +9263,9 @@ def atom_photon_parity_4_experiment(self):
             self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
 
             self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-            delay(2*us)
+            FORT_ramp2_smoothstep(self, direction="down")
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            delay(10*us)
 
             for excitation_attempt in range(self.n_excitation_attempts):
                 # delay(100 * us)
@@ -9319,10 +9350,12 @@ def atom_photon_parity_4_experiment(self):
                             self.dds_MW_RF.sw.off()  ### turn off RF
 
                     ############################ blow-away phase - push out atoms in F=2 only
-                    delay(150 * us)
+                    FORT_ramp2_smoothstep(self, direction="up")
+
+                    delay(10 * us)
                     chopped_blow_away(self)
 
-                    delay(150 * us)
+                    delay(10 * us)
                     atom_parity_shot(self)
 
 
@@ -9400,10 +9433,11 @@ def atom_photon_parity_4_experiment(self):
                             self.dds_MW_RF.sw.off()  ### turn off RF
 
                     ############################ blow-away phase - push out atoms in F=2 only
-                    delay(150 * us)
+                    FORT_ramp2_smoothstep(self, direction="up")
+                    delay(10 * us)
                     chopped_blow_away(self)
 
-                    delay(5 * us)
+                    delay(10 * us)
                     atom_parity_shot(self)
 
 
@@ -9432,8 +9466,8 @@ def atom_photon_parity_4_experiment(self):
             if self.measurement == self.n_measurements:
                 break
 
-            delay(200*us)
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            delay(20*us)
+            FORT_ramp2_smoothstep(self, direction="up")
 
             ####################################### atom check
             self.zotino0.set_dac(
@@ -9514,56 +9548,6 @@ def atom_photon_parity_4_experiment(self):
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
                 delay(1 * us)
-
-
-            # ############################# readout every self.atom_check_every_n to see if the atom survived
-            # if (excitation_cycle + 1) % self.atom_check_every_n == 0:
-            #     self.zotino0.set_dac(
-            #         [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-            #         channels=self.coil_channels)
-            #
-            #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
-            #     delay(1 * ms)
-            #
-            #     self.dds_cooling_DP.sw.on()
-            #     self.ttl_repump_switch.off()
-            #     delay(1 * us)
-            #     self.dds_AOM_A1.sw.on()
-            #     self.dds_AOM_A2.sw.on()
-            #     self.dds_AOM_A3.sw.on()
-            #     self.dds_AOM_A4.sw.on()
-            #     self.dds_AOM_A5.sw.on()
-            #     self.dds_AOM_A6.sw.on()
-            #     delay(0.1 * ms)
-            #
-            #     with parallel:
-            #         self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
-            #         self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
-            #
-            #     SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
-            #     SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-            #     BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
-            #
-            #     delay(1*ms)
-            #
-            #     self.dds_cooling_DP.sw.off()
-            #     self.ttl_repump_switch.on()
-            #     delay(1 * us)
-            #     self.dds_AOM_A1.sw.off()
-            #     self.dds_AOM_A2.sw.off()
-            #     self.dds_AOM_A3.sw.off()
-            #     self.dds_AOM_A4.sw.off()
-            #     self.dds_AOM_A5.sw.off()
-            #     self.dds_AOM_A6.sw.off()
-            #     delay(1 * us)
-            #
-            #     ### stopping the excitation cycle after the atom is lost
-            #     if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
-            #         delay(100 * us)  ### Needs a delay of about 100us or maybe less
-            #         atom_loaded = True
-            #
-            #     else:
-            #         atom_loaded = False
 
             excitation_cycle +=1
 
