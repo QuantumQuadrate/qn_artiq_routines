@@ -5,7 +5,7 @@ from . import FitBase
 def parameter_initialiser(x, y, p):
     p["C"] = 1.0
     p["f0"] = np.mean(x)
-    p["sigma"] = 50e3
+    p["sigma"] = 80e3
 
 def fitting_function(x, p):
     y = (p["C"] * np.exp(-0.5 * ((x - p["f0"]) / p["sigma"]) ** 2))
