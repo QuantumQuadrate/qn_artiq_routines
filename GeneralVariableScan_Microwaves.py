@@ -28,13 +28,13 @@ from subroutines.aom_feedback import AOMPowerStabilizer
 
 
 #### fitting functions
-from fitting_oxford.rabi_flop import rabi_flop
-from fitting_oxford.rabi_flop_reversed import rabi_flop_reversed
-from fitting_oxford.resonance_dip import resonance_dip
-from fitting_oxford.resonance_positive_dip import resonance_positive_dip
+from fitting.rabi_flop import rabi_flop
+from fitting.rabi_flop_reversed import rabi_flop_reversed
+from fitting.resonance_dip import resonance_dip
+from fitting.resonance_positive_dip import resonance_positive_dip
 
 # from fitting_oxford.lorentzian import lorentzian
-from fitting_oxford.gaussian import gaussian
+# from fitting.gaussian import gaussian
 
 
 fit_model_dict = {
@@ -42,7 +42,7 @@ fit_model_dict = {
     "rabi_flop_reversed": rabi_flop_reversed,
     "resonance_dip": resonance_dip,
     "resonance_positive_dip": resonance_positive_dip,
-    "gaussian": gaussian
+    # "gaussian": gaussian
 }
 
 
@@ -217,6 +217,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
             fit_model = "rabi_flop_reversed"
+            # fit_model = "rabi_flop"
             self.which_fit_model = fit_model_dict[fit_model]
 
         elif self.Ramsey_00_Scan:
@@ -471,10 +472,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
                                self.single_atom_threshold * self.t_SPCM_first_shot)
 
-            #  ### todo: fit this to reversed rabi
-            # self.scan_sequence1 = np.array(np.arange(0,8,1))
-            # retention_array = np.array([0.06666667, 0.12244898, 0.36170213, 0.67391304, 0.92,
-            #        0.89795918, 0.89583333, 0.55319149])
+
 
             #  ### todo: this is for resonance_dip: 00 transition:  f0 = 334.662MHz
             # self.scan_sequence1 = np.array([3.34565e+08, 3.34575e+08, 3.34585e+08, 3.34595e+08, 3.34605e+08,
@@ -499,16 +497,16 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             #        0.08152174, 0.03763441, 0.04787234, 0.08695652, 0.1657754 ,
             #        0.24736842, 0.35978836, 0.50810811, 0.6       , 0.75520833])
 
-            ### todo: fit this to resonance_positive_dip: 11 transition: f0 = 339.993
-            self.scan_sequence1 = np.array([3.39843e+08, 3.39853e+08, 3.39863e+08, 3.39873e+08, 3.39883e+08,
-                    3.39893e+08, 3.39903e+08, 3.39913e+08, 3.39923e+08, 3.39933e+08,
-                    3.39943e+08, 3.39953e+08, 3.39963e+08, 3.39973e+08, 3.39983e+08,
-                    3.39993e+08, 3.40003e+08, 3.40013e+08, 3.40023e+08, 3.40033e+08])
-
-            retention_array = np.array([0.23783784, 0.26666667, 0.32022472, 0.40935673, 0.43455497,
-                    0.52150538, 0.59782609, 0.60526316, 0.68108108, 0.72727273,
-                    0.8       , 0.83246073, 0.9144385 , 0.93406593, 0.96315789,
-                    0.95721925, 0.91666667, 0.92553191, 0.88947368, 0.86263736])
+            # ### todo: fit this to resonance_positive_dip: 11 transition: f0 = 339.993
+            # self.scan_sequence1 = np.array([3.39843e+08, 3.39853e+08, 3.39863e+08, 3.39873e+08, 3.39883e+08,
+            #         3.39893e+08, 3.39903e+08, 3.39913e+08, 3.39923e+08, 3.39933e+08,
+            #         3.39943e+08, 3.39953e+08, 3.39963e+08, 3.39973e+08, 3.39983e+08,
+            #         3.39993e+08, 3.40003e+08, 3.40013e+08, 3.40023e+08, 3.40033e+08])
+            #
+            # retention_array = np.array([0.23783784, 0.26666667, 0.32022472, 0.40935673, 0.43455497,
+            #         0.52150538, 0.59782609, 0.60526316, 0.68108108, 0.72727273,
+            #         0.8       , 0.83246073, 0.9144385 , 0.93406593, 0.96315789,
+            #         0.95721925, 0.91666667, 0.92553191, 0.88947368, 0.86263736])
 
             # ### todo: time scan for 00 transition (4.05us)
             # self.scan_sequence1 = np.array([0.e+00, 1.e-06, 2.e-06, 3.e-06, 4.e-06, 5.e-06, 6.e-06, 7.e-06])
@@ -516,20 +514,17 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             # retention_array = np.array([0.95876289, 0.82446809, 0.51308901, 0.19047619, 0.08695652,
             #        0.15, 0.44565217, 0.74093264])
 
+            #  ### todo: fit this to reversed rabi (11 transition )- t_pi = 4.4us
+            #      self.scan_sequence1 = np.array([0.e+00, 1.e-06, 2.e-06, 3.e-06, 4.e-06, 5.e-06, 6.e-06, 7.e-06,
+            # 8.e-06, 9.e-06])
+            #      retention_array = np.array([0.16489362, 0.18918919, 0.51578947, 0.69948187, 0.9119171 ,
+            # 0.82010582, 0.70491803, 0.42408377, 0.19889503, 0.16201117])
+
             t = self.scan_sequence1
             y = retention_array
 
             p, p_err = self.which_fit_model.fit(t, y, evaluate_function=False)
             print(p)
-            # fit_model = "gaussian"
-            # self.which_fit_model = fit_model_dict[fit_model]
-            # p, p_err = self.which_fit_model.fit(t, y, evaluate_function=False)
-            # print(p)
-            # print(p["t_pi"])
-            # print(type(float(p["t_pi"])))
-            #
-            # print(self.f_microwaves_01_dds)
-            # print(type(self.f_microwaves_01_dds))
 
             # print(p["f0"])
             # print(type(p["f0"]))
@@ -544,16 +539,22 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                     print(self.scan_variable1_name, " updated to ", round(float(p["f0"]), 1))
 
                 elif self.Frequency_11_Scan:
+                    if float(p["sigma"]) > 130e3:
+                        print("fitted sigma > 130kHz - 01 transition frequency retune seems to be necessary")
                     self.set_dataset("f_microwaves_11_dds", round(float(p["f0"]), 0), broadcast=True, persist=True)
                     print(self.scan_variable1_name, " updated to ", p["f0"])
 
                 elif self.Time_00_Scan:
-                    self.set_dataset("t_microwave_00_pulse", round(float(p["t_pi"])), broadcast=True, persist=True)
-                    print("t_microwave_00_pulse updated to ", float(p["t_pi"]))
+                    self.set_dataset("t_microwave_00_pulse", round(float(p["t_pi"]),8), broadcast=True, persist=True)
+                    print("t_microwave_00_pulse updated to ", round(float(p["t_pi"]),8))
 
                 elif self.Time_01_Scan:
-                    self.set_dataset("t_microwave_01_pulse", round(float(p["t_pi"])), broadcast=True, persist=True)
-                    print("t_microwave_01_pulse updated to ", float(p["t_pi"]))
+                    self.set_dataset("t_microwave_01_pulse", round(float(p["t_pi"]),8), broadcast=True, persist=True)
+                    print("t_microwave_01_pulse updated to ", round(float(p["t_pi"]),8))
+
+                elif self.Time_11_Scan:
+                    self.set_dataset("t_microwave_11_pulse", round(float(p["t_pi"]), 8), broadcast=True, persist=True)
+                    print("t_microwave_11_pulse updated to ", round(float(p["t_pi"]), 8))
 
             # round(float(p["f0"]), 1)
 
