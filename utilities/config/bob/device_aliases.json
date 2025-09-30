@@ -8,7 +8,7 @@
   "dds_cooling_DP": "urukul1_ch2",
   "dds_FORT": "urukul1_ch3",
   "dds_D1_pumping_DP": "urukul2_ch0",
-  "dds_pumping_repump": "urukul2_ch1",
+  "dds_MW_RF": "urukul2_ch1",
   "GRIN1and2_dds": "urukul2_ch2",
   "dds_microwaves": "urukul2_ch3"
   },
@@ -29,9 +29,9 @@
       "frequency": "f_GRIN2_D1_pumping",
       "power": "p_GRIN2_D1_pumping"
     },
-    "dds_pumping_repump": {
-      "frequency": "f_pumping_repump",
-      "power": "p_pumping_repump"
+    "dds_MW_RF": {
+      "frequency": "f_MW_RF_dds",
+      "power": "p_MW_RF_dds"
     },
     "dds_microwaves": {
       "frequency": "f_microwaves_dds",

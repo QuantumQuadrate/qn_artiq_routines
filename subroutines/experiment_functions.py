@@ -2191,7 +2191,7 @@ def optical_pumping_GRIN1(self):
     # self.dds_pumping_repump.sw.on()
     self.ttl_pumping_repump_switch.off()
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-    delay(1*us)
+    delay(1 * us)
 
     ## D1 && GRIN1 ON
     self.ttl_GRIN1_switch.off()  ## turning D1 ON
