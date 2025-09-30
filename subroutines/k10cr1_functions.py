@@ -209,7 +209,7 @@ def record_FORT_MM_power(self):
     measurement_buf = np.array([0.0] * 8)
     measurement1 = 0.0  # 1
 
-    avgs = 50
+    avgs = 200
 
     # MM
     for i in range(avgs):
@@ -242,7 +242,10 @@ def record_FORT_APD_power(self):
 
     # APD
     for i in range(avgs):
-        self.sampler1.sample(measurement_buf)
+        if self.which_node == 'alice':
+            self.sampler1.sample(measurement_buf)
+        elif self.which_node == 'bob':
+            self.sampler0.sample(measurement_buf)
         delay(0.1 * ms)
         measurement1 += measurement_buf[6]
 

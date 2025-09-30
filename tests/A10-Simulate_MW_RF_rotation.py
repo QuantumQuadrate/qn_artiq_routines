@@ -17,7 +17,7 @@ from utilities.BaseExperiment import BaseExperiment
 from utilities.conversions import dB_to_V_kernel as dB_to_V
 
 
-class Card_Tests(EnvExperiment):
+class Simulate_MW_RF_rotation(EnvExperiment):
 ### Testing TTLs:
     def build(self):
         self.base = BaseExperiment(experiment=self)

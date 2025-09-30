@@ -1045,10 +1045,6 @@ class BaseExperiment:
             self.experiment.ttl_D1_pumping.output()
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
-            self.experiment.ttl_D1_pumping.on()   ### ensure no D1 is on at the beginning
-            self.experiment.ttl_GRIN2_switch.on() ### ensure no excitation or D1 is on at the beginning
-            self.experiment.ttl_GRIN1_switch.on() ### ensure no excitation or D1 is on at the beginning
-
             self.experiment.ttl_RF_switch.output()
 
             self.experiment.sampler0.init() # for reading laser feedback
@@ -1058,8 +1054,14 @@ class BaseExperiment:
             ### turn on/off any switches. this ensures that switches always start in a default state,
             ### which might not happen if we abort an experiment in the middle and don't reset it
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
+            # delay(1*ms)
+            self.experiment.ttl_repump_switch.on() # blocks RF to get to the RP AOM
             delay(1*ms)
-            self.experiment.ttl_repump_switch.off() # allow RF to get to the RP AOM
+            self.experiment.ttl_D1_pumping.on()   ### ensure no D1 is on at the beginning
+            delay(1 * ms)
+            self.experiment.ttl_GRIN2_switch.on() ### ensure no excitation or D1 is on at the beginning
+            delay(1 * ms)
+            self.experiment.ttl_GRIN1_switch.on() ### ensure no excitation or D1 is on at the beginning
             delay(1*ms)
             self.experiment.ttl_pumping_repump_switch.on() # block RF to get to the PR AOM
             delay(1*ms)

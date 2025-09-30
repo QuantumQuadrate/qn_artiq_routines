@@ -245,6 +245,20 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         if self.enable_laser_feedback:
             self.laser_stabilizer.run()
 
+        delay(1*ms)
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+
+        delay(1*ms)
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+        delay(1 * ms)
+
+
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
         delay(100*us)
         self.dds_FORT.sw.on()  ### turns FORT on
@@ -283,10 +297,10 @@ class FORT_Polarization_Optimizer(EnvExperiment):
             steps = half_range * 2 / (sample_pts - 1)
 
             # power difference with steps less than 1 is negligible.
-            if steps < 1:
+            if steps < self.tolerance_deg:
                 tolerance_satisfied = True
 
-                steps = 1.0
+                steps = self.tolerance_deg
                 sample_pts = int(half_range/steps) * 2 + 1 # how many sample pts to cover the range
                 half_range = steps * (sample_pts - 1) / 2
 

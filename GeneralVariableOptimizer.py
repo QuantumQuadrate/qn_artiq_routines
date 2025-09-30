@@ -257,13 +257,13 @@ class GeneralVariableOptimizer(EnvExperiment):
             setattr(self, variable, value)
 
         # self.warm_up()
-        self.initialize_hardware()
+        self.initialize_hardware()  #todo: this is done in optimization routine
 
         # params is ignored when checking the initial cost
         cost = self.optimization_routine(params=[0.0]*self.n_params, check_initial_cost=True)
-
         self.mloop_controller.optimize()
 
+        ### After optimiation ###
         print('Best parameters found:')
         print(self.mloop_controller.best_params)
         best_params = self.mloop_controller.best_params

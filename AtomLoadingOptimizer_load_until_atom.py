@@ -44,6 +44,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ### overwrite the experiment variables of the same names
         # self.setattr_argument("t_SPCM_exposure", NumberValue(10 * ms, unit='ms'))
         self.setattr_argument("atom_counts_per_s_threshold", NumberValue(14000))
+        self.setattr_argument("target_cost", NumberValue(-3000.0))
         self.setattr_argument("n_measurements", NumberValue(10, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("set_best_parameters_at_finish", BooleanValue(True))
         self.both_mode = "coils and beam powers"
@@ -178,7 +179,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
 
         self.mloop_controller = mlc.create_controller(interface,
                                            max_num_runs=self.max_runs,
-                                           target_cost=-3000.0, ### target atom_loading_time (in s) = -1000/target_cost.
+                                           target_cost=self.target_cost, # -10000 corresponds to average atom_loading_time = 100ms calculated from -1000/atom_loading_time.
                                            num_params=n_params,
                                            min_boundary=min_bounds,
                                            max_boundary=max_bounds)

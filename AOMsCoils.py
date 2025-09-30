@@ -5,6 +5,7 @@ This code turns on the MOT AOMs and also the MOT coils, plus 780 and 852 wavepla
 from artiq.experiment import *
 
 from utilities.BaseExperiment import BaseExperiment
+from utilities.conversions import dB_to_V_kernel as dB_to_V
 from subroutines.k10cr1_functions import *
 
 class AOMsCoils(EnvExperiment):
@@ -144,6 +145,8 @@ class AOMsCoils(EnvExperiment):
         delay(1 * ms)
         if self.which_node == 'bob':
             if self.Node2_GRIN2_AOM_ON == True:
+                self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation,
+                                           amplitude=dB_to_V(self.p_GRIN2_excitation))
                 self.dds_D1_pumping_DP.sw.on()
                 self.ttl_GRIN2_switch.off()
             else:
@@ -235,6 +238,10 @@ class AOMsCoils(EnvExperiment):
             self.zotino0.set_dac(
                 [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                 channels=self.coil_channels)
+
+            # self.zotino0.set_dac(
+            #     [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+            #     channels=self.coil_channels)
 
     @kernel
     def k10cr1_operations(self):

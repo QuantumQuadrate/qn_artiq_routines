@@ -111,9 +111,10 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                               self.AX_volts_MOT, self.AY_volts_MOT]
         self.volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
 
-        self.set_dataset(self.SPCM0_rate_dataset,
-                         [0.0],
-                         broadcast=True)
+        self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.SPCM1_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
+
         print("prepare - done")
 
     @kernel
@@ -203,12 +204,25 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
             self.dds_AOM_A6.set(amplitude=self.stabilizer_AOM_A6.amplitude * ampl6_factor,
                                 frequency=self.AOM_A6_freq)
 
-            t_end = self.ttl0.gate_rising(self.dt_exposure)
-            counts = self.ttl0.count(t_end)
-            SPCM0_counts_per_s = counts / self.dt_exposure
+            edgecounter_enabled = True
+            if not edgecounter_enabled:
+                t_end = self.ttl0.gate_rising(self.dt_exposure)
+                counts = self.ttl0.count(t_end)
+                SPCM0_counts_per_s = counts / self.dt_exposure
 
-            delay(1 * ms)
-            self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts_per_s)
+                delay(1 * ms)
+                self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts_per_s)
+            else:
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(self.dt_exposure)
+                    self.ttl_SPCM1_counter.gate_rising(self.dt_exposure)
+                SPCM0_count = self.ttl_SPCM0_counter.fetch_count()
+                SPCM1_count = self.ttl_SPCM1_counter.fetch_count()
+                BothSPCMs_count = int((SPCM0_count + SPCM1_count) / 2)
+                BothSPCMs_counts_per_s = BothSPCMs_count / self.dt_exposure
+
+                delay(1 * ms)
+                self.append_to_dataset(self.BothSPCMs_rate_dataset, BothSPCMs_counts_per_s)
 
             # check the current state of 14 read by ttl3
             self.ttl3.sample_input()

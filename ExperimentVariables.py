@@ -220,6 +220,8 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_microwave_01_pulse", 60.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
             Variable("t_microwave_11_pulse", 6.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
             Variable("t_microwave_m10_pulse", 6.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
+            Variable("t_microwave_m1m1_pulse", 6.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+
             Variable("t_MW_RF_pulse", 1.0 * ms, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
             Variable("t_MW_00_ramp", 2 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
             Variable("t_MW_01_ramp", 4 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
