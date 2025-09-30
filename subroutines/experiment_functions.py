@@ -2308,7 +2308,6 @@ def optical_pumping_both_sides_and_PR_with_on_chip_beams(self):
 
     self.dds_AOM_A1.sw.off()
     self.dds_AOM_A2.sw.off()
-    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A3.sw.off()
     self.dds_AOM_A4.sw.off()
 
@@ -2613,7 +2612,6 @@ def optical_pumping_both_sides_PR_34(self):
     self.dds_AOM_A3.sw.off()
     self.dds_AOM_A4.sw.off()
 
-    self.ttl_pumping_repump_switch.on()
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
 
