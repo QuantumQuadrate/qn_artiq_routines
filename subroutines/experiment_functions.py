@@ -4655,6 +4655,12 @@ def microwave_Rabi_2_experiment(self):
 
     # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
+    delay(1 * ms)
+    move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
+    move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
+    delay(10 * ms)
+    self.core.reset()
+
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(1 * ms)
