@@ -1,5 +1,5 @@
 """
-GeneralVariableScan for Microwave transition scans
+This is based on GeneralVariableScan to scan frequency and pi time of microwave transitions
 
 - compatible with GVS analysis
 - enable_fitting: enables fitting of the scanned results.
@@ -178,7 +178,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             if self.which_node == 'bob':
                 self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment"
             elif self.which_node == 'alice':
-                self.experiment_name = "microwave_Rabi_2_experiment"
+                self.experiment_name = "microwave_map01_map11_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_positive_dip"

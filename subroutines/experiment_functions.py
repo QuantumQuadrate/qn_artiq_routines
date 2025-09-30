@@ -88,7 +88,6 @@ def test_excitation_rise_time_experiment(self):
         # delay(4 * ms)  # coil relaxation time
         delay(100*us)
 
-
 @kernel
 def run_feedback_and_record_FORT_MM_power(self):
     """
@@ -1596,7 +1595,6 @@ def second_shot(self):
     # elif self.which_node == 'bob':
     #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
-
 @kernel
 def atom_parity_shot(self):
     """
@@ -1619,10 +1617,6 @@ def atom_parity_shot(self):
         [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
         channels=self.coil_channels)
     delay(1 * ms)  ## coils relaxation time
-
-
-    ### set the FORT AOM to the readout settings
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
     ### set the cooling DP AOM to the readout settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
@@ -2324,7 +2318,6 @@ def optical_pumping_both_sides_and_PR_with_on_chip_beams(self):
     self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
     self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
 
-
 @kernel
 def optical_pumping_both_sides_with_dds_onoff(self):
     """
@@ -2430,7 +2423,6 @@ def optical_pumping_both_sides_with_dds_onoff(self):
 
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
 
 @kernel
 def optical_pumping_both_sides_with_precise_timing(self):
@@ -10167,14 +10159,14 @@ def atom_photon_parity_4_experiment(self):
     #                    phase=0.0)
     # self.dds_MW_RF.io_update()
 
-
-    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
+    self.dds_microwaves.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase = 0.0)
     delay(1 * ms)
     self.dds_microwaves.sw.on() ### turns on the DDS not the switch
     self.ttl_microwave_switch.on() ### close the switch
 
     self.dds_MW_RF.set_phase_mode(PHASE_MODE_ABSOLUTE)
-    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
+    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase = 0.0)
     self.dds_MW_RF.sw.off()
     delay(1 * ms)
 
@@ -10367,8 +10359,8 @@ def atom_photon_parity_4_experiment(self):
 
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase = 0.0)
-                    # self.dds_microwaves.io_update.pulse_mu(8)
+                    # self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase = 0.0)
+                    self.dds_microwaves.cpld.io_update.pulse_mu(8)
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 3000)
                     self.ttl_microwave_switch.off()
@@ -10490,7 +10482,8 @@ def atom_photon_parity_4_experiment(self):
                     #         self.dds_MW_RF.sw.off()  ### turn off RF
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+                    # self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+                    self.dds_microwaves.cpld.io_update.pulse_mu(8)
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 3000)
                     self.ttl_microwave_switch.off()
