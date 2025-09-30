@@ -397,7 +397,7 @@ device_db["urukul0_cpld"] = {
         "spi_device": "spi_urukul0",
         "sync_device": "ttl_urukul0_sync",
         "io_update_device": "ttl_urukul0_io_update",
-        "refclk": 125000000.0,
+        "refclk": 125000000,
         "clk_sel": 2,
         "clk_div": 0
     }
@@ -413,7 +413,9 @@ device_db["urukul0_ch0"] = {
         "chip_select": 4,
         "cpld_device": "urukul0_cpld",
         "sw_device": "ttl_urukul0_sw0",
-        "sync_delay_seed": 13,
+        # "sync_delay_seed": "eeprom_urukul0:64",
+        # "io_update_delay": "eeprom_urukul0:64",
+        "sync_delay_seed": 12,
         "io_update_delay": 3
     }
 }
@@ -428,7 +430,9 @@ device_db["urukul0_ch1"] = {
         "chip_select": 5,
         "cpld_device": "urukul0_cpld",
         "sw_device": "ttl_urukul0_sw1",
-        "sync_delay_seed": 13,
+        # "sync_delay_seed": "eeprom_urukul0:68",
+        # "io_update_delay": "eeprom_urukul0:68",
+        "sync_delay_seed": 12,
         "io_update_delay": 3
     }
 }
@@ -443,6 +447,8 @@ device_db["urukul0_ch2"] = {
         "chip_select": 6,
         "cpld_device": "urukul0_cpld",
         "sw_device": "ttl_urukul0_sw2",
+        # "sync_delay_seed": "eeprom_urukul0:72",
+        # "io_update_delay": "eeprom_urukul0:72",
         "sync_delay_seed": 14,
         "io_update_delay": 3
     }
@@ -458,7 +464,9 @@ device_db["urukul0_ch3"] = {
         "chip_select": 7,
         "cpld_device": "urukul0_cpld",
         "sw_device": "ttl_urukul0_sw3",
-        "sync_delay_seed": 14,
+        # "sync_delay_seed": "eeprom_urukul0:76",
+        # "io_update_delay": "eeprom_urukul0:76",
+        "sync_delay_seed": 13,
         "io_update_delay": 3
     }
 }
@@ -527,7 +535,7 @@ device_db["urukul1_cpld"] = {
         "spi_device": "spi_urukul1",
         "sync_device": "ttl_urukul1_sync",
         "io_update_device": "ttl_urukul1_io_update",
-        "refclk": 125000000.0,
+        "refclk": 125000000,
         "clk_sel": 2,
         "clk_div": 0
     }
@@ -543,7 +551,9 @@ device_db["urukul1_ch0"] = {
         "chip_select": 4,
         "cpld_device": "urukul1_cpld",
         "sw_device": "ttl_urukul1_sw0",
-        "sync_delay_seed": 17,
+        # "sync_delay_seed": "eeprom_urukul1:64",
+        # "io_update_delay": "eeprom_urukul1:64",
+        "sync_delay_seed": 16,
         "io_update_delay": 0
     }
 }
@@ -558,7 +568,9 @@ device_db["urukul1_ch1"] = {
         "chip_select": 5,
         "cpld_device": "urukul1_cpld",
         "sw_device": "ttl_urukul1_sw1",
-        "sync_delay_seed": 18,
+        # "sync_delay_seed": "eeprom_urukul1:68",
+        # "io_update_delay": "eeprom_urukul1:68",
+        "sync_delay_seed": 16,
         "io_update_delay": 1
     }
 }
@@ -573,6 +585,8 @@ device_db["urukul1_ch2"] = {
         "chip_select": 6,
         "cpld_device": "urukul1_cpld",
         "sw_device": "ttl_urukul1_sw2",
+        # "sync_delay_seed": "eeprom_urukul1:72",
+        # "io_update_delay": "eeprom_urukul1:72",
         "sync_delay_seed": 17,
         "io_update_delay": 0
     }
@@ -588,6 +602,8 @@ device_db["urukul1_ch3"] = {
         "chip_select": 7,
         "cpld_device": "urukul1_cpld",
         "sw_device": "ttl_urukul1_sw3",
+        # "sync_delay_seed": "eeprom_urukul1:76",
+        # "io_update_delay": "eeprom_urukul1:76",
         "sync_delay_seed": 17,
         "io_update_delay": 0
     }
@@ -657,7 +673,7 @@ device_db["urukul2_cpld"] = {
         "spi_device": "spi_urukul2",
         "sync_device": "ttl_urukul2_sync",
         "io_update_device": "ttl_urukul2_io_update",
-        "refclk": 125000000.0,
+        "refclk": 125e6,
         "clk_sel": 2,
         "clk_div": 0
     }
@@ -673,7 +689,9 @@ device_db["urukul2_ch0"] = {
         "chip_select": 4,
         "cpld_device": "urukul2_cpld",
         "sw_device": "ttl_urukul2_sw0",
-        "sync_delay_seed": 16,
+        # "sync_delay_seed": "eeprom_urukul2:64",
+        # "io_update_delay": "eeprom_urukul2:64",
+        "sync_delay_seed": 15,
         "io_update_delay": 0
     }
 }
@@ -688,7 +706,9 @@ device_db["urukul2_ch1"] = {
         "chip_select": 5,
         "cpld_device": "urukul2_cpld",
         "sw_device": "ttl_urukul2_sw1",
-        "sync_delay_seed": 15,
+        # "sync_delay_seed": "eeprom_urukul2:68",
+        # "io_update_delay": "eeprom_urukul2:68",
+        "sync_delay_seed": 14,
         "io_update_delay": 0
     }
 }
@@ -703,7 +723,9 @@ device_db["urukul2_ch2"] = {
         "chip_select": 6,
         "cpld_device": "urukul2_cpld",
         "sw_device": "ttl_urukul2_sw2",
-        "sync_delay_seed": 15,
+        # "sync_delay_seed": "eeprom_urukul2:72",
+        # "io_update_delay": "eeprom_urukul2:72",
+        "sync_delay_seed": 14,
         "io_update_delay": 0
     }
 }
@@ -718,6 +740,8 @@ device_db["urukul2_ch3"] = {
         "chip_select": 7,
         "cpld_device": "urukul2_cpld",
         "sw_device": "ttl_urukul2_sw3",
+        # "sync_delay_seed": "eeprom_urukul2:76",
+        # "io_update_delay": "eeprom_urukul2:76",
         "sync_delay_seed": 15,
         "io_update_delay": 0
     }

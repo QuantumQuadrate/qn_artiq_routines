@@ -73,7 +73,7 @@ class SPCMGateTimeVsCounts(EnvExperiment):
 
         # self.dds_cooling_DP.sw.off()
         # self.ttl_repump_switch.on()
-        # self.dds_pumping_repump.sw.off()
+        # self.ttl_pumping_repump_switch.on()
 
         delay(10 * ms)
 

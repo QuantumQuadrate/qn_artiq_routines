@@ -1,7 +1,6 @@
 """
 arguments are counts, counts2, and a defined threshold to discriminate between atom
-and background. todo: make the threshold parameter optional and instead determine it
-with a fit
+and background.
 
 applet command:
 python "C:\..\qn_artiq_routines\applets\plot_retention_and_loading.py"

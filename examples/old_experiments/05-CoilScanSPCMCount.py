@@ -35,7 +35,7 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.setattr_device("urukul1_ch3")
         self.setattr_device("zotino0") # for controlling coils
         self.setattr_device("ttl0")  # input for counting SPCM clicks
-        self.setattr_device("ttl7")  # output for experiment trigger
+        # self.setattr_device("ttl7")  # output for experiment trigger
 
         self.setattr_argument("AZ_bottom_volts_MOT", NumberValue(0.6, unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
         # self.setattr_argument("AZ_bottom_volts_PGC", NumberValue(0*(-1.64/2.5), unit="V", ndecimals=3, step=0.025), "A-Z shim/quad bottom coils")
@@ -83,8 +83,8 @@ class CoilScan_SPCMCount(EnvExperiment):
                               "AOM3, MOT cooling single pass")
         # self.setattr_argument("D1_pumping_DP_AOM_ON", BooleanValue(default=False), "AOM3, MOT cooling single pass")
 
-        self.setattr_argument("f_pumping_repump", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
-        self.setattr_argument("p_pumping_repump", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
+        # self.setattr_argument("f_pumping_repump", NumberValue(150.5 * MHz, unit="MHz", ndecimals=1), "AOM4, MOT RP/Exc")
+        # self.setattr_argument("p_pumping_repump", NumberValue(3, unit="dBm", scale=1, ndecimals=1), "AOM4, MOT RP/Exc")
         # self.setattr_argument("pumping_repump_AOM_ON", BooleanValue(default=False), "AOM4, MOT RP/Exc")
 
         # the default power for the fiber AOMs was chosen to give roughly equal diffraction efficiency, empirically
@@ -142,7 +142,7 @@ class CoilScan_SPCMCount(EnvExperiment):
         self.ampl_cooling_DP_PGC = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_PGC / 10 - 3))
         self.ampl_cooling_DP_RO = math.sqrt(2 * 50 * 10 ** (self.p_cooling_DP_RO / 10 - 3))
         self.AOM3_ampl = math.sqrt(2 * 50 * 10 ** (self.p_D1_pumping_DP / 10 - 3))
-        self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_pumping_repump / 10 - 3))
+        # self.AOM4_ampl = math.sqrt(2 * 50 * 10 ** (self.p_pumping_repump / 10 - 3))
 
         self.AOM_A2_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A2_power / 10 - 3))
         self.AOM_A3_ampl = math.sqrt(2 * 50 * 10 ** (self.AOM_A3_power / 10 - 3))
@@ -229,7 +229,9 @@ class CoilScan_SPCMCount(EnvExperiment):
                     self.core.break_realtime()
 
                     # do the experiment sequence
-                    self.ttl7.pulse(self.t_exp_trigger)
+                    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+                    # delay(0.1 * ms)
+                    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
                     # update coil values
                     delay(1 * ms)
@@ -347,7 +349,9 @@ class CoilScan_SPCMCount(EnvExperiment):
 
         self.core.reset()
         self.ttl0.input()  # for reading pulses from SPCM
-        self.ttl7.output()  # for outputting a trigger each cycle
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         self.urukul0_ch0.init()
         self.urukul0_ch1.init()
@@ -385,8 +389,8 @@ class CoilScan_SPCMCount(EnvExperiment):
         delay(1 * ms)
         self.urukul0_ch2.set(frequency=self.f_D1_pumping_DP, amplitude=self.AOM3_ampl)
 
-        delay(1 * ms)
-        self.urukul0_ch3.set(frequency=self.f_pumping_repump, amplitude=self.AOM4_ampl)
+        # delay(1 * ms)
+        # self.urukul0_ch3.set(frequency=self.f_pumping_repump, amplitude=self.AOM4_ampl)
 
         # URUKUL 1 - MOT arm fiber AOMs:
         delay(1 * ms)

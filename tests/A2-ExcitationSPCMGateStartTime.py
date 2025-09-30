@@ -106,7 +106,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.dds_cooling_DP.sw.off()
 
         # Pumping Repump
-        self.dds_pumping_repump.sw.off()
+        self.ttl_pumping_repump_switch.on()
 
         # FORT
         self.dds_FORT.sw.off()
