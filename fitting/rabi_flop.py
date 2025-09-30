@@ -5,7 +5,8 @@ from . import FitBase
 """Fit a typical Rabi flop time scan with a decaying cosine curve, including
 initial dead time to account for AOM/... switching effects.
 
-Currently only supports positive-sign scans (starting at y=1, not y=0).
+rabi_flop.py only supports positive-sign scans (starting at y=1, not y=0).
+rabi_flop_reversed.py supports negative-sign scans (starting at y=0, not y=1)
 
 For guessing the initial parameters, it is assumed that the scan range contains
 the first minimum (i.e., the pi time), and is about 1/10 to 10 times in length.
