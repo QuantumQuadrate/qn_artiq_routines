@@ -68,7 +68,7 @@ class Test_FiberSplitters(EnvExperiment):
         delay(10 * ms)
         self.dds_cooling_DP.sw.on()
 
-        self.dds_pumping_repump.sw.off()
+        self.ttl_pumping_repump_switch.on()
 
         delay(10 * ms)
 

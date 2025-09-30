@@ -98,7 +98,7 @@ class DDS_RAM_amplitude_test(EnvExperiment):
 
         delay(0.1 * ms)
 
-        self.ttl7.on()
+        # self.ttl7.on()
 
 
         ### Configure the RAM to playback the first half
@@ -149,7 +149,7 @@ class DDS_RAM_amplitude_test(EnvExperiment):
 
         self.dds2.sw.off()
 
-        self.ttl7.off()
+        # self.ttl7.off()
 
         delay(0.5 * ms)
 

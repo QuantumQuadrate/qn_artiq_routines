@@ -33,43 +33,62 @@ class Card_Tests(EnvExperiment):
 
 
 
-# ### Testing DDSs with phase control:
-#     def build(self):
-#        self.setattr_device("core")
-#        self.setattr_device("urukul2_cpld")
-#        self.setattr_device("urukul2_ch0")
-#        self.setattr_device("urukul2_ch1")
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#         self.urukul2_ch0.cpld.init()
-#         self.urukul2_ch0.init()
-#         self.urukul2_ch0.set_att(float(0))
-#
-#         self.urukul2_ch1.cpld.init()
-#         self.urukul2_ch1.init()
-#         self.urukul2_ch1.set_att(float(0))
-#
-#         delay(1 * ms)
-#
-#         dBm = -10
-#         self.urukul2_ch0.set_phase_mode(PHASE_MODE_TRACKING)
-#         self.urukul2_ch1.set_phase_mode(PHASE_MODE_TRACKING)
-#
-#         self.urukul2_ch0.set(60.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0)
-#         self.urukul2_ch1.set(60.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0)
-#
-#         self.urukul2_ch0.sw.on()
-#         self.urukul2_ch1.sw.on()
-#
-#         delay(5000 * ms)
-#         self.urukul2_ch1.set(60.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase=0.5)
-#
-#         # self.urukul2_ch0.sw.off()
-#         # self.urukul2_ch1.sw.off()
-#
-#         print("code done!")
+
+### Testing DDSs with phase control:
+### Without phase control, the phase between different dds channels is still fixed over time, even if the channels
+### are on different cards. Adding a delay (turning a channel on with some delay after the other channel) does not
+### affect the phase relation between different channels.
+
+    # def build(self):
+    #    self.setattr_device("core")
+    #    self.setattr_device("urukul2_cpld")
+    #    self.setattr_device("urukul2_ch0")
+    #    self.setattr_device("urukul2_ch1")
+    #
+    # @kernel
+    # def run(self):
+    #     self.core.reset()
+    #     self.urukul2_cpld.init()
+    #     self.urukul2_ch0.init()
+    #     self.urukul2_ch0.set_att(float(0))
+    #
+    #     self.urukul2_ch1.init()
+    #     self.urukul2_ch1.set_att(float(0))
+    #
+    #     delay(1 * ms)
+    #
+    #     dBm = -10
+    #     # self.urukul2_ch0.set_phase_mode(PHASE_MODE_TRACKING)
+    #     # self.urukul2_ch1.set_phase_mode(PHASE_MODE_TRACKING)
+    #
+    #     # self.urukul2_ch0.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    #     # self.urukul2_ch1.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    #
+    #     self.core.break_realtime()
+    #     t = now_mu() + 200_000  # ~2 ms in the future; plenty of slack
+    #
+    #     # self.urukul2_ch0.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
+    #     # self.urukul2_ch1.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
+    #
+    #     self.urukul2_ch0.set(125.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
+    #     # self.urukul2_ch1.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
+    #
+    #     with parallel:
+    #
+    #         self.urukul2_ch0.sw.on()
+    #         # self.urukul2_ch1.sw.on()
+    #
+    #
+    #     delay(100*us)
+    #
+    #     #
+    #     # self.urukul2_ch0.sw.off()
+    #     # self.urukul2_ch1.sw.off()
+    #
+    #     print("code done!")
+
+
+
 
 
 # ### Testing DDSs:
@@ -136,9 +155,11 @@ class Card_Tests(EnvExperiment):
  #        # self.zotino0.write_dac(5, 0.0)
  #        # self.zotino0.load()
  #
- #        self.zotino0.set_dac([3.5], [8])
- #        delay(10*ms)
- #        self.zotino0.set_dac([0.0], [8])
+ #        for i in range(10000):
+ #            self.zotino0.set_dac([2.0], [3])
+ #            delay(2*ms)
+ #            self.zotino0.set_dac([-2.0], [3])
+ #            delay(50*ms)
  #
  #        # self.zotino0.set_dac([2,2,2,2])
  #

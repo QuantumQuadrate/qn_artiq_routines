@@ -15,10 +15,10 @@ class Catch_Underflow_errors(EnvExperiment):
     @kernel
     def run(self):
         self.core.reset()
-        self.ttl7.output()
+        # self.ttl7.output()
 
         delay(1 * us)
-        self.ttl7.off()
+        # self.ttl7.off()
 
 
 
@@ -26,7 +26,7 @@ class Catch_Underflow_errors(EnvExperiment):
         #### This works well and adds a delay when necessary to avoid Underflow error.
         slack_threshold = 1e4 ### acceptable slack in mu. 1e4 = 10us.
         for x in range(100):
-            self.ttl7.pulse(90 * ns)
+            # self.ttl7.pulse(90 * ns)
             delay(10*ns)
             slack = now_mu() - self.core.get_rtio_counter_mu()
             if slack<slack_threshold:

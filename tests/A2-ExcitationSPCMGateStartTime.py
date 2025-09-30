@@ -82,7 +82,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(1*ms)
 
         self.ttl_exc0_switch.on()
-        self.dds_pumping_repump.sw.off()
+        self.ttl_pumping_repump_switch.on()
 
         delay(1 * ms)
 
@@ -105,7 +105,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.dds_cooling_DP.sw.off()
 
         # Pumping Repump
-        self.dds_pumping_repump.sw.off()
+        self.ttl_pumping_repump_switch.on()
 
         # FORT
         self.dds_FORT.sw.off()

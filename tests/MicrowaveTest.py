@@ -46,7 +46,7 @@ class MicrowaveTest(EnvExperiment):
     def run(self):
         self.base.initialize_hardware()
 
-        self.ttl7.pulse(5*ms)  # diagnostic trigger
+        # self.ttl7.pulse(5*ms)  # diagnostic trigger
 
         if not self.microwave_dds_pulse_only:
             if self.microwave_dds_ON:

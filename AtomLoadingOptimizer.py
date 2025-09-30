@@ -299,8 +299,8 @@ class AtomLoadingOptimizer(EnvExperiment):
         self.core.reset()
         delay(1*ms)
 
-        delay(0.1 * ms)
-        self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         delay(0.1 * ms)
 
         if self.tune_coils:
@@ -706,8 +706,9 @@ class AtomLoadingOptimizer(EnvExperiment):
 #         delay(1*ms)
 #
 #         delay(0.1 * ms)
-#         self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
+#         self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 #         delay(0.1 * ms)
+#         self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 #
 #         setpoint_multipliers = params
 #
@@ -1028,9 +1029,9 @@ class AtomLoadingOptimizer(EnvExperiment):
 #         self.core.reset()
 #         delay(1*ms)
 #
-#         delay(0.1 * ms)
-#         self.ttl7.pulse(100 * us)  ### for triggering oscilloscope
-#         delay(0.1 * ms)
+#         # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+#         # delay(0.1 * ms)
+#         # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 #
 #         setpoint_multipliers = params
 #
