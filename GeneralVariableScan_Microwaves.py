@@ -214,7 +214,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             self.initialise = {}
 
-
         elif self.Time_00_Scan:
             ### |1,0> to |2,0> transition - time scan
 
@@ -587,51 +586,50 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             if self.update_dataset:
                 if self.Frequency_00_Scan:
                     print("f_microwaves_00_dds original value: ", self.f_microwaves_00_dds)
-                    self.set_dataset("f_microwaves_00_dds", round(float(p["f0"]), 0), broadcast=True, persist=True)
-                    print("f_microwaves_00_dds updated to ", round(float(p["f0"]), 0))
+                    self.set_dataset("f_microwaves_00_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                    print("f_microwaves_00_dds updated to ", round(float(p["f0"]), -3))
 
                 elif self.Frequency_01_Scan:
                     print("f_microwaves_01_dds original value: ", self.f_microwaves_01_dds)
-                    self.set_dataset("f_microwaves_01_dds", round(float(p["f0"]), 0), broadcast=True, persist=True)
-                    print("f_microwaves_01_dds updated to ", round(float(p["f0"]), 0))
+                    self.set_dataset("f_microwaves_01_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                    print("f_microwaves_01_dds updated to ", round(float(p["f0"]), -3))
 
                 elif self.Frequency_11_Scan:
                     print("f_microwaves_11_dds original value: ", self.f_microwaves_11_dds)
                     if float(p["sigma"]) > 130e3:
                         print("fitted sigma > 130kHz - 01 transition frequency retune seems to be necessary")
-                    self.set_dataset("f_microwaves_11_dds", round(float(p["f0"]), 0), broadcast=True, persist=True)
-                    print("f_microwaves_11_dds updated to ", round(float(p["f0"]), 0))
+                    self.set_dataset("f_microwaves_11_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                    print("f_microwaves_11_dds updated to ", round(float(p["f0"]), -3))
 
                 elif self.Frequency_m10_Scan:
                     print("f_microwaves_m10_dds original value: ", self.f_microwaves_m10_dds)
-                    self.set_dataset("f_microwaves_m10_dds", round(float(p["f0"]), 0), broadcast=True, persist=True)
-                    print("f_microwaves_m10_dds updated to ", round(float(p["f0"]), 0))
+                    self.set_dataset("f_microwaves_m10_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                    print("f_microwaves_m10_dds updated to ", round(float(p["f0"]), -3))
 
                 elif self.Time_00_Scan:
                     print("t_microwave_00_pulse original value: ", self.t_microwave_00_pulse)
-                    self.set_dataset("t_microwave_00_pulse", round(float(p["t_pi"]),8), broadcast=True, persist=True)
-                    print("t_microwave_00_pulse updated to ", round(float(p["t_pi"]),8))
+                    self.set_dataset("t_microwave_00_pulse", round(float(p["t_pi"]),7), broadcast=True, persist=True)
+                    print("t_microwave_00_pulse updated to ", round(float(p["t_pi"]),7))
 
                 elif self.Time_01_Scan:
                     print("t_microwave_01_pulse original value: ", self.t_microwave_01_pulse)
-                    self.set_dataset("t_microwave_01_pulse", round(float(p["t_pi"]),8), broadcast=True, persist=True)
-                    print("t_microwave_01_pulse updated to ", round(float(p["t_pi"]),8))
+                    self.set_dataset("t_microwave_01_pulse", round(float(p["t_pi"]),7), broadcast=True, persist=True)
+                    print("t_microwave_01_pulse updated to ", round(float(p["t_pi"]),7))
 
                 elif self.Time_11_Scan:
                     print("t_microwave_11_pulse original value: ", self.t_microwave_11_pulse)
-                    self.set_dataset("t_microwave_11_pulse", round(float(p["t_pi"]), 8), broadcast=True, persist=True)
-                    print("t_microwave_11_pulse updated to ", round(float(p["t_pi"]), 8))
+                    self.set_dataset("t_microwave_11_pulse", round(float(p["t_pi"]), 7), broadcast=True, persist=True)
+                    print("t_microwave_11_pulse updated to ", round(float(p["t_pi"]), 7))
 
                 elif self.Time_m10_Scan:
                     print("t_microwave_m10_pulse original value: ", self.t_microwave_m10_pulse)
-                    self.set_dataset("t_microwave_m10_pulse", round(float(p["t_pi"]), 8), broadcast=True, persist=True)
-                    print("t_microwave_m10_pulse updated to ", round(float(p["t_pi"]), 8))
+                    self.set_dataset("t_microwave_m10_pulse", round(float(p["t_pi"]), 7), broadcast=True, persist=True)
+                    print("t_microwave_m10_pulse updated to ", round(float(p["t_pi"]), 7))
 
 
 
 
         print("****************    General Variable Scan DONE   *****************")
-
 
     def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """
@@ -655,7 +653,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             n_atoms_loaded_array[i] = n_atoms_loaded
             retention_array[i] = retention_fraction
         return retention_array, loading_rate_array, n_atoms_loaded_array
-
     def get_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """
         Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
