@@ -1151,7 +1151,7 @@ def load_until_atom_smooth_FORT_recycle(self):
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
             self.ttl_repump_switch.off()  ### turn on MOT RP
             self.dds_cooling_DP.sw.on()  ### turn on cooling
-            delay(10 * us)
+            # delay(10 * us)
             if self.PGC_and_RO_with_on_chip_beams:
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
@@ -1491,7 +1491,8 @@ def second_shot(self):
     delay(1 * ms)  ## coils relaxation time
 
     ### set the FORT AOM to the readout settings
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    FORT_ramp2_smoothstep(self, direction="up")
 
     ### set the cooling DP AOM to the readout settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
@@ -3221,8 +3222,8 @@ def end_measurement(self):
     if self.which_node == "alice":
         # delay(1 * ms)
         # measure_GRIN1(self)
-        delay(1 * ms)
-        measure_PUMPING_REPUMP(self)
+        # delay(1 * ms)
+        # measure_PUMPING_REPUMP(self)
         # delay(1 * ms)
         # measure_Magnetometer(self)
         # delay(1*ms)
@@ -3509,9 +3510,9 @@ def atom_loading_2_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
-        # delay(0.1 * ms)
-        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
+        self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+        delay(0.1 * ms)
+        self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
@@ -3542,9 +3543,6 @@ def atom_loading_2_experiment(self):
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
-
-    # todo: IF we want to recycle the atom, FORT must be kept ON
-    # self.dds_FORT.sw.off()
 
 @kernel
 def atom_loading_optimizer_experiment(self):
@@ -3708,8 +3706,9 @@ def atom_loading_optimizer_experiment(self):
 @kernel
 def atom_loading_for_optimization_experiment(self):
     """
-    Simple atom loading experiment based on load_MOT_and_FORT_until_atom. We use this function with additional stages
+    Simple atom loading experiment using load_until_atom_smooth_FORT_recycle. We use this function with additional stages
     compared to atom_loading_2_experiment to scan and optimize different parameters like 852 waveplates.
+    For PGC optimization use atom_loading_for_PGC_optimization_experiment below.
 
     :param self: an experiment instance.
     :return:
@@ -3775,8 +3774,9 @@ def atom_loading_for_optimization_experiment(self):
         self.ttl_repump_switch.off()  ### turn on MOT RP
         self.dds_cooling_DP.sw.on()  ### turn on cooling
         delay(10 * us)
-        # self.dds_AOM_A5.sw.off()
-        # self.dds_AOM_A6.sw.off()
+        if self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
         delay(self.t_PGC_after_loading)  ### this is the PGC time
         self.ttl_repump_switch.on()  ### turn off MOT RP
         self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -3813,16 +3813,14 @@ def atom_loading_for_optimization_experiment(self):
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
-    self.dds_FORT.sw.off()
+    # self.dds_FORT.sw.off()
 
 @kernel
 def atom_loading_for_PGC_optimization_experiment(self):
     """
-    Simple atom loading experiment based on load_MOT_and_FORT_until_atom and an extra RO or PGC between the shots
+    Simple atom loading experiment using load_until_atom_smooth_FORT_recycle and an extra RO or PGC between the shots
     to optimize PGC settings without affecting loading.
 
-    :param self: an experiment instance.
-    :return:
     """
 
     self.core.reset()
@@ -3850,28 +3848,33 @@ def atom_loading_for_PGC_optimization_experiment(self):
         first_shot(self)
         delay(1 * ms)
 
-        ###########  PGC on the trapped atom  #############
-        ### Set the coils to PGC setting
+        ###########  PGC on the trapped atom to optimize coils and cooling_DP_PGC, for example #############
+        ### Set the coils to PGC_optimization setting:
         self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+            [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization,
+             self.AY_volts_PGC_optimization],
+            channels=self.coil_channels)
+        delay(1 * ms)
+        ### set the cooling DP AOM to the PGC settings
+        ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
+        self.ttl_repump_switch.off()  ### turn on MOT RP
+        self.dds_cooling_DP.sw.on()  ### turn on cooling
+        delay(10 * us)
+        if self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+        delay(self.t_PGC_after_loading)  ### this is the PGC time
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        delay(10 * us)
+
+        ### Set the coils to PGC setting:
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
+             self.AY_volts_PGC],
             channels=self.coil_channels)
         delay(0.4 * ms)
-        ### set the cooling DP AOM to the PGC settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-
-        self.dds_AOM_A1.sw.on()
-        self.dds_AOM_A2.sw.on()
-        self.dds_AOM_A3.sw.on()
-        self.dds_AOM_A4.sw.on()
-        delay(10 * us)
-        self.dds_AOM_A5.sw.on()
-        self.dds_AOM_A6.sw.on()
-
-        self.dds_cooling_DP.sw.on()  ### turn on cooling
-        self.ttl_repump_switch.off()  ### turn on MOT RP
-        delay(20 * ms)  ### this is the PGC time
-        self.dds_cooling_DP.sw.off()  ### turn off cooling
-        self.ttl_repump_switch.on()  ### turn off MOT RP
         ###################################################
 
         if self.t_FORT_drop > 0:
@@ -3883,9 +3886,6 @@ def atom_loading_for_PGC_optimization_experiment(self):
         second_shot(self)
 
         end_measurement(self)
-
-    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
-    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
     self.dds_FORT.sw.off()
 
@@ -3958,7 +3958,7 @@ def beam_balancing_with_atoms_experiment(self):
         self.dds_AOM_A6.sw.off()
         delay(1*ms)
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=0.7*self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp1_smoothstep(self, direction="down")
 
         ### Changing power of fiber AOM3
         self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=dB_to_V(self.p_excitation))
@@ -4404,14 +4404,16 @@ def microwave_Rabi_2_experiment(self):
             # delay(0.1 * ms)
             # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="down")
             delay(2 * us)
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(2 * us)
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="up")
 
         ############################
         # blow-away phase - push out atoms in F=2 only
@@ -4511,7 +4513,8 @@ def microwave_Ramsey_00_experiment(self):
                               self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
         delay(1 * ms)
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="down")
         delay(2 * us)
 
         ### first pi/2 pulse
@@ -4538,7 +4541,8 @@ def microwave_Ramsey_00_experiment(self):
         self.ttl_microwave_switch.on()
 
         delay(2*us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
 
         ############################
         # blow-away phase - push out atoms in F=2 only
@@ -4634,7 +4638,8 @@ def microwave_Ramsey_11_experiment(self):
 
         ############################ microwave 1: transfer mF=0 to mF'=1
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding*self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="down")
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding*self.stabilizer_FORT.amplitudes[1])
         delay(5 * us)
 
         self.ttl_microwave_switch.off()
@@ -4668,7 +4673,8 @@ def microwave_Ramsey_11_experiment(self):
         self.ttl_microwave_switch.on()
 
         delay(2*us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -5278,7 +5284,6 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
     delay(1*ms)
     self.dds_microwaves.sw.off()
 
-
 @kernel
 def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
     """
@@ -5439,7 +5444,6 @@ def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
     self.dds_FORT.sw.off()
     delay(1*ms)
     self.dds_microwaves.sw.off()
-
 
 @kernel
 def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
@@ -5607,6 +5611,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
     self.dds_FORT.sw.off()
     delay(1*ms)
     self.dds_microwaves.sw.off()
+
 @kernel
 def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
     """
@@ -6029,13 +6034,13 @@ def microwave_freq_scan_experiment(self):
 
         ############################ microwave phase
         if self.t_microwave_pulse > 0.0:
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="down")
             delay(5 * us)
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(10 * us)
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="up")
 
 
         ############################ blow-away phase - push out atoms in F=2 only
@@ -6257,13 +6262,13 @@ def microwave_freq_scan_with_photons_experiment(self):
 
         ############################ microwave phase to transfer population from F=1 to F=2
         if self.t_microwave_pulse > 0.0:
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding*self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="down")
             delay(5*us)
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(5 * us)
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="up")
 
 
         ############################ blow-away phase - push out atoms in F=2 only
@@ -6503,13 +6508,13 @@ def microwave_freq_scan_2_with_photons_experiment(self):
 
         ############################ microwave phase to transfer population from F=1 to F=2
         if self.t_microwave_pulse > 0.0:
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="down")
             delay(5 * us)
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(10 * us)
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="up")
 
 
         ############################ blow-away phase - push out atoms in F=2 only
@@ -6643,7 +6648,7 @@ def microwave_map01_map11_experiment(self):
         delay(1 * ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_01_pulse > 0.0:
@@ -6663,7 +6668,7 @@ def microwave_map01_map11_experiment(self):
             self.ttl_microwave_switch.on()
 
         delay(5 * us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -6846,7 +6851,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
             channels=self.coil_channels)
         delay(1 * ms)  # coil relaxation time.
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         phi = 0.0
@@ -6882,7 +6887,8 @@ def microwave_map01_map11_CORPSE_experiment(self):
             self.ttl_microwave_switch.on()
 
         delay(10 * us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
+
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -6991,7 +6997,7 @@ def microwave_map00_map0m1_experiment(self):
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_00_pulse > 0.0:
@@ -7011,7 +7017,7 @@ def microwave_map00_map0m1_experiment(self):
             self.ttl_microwave_switch.on()
 
         delay(5 * us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -7127,7 +7133,7 @@ def microwave_map01_MWRFm11_experiment(self):
         delay(1 * ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_01_pulse > 0.0:
@@ -7152,7 +7158,7 @@ def microwave_map01_MWRFm11_experiment(self):
                 self.ttl_microwave_switch.on() ### turn off MW
                 self.dds_MW_RF.sw.off()  ### turn off RF
         delay(10*us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -7270,7 +7276,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_00_pulse > 0.0:
@@ -7323,7 +7330,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
                 self.ttl_microwave_switch.on()  ### turn off MW
                 self.ttl_RF_switch.off()  ### turn off RF
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
 
 
         ############################ blow-away phase - push out atoms in F=2 only
@@ -7439,7 +7447,8 @@ def microwave_MW00_RF01_MW00_experiment(self):
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_00_pulse > 0.0:
@@ -7462,7 +7471,8 @@ def microwave_MW00_RF01_MW00_experiment(self):
             self.ttl_microwave_switch.on()
             delay(5 * us)
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
 
 
         ############################ blow-away phase - push out atoms in F=2 only
@@ -8860,7 +8870,6 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
     delay(15 * ms)
 
-
 @kernel
 def single_photon_experiment_3_atom_loading_advance_node2(self):
     """
@@ -9202,7 +9211,6 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
         delay(1*ms)
 
     delay(15 * ms)
-
 
 @kernel
 def atom_photon_parity_1_experiment(self):
@@ -10359,8 +10367,8 @@ def atom_photon_parity_4_experiment(self):
 
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
-                    # self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase = 0.0)
-                    self.dds_microwaves.cpld.io_update.pulse_mu(8)
+                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase = 0.0)
+                    # self.dds_microwaves.cpld.io_update.pulse_mu(8)
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 3000)
                     self.ttl_microwave_switch.off()
@@ -10482,8 +10490,8 @@ def atom_photon_parity_4_experiment(self):
                     #         self.dds_MW_RF.sw.off()  ### turn off RF
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
-                    # self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
-                    self.dds_microwaves.cpld.io_update.pulse_mu(8)
+                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+                    # self.dds_microwaves.cpld.io_update.pulse_mu(8)
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 3000)
                     self.ttl_microwave_switch.off()
