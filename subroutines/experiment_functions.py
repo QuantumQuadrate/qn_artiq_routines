@@ -1491,8 +1491,8 @@ def second_shot(self):
     delay(1 * ms)  ## coils relaxation time
 
     ### set the FORT AOM to the readout settings
-    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-    FORT_ramp2_smoothstep(self, direction="up")
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    # FORT_ramp2_smoothstep(self, direction="up")
 
     ### set the cooling DP AOM to the readout settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
@@ -1625,36 +1625,30 @@ def atom_parity_shot(self):
 
     self.ttl_repump_switch.off()  ### turn on MOT RP
     self.dds_cooling_DP.sw.on()  ### Turn on cooling
-    delay(0.1 * ms)
+    delay(10 * us)
 
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
     self.dds_AOM_A3.sw.on()
     self.dds_AOM_A4.sw.on()
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
+    if not self.PGC_and_RO_with_on_chip_beams:
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+    delay(10 * us)
+
+    with parallel:
+        self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
+        self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
+
+    self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
+    self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
+    self.BothSPCMs_parity_RO = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
+
     delay(0.1 * ms)
+    self.dds_cooling_DP.sw.off()  ### turn off cooling
+    self.ttl_repump_switch.on()  ### turn off MOT RP
+    delay(10 * us)
 
-    if self.which_node != 'alice':  # edge counters only enabled on Alice gateware so far
-        t_gate_end = self.ttl_SPCM0.gate_rising(self.t_SPCM_second_shot)
-        self.SPCM0_RO2 = self.ttl_SPCM0.count(t_gate_end)
-        self.BothSPCMs_parity_RO = int(self.SPCM0_RO2)
-        delay(0.1 * ms)
-        self.dds_cooling_DP.sw.off()
-
-    else:
-        with parallel:
-            self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
-            self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
-
-        self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
-        self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
-        self.BothSPCMs_parity_RO = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
-
-        delay(0.1 * ms)
-        self.dds_cooling_DP.sw.off()  ### turn off cooling
-        self.ttl_repump_switch.on()  ### turn off MOT RP
-        delay(10 * us)
 
 @kernel
 def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
@@ -10246,53 +10240,53 @@ def atom_photon_parity_4_experiment(self):
             ############################### optical pumping phase - pumps atoms into F=1,m_F=0
             ### strange that with chopped_optical_pumping function, the experiment does not advance after a while!! I am guessing the excitation
             ### dds turns off in the middle of the first iteration, after 20-30 measurements!!
-            # if self.t_pumping > 0.0:
-            #     chopped_optical_pumping(self)
-            #     delay(1 * ms)
-
             if self.t_pumping > 0.0:
-                self.ttl_repump_switch.on()  # turns off the MOT RP AOM
-                self.ttl_exc0_switch.on()  # turns off the excitation
-                self.dds_cooling_DP.sw.off()  # no cooling light
-                delay(1 * us)
-
-                ### set coils for pumping
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-                    channels=self.coil_channels)
-                delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
-
-                self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  ### set to 5dBm for optical pumping
-                self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
-                self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
-                delay(1 * us)
-
-                ### Tunring on pumping RP:
-                self.ttl_pumping_repump_switch.off()
-                self.dds_AOM_A5.sw.on()
-                self.dds_AOM_A6.sw.on()
-
+                chopped_optical_pumping(self)
                 delay(1 * ms)
 
-                self.ttl_GRIN1_switch.off()
-                delay(10 * us)
-
-                self.core_dma.playback_handle(op_dma_handle)
-                delay(self.t_depumping)
-                self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-                self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
-
-                delay(2 * us)
-                self.dds_AOM_A5.sw.off()
-                self.dds_AOM_A6.sw.off()
-                delay(100 * us)
-
-                self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-                self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-                delay(1 * ms)
-
-                self.ttl_GRIN1_switch.on()
-                delay(10 * us)
+            # if self.t_pumping > 0.0:
+            #     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+            #     self.ttl_exc0_switch.on()  # turns off the excitation
+            #     self.dds_cooling_DP.sw.off()  # no cooling light
+            #     delay(1 * us)
+            #
+            #     ### set coils for pumping
+            #     self.zotino0.set_dac(
+            #         [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+            #         channels=self.coil_channels)
+            #     delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
+            #
+            #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  ### set to 5dBm for optical pumping
+            #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+            #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+            #     delay(1 * us)
+            #
+            #     ### Tunring on pumping RP:
+            #     self.ttl_pumping_repump_switch.off()
+            #     self.dds_AOM_A5.sw.on()
+            #     self.dds_AOM_A6.sw.on()
+            #
+            #     delay(1 * ms)
+            #
+            #     self.ttl_GRIN1_switch.off()
+            #     delay(10 * us)
+            #
+            #     self.core_dma.playback_handle(op_dma_handle)
+            #     delay(self.t_depumping)
+            #     self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
+            #     self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
+            #
+            #     delay(2 * us)
+            #     self.dds_AOM_A5.sw.off()
+            #     self.dds_AOM_A6.sw.off()
+            #     delay(100 * us)
+            #
+            #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+            #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+            #     delay(1 * ms)
+            #
+            #     self.ttl_GRIN1_switch.on()
+            #     delay(10 * us)
 
             ### Changing the bias field.
             self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
@@ -10569,8 +10563,9 @@ def atom_photon_parity_4_experiment(self):
             self.dds_AOM_A2.sw.on()
             self.dds_AOM_A3.sw.on()
             self.dds_AOM_A4.sw.on()
-            self.dds_AOM_A5.sw.on()
-            self.dds_AOM_A6.sw.on()
+            if not self.PGC_and_RO_with_on_chip_beams:
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
             delay(0.1 * ms)
 
             with parallel:
@@ -10618,8 +10613,9 @@ def atom_photon_parity_4_experiment(self):
                 self.dds_AOM_A2.sw.on()
                 self.dds_AOM_A3.sw.on()
                 self.dds_AOM_A4.sw.on()
-                self.dds_AOM_A5.sw.on()
-                self.dds_AOM_A6.sw.on()
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.sw.on()
+                    self.dds_AOM_A6.sw.on()
 
                 delay(self.t_recooling)
 
