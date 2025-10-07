@@ -1109,6 +1109,10 @@ def load_until_atom_smooth_FORT_recycle(self):
             if self.enable_laser_feedback:
                 delay(0.1 * ms) ### necessary to avoid underflow
 
+                self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+                delay(0.1 * ms)
+                self.zotino0.set_dac([0.0], self.Osc_trig_channel)
+
                 ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
                 ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
@@ -1648,7 +1652,6 @@ def atom_parity_shot(self):
     self.dds_cooling_DP.sw.off()  ### turn off cooling
     self.ttl_repump_switch.on()  ### turn off MOT RP
     delay(10 * us)
-
 
 @kernel
 def record_chopped_readout(self, readout_duration: TFloat, label: TStr):
@@ -3504,9 +3507,9 @@ def atom_loading_2_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
-        delay(0.1 * ms)
-        self.zotino0.set_dac([0.0], self.Osc_trig_channel)
+        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+        # delay(0.1 * ms)
+        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
