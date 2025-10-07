@@ -10597,6 +10597,7 @@ def atom_photon_parity_4_experiment(self):
             else:
                 atom_loaded = False
 
+
             ################################### atom cooling phase with PGC settings
             if self.t_recooling > 0:
                 self.zotino0.set_dac(
@@ -10629,6 +10630,202 @@ def atom_photon_parity_4_experiment(self):
                 self.dds_AOM_A5.sw.off()
                 self.dds_AOM_A6.sw.off()
                 delay(1 * us)
+
+            excitation_cycle +=1
+
+
+        delay(20 * us)
+        self.ttl_exc0_switch.on()  # block Excitation
+
+        delay(1 * ms)
+        second_shot(self)
+
+        delay(1*ms)
+        self.GRIN1and2_dds.sw.off()
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        self.measurement -= 1
+        end_measurement(self)
+
+        delay(5 * ms)
+
+        self.append_to_dataset('n_excitation_cycles', excitation_cycle)
+        delay(1 * ms)
+
+    # delay(15 * ms)
+    self.core.break_realtime()
+    for i in range(self.n_measurements):
+        self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
+        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton[i])
+        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton[i])
+        self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
+        self.append_to_dataset('angle_780_QWP', angle_780_QWP[i])
+    delay(50 * ms)
+
+
+@kernel
+def atom_photon_parity_5_experiment(self):
+    """
+Just testing why the OP function does not work and experiment haults after a few cycles.
+    """
+
+    self.core.reset()
+    delay(1 * ms)
+
+    self.set_dataset("Slack_tracking", [0.0], broadcast=True)
+    delay(1*ms)
+
+    record_chopped_optical_pumping(self)
+    delay(200*ms)
+
+    self.dds_microwaves.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase = 0.0)
+    delay(1 * ms)
+    self.dds_microwaves.sw.on() ### turns on the DDS not the switch
+    self.ttl_microwave_switch.on() ### close the switch
+
+    self.dds_MW_RF.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase = 0.0)
+    self.dds_MW_RF.sw.off()
+    delay(1 * ms)
+
+    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
+
+    if self.enable_laser_feedback:
+        delay(0.1 * ms)
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        self.laser_stabilizer.run()
+        self.dds_microwaves.sw.on()
+
+    delay(1*ms)
+    move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
+    move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
+    delay(10 * ms)
+    self.core.reset()
+
+    self.measurement = 0  # advances in end_measurement
+
+    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    SPCM0_SinglePhoton = [-1.0] * self.n_measurements
+    SPCM1_SinglePhoton = [-1.0] * self.n_measurements
+    angle_780_HWP = [-1] * self.n_measurements
+    angle_780_QWP = [-1] * self.n_measurements
+
+    self.core.break_realtime()
+
+    while self.measurement < self.n_measurements:
+
+        self.core.break_realtime()
+
+        self.ttl_exc0_switch.on()  # turns off the excitation
+        delay(1 * ms)
+
+        load_until_atom_smooth_FORT_recycle(self)
+        delay(1 * ms)
+        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+        self.ttl_microwave_switch.on()  ### close the switch
+
+        first_shot(self)
+
+        delay(10 * us)
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+        delay(10*us)
+
+        ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
+        self.GRIN1and2_dds.sw.on()
+
+        excitation_cycle = 0  ### just for initialization.
+
+        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+            atom_loaded = True
+        else:
+            atom_loaded = False
+
+        while atom_loaded:
+
+            delay(20 * ms)
+
+            ############################### optical pumping phase - pumps atoms into F=1,m_F=0
+            ### strange that with chopped_optical_pumping function, the experiment does not advance after a while!! I am guessing the excitation
+            ### dds turns off in the middle of the first iteration, after 20-30 measurements!!
+            # if self.t_pumping > 0.0:
+            #     chopped_optical_pumping(self)
+            #     delay(1 * ms)
+# '''
+#
+# Adding atom check breaks the experiment with or without chopped_optical_pumping
+#
+# Is this the problem with parity_4 as well?
+# '''
+
+
+
+            ####################################### atom check
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                channels=self.coil_channels)
+
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+            delay(1 * ms)
+
+            self.dds_cooling_DP.sw.on()
+            self.ttl_repump_switch.off()
+            delay(1 * us)
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A4.sw.on()
+            if not self.PGC_and_RO_with_on_chip_beams:
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
+            delay(0.1 * ms)
+
+            with parallel:
+                self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
+                self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
+
+            SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
+            SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
+            BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+
+            delay(1 * ms)
+
+            self.dds_cooling_DP.sw.off()
+            self.ttl_repump_switch.on()
+            delay(1 * us)
+            self.dds_AOM_A1.sw.off()
+            self.dds_AOM_A2.sw.off()
+            self.dds_AOM_A3.sw.off()
+            self.dds_AOM_A4.sw.off()
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+            delay(1 * us)
+
+            ### stopping the excitation cycle after the atom is lost
+            if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+                delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                atom_loaded = True
+
+            else:
+                atom_loaded = False
+
+
+
 
             excitation_cycle +=1
 
