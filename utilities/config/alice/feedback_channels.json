@@ -51,7 +51,7 @@
                 },
             "dds_AOM_A5":
                 {
-                    "sampler_ch": 0,
+                    "sampler_ch": 1,
                     "set_points": ["set_point_PD5_AOM_A5"],
                     "p": 0.05,
                     "i": 0.00,

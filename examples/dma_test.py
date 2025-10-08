@@ -272,37 +272,37 @@ class DMATest(EnvExperiment):
 # """
 # Experiment 1: The simplest DMA test to run pulses on ttl7.
 # """
-# from artiq.experiment import *
-#
-# class DMATest(EnvExperiment):
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("core_dma")
-#         self.setattr_device("ttl7")
-#
-#     @kernel
-#     def record_pulses(self):
-#         with self.core_dma.record("TTL_pulses"):
-#             for i in range(10):
-#                 self.ttl7.pulse(1000 * ns)
-#                 delay(1000 * ns)
-#
-#     @rpc(flags={"async"})
-#     def print_async(self, x):
-#         print(x)
-#
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#         self.record_pulses()
-#         pulses_handle = self.core_dma.get_handle("TTL_pulses")
-#         # self.core.break_realtime()
-#         now = now_mu()
-#
-#         for i in range(5):
-#             delay(1000*us)
-#             self.core_dma.playback_handle(pulses_handle)
-#             self.print_async(self.core.mu_to_seconds(now_mu() - now))
-#
-#         print("***********  finished DMA test  ***********")
+from artiq.experiment import *
+
+class DMATest(EnvExperiment):
+    def build(self):
+        self.setattr_device("core")
+        self.setattr_device("core_dma")
+        self.setattr_device("ttl7")
+
+    @kernel
+    def record_pulses(self):
+        with self.core_dma.record("TTL_pulses"):
+            for i in range(10):
+                self.ttl7.pulse(1000 * ns)
+                delay(1000 * ns)
+
+    @rpc(flags={"async"})
+    def print_async(self, x):
+        print(x)
+
+
+    @kernel
+    def run(self):
+        self.core.reset()
+        self.record_pulses()
+        pulses_handle = self.core_dma.get_handle("TTL_pulses")
+        # self.core.break_realtime()
+        now = now_mu()
+
+        for i in range(5):
+            delay(1000*us)
+            self.core_dma.playback_handle(pulses_handle)
+            self.print_async(self.core.mu_to_seconds(now_mu() - now))
+
+        print("***********  finished DMA test  ***********")
