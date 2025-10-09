@@ -659,6 +659,11 @@ class Microwaves_scans(EnvExperiment):
                     self.set_dataset("f_microwaves_m10_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
                     print("f_microwaves_m10_dds updated to ", round(float(p["f0"]), -3))
 
+                elif self.Frequency_m11_Scan:
+                    print("f_microwaves_m11_dds original value: ", self.f_microwaves_m11_dds)
+                    self.set_dataset("f_microwaves_m11_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                    print("f_microwaves_m11_dds updated to ", round(float(p["f0"]), -3))
+
                 elif self.Time_00_Scan:
                     print("t_microwave_00_pulse original value: ", self.t_microwave_00_pulse)
                     self.set_dataset("t_microwave_00_pulse", round(float(p["t_pi"]),7), broadcast=True, persist=True)
@@ -678,6 +683,11 @@ class Microwaves_scans(EnvExperiment):
                     print("t_microwave_m10_pulse original value: ", self.t_microwave_m10_pulse)
                     self.set_dataset("t_microwave_m10_pulse", round(float(p["t_pi"]), 7), broadcast=True, persist=True)
                     print("t_microwave_m10_pulse updated to ", round(float(p["t_pi"]), 7))
+
+                elif self.Time_m11_Scan:
+                    print("t_MW_RF_pulse original value: ", self.t_MW_RF_pulse)
+                    self.set_dataset("t_MW_RF_pulse", round(float(p["t_pi"]), 7), broadcast=True, persist=True)
+                    print("t_MW_RF_pulse updated to ", round(float(p["t_pi"]), 7))
 
 
 
