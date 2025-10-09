@@ -12,6 +12,7 @@ import logging
 import numpy as np
 import math
 import pyvisa as visa
+import json
 
 import os, sys
 cwd = os.getcwd() + "\\"
@@ -2705,29 +2706,28 @@ def measure_GRIN1(self):
 @kernel
 def measure_REPUMP(self):
     """
-    used for monitring PUMPING REPUMP power
+    This is for monitring MOT REPUMP power
 
-    This is in end_measurement
+    Used in end_measurement
 
-    AOM1: Sampler0, 7
-    AOM2: Sampler0, 5
+    It uses feedback_channels.json to find which which sampler channel is used for AOM 5 and 6.
+    This is defined in BaseExperiment.
 
     """
     measurement_buf = np.array([0.0]*8)
-    measurement1 = 0.0 # Repump 1
-    measurement2 = 0.0 # Repump 2
+    measurement1 = 0.0 # RP on AOM5
+    measurement2 = 0.0 # RP on AOM6
 
     avgs = 10
 
-    # self.dds_FORT.sw.off() ### Why turnning of FORT?
-    self.ttl_repump_switch.off()  # turns the RP AOM on
-    self.ttl_pumping_repump_switch.on()
-    self.dds_cooling_DP.sw.off()
+    self.ttl_repump_switch.off()  # turns on RP AOM
+    self.ttl_pumping_repump_switch.on() ### turn off pumping RP
+    self.dds_cooling_DP.sw.off() ## turn off cooling
 
     delay(0.1 * ms)
 
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
 
     delay(0.1 * ms)
 
@@ -2735,10 +2735,9 @@ def measure_REPUMP(self):
     for i in range(avgs):
         self.sampler0.sample(measurement_buf)
         delay(0.1 * ms)
-        measurement1 += measurement_buf[7] # Repump 1
+        measurement1 += measurement_buf[self.RP_AOM5_ch] # AOM5
         delay(0.1 * ms)
-        measurement2 += measurement_buf[5] # Repump 2
-
+        measurement2 += measurement_buf[self.RP_AOM6_ch] # AOM6
 
     measurement1 /= avgs
     measurement2 /= avgs
@@ -2747,8 +2746,8 @@ def measure_REPUMP(self):
     self.append_to_dataset("REPUMP2_monitor", measurement2)
 
     self.ttl_repump_switch.on()  # turns the RP AOM off
-    self.dds_AOM_A1.sw.off()
-    self.dds_AOM_A2.sw.off()
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
 
     delay(0.1 * ms)
 
@@ -11083,7 +11082,6 @@ def atom_photon_parity_5_experiment(self):
 def atom_photon_parity_6_experiment(self):
     """
     Trying to reduce the delay after photon detection. Do we need to set all the phases to 0.0?
-
 
     """
 

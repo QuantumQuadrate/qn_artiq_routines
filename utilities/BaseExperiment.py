@@ -542,7 +542,6 @@ class BaseExperiment:
         set_MW_profile("01", self.experiment.t_MW_01_ramp, self.experiment.t_microwave_01_pulse)
         set_MW_profile("11", self.experiment.t_MW_11_ramp, self.experiment.t_microwave_11_pulse)
 
-
     def prepare(self):
         """
         Initialize DeviceAliases, compute DDS amplitudes from powers, instantiate the laser servo,
@@ -575,6 +574,17 @@ class BaseExperiment:
                                              "best_852_power_ref"]
         self.experiment.default_setpoints = [getattr(self.experiment, dataset) for dataset in
                                              self.experiment.setpoint_datasets]
+
+
+        ### finding which sampler channel is used for AOM5 and 6, for exmaple, for monitoring MOT RP in experiment_functions.
+        config_file = os.path.join(cwd, "repository\\qn_artiq_routines\\utilities\\config\\", self.node,
+                                   "feedback_channels.json")
+        with open(config_file) as f:
+            stabilizer_dict = json.load(f)
+
+        self.experiment.RP_sampler_name = "sampler0"
+        self.experiment.RP_AOM5_ch = stabilizer_dict[self.experiment.RP_sampler_name]["dds_AOM_A5"]["sampler_ch"]
+        self.experiment.RP_AOM6_ch = stabilizer_dict[self.experiment.RP_sampler_name]["dds_AOM_A6"]["sampler_ch"]
 
         if self.node == "alice":
             # initialize named channels.
