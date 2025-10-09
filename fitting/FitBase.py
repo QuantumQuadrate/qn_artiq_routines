@@ -11,7 +11,7 @@ The basis code is originally from OxfordIonGroup. Most of the functions here are
 with additional fitting models to match our needs, such as resonance_dip.py
 
 Example code that uses fitting functionality:
-- GeneralVariableScan_Microwaves.py
+- Microwaves_scans.py
 
 """
 

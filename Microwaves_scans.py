@@ -1,5 +1,5 @@
 """
-This is based on GeneralVariableScan to scan frequency and pi time of microwave transitions
+This is based on GeneralVariableScan to scan frequency and pulse time of microwave transitions
 
 - compatible with GVS analysis
 - enable_fitting: enables fitting of the scanned results.
@@ -31,7 +31,7 @@ from subroutines.aom_feedback import AOMPowerStabilizer
 from fitting.rabi_flop import rabi_flop
 from fitting.rabi_flop_reversed import rabi_flop_reversed
 from fitting.resonance_dip import resonance_dip
-from fitting.resonance_positive_dip import resonance_positive_dip
+from fitting.resonance_peak import resonance_peak
 
 # from fitting_oxford.lorentzian import lorentzian
 # from fitting.gaussian import gaussian
@@ -41,12 +41,12 @@ fit_model_dict = {
     "rabi_flop": rabi_flop,
     "rabi_flop_reversed": rabi_flop_reversed,
     "resonance_dip": resonance_dip,
-    "resonance_positive_dip": resonance_positive_dip,
+    "resonance_peak": resonance_peak,
     # "gaussian": gaussian
 }
 
 
-class GeneralVariableScan_Microwaves(EnvExperiment):
+class Microwaves_scans(EnvExperiment):
 
     def build(self):
         """
@@ -66,11 +66,13 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
         self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
         self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
+        self.setattr_argument("Frequency_m11_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
 
         self.setattr_argument("Time_00_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
         self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
         self.setattr_argument("Time_11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
         self.setattr_argument("Time_m10_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
+        self.setattr_argument("Time_m11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
 
 
         self.setattr_argument("Ramsey_00_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
@@ -181,7 +183,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 self.experiment_name = "microwave_map01_map11_experiment"
 
             ### fitting model and initial fit parameters
-            fit_model = "resonance_positive_dip"
+            fit_model = "resonance_peak"
             self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {
@@ -209,7 +211,33 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 self.experiment_name = "microwave_map00_map0m1_experiment"
 
             ### fitting model and initial fit parameters
-            fit_model = "resonance_positive_dip"
+            fit_model = "resonance_peak"
+            self.which_fit_model = fit_model_dict[fit_model]
+
+            self.initialise = {}
+
+        elif self.Frequency_m11_Scan:
+            ### |1,-1> to |2,+1> transition two-photon freq scan using MW+RF
+
+            print("Frequency_m11_Scan with pi pulse")
+            self.override_ExperimentVariables_dict["t_MW_RF_pulse"] = self.t_MW_RF_pulse
+
+            self.scan_variable1_name = 'f_microwaves_m11_dds'
+            self.scan_variable1 = str(self.scan_variable1_name)
+
+            center = self.f_microwaves_m11_dds
+            self.scan_sequence1 = np.arange(center - self.freq_scan_range_left_kHz * kHz,
+                                            center + self.freq_scan_range_right_kHz * kHz,
+                                            self.freq_scan_step_size_kHz * kHz)
+
+            ### experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment"
+            elif self.which_node == 'alice':
+                self.experiment_name = "microwave_map01_MWRFm11_experiment"
+
+            ### fitting model and initial fit parameters
+            fit_model = "resonance_peak"
             self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {}
@@ -307,6 +335,31 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment"
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_map00_map0m1_experiment"
+
+            ### fitting model and initial fit parameters
+            fit_model = "rabi_flop_reversed"
+            self.which_fit_model = fit_model_dict[fit_model]
+
+            self.initialise = {}
+
+        elif self.Time_m11_Scan:
+            ### |1,-1> to |2,+1> transition two-photon time scan using MW+RF
+
+            print("Time_m11_Scan")
+            self.override_ExperimentVariables_dict["f_microwaves_m11_dds"] = self.f_microwaves_m11_dds
+
+            self.scan_variable1_name = 't_MW_RF_pulse'
+            self.scan_variable1 = str(self.scan_variable1_name)
+
+            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
+                                             self.time_scan_range_end_us * us,
+                                             self.time_scan_step_size_us * us))
+
+            ### experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment"
+            elif self.which_node == 'alice':
+                self.experiment_name = "microwave_map01_MWRFm11_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop_reversed"
@@ -701,7 +754,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 #        0.08152174, 0.03763441, 0.04787234, 0.08695652, 0.1657754 ,
 #        0.24736842, 0.35978836, 0.50810811, 0.6       , 0.75520833])
 
-# # ### todo: fit this to resonance_positive_dip: 11 transition: f0 = 339.993
+# # ### todo: fit this to resonance_peak: 11 transition: f0 = 339.993
 # self.scan_sequence1 = np.array([3.39843e+08, 3.39853e+08, 3.39863e+08, 3.39873e+08, 3.39883e+08,
 #         3.39893e+08, 3.39903e+08, 3.39913e+08, 3.39923e+08, 3.39933e+08,
 #         3.39943e+08, 3.39953e+08, 3.39963e+08, 3.39973e+08, 3.39983e+08,

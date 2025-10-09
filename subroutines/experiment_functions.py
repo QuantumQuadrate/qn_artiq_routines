@@ -12,7 +12,6 @@ import logging
 import numpy as np
 import math
 import pyvisa as visa
-import json
 
 import os, sys
 cwd = os.getcwd() + "\\"
@@ -2731,7 +2730,6 @@ def measure_REPUMP(self):
 
     delay(0.1 * ms)
 
-    # Repump 1
     for i in range(avgs):
         self.sampler0.sample(measurement_buf)
         delay(0.1 * ms)
