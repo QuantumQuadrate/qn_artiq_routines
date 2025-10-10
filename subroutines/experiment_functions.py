@@ -11103,7 +11103,7 @@ def atom_photon_parity_6_experiment(self):
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     delay(10 * ms)
 
-    self.dds_microwaves.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    self.dds_microwaves.set_phase_mode(PHASE_MODE_CONTINUOUS)
     self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(1 * ms)
     self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
@@ -11301,7 +11301,7 @@ def atom_photon_parity_6_experiment(self):
                     #             self.dds_MW_RF.sw.off()  ### turn off RF
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 3000)
                     self.ttl_microwave_switch.off()
@@ -11310,7 +11310,7 @@ def atom_photon_parity_6_experiment(self):
 
                     if self.t_MW_RF_pulse > 0:
                         at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 10000 + int(self.t_microwave_11_pulse / ns))
-                        self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+                        self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
 
                         at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 20000 + int(self.t_microwave_11_pulse / ns))
                         self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
@@ -11381,7 +11381,7 @@ def atom_photon_parity_6_experiment(self):
                     #         self.dds_MW_RF.sw.off()  ### turn off RF
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 3000)
                     self.ttl_microwave_switch.off()
@@ -11390,7 +11390,7 @@ def atom_photon_parity_6_experiment(self):
 
                     if self.t_MW_RF_pulse > 0:
                         at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 10000 + int(self.t_microwave_11_pulse / ns))
-                        self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves), phase=0.0)
+                        self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
 
                         at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 20000 + int(self.t_microwave_11_pulse / ns))
                         self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)

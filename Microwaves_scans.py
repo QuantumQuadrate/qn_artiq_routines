@@ -690,9 +690,7 @@ class Microwaves_scans(EnvExperiment):
                     print("t_MW_RF_pulse updated to ", round(float(p["t_pi"]), 7))
 
 
-
-
-        print("****************    General Variable Scan DONE   *****************")
+        print("****************    Microwaves Scan DONE   *****************")
 
     def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """

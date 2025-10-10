@@ -49,26 +49,31 @@ def lighten_color(color, amount=0.5):
         c = color
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+    
 
-def get_files_by_criteria(date_filters,name_filters,condition,start_dir=results,include_path=True,print_filenames=False):
+def get_files_by_criteria(date_filters, name_filters, condition,
+                          start_dir=results, include_path=True, print_filenames=False):
     file_list = []
-    for root, dirs, files in os.walk(start_dir,topdown=False):
+    for root, dirs, files in os.walk(start_dir, topdown=False):
         for name in files:
-            if True in set([x in root for x in date_filters]):
-                name_filter_set = set([x in name for x in name_filters])
-                if len(name_filter_set) == 1 and True in name_filter_set:
+            # Check if root contains any of the date filters
+            if any(x in root for x in date_filters):
+                if any(x in name for x in name_filters):
                     filename = os.path.join(root, name)
                     try:
                         h5py.File(filename)
                         if condition(filename):
                             if not include_path:
                                 filename = name
-                                if print_filenames:
-                                    print(filename)
+                            if print_filenames:
+                                print(filename)
                             file_list.append(filename)
                     except OSError:
                         print(f"skipping {filename}, which is corrupt")
     return file_list
+
+
+
 
 def h5_archive_and_datasets_to_locals(f, parent_locals, quiet=False):
     """
