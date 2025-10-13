@@ -7183,11 +7183,10 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
     1- loads an atom
     2- Pumps the atom into F=1,mF=0
-    3- Uses microwave pi pulse to transfer population from F=1,mF=0 to F=2,mF=0
-    4- Uses microwave pi pulse to transfer population from F=2,mF=0 to F=1,mF=-1
-    5- Applies two MW + RF pi/2 pulse with a variable delay in between
-    6- Blow away F=2 manifold
-    7- Measure retention
+    3- Uses microwave pi pulse to transfer population from F=1,mF=0 to F=2,mF=1
+    4- Applies two MW + RF pi/2 pulse with a variable delay in between
+    5- Blow away F=2 manifold
+    6- Measure retention
 
     """
 
@@ -7226,8 +7225,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
     delay(1 * ms)
 
     self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
+    self.dds_MW_RF.sw.off()  ### turn off RF
 
-    self.ttl_RF_switch.off()  ### turn off RF
     delay(1 * ms)
 
     self.measurement = 0  # advances in end_measurement
@@ -7258,30 +7257,17 @@ def microwave_Ramsey_MWRFm11_experiment(self):
                              channels=self.coil_channels)
         delay(1 * ms)
 
-        ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
-        self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
+        self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
-        if self.t_microwave_00_pulse > 0.0:
+        if self.t_microwave_01_pulse > 0.0:
             delay(5 * us)
             self.ttl_microwave_switch.off()
-            delay(self.t_microwave_00_pulse)
+            delay(self.t_microwave_01_pulse)
             self.ttl_microwave_switch.on()
             delay(5 * us)
-
-        ############################ microwave phase to transfer population from F=2,mF=0 to F=1,mF=-1
-        self.dds_microwaves.set(frequency=self.f_microwaves_m10_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(5 * us)
-
-        if self.t_microwave_m10_pulse > 0.0:
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_m10_pulse)
-            self.ttl_microwave_switch.on()
-
-        delay(5 * us)
-
 
         ############################################### Ramsey phase
         ####### First MW+RF pi/2 pulse
@@ -7291,13 +7277,13 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
             with parallel:
                 self.ttl_microwave_switch.off() ### turn on MW
-                self.ttl_RF_switch.on() ### turn on RF
+                self.dds_MW_RF.sw.on()  ### turn on RF
 
             delay(self.t_MW_RF_pulse)
 
             with parallel:
                 self.ttl_microwave_switch.on() ### turn off MW
-                self.ttl_RF_switch.off() ### turn off RF
+                self.dds_MW_RF.sw.off()  ### turn off RF
 
 
         delay(self.t_delay_between_shots)
@@ -7306,15 +7292,14 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         if self.t_MW_RF_pulse > 0:
             with parallel:
                 self.ttl_microwave_switch.off()  ### turn on MW
-                self.ttl_RF_switch.on()  ### turn on RF
+                self.dds_MW_RF.sw.on()  ### turn on RF
 
             delay(self.t_MW_RF_pulse)
 
             with parallel:
                 self.ttl_microwave_switch.on()  ### turn off MW
-                self.ttl_RF_switch.off()  ### turn off RF
+                self.dds_MW_RF.sw.off()  ### turn off RF
 
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
         FORT_ramp2_smoothstep(self, direction="up")
 
 
@@ -7341,7 +7326,6 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
     self.core.break_realtime()
     self.dds_FORT.sw.off()
-    self.ttl_RF_switch.off()  ### turn off RF
     delay(1 * ms)
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
@@ -7397,8 +7381,6 @@ def microwave_MW00_RF01_MW00_experiment(self):
 
     self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
 
-    self.ttl_RF_switch.off()  ### turn off RF
-
     self.measurement = 0  # advances in end_measurement
 
     while self.measurement < self.n_measurements:
@@ -7441,9 +7423,9 @@ def microwave_MW00_RF01_MW00_experiment(self):
 
         ############################ RF phase to transfer population from F=2,mF=0 to F=2,mF=1
         if self.t_MW_RF_pulse>0.0:
-            self.ttl_RF_switch.on()  ### turn on RF
+            self.dds_MW_RF.sw.on()  ### turn on RF
             delay(self.t_MW_RF_pulse)
-            self.ttl_RF_switch.off()  ### turn off RF
+            self.dds_MW_RF.sw.off()  ### turn off RF
             delay(5 * us)
 
         ############################ microwave phase to transfer population from F=2,mF=0 to F=1,mF=0
@@ -7480,7 +7462,6 @@ def microwave_MW00_RF01_MW00_experiment(self):
 
     self.core.break_realtime()
     self.dds_FORT.sw.off()
-    self.ttl_RF_switch.off()  ### turn off RF
     delay(1 * ms)
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
@@ -9941,14 +9922,12 @@ def atom_photon_parity_3_experiment(self):
 
                     with parallel:
                         self.ttl_microwave_switch.off()  ### turn on MW
-                        # self.ttl_RF_switch.on()  ### turn on RF
                         self.dds_MW_RF.sw.on()  ### turn on RF
 
                     delay(self.t_MW_RF_pulse)
 
                     with parallel:
                         self.ttl_microwave_switch.on()  ### turn off MW
-                        # self.ttl_RF_switch.off()  ### turn off RF
                         self.dds_MW_RF.sw.off()  ### turn off RF
 
                 delay(2 * us)
@@ -11242,7 +11221,6 @@ def atom_photon_parity_6_experiment(self):
 
             self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
             FORT_ramp2_smoothstep(self, direction="down")
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
             delay(10 * us)
 
             for excitation_attempt in range(self.n_excitation_attempts):
@@ -11300,27 +11278,27 @@ def atom_photon_parity_6_experiment(self):
                     #             self.ttl_microwave_switch.on()  ### turn off MW
                     #             self.dds_MW_RF.sw.off()  ### turn off RF
 
-                    at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
+                    # at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
+                    # self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
 
-                    at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 3000)
+                    at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
                     self.ttl_microwave_switch.off()
-                    at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 3000 + int(self.t_microwave_11_pulse / ns))
+                    at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + int(self.t_microwave_11_pulse / ns))
                     self.ttl_microwave_switch.on()
 
                     if self.t_MW_RF_pulse > 0:
-                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 10000 + int(self.t_microwave_11_pulse / ns))
+                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 5000 + int(self.t_microwave_11_pulse / ns))
                         self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
 
-                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 20000 + int(self.t_microwave_11_pulse / ns))
+                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 10000 + int(self.t_microwave_11_pulse / ns))
                         self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
 
-                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 25000 + int(self.t_microwave_11_pulse / ns))
+                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 15000 + int(self.t_microwave_11_pulse / ns))
                         with parallel:
                             self.ttl_microwave_switch.off()  ### turn on MW
                             self.dds_MW_RF.sw.on()  ### turn on RF
 
-                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 25000 + int(self.t_microwave_11_pulse / ns) +
+                        at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 15000 + int(self.t_microwave_11_pulse / ns) +
                               int(self.t_MW_RF_pulse / ns))
 
                         with parallel:
@@ -11335,15 +11313,6 @@ def atom_photon_parity_6_experiment(self):
 
                     delay(10 * us)
                     atom_parity_shot(self)
-
-                    # self.core.break_realtime()
-                    # self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
-                    # self.append_to_dataset('SPCM0_SinglePhoton', 1)
-                    # self.append_to_dataset('SPCM1_SinglePhoton', 0)
-                    # self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
-                    # self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
-                    # delay(20 * us)
-                    # self.core.break_realtime()
 
                     delay(1 * ms)
                     BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
@@ -11380,27 +11349,27 @@ def atom_photon_parity_6_experiment(self):
                     #         self.ttl_microwave_switch.on()  ### turn off MW
                     #         self.dds_MW_RF.sw.off()  ### turn off RF
 
-                    at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
+                    # at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
+                    # self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
 
-                    at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 3000)
+                    at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
                     self.ttl_microwave_switch.off()
-                    at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 3000 + int(self.t_microwave_11_pulse / ns))
+                    at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + int(self.t_microwave_11_pulse / ns))
                     self.ttl_microwave_switch.on()
 
                     if self.t_MW_RF_pulse > 0:
-                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 10000 + int(self.t_microwave_11_pulse / ns))
+                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 5000 + int(self.t_microwave_11_pulse / ns))
                         self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
 
-                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 20000 + int(self.t_microwave_11_pulse / ns))
+                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 10000 + int(self.t_microwave_11_pulse / ns))
                         self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
 
-                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 25000 + int(self.t_microwave_11_pulse / ns))
+                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 15000 + int(self.t_microwave_11_pulse / ns))
                         with parallel:
                             self.ttl_microwave_switch.off()  ### turn on MW
                             self.dds_MW_RF.sw.on()  ### turn on RF
 
-                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 25000 + int(self.t_microwave_11_pulse / ns) +
+                        at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 15000 + int(self.t_microwave_11_pulse / ns) +
                               int(self.t_MW_RF_pulse / ns))
 
                         with parallel:
@@ -11414,15 +11383,6 @@ def atom_photon_parity_6_experiment(self):
 
                     delay(10 * us)
                     atom_parity_shot(self)
-
-                    # self.core.break_realtime()
-                    # self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
-                    # self.append_to_dataset('SPCM0_SinglePhoton', 0)
-                    # self.append_to_dataset('SPCM1_SinglePhoton', 1)
-                    # self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
-                    # self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
-                    # delay(20 * us)
-                    # self.core.break_realtime()
 
                     delay(1 * ms)
                     BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO

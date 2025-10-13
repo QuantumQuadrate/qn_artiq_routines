@@ -180,8 +180,6 @@ class BaseExperiment:
             self.experiment.FORT_mod_switch = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_RF_switch = self.experiment.ttl15
-
 
             ### for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -288,7 +286,6 @@ class BaseExperiment:
             self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_RF_switch = self.experiment.ttl15
 
             ### in experiment_functions.py, measure_FORT_MM_fiber() function
             ### BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
@@ -379,7 +376,6 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_RF_switch = self.experiment.ttl15
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
 
             ### for debugging/logging purposes in experiments
@@ -971,7 +967,6 @@ class BaseExperiment:
             self.experiment.ttl_GRIN1_switch.on()  ### ensure no excitation or D1 is on at the beginning
 
             self.experiment.FORT_mod_switch.output()
-            self.experiment.ttl_RF_switch.output()
 
             delay(1 * ms)
 
@@ -1001,8 +996,6 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
-            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
-            delay(1 * ms)
             self.experiment.FORT_mod_switch.off()  # off = no modulation
 
 
@@ -1055,7 +1048,6 @@ class BaseExperiment:
             self.experiment.ttl_D1_pumping.output()
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
-            self.experiment.ttl_RF_switch.output()
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
@@ -1077,7 +1069,6 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_exc0_switch.on()
             delay(1 * ms)
-            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
@@ -1113,9 +1104,6 @@ class BaseExperiment:
             self.experiment.ttl9.output()
             delay(1 * ms)
             self.experiment.ttl9.off()
-
-            self.experiment.ttl_RF_switch.output()
-            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
