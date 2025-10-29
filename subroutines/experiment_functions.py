@@ -90,6 +90,425 @@ def test_excitation_rise_time_experiment(self):
 
 
 @kernel
+def zotino_stability_test_experiment(self):
+    '''
+    Zotino Stability test Experiment to see if Zotino voltage output drifts.
+
+    * for testing purposes,
+    1) AZ_bottom_volts_MOT
+        zotino_test_1_Zotino_channel:
+        zotino_test_1_Sampler_channel:
+
+    # Defined in BaseExperiment.py
+    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+
+    # Defined in BaseExperiment.py
+    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
+
+    '''
+
+    self.core.reset()
+
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+    measurement3 = 0.0  # 3
+    measurement4 = 0.0  # 4
+    measurement5 = 0.0
+    measurement6 = 0.0
+    measurement7 = 0.0
+    measurement8 = 0.0
+
+    zotino_test1_setpoint = 5.0
+    zotino_test2_setpoint = 5.0
+    zotino_test3_setpoint = 5.0
+    zotino_test4_setpoint = 5.0
+    zotino_test5_setpoint = 5.0
+    zotino_test6_setpoint = 5.0
+    zotino_test7_setpoint = 5.0
+    zotino_test8_setpoint = 5.0
+
+
+    self.append_to_dataset("zotino_test1_setpoint", zotino_test1_setpoint)
+    self.append_to_dataset("zotino_test2_setpoint", zotino_test2_setpoint)
+    self.append_to_dataset("zotino_test3_setpoint", zotino_test3_setpoint)
+    self.append_to_dataset("zotino_test4_setpoint", zotino_test4_setpoint)
+    self.append_to_dataset("zotino_test5_setpoint", zotino_test5_setpoint)
+    self.append_to_dataset("zotino_test6_setpoint", zotino_test6_setpoint)
+    self.append_to_dataset("zotino_test7_setpoint", zotino_test7_setpoint)
+    self.append_to_dataset("zotino_test8_setpoint", zotino_test8_setpoint)
+
+    avgs = 50
+
+    # self.zotino0.set_dac([-5.0, -2.0, 2.0, 5.0], [12,13,14,15])
+    # self.zotino0.set_dac([zotino_test1_setpoint,
+    #                       zotino_test2_setpoint,
+    #                       zotino_test3_setpoint,
+    #                       zotino_test4_setpoint],
+    #                      [12,13,14,15])
+
+    self.zotino0.set_dac([zotino_test1_setpoint,
+                          zotino_test2_setpoint,
+                          zotino_test3_setpoint,
+                          zotino_test4_setpoint,
+                          zotino_test5_setpoint,
+                          zotino_test6_setpoint,
+                          zotino_test7_setpoint,
+                          zotino_test8_setpoint],
+                         [8,9,10,11,12,13,14,15])
+
+    period = 1*s
+
+    for j in range(60 * self.n_measurements):
+        delay(period)
+        # self.zotino0.set_dac([-5.0, -2.0, 2.0, 5.0], [12,13,14,15])
+        # self.zotino0.set_dac([zotino_test1_setpoint,
+        #                       zotino_test2_setpoint,
+        #                       zotino_test3_setpoint,
+        #                       zotino_test4_setpoint],
+        #                      [12, 13, 14, 15])
+        self.zotino0.set_dac([zotino_test1_setpoint,
+                              zotino_test2_setpoint,
+                              zotino_test3_setpoint,
+                              zotino_test4_setpoint,
+                              zotino_test5_setpoint,
+                              zotino_test6_setpoint,
+                              zotino_test7_setpoint,
+                              zotino_test8_setpoint],
+                             [8, 9, 10, 11, 12, 13, 14, 15])
+        #
+        # delay(0.01*s)
+
+        for i in range(avgs):
+            self.sampler2.sample(measurement_buf)
+
+            delay(0.1*ms)
+
+            # measurement1 += measurement_buf[4]
+            # measurement2 += measurement_buf[5]
+            # measurement3 += measurement_buf[6]
+            # measurement4 += measurement_buf[7]
+
+            measurement1 += measurement_buf[0]
+            measurement2 += measurement_buf[1]
+            measurement3 += measurement_buf[2]
+            measurement4 += measurement_buf[3]
+
+            measurement5 += measurement_buf[4]
+            measurement6 += measurement_buf[5]
+            measurement7 += measurement_buf[6]
+            measurement8 += measurement_buf[7]
+
+            delay(0.1*ms)
+
+        measurement1 /= avgs
+        measurement2 /= avgs
+        measurement3 /= avgs
+        measurement4 /= avgs
+
+        measurement5 /= avgs
+        measurement6 /= avgs
+        measurement7 /= avgs
+        measurement8 /= avgs
+
+        self.append_to_dataset("zotino_test1_monitor", measurement1)
+        self.append_to_dataset("zotino_test2_monitor", measurement2)
+        self.append_to_dataset("zotino_test3_monitor", measurement3)
+        self.append_to_dataset("zotino_test4_monitor", measurement4)
+
+        self.append_to_dataset("zotino_test5_monitor", measurement5)
+        self.append_to_dataset("zotino_test6_monitor", measurement6)
+        self.append_to_dataset("zotino_test7_monitor", measurement7)
+        self.append_to_dataset("zotino_test8_monitor", measurement8)
+
+
+
+    delay(0.1 * ms)
+
+    # self.zotino0.set_dac([0.0], [12])
+    # self.zotino0.set_dac([0.0], [13])
+    # self.zotino0.set_dac([0.0], [14])
+    # self.zotino0.set_dac([0.0], [15])
+
+
+@kernel
+def zotino_stability_test_with_offset_experiment(self):
+    '''
+    Zotino Stability test Experiment to see if Zotino voltage output drifts.
+
+    * for testing purposes,
+    1) AZ_bottom_volts_MOT
+        zotino_test_1_Zotino_channel:
+        zotino_test_1_Sampler_channel:
+
+    # Defined in BaseExperiment.py
+    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+
+    # Defined in BaseExperiment.py
+    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
+
+    '''
+
+    # run_zotino_stabilization(self)
+
+    self.core.reset()
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+    measurement3 = 0.0  # 3
+    measurement4 = 0.0  # 4
+    measurement5 = 0.0
+    measurement6 = 0.0
+    measurement7 = 0.0
+    measurement8 = 0.0
+
+    # zotino_test1_setpoint = 5.0 - self.zotino_test1_offset
+    # zotino_test2_setpoint = 5.0 - self.zotino_test2_offset
+    # zotino_test3_setpoint = 5.0 - self.zotino_test3_offset
+    # zotino_test4_setpoint = 5.0 - self.zotino_test4_offset
+    # zotino_test5_setpoint = 5.0 - self.zotino_test5_offset
+    # zotino_test6_setpoint = 5.0 - self.zotino_test6_offset
+    # zotino_test7_setpoint = 5.0 - self.zotino_test7_offset
+    # zotino_test8_setpoint = 5.0 - self.zotino_test8_offset
+    #
+    #
+    # self.append_to_dataset("zotino_test1_setpoint", zotino_test1_setpoint)
+    # self.append_to_dataset("zotino_test2_setpoint", zotino_test2_setpoint)
+    # self.append_to_dataset("zotino_test3_setpoint", zotino_test3_setpoint)
+    # self.append_to_dataset("zotino_test4_setpoint", zotino_test4_setpoint)
+    # self.append_to_dataset("zotino_test5_setpoint", zotino_test5_setpoint)
+    # self.append_to_dataset("zotino_test6_setpoint", zotino_test6_setpoint)
+    # self.append_to_dataset("zotino_test7_setpoint", zotino_test7_setpoint)
+    # self.append_to_dataset("zotino_test8_setpoint", zotino_test8_setpoint)
+
+    avgs = 50
+
+    # self.zotino0.set_dac([-5.0, -2.0, 2.0, 5.0], [12,13,14,15])
+    # self.zotino0.set_dac([zotino_test1_setpoint,
+    #                       zotino_test2_setpoint,
+    #                       zotino_test3_setpoint,
+    #                       zotino_test4_setpoint],
+    #                      [12,13,14,15])
+
+    period = 1*s
+
+    for j in range(60 * self.n_measurements):
+        delay(period)
+        # self.zotino0.set_dac([-5.0, -2.0, 2.0, 5.0], [12,13,14,15])
+        # self.zotino0.set_dac([zotino_test1_setpoint,
+        #                       zotino_test2_setpoint,
+        #                       zotino_test3_setpoint,
+        #                       zotino_test4_setpoint],
+        #                      [12, 13, 14, 15])
+        run_zotino_stabilization(self)
+        delay(1*ms)
+
+        zotino_test1_setpoint = 5.0 - self.zotino_test1_offset
+        zotino_test2_setpoint = 5.0 - self.zotino_test2_offset
+        zotino_test3_setpoint = 5.0 - self.zotino_test3_offset
+        zotino_test4_setpoint = 5.0 - self.zotino_test4_offset
+        zotino_test5_setpoint = 5.0 - self.zotino_test5_offset
+        zotino_test6_setpoint = 5.0 - self.zotino_test6_offset
+        zotino_test7_setpoint = 5.0 - self.zotino_test7_offset
+        zotino_test8_setpoint = 5.0 - self.zotino_test8_offset
+
+        self.zotino0.set_dac([zotino_test1_setpoint,
+                              zotino_test2_setpoint,
+                              zotino_test3_setpoint,
+                              zotino_test4_setpoint,
+                              zotino_test5_setpoint,
+                              zotino_test6_setpoint,
+                              zotino_test7_setpoint,
+                              zotino_test8_setpoint],
+                             [8, 9, 10, 11, 12, 13, 14, 15])
+
+        delay(10*ms)
+
+        for i in range(avgs):
+            self.sampler2.sample(measurement_buf)
+
+            delay(0.1*ms)
+
+            # measurement1 += measurement_buf[4]
+            # measurement2 += measurement_buf[5]
+            # measurement3 += measurement_buf[6]
+            # measurement4 += measurement_buf[7]
+
+            measurement1 += measurement_buf[0]
+            measurement2 += measurement_buf[1]
+            measurement3 += measurement_buf[2]
+            measurement4 += measurement_buf[3]
+            measurement5 += measurement_buf[4]
+            measurement6 += measurement_buf[5]
+            measurement7 += measurement_buf[6]
+            measurement8 += measurement_buf[7]
+            delay(0.1*ms)
+
+        measurement1 /= avgs
+        measurement2 /= avgs
+        measurement3 /= avgs
+        measurement4 /= avgs
+        measurement5 /= avgs
+        measurement6 /= avgs
+        measurement7 /= avgs
+        measurement8 /= avgs
+
+        self.append_to_dataset("zotino_test1_monitor", measurement1)
+        self.append_to_dataset("zotino_test2_monitor", measurement2)
+        self.append_to_dataset("zotino_test3_monitor", measurement3)
+        self.append_to_dataset("zotino_test4_monitor", measurement4)
+        self.append_to_dataset("zotino_test5_monitor", measurement5)
+        self.append_to_dataset("zotino_test6_monitor", measurement6)
+        self.append_to_dataset("zotino_test7_monitor", measurement7)
+        self.append_to_dataset("zotino_test8_monitor", measurement8)
+
+    delay(0.1 * ms)
+
+    # self.zotino0.set_dac([0.0], [12])
+    # self.zotino0.set_dac([0.0], [13])
+    # self.zotino0.set_dac([0.0], [14])
+    # self.zotino0.set_dac([0.0], [15])
+
+@kernel
+def run_zotino_stabilization_Aqua(self):
+    ####Start Kais's calibration code
+    ref_voltage_V = 0.00000
+    logger.debug('Hardware Setup')
+    self.core.reset()
+    self.zotino0.init()
+    self.core.break_realtime()
+    self.sampler1.init()
+    self.core.break_realtime()
+    delay(10 * ms)
+    for q in [0,1,3,4,5,6,7]:
+        delay(10 * ms)
+        self.sampler1.set_gain_mu(q, 3)
+
+    diff = [0.01] * 8
+    MV = [0.0] * 8
+    self.zotino0.init()
+    delay(10 * ms)
+    for m in range(8):
+        delay(10 * ms)
+        self.zotino0.write_dac(m, ref_voltage_V)
+    self.zotino0.load()
+    delay(10 * ms)
+    for j in range(20):
+        delay(10 * ms)
+        n_channels = 8  # sets number of channels to read off
+        smp = [0.0] * n_channels  # creates list of floating point variables
+        self.sampler1.sample(smp)
+        delay(10 * ms)
+        # print (smp)
+        for k in [0,1,3,4,5,6,7]:
+            diff[k] = ref_voltage_V - smp[k]
+            # print(diff[k])
+        # print(k)
+
+        delay(0.1)
+        self.zotino0.init()
+        self.core.break_realtime()
+        delay(10 * ms)
+        for n in [0,1,3,4,5,6,7]:
+            MV[n] = MV[n] + diff[n]
+            self.zotino0.write_offset(n, MV[n])
+            # print(n)
+        self.zotino0.load()
+        delay(10 * ms)
+    self.core.break_realtime()
+    #####End Kais's calibration code
+
+
+@kernel
+def run_zotino_stabilization(self):
+    """
+    In the beginning of an experiment, measure the zotino offset and compensate it.
+
+    :param self:
+    :return:
+    """
+
+    ref_voltage_V = 5.00000
+    self.core.reset()
+
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+    measurement3 = 0.0  # 3
+    measurement4 = 0.0  # 4
+    measurement5 = 0.0
+    measurement6 = 0.0
+    measurement7 = 0.0
+    measurement8 = 0.0
+
+    self.zotino0.set_dac([ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V],
+                         [8,9,10,11,12,13,14,15])
+
+    delay(10*ms)
+
+    avgs = 50
+    for i in range(avgs):
+        self.sampler2.sample(measurement_buf)
+
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[0]
+        measurement2 += measurement_buf[1]
+        measurement3 += measurement_buf[2]
+        measurement4 += measurement_buf[3]
+        measurement5 += measurement_buf[4]
+        measurement6 += measurement_buf[5]
+        measurement7 += measurement_buf[6]
+        measurement8 += measurement_buf[7]
+        delay(0.1 * ms)
+
+    measurement1 /= avgs
+    measurement2 /= avgs
+    measurement3 /= avgs
+    measurement4 /= avgs
+    measurement5 /= avgs
+    measurement6 /= avgs
+    measurement7 /= avgs
+    measurement8 /= avgs
+
+    self.set_dataset("zotino_test1_offset", measurement1 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test2_offset", measurement2 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test3_offset", measurement3 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test4_offset", measurement4 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test5_offset", measurement5 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test6_offset", measurement6 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test7_offset", measurement7 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test8_offset", measurement8 - ref_voltage_V, broadcast=True, persist=True)
+
+    self.append_to_dataset("zotino_test1_offset_monitor", measurement1)
+    self.append_to_dataset("zotino_test2_offset_monitor", measurement2)
+    self.append_to_dataset("zotino_test3_offset_monitor", measurement3)
+    self.append_to_dataset("zotino_test4_offset_monitor", measurement4)
+    self.append_to_dataset("zotino_test5_offset_monitor", measurement5)
+    self.append_to_dataset("zotino_test6_offset_monitor", measurement6)
+    self.append_to_dataset("zotino_test7_offset_monitor", measurement7)
+    self.append_to_dataset("zotino_test8_offset_monitor", measurement8)
+
+
+
+@kernel
 def run_feedback_and_record_FORT_MM_power(self):
     """
     Used for FORT polarization check.
@@ -5075,13 +5494,13 @@ def microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment(self):
             delay(2*us)
 
             self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
-            delay(self.t_microwave_00_pulse/2)
+            delay(self.t_microwave_pulse/2)
 
             self.dds_microwaves.sw.off()
             delay(self.t_delay_between_shots)
 
             self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
-            delay(self.t_microwave_00_pulse/2)
+            delay(self.t_microwave_pulse/2)
 
             self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
@@ -5556,7 +5975,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
             delay(0.5 * us)
 
 
-        delay(5*us)
+        # delay(5*us)
 
         ##### Mapping from |2,1> to |1,1>
         if self.t_microwave_11_pulse > 0.0:

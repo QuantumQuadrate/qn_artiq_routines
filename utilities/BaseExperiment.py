@@ -891,6 +891,31 @@ class BaseExperiment:
 
         self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test5_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test6_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test7_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test8_monitor", [0.0], broadcast=True)
+
+        self.experiment.set_dataset("zotino_test1_setpoint", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test2_setpoint", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test3_setpoint", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test4_setpoint", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test5_setpoint", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test6_setpoint", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test7_setpoint", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test8_setpoint", [0.0], broadcast=True)
+
+        self.experiment.set_dataset("zotino_test1_offset_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test2_offset_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test3_offset_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test4_offset_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test5_offset_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test6_offset_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test7_offset_monitor", [0.0], broadcast=True)
+        self.experiment.set_dataset("zotino_test8_offset_monitor", [0.0], broadcast=True)
+
         self.experiment.set_dataset("Sampler0_test", [0.0], broadcast=True)
 
         self.experiment.set_dataset("Magnetometer_MOT_X", [0.0], broadcast=True)
