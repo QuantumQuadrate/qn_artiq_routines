@@ -576,6 +576,11 @@ class BaseExperiment:
         self.experiment.default_setpoints = [getattr(self.experiment, dataset) for dataset in
                                              self.experiment.setpoint_datasets]
 
+        # Microwaves - health check datasets
+        self.experiment.setpoint_datasets = ["health_check_uw_freq00", "health_check_uw_freq01", "health_check_uw_freq11"]
+        self.experiment.default_setpoints = [getattr(self.experiment, dataset) for dataset in
+                                             self.experiment.setpoint_datasets]
+
         if self.node == "alice":
             # initialize named channels.
             self.experiment.named_devices = DeviceAliases(

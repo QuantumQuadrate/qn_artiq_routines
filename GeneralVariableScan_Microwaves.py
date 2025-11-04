@@ -57,6 +57,10 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
+        self.setattr_argument('run_health_check_and_optimize', BooleanValue(default=False), "Health Check")
+        self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
+        # this can be retrieved in  hdf5 file.
+
         self.setattr_argument("n_measurements", NumberValue(200, ndecimals=0, step=1), "General Setting")
         self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Setting")
         self.setattr_argument('enable_fitting', BooleanValue(default=False), "General Setting")
@@ -113,10 +117,17 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.scan_variable1_name = 'f_microwaves_dds'
             self.scan_variable1 = str(self.scan_variable1_name)
 
-            center = self.f_microwaves_00_dds
-            self.scan_sequence1 = np.arange(center - self.freq_scan_range_left_kHz * kHz,
-                                            center + self.freq_scan_range_right_kHz * kHz,
-                                            self.freq_scan_step_size_kHz * kHz)
+            # center = self.f_microwaves_00_dds
+            # self.scan_sequence1 = np.arange(center - self.freq_scan_range_left_kHz * kHz,
+            #                                 center + self.freq_scan_range_right_kHz * kHz,
+            #                                 self.freq_scan_step_size_kHz * kHz)
+
+            self.scan_sequence1 = np.array(self.make_symmetric_list(center=self.f_microwaves_00_dds,
+                                                      half_range_kHz=self.freq_scan_range_left_kHz,
+                                                      min_step_kHz=10.0))
+
+
+            print(self.scan_sequence1)
 
             ### experiment function
             if self.which_node == 'bob':
@@ -416,10 +427,46 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         # and base.prepare calls might use outdated datasets. This checks if there are other experiments scheduled
         # earlier than this one, and sets a flag so that base.build and base.prepare can be called again if needed.
         status_dict = self.scheduler.get_status()
+        # print(status_dict)
         my_rid = self.scheduler.rid
+        # print(my_rid)
         earlier_experiments = len([rid for rid, _ in status_dict.items() if rid < my_rid])
+
+        #todo: this only includes the experiments scheduled before
+        #   ex1) When exp scheduled with due_date:
+        #       if I scheduled an experiment and set the due date as tomorrow 7am.
+        #       Then, I scheduled another experiment that starts now,
+        #       the experiment that starts tomorrow "needs_fresh_build" but when it was scheduled,
+        #       it did not have any earlier_experiments, so it will not build fresh.
+        #   ex1 - sol) This can be solved by fresh building everytime when "due_date" != None
+        #   ex1 - sol) When scheduled with due date, it starts to build when it is due.
+        #              Thus, this problem does not occur.
+
+
         logging.info("my rid is", my_rid, ", and there are", earlier_experiments, " experiment(s) that I am waiting on to run")
         self.needs_fresh_build = earlier_experiments > 0
+
+
+    def make_symmetric_list(self, center, half_range_kHz, min_step_kHz=10.0):
+        """
+        Create a symmetric list around `center`:
+        [center - x, center - x/2, ..., center, ..., center + x/2, center + x]
+        where x = half_range_kHz, and halving continues until step < min_step_kHz.
+        """
+        x = float(half_range_kHz)
+        offsets = []
+        val = x
+
+        while val >= min_step_kHz:
+            offsets.append(val)
+            val /= 2
+
+        symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
+        values = [center + v * kHz for v in symmetric_offsets]
+
+        return values
+
+
 
     @kernel
     def initialize_hardware(self):
@@ -503,6 +550,117 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             delay(200*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
+    def health_check_freq00(self):
+        """
+        health check for |1,0> to |2,0> transition - freq scan
+        :return: True:if passed the health_check, False: if failed the test.
+        """
+
+        self.initialize_dependent_variables()
+        self.initialize_hardware()
+        self.reset_datasets()
+
+        #todo: lots of codes are duplicated. i want to define these once and retrieve it later when necessary
+##### ~~
+        # todo: make sure this does not interrupt the current dataset when implementing in GVS
+        print("Health Check - Frequency_00_Scan with pi pulse")
+        self.t_microwave_pulse = self.t_microwave_00_pulse
+        self.f_microwaves_dds = self.f_microwaves_00_dds
+
+        ### experiment function
+        if self.which_node == 'bob':
+            self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
+        elif self.which_node == 'alice':
+            self.experiment_name = "microwave_Rabi_2_experiment"
+###### ~~
+        #todo: depending on the fit_model - might be tricky because health check can be ran with multiple
+        #      booleans set to True; Thus, in that case, the fit model will be set to the last set freq's fit model
+        #      thus for safety, I'll keep this;
+
+        resonance_dip = True        #if False, resonance_peak
+
+        self.experiment_function = lambda: eval(self.experiment_name)(self)
+        self.experiment_function()
+
+
+        #todo: if this happens within some experiment, make sure it does not disturb the current dataset.
+        BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
+        BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+        retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(BothSPCMs_RO1,
+                                                                                                   BothSPCMs_RO2,
+                                                                                                   self.n_measurements,
+                                                                                                   1,
+                                                                                                   self.single_atom_threshold * self.t_SPCM_first_shot)
+
+
+        # todo: break; if loading_rate too low
+
+        if resonance_dip:
+            fidelity = 1.0 - retention_array[0]
+        else:
+            fidelity = retention_array[0]
+
+        #####update
+        self.set_dataset("health_check_uw_freq00", round(float(fidelity), 2), broadcast=True, persist=True)
+
+        if fidelity >= self.target_fidelity:
+            print("Health Check - passed with fidelity: ", fidelity)
+            return True
+        else:
+            return False
+
+    def submit_opt_exp_for_freq00(self):
+        print("submitting another experiment")
+        ## 99 seems to be the highest priority that can be set to.
+        new_expid = {
+            "log_level": 30,
+            "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
+            "class_name": "GeneralVariableScan_Microwaves",
+            "arguments": {
+                "run_health_check_and_optimize": False,
+                "target_fidelity": 0.80,
+
+                "n_measurements": self.n_measurements,
+                "override_ExperimentVariables": "{'dummy_variable': 4}",
+                "enable_fitting": True,
+                "update_dataset": False,
+
+                # Scan type toggles
+                "Frequency_00_Scan": True,
+                "Frequency_01_Scan": False,
+                "Frequency_11_Scan": False,
+                "Frequency_m10_Scan": False,
+                "Time_00_Scan": False,
+                "Time_01_Scan": False,
+                "Time_11_Scan": False,
+                "Time_m10_Scan": False,
+                "Ramsey_00_Scan": False,
+                "Ramsey_01_Scan": False,
+                "Ramsey_11_Scan": False,
+
+                # Frequency scan parameters (kHz)
+                "freq_scan_range_left_kHz": 100.0,
+                "freq_scan_range_right_kHz": 101.0,
+                "freq_scan_step_size_kHz": 20.0,
+
+                # Time scan parameters (µs)
+                "time_scan_range_start_us": 0.0,
+                "time_scan_range_end_us": 100.0,
+                "time_scan_step_size_us": 5.0,
+            },
+            "repo_rev": "N/A",
+        }
+
+        self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
+
+    def run_freq00_optmization(self):
+        """
+        short optimizatin routine; if value already very close.
+        :return:
+        """
+
+
+
     def run(self):
         """
         Step through the variable values defined by the scan sequences and run the experiment function.
@@ -526,106 +684,132 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         for variable, value in self.override_ExperimentVariables_dict.items():
             setattr(self, variable, value)
 
-        # self.warm_up()
+        # todo: later just do all health checks no matter what
+        if self.run_health_check_and_optimize:
+            if self.Frequency_00_Scan:
+                if self.health_check_freq00() == False:
+                    print("Health Check- failed with fidelity: ", self.health_check_uw_freq00)
+                    print("Scheduling Experiment for Optimization...")
+                    self.submit_opt_exp_for_freq00()
+                    self.scheduler.request_termination(self.scheduler.rid)
 
-        ##### Scan sequence - same as GVS. (to be compatibel with original GVS analysis)
-        for variable1_value in self.scan_sequence1:
-            # update the variable. setattr can't be called on the kernel, and this is what
-            # allows us to update an experiment variable without hardcoding it, i.e.
-            # explicitly naming the variable. that is why this run method does not
-            # have a kernel decorator, and we have to re-initialize the hardware each
-            # iteration.
-            setattr(self, self.scan_variable1, variable1_value)
-            logging.info(f"current iteration: {self.scan_variable1_name} = {variable1_value}")
+            self.core.comm.close()  # placing the hardware in a safe state and disconnecting it from the core device
+            self.scheduler.pause()
 
-            for variable2_value in self.scan_sequence2:
+            #todo: if running more than two health checks at the same time, fresh_build is necessary?
+            #       => No. the things that are usually done in build/prepare is embedded in health_check
+            #          Health Check only runs a single point scan. Thus, does not need more that that.
 
-                self.set_dataset("iteration", iteration, broadcast=True)
 
-                if self.scan_variable2 != None:
-                    setattr(self, self.scan_variable2, variable2_value)
-                    logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
+        else:
+            # self.warm_up()
+            #todo: full scan
+            ##### Scan sequence - same as GVS. (to be compatibel with original GVS analysis)
+            for variable1_value in self.scan_sequence1:
+                # update the variable. setattr can't be called on the kernel, and this is what
+                # allows us to update an experiment variable without hardcoding it, i.e.
+                # explicitly naming the variable. that is why this run method does not
+                # have a kernel decorator, and we have to re-initialize the hardware each
+                # iteration.
+                setattr(self, self.scan_variable1, variable1_value)
+                logging.info(f"current iteration: {self.scan_variable1_name} = {variable1_value}")
 
-                self.initialize_dependent_variables()
-                self.initialize_hardware()
-                self.reset_datasets()
+                for variable2_value in self.scan_sequence2:
 
-                # the measurement loop.
-                self.experiment_function()
+                    self.set_dataset("iteration", iteration, broadcast=True)
 
-                # write and overwrite the file here so we can quit the experiment early without losing data
-                self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                    if self.scan_variable2 != None:
+                        setattr(self, self.scan_variable2, variable2_value)
+                        logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
 
-                iteration += 1
+                    self.initialize_dependent_variables()
+                    self.initialize_hardware()
+                    self.reset_datasets()
 
-        #### for fitting
-        if self.enable_fitting:
-            BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
-            BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+                    # the measurement loop.
+                    self.experiment_function()
 
-            retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
-                               self.single_atom_threshold * self.t_SPCM_first_shot)
+                    # write and overwrite the file here so we can quit the experiment early without losing data
+                    self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
-            t = self.scan_sequence1
-            y = retention_array
+                    iteration += 1
 
-            p, p_err = self.which_fit_model.fit(t, y, evaluate_function=False, initialise= self.initialise)
-            print(p)
+            #### for fitting
+            if self.enable_fitting:
+                BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
+                BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
 
-            ### saving fitted parameters
-            for var, val in p.items():
-                ds_name = f"fit_parameter_{var}"
-                self.set_dataset(ds_name, round(float(val),7), broadcast=True, persist=True)
+                retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
+                                   self.single_atom_threshold * self.t_SPCM_first_shot)
 
-            ### saving fitted parameters
-            for var, val in p_err.items():
-                ds_name = f"fit_parameter_{var}_err"
-                self.set_dataset(ds_name, round(float(val),7), broadcast=True, persist=True)
+                t = self.scan_sequence1
+                y = retention_array
 
-            ### updating dataset with fitted parameters
-            if self.update_dataset:
+                p, p_err = self.which_fit_model.fit(t, y, evaluate_function=False, initialise= self.initialise)
+                print(p)
+
+                ### saving fitted parameters
+                for var, val in p.items():
+                    ds_name = f"fit_parameter_{var}"
+                    self.set_dataset(ds_name, round(float(val),7), broadcast=True, persist=True)
+
+                ### saving fitted parameters
+                for var, val in p_err.items():
+                    ds_name = f"fit_parameter_{var}_err"
+                    self.set_dataset(ds_name, round(float(val),7), broadcast=True, persist=True)
+
+
                 if self.Frequency_00_Scan:
-                    print("f_microwaves_00_dds original value: ", self.f_microwaves_00_dds)
-                    self.set_dataset("f_microwaves_00_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
-                    print("f_microwaves_00_dds updated to ", round(float(p["f0"]), -3))
+                    self.f_microwaves_00_dds = round(float(p["f0"]), -3)
+                    if self.health_check_freq00():
+                        print("update dataset = True")
+                        self.update_dataset = True
+                    else:
+                        print("optimization failed")
 
-                elif self.Frequency_01_Scan:
-                    print("f_microwaves_01_dds original value: ", self.f_microwaves_01_dds)
-                    self.set_dataset("f_microwaves_01_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
-                    print("f_microwaves_01_dds updated to ", round(float(p["f0"]), -3))
+                ### updating dataset with fitted parameters
+                if self.update_dataset:
+                    if self.Frequency_00_Scan:
+                        print("f_microwaves_00_dds original value: ", self.f_microwaves_00_dds)
+                        self.set_dataset("f_microwaves_00_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                        print("f_microwaves_00_dds updated to ", round(float(p["f0"]), -3))
 
-                elif self.Frequency_11_Scan:
-                    print("f_microwaves_11_dds original value: ", self.f_microwaves_11_dds)
-                    if float(p["sigma"]) > 130e3:
-                        print("fitted sigma > 130kHz - 01 transition frequency retune seems to be necessary")
-                    self.set_dataset("f_microwaves_11_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
-                    print("f_microwaves_11_dds updated to ", round(float(p["f0"]), -3))
+                    elif self.Frequency_01_Scan:
+                        print("f_microwaves_01_dds original value: ", self.f_microwaves_01_dds)
+                        self.set_dataset("f_microwaves_01_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                        print("f_microwaves_01_dds updated to ", round(float(p["f0"]), -3))
 
-                elif self.Frequency_m10_Scan:
-                    print("f_microwaves_m10_dds original value: ", self.f_microwaves_m10_dds)
-                    self.set_dataset("f_microwaves_m10_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
-                    print("f_microwaves_m10_dds updated to ", round(float(p["f0"]), -3))
+                    elif self.Frequency_11_Scan:
+                        print("f_microwaves_11_dds original value: ", self.f_microwaves_11_dds)
+                        if float(p["sigma"]) > 130e3:
+                            print("fitted sigma > 130kHz - 01 transition frequency retune seems to be necessary")
+                        self.set_dataset("f_microwaves_11_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                        print("f_microwaves_11_dds updated to ", round(float(p["f0"]), -3))
 
-                elif self.Time_00_Scan:
-                    print("t_microwave_00_pulse original value: ", self.t_microwave_00_pulse)
-                    self.set_dataset("t_microwave_00_pulse", round(float(p["t_pi"]),7), broadcast=True, persist=True)
-                    print("t_microwave_00_pulse updated to ", round(float(p["t_pi"]),7))
+                    elif self.Frequency_m10_Scan:
+                        print("f_microwaves_m10_dds original value: ", self.f_microwaves_m10_dds)
+                        self.set_dataset("f_microwaves_m10_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
+                        print("f_microwaves_m10_dds updated to ", round(float(p["f0"]), -3))
 
-                elif self.Time_01_Scan:
-                    print("t_microwave_01_pulse original value: ", self.t_microwave_01_pulse)
-                    self.set_dataset("t_microwave_01_pulse", round(float(p["t_pi"]),7), broadcast=True, persist=True)
-                    print("t_microwave_01_pulse updated to ", round(float(p["t_pi"]),7))
+                    elif self.Time_00_Scan:
+                        print("t_microwave_00_pulse original value: ", self.t_microwave_00_pulse)
+                        self.set_dataset("t_microwave_00_pulse", round(float(p["t_pi"]),7), broadcast=True, persist=True)
+                        print("t_microwave_00_pulse updated to ", round(float(p["t_pi"]),7))
 
-                elif self.Time_11_Scan:
-                    print("t_microwave_11_pulse original value: ", self.t_microwave_11_pulse)
-                    self.set_dataset("t_microwave_11_pulse", round(float(p["t_pi"]), 7), broadcast=True, persist=True)
-                    print("t_microwave_11_pulse updated to ", round(float(p["t_pi"]), 7))
+                    elif self.Time_01_Scan:
+                        print("t_microwave_01_pulse original value: ", self.t_microwave_01_pulse)
+                        self.set_dataset("t_microwave_01_pulse", round(float(p["t_pi"]),7), broadcast=True, persist=True)
+                        print("t_microwave_01_pulse updated to ", round(float(p["t_pi"]),7))
 
-                elif self.Time_m10_Scan:
-                    print("t_microwave_m10_pulse original value: ", self.t_microwave_m10_pulse)
-                    self.set_dataset("t_microwave_m10_pulse", round(float(p["t_pi"]), 7), broadcast=True, persist=True)
-                    print("t_microwave_m10_pulse updated to ", round(float(p["t_pi"]), 7))
+                    elif self.Time_11_Scan:
+                        print("t_microwave_11_pulse original value: ", self.t_microwave_11_pulse)
+                        self.set_dataset("t_microwave_11_pulse", round(float(p["t_pi"]), 7), broadcast=True, persist=True)
+                        print("t_microwave_11_pulse updated to ", round(float(p["t_pi"]), 7))
 
+                    elif self.Time_m10_Scan:
+                        print("t_microwave_m10_pulse original value: ", self.t_microwave_m10_pulse)
+                        self.set_dataset("t_microwave_m10_pulse", round(float(p["t_pi"]), 7), broadcast=True, persist=True)
+                        print("t_microwave_m10_pulse updated to ", round(float(p["t_pi"]), 7))
 
 
 

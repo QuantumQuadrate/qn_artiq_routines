@@ -450,6 +450,12 @@ class ExperimentVariables(EnvExperiment):
             Variable("zotino_test7_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
             Variable("zotino_test8_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
 
+            Variable("health_check_uw_freq00", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Microwaves Health Check"),
+            Variable("health_check_uw_freq01", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
+                     "Microwaves Health Check"),
+            Variable("health_check_uw_freq11", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
+                     "Microwaves Health Check"),
+
 
         ]
 
