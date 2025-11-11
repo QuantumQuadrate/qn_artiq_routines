@@ -14,6 +14,8 @@ import logging
 import numpy as np
 from numpy import array  # necessary for some override_ExperimentVariable entries
 
+import copy
+
 import sys, os
 
 cwd = os.getcwd() + "\\"
@@ -63,6 +65,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         self.setattr_argument("n_measurements", NumberValue(200, ndecimals=0, step=1), "General Setting")
         self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Setting")
+        self.setattr_argument('enable_faster_scan', BooleanValue(default=False), "General Setting")
         self.setattr_argument('enable_fitting', BooleanValue(default=False), "General Setting")
         self.setattr_argument('update_dataset', BooleanValue(default=False), "General Setting")
 
@@ -82,9 +85,14 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.setattr_argument("Ramsey_11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
 
         #### Frequency scan variables
-        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(150.0, ndecimals=1, step=1), "Freq Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(150.0, ndecimals=1, step=1), "Freq Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "Freq Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Full Scan] Freq Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Full Scan] Freq Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "[Full Scan] Freq Scan variables - centered at resonance")
+
+        #### Frequency scan variables - for faster scan!
+        self.setattr_argument("freq_scan_half_range_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Faster Scan] Freq Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_min_step_size_kHz", NumberValue(10.0, ndecimals=1, step=1), "[Faster Scan] Freq Scan variables - centered at resonance")
+
 
         #### Time scan variables
         self.setattr_argument("time_scan_range_start_us", NumberValue(0.0, ndecimals=2, step=1), "Time Scan variables")
@@ -106,6 +114,10 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         assert type(self.override_ExperimentVariables_dict) == dict, \
             "override_ExperimentVariables should be a python dictionary"
 
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
+                                                    ". Did you mistype it?")
+
         self.initialise = {}
 
         if self.Frequency_00_Scan:
@@ -113,21 +125,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             print("Frequency_00_Scan with pi pulse")
             self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_00_pulse
-
             self.scan_variable1_name = 'f_microwaves_dds'
-            self.scan_variable1 = str(self.scan_variable1_name)
 
-            # center = self.f_microwaves_00_dds
-            # self.scan_sequence1 = np.arange(center - self.freq_scan_range_left_kHz * kHz,
-            #                                 center + self.freq_scan_range_right_kHz * kHz,
-            #                                 self.freq_scan_step_size_kHz * kHz)
-
-            self.scan_sequence1 = np.array(self.make_symmetric_list(center=self.f_microwaves_00_dds,
-                                                      half_range_kHz=self.freq_scan_range_left_kHz,
-                                                      min_step_kHz=10.0))
-
-
-            print(self.scan_sequence1)
+            center = self.f_microwaves_00_dds
 
             ### experiment function
             if self.which_node == 'bob':
@@ -137,7 +137,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_dip"
-            self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {
                 "sigma": 80e3
@@ -150,12 +149,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_01_pulse
 
             self.scan_variable1_name = 'f_microwaves_dds'
-            self.scan_variable1 = str(self.scan_variable1_name)
 
             center = self.f_microwaves_01_dds
-            self.scan_sequence1 = np.arange(center - self.freq_scan_range_left_kHz * kHz,
-                                            center + self.freq_scan_range_right_kHz * kHz,
-                                            self.freq_scan_step_size_kHz * kHz)
 
             ### experiment function
             if self.which_node == 'bob':
@@ -165,7 +160,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_dip"
-            self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {
                 "sigma": 50e3
@@ -178,12 +172,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.override_ExperimentVariables_dict["t_microwave_11_pulse"] = self.t_microwave_11_pulse
 
             self.scan_variable1_name = 'f_microwaves_11_dds'
-            self.scan_variable1 = str(self.scan_variable1_name)
 
             center = self.f_microwaves_11_dds
-            self.scan_sequence1 = np.arange(center- self.freq_scan_range_left_kHz * kHz,
-                                            center + self.freq_scan_range_right_kHz * kHz,
-                                            self.freq_scan_step_size_kHz * kHz)
 
             ### experiment function
             if self.which_node == 'bob':
@@ -193,7 +183,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_positive_dip"
-            self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {
                 "sigma": 80e3
@@ -206,12 +195,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.override_ExperimentVariables_dict["t_microwave_m10_pulse"] = self.t_microwave_m10_pulse
 
             self.scan_variable1_name = 'f_microwaves_m10_dds'
-            self.scan_variable1 = str(self.scan_variable1_name)
 
             center = self.f_microwaves_m10_dds
-            self.scan_sequence1 = np.arange(center - self.freq_scan_range_left_kHz * kHz,
-                                            center + self.freq_scan_range_right_kHz * kHz,
-                                            self.freq_scan_step_size_kHz * kHz)
 
             ### experiment function
             if self.which_node == 'bob':
@@ -221,7 +206,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_positive_dip"
-            self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {}
 
@@ -232,11 +216,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_00_dds
 
             self.scan_variable1_name = 't_microwave_pulse'
-            self.scan_variable1 = str(self.scan_variable1_name)
-
-            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
-                                             self.time_scan_range_end_us * us,
-                                             self.time_scan_step_size_us * us))
 
             ### experiment function
             if self.which_node == 'bob':
@@ -246,7 +225,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop"
-            self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {}
 
@@ -257,11 +235,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_01_dds
 
             self.scan_variable1_name = 't_microwave_pulse'
-            self.scan_variable1 = str(self.scan_variable1_name)
-
-            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
-                                             self.time_scan_range_end_us * us,
-                                             self.time_scan_step_size_us * us))
 
             ### experiment function
             if self.which_node == 'bob':
@@ -271,7 +244,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop"
-            self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {}
 
@@ -280,13 +252,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             print("Time_11_Scan")
             self.override_ExperimentVariables_dict["f_microwaves_11_dds"] = self.f_microwaves_11_dds
-
             self.scan_variable1_name = 't_microwave_11_pulse'
-            self.scan_variable1 = str(self.scan_variable1_name)
-
-            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
-                                             self.time_scan_range_end_us * us,
-                                             self.time_scan_step_size_us * us))
 
             ### experiment function
             if self.which_node == 'bob':
@@ -296,7 +262,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop_reversed"
-            self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {}
 
@@ -307,11 +272,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.override_ExperimentVariables_dict["f_microwaves_m10_dds"] = self.f_microwaves_m10_dds
 
             self.scan_variable1_name = 't_microwave_m10_pulse'
-            self.scan_variable1 = str(self.scan_variable1_name)
-
-            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
-                                             self.time_scan_range_end_us * us,
-                                             self.time_scan_step_size_us * us))
 
             ### experiment function
             if self.which_node == 'bob':
@@ -321,7 +281,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop_reversed"
-            self.which_fit_model = fit_model_dict[fit_model]
 
             self.initialise = {}
 
@@ -331,11 +290,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_00_pulse
 
             self.scan_variable1_name = 't_delay_between_shots'
-            self.scan_variable1 = str(self.scan_variable1_name)
-
-            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
-                                             self.time_scan_range_end_us * us,
-                                             self.time_scan_step_size_us * us))
 
             ### experiment function
             if self.which_node == 'bob':
@@ -345,6 +299,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ###todo:  fitting not ready for Ramsey yet
             self.enable_fitting = False
+            ### fitting model and initial fit parameters - change to Ramsey
+            fit_model = "rabi_flop"
 
         elif self.Ramsey_01_Scan:
             print("Ramsey_01_Scan")
@@ -352,11 +308,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_01_pulse
 
             self.scan_variable1_name = 't_delay_between_shots'
-            self.scan_variable1 = str(self.scan_variable1_name)
-
-            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
-                                             self.time_scan_range_end_us * us,
-                                             self.time_scan_step_size_us * us))
 
             ### experiment function
             if self.which_node == 'bob':
@@ -366,16 +317,13 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ###todo:  fitting not ready for Ramsey yet
             self.enable_fitting = False
+            ### fitting model and initial fit parameters - change to Ramsey
+            fit_model = "rabi_flop"
 
         elif self.Ramsey_11_Scan:
             print("Ramsey_11_Scan")
-
             self.scan_variable1_name = 't_delay_between_shots'
-            self.scan_variable1 = str(self.scan_variable1_name)
 
-            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
-                                             self.time_scan_range_end_us * us,
-                                             self.time_scan_step_size_us * us))
 
             ### experiment function
             if self.which_node == 'bob':
@@ -385,12 +333,34 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
             ###todo:  fitting not ready for Ramsey yet
             self.enable_fitting = False
+            ### fitting model and initial fit parameters - change to Ramsey
+            fit_model = "rabi_flop"
 
         else:
             assert "Microwave Scan is not selected!"
 
         #### some more lines to be compatible with GVS analysis
         self.experiment_function = lambda: eval(self.experiment_name)(self)
+        self.which_fit_model = fit_model_dict[fit_model]
+
+        self.scan_variable1 = str(self.scan_variable1_name)
+
+        if self.scan_variable1_name.startswith(('f_', 'freq', 'frequency')):
+            print("name starts with f")
+            if self.enable_faster_scan:
+                self.scan_sequence1 =self.make_symmetric_list(center=center,
+                                                          half_range_kHz=self.freq_scan_half_range_kHz,
+                                                          min_step_kHz=self.freq_scan_min_step_size_kHz)
+            else:
+                self.scan_sequence1 = np.arange(center - self.freq_scan_range_left_kHz * kHz,
+                                                center + self.freq_scan_range_right_kHz * kHz,
+                                                self.freq_scan_step_size_kHz * kHz)
+        elif self.scan_variable1_name.startswith(('t_', 'time')):
+            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
+                                             self.time_scan_range_end_us * us,
+                                             self.time_scan_step_size_us * us))
+        else:
+            raise KeyError("There is no such thing as ", scan_variable1_name)
 
         self.n_iterations1 = len(self.scan_sequence1) # this might not get used
         self.scan_variable2_name = ''
@@ -449,9 +419,14 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
     def make_symmetric_list(self, center, half_range_kHz, min_step_kHz=10.0):
         """
-        Create a symmetric list around `center`:
+        The method creates a symmetric scan list around a center frequency.
+        It starts from the maximum offset and repeatedly halves the step size toward zero,
+        giving you finer resolution near the resonance.
+
+        ex) Create a symmetric list around `center`:
         [center - x, center - x/2, ..., center, ..., center + x/2, center + x]
         where x = half_range_kHz, and halving continues until step < min_step_kHz.
+
         """
         x = float(half_range_kHz)
         offsets = []
@@ -464,7 +439,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
         values = [center + v * kHz for v in symmetric_offsets]
 
-        return values
+        return  np.array(values)
 
 
 
@@ -550,17 +525,26 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             delay(200*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
-    def health_check_freq00(self):
+    def health_check_freq00(self, fit_check = False):
         """
         health check for |1,0> to |2,0> transition - freq scan
         :return: True:if passed the health_check, False: if failed the test.
         """
 
-        self.initialize_dependent_variables()
+        self.base.build()
+        self.base.prepare()
+        self.initialize_datasets()
+
+        # if self.run_health_check_and_optimize:
+        # self.initialize_dependent_variables()
         self.initialize_hardware()
         self.reset_datasets()
 
-        #todo: lots of codes are duplicated. i want to define these once and retrieve it later when necessary
+        if fit_check:
+            fit_f0 = self.get_dataset("fit_parameter_f0")
+            self.f_microwaves_00_dds = round(float(fit_f0), -3)
+            print("health check with fitted f0: ", self.f_microwaves_00_dds)
+
 ##### ~~
         # todo: make sure this does not interrupt the current dataset when implementing in GVS
         print("Health Check - Frequency_00_Scan with pi pulse")
@@ -594,6 +578,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
 
         # todo: break; if loading_rate too low
+        print(retention_array)
 
         if resonance_dip:
             fidelity = 1.0 - retention_array[0]
@@ -609,9 +594,11 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         else:
             return False
 
-    def submit_opt_exp_for_freq00(self):
+    def submit_opt_exp_for_freq00(self): #todo: account for changes
         print("submitting another experiment")
         ## 99 seems to be the highest priority that can be set to.
+
+        #todo: make a default expid and overwrite it just a few things.
         new_expid = {
             "log_level": 30,
             "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
@@ -653,13 +640,81 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
 
-    def run_freq00_optmization(self):
+    def submit_opt_exp_general(self, override_arguments = None):  # todo: account for changes
         """
-        short optimizatin routine; if value already very close.
+            override_arguments should be a dict like:
+                {"freq_scan_range_left_kHz": 50.0,
+                 "freq_scan_range_right_kHz": 50.0,
+                 "enable_fitting": False}
+        :param override_arguments:
         :return:
         """
+        print("submitting another experiment")
+        ## 99 seems to be the highest priority that can be set to.
+
+        # todo: make a default expid and overwrite it just a few things.
+        default_expid = {
+            "log_level": 30,
+            "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
+            "class_name": "GeneralVariableScan_Microwaves",
+            "arguments": {
+                "run_health_check_and_optimize": False,
+                "target_fidelity": 0.80,
+
+                "n_measurements": self.n_measurements,
+                "override_ExperimentVariables": "{'dummy_variable': 4}",
+                "enable_fitting": True,
+                "enable_faster_scan": True,
+                "update_dataset": False,
+
+                # Scan type toggles
+                "Frequency_00_Scan": False,
+                "Frequency_01_Scan": False,
+                "Frequency_11_Scan": False,
+                "Frequency_m10_Scan": False,
+                "Time_00_Scan": False,
+                "Time_01_Scan": False,
+                "Time_11_Scan": False,
+                "Time_m10_Scan": False,
+                "Ramsey_00_Scan": False,
+                "Ramsey_01_Scan": False,
+                "Ramsey_11_Scan": False,
+
+                # [Short Scan] Frequency scan parameters (kHz)
+                "freq_scan_range_left_kHz": 100.0,
+                "freq_scan_range_right_kHz": 101.0,
+                "freq_scan_step_size_kHz": 20.0,
+
+                # [Fast Scan] Frequency scan parameters - centered at resonance (kHz)
+                "freq_scan_half_range_kHz": 100.0,
+                "freq_scan_min_step_size_kHz": 10.0,
+
+                # Time scan parameters (µs)
+                "time_scan_range_start_us": 0.0,
+                "time_scan_range_end_us": 100.0,
+                "time_scan_step_size_us": 5.0,
+            },
+            "repo_rev": "N/A",
+        }
+
+        new_expid = copy.deepcopy(default_expid)
+
+        if getattr(self, "Frequency_00_Scan", False):
+            new_expid["arguments"]["Frequency_00_Scan"] = True
 
 
+        if override_arguments is not None:
+            for key, value in override_arguments.items():
+                if key in new_expid["arguments"]:
+                    print(f"Overriding {key}: {new_expid['arguments'][key]} to {value}")
+                    new_expid["arguments"][key] = value
+
+                else:
+                    raise KeyError(f"Invalid override key: '{key}'. ")
+
+
+
+        self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
 
     def run(self):
         """
@@ -688,15 +743,18 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         if self.run_health_check_and_optimize:
             if self.Frequency_00_Scan:
                 if self.health_check_freq00() == False:
-                    print("Health Check- failed with fidelity: ", self.health_check_uw_freq00)
+                    print("Health Check- failed with fidelity: ", self.get_dataset("health_check_uw_freq00"))
                     print("Scheduling Experiment for Optimization...")
-                    self.submit_opt_exp_for_freq00()
+                    # self.submit_opt_exp_for_freq00()
+                    # self.submit_opt_exp_general(override_arguments = {"freq_scan_half_range_kHz":200.0})
+                    self.submit_opt_exp_general(override_arguments = {"freq_scan_half_range_kHz":200.0})
+
                     self.scheduler.request_termination(self.scheduler.rid)
 
             self.core.comm.close()  # placing the hardware in a safe state and disconnecting it from the core device
             self.scheduler.pause()
 
-            #todo: if running more than two health checks at the same time, fresh_build is necessary?
+            #todo: if running more than two health checks at0 the same time, fresh_build is necessary?
             #       => No. the things that are usually done in build/prepare is embedded in health_check
             #          Health Check only runs a single point scan. Thus, does not need more that that.
 
@@ -760,12 +818,11 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
 
                 if self.Frequency_00_Scan:
-                    self.f_microwaves_00_dds = round(float(p["f0"]), -3)
-                    if self.health_check_freq00():
-                        print("update dataset = True")
+                    if self.health_check_freq00(fit_check = True):
+                        print("optimization success - dataset updating to fitted value")
                         self.update_dataset = True
                     else:
-                        print("optimization failed")
+                        print("optimization failed - dataset not updated")
 
                 ### updating dataset with fitted parameters
                 if self.update_dataset:
