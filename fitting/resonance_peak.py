@@ -15,6 +15,6 @@ def fitting_function(x, p):
     return y
 
 
-resonance_positive_dip = FitBase.FitBase(['C', 'f0', 'sigma'],
+resonance_peak = FitBase.FitBase(['C', 'f0', 'sigma'],
                              fitting_function,
                              parameter_initialiser=parameter_initialiser)
