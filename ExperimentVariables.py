@@ -455,7 +455,10 @@ class ExperimentVariables(EnvExperiment):
                      "Microwaves Health Check"),
             Variable("health_check_uw_freq11", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
                      "Microwaves Health Check"),
-
+            Variable("health_check_uw_freqm10", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
+                     "Microwaves Health Check"),
+            Variable("health_check_uw_freqm11", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
+                     "Microwaves Health Check"),
 
         ]
 
