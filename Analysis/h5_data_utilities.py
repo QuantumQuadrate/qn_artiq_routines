@@ -8,6 +8,8 @@ import os
 import h5py
 import matplotlib as mpl
 from matplotlib import pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
+import matplotlib.colors as mcolors
 from skimage.filters import threshold_otsu
 
 results = "C:\\Networking Experiment\\artiq codes\\artiq-master\\results\\"
@@ -17,6 +19,150 @@ kHz = 1e3
 ms = 1e-3
 us = 1e-6
 V = 1
+
+###  Colors for plots
+color0 = (20/255, 20/255, 20/255)  # soft black
+color1 = (1/255, 120/255, 240/255)  # blue
+color2 = (185/255, 46/255, 46/255)   # red
+color3 = (20/255, 145/255, 1/255)   # green
+
+
+
+
+##### plot helper
+
+def lighten(color, amount=0.6, on="white"):
+    """
+    Return a lighter color by blending 'color' toward 'on' (default: white).
+    amount in [0,1]: 0 => original color, 1 => fully 'on'.
+    """
+    c = np.array(mcolors.to_rgb(color))
+    o = np.array(mcolors.to_rgb(on))
+    out = (1.0 - amount) * c + amount * o
+    return tuple(np.clip(out, 0.0, 1.0))
+    
+def plot_series_with_fit(
+    series,
+    title="",
+    xlabel="",
+    ylabel="",
+    xlim=None,
+    ylim=None,
+    legend_out=True,                 # place legend outside by default 
+    legend_loc=(1.05, 0.2),          # (x, y) in axes coords when legend_out=True
+    legend_kw=None,                  # extra kwargs to ax.legend(...)
+    figsize=(8, 4),
+    save=None,
+    show=True,
+    grid=False,
+    suppress_sci_x=True,             # turn off "×1e^k" on x-axis
+    x_format="%.1f",                 # x tick label format (if suppress_sci_x)
+):
+    """
+    Generic 2D plotter for data + error bars + optional fit curve(s).
+
+    Parameters
+    ----------
+    series : list[dict]
+        Each dict describes one trace:
+            Required keys:
+              - 'x'     : 1D array-like (x-values)
+              - 'y'     : 1D array-like (y-values)
+              - 'yerr'  : 1D array-like (sym) or shape (2, N) (asym) or None
+              - 'label' : str (legend label)
+            Optional keys (with sensible defaults):
+              - 'fit'       : tuple (x_fit, y_fit) or None
+              - 'color'     : matplotlib color spec; default: auto cycle
+              - 'marker'    : e.g., 'o' (default)
+              - 'ms'        : markersize (default 8)
+              - 'lw'        : errorbar/line width (default 1.5)
+              - 'capsize'   : errorbar cap size (default 4)
+              - 'zorder'    : drawing order (default 3 for points)
+              - 'mfc'       : marker facecolor (default 'white' for hollow)
+              - 'mec'       : marker edgecolor (default = color)
+              - 'ecolor'    : errorbar color (default = color)
+              - 'fit_style' : dict for fit line (e.g., {'linestyle':'-', 'linewidth':1.6})
+    Other parameters control figure/axes cosmetics and saving.
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+
+    for i, s in enumerate(series):
+        x      = s["x"]
+        y      = s["y"]
+        yerr   = s.get("yerr", None)
+        label  = s.get("label", f"Series {i}")
+
+        color  = s.get("color", None)
+        marker = s.get("marker", "o")
+        ms     = s.get("ms", 6)
+        lw     = s.get("lw", 1.5)
+        capsz  = s.get("capsize", 2)
+        z      = s.get("zorder", 3)
+
+        #### marker styling
+        #### fill with a LIGHTER shade of the edge color.
+        lighten_amount = s.get("lighten_amount", 0.80)   # 80% toward white
+        mfc_color    = lighten(color, amount=lighten_amount)
+        fit_color    = lighten(color, amount=0.5)
+        
+        # mfc    = s.get("mfc", "white")
+        mfc    = s.get("mfc", mfc_color if color is not None else None)
+        mec    = s.get("mec", color if color is not None else None)
+        ecolor = s.get("ecolor", color if color is not None else None)
+
+        # --- data with error bars (accepts sym or asym yerr) ---
+        ax.errorbar(
+            x, y, yerr=yerr, label=label, fmt=marker,
+            mfc=mfc, mec=mec, ecolor=ecolor,
+            capsize=capsz, markersize=ms, linewidth=lw, zorder=z
+        )
+
+        # --- optional fit curve ---
+        fit = s.get("fit", None)
+        if fit is not None:
+            xf, yf = fit
+            fit_style = {"linestyle": "-", "linewidth": 1.6}
+            fit_style.update(s.get("fit_style", {}))
+            ax.plot(xf, yf, color=fit_color, zorder=z, **fit_style)
+
+    # ----- axes cosmetics -----
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    if xlim is not None: ax.set_xlim(xlim)
+    if ylim is not None: ax.set_ylim(ylim)
+    ax.set_title(title)
+
+    if grid:
+        ax.grid(True, which='both', alpha=0.25)
+
+    # Turn off "×1e^k" offset on x-axis and format ticks plainly
+    if suppress_sci_x:
+        ax.ticklabel_format(style='plain', axis='x', useOffset=False)
+        ax.xaxis.set_major_formatter(FormatStrFormatter(x_format))
+
+    # Legend either outside or inside
+    if legend_out:
+        # place just outside the right edge (like your parity helper)
+        lk = dict(frameon=False, bbox_to_anchor=legend_loc, loc='upper left')
+    else:
+        lk = dict(frameon=False, loc='best')
+    if legend_kw:
+        lk.update(legend_kw)
+    ax.legend(**lk)
+
+    fig.tight_layout()
+
+    if save:
+        fig.savefig(save, bbox_inches="tight")
+
+    if show:
+        plt.show()
+        plt.close(fig)
+        return None
+    else:
+        return fig, ax
+
+
 
 def binomial_err(n_loaded, retention):
     """returns the the binomial error for atom retention data given the number of atoms loaded"""
@@ -117,7 +263,7 @@ def h5_archive_and_datasets_to_locals(f, parent_locals, quiet=False):
                     value = f[data_level][key][:]
                     # locals().update({key: value})
 
-                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'BothSPCMs_RO2':
+                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'BothSPCMs_RO1' or key == 'BothSPCMs_RO2':
                     value = value[1:]
                 
                 parent_locals.update({key: value})
@@ -167,7 +313,7 @@ def print_h5_archive_and_datasets(f, scalars_only=True, quiet=False):
                     value = f[data_level][key][:]
                     # locals().update({key: value})
 
-                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'BothSPCMs_RO2':
+                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'BothSPCMs_RO1' or key == 'BothSPCMs_RO2':
                     value = value[1:]
 
                 if scalars_only:

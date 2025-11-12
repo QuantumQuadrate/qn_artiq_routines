@@ -1917,7 +1917,7 @@ def chopped_optical_pumping(self):
 
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
     if self.t_depumping + self.t_pumping > 3*ms:
-        delay(2000 * us)  # we need extra slack
+        delay(1500 * us)  # we need extra slack
 
     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
     self.ttl_exc0_switch.on() # turns off the excitation
@@ -3534,6 +3534,105 @@ def atom_loading_2_experiment(self):
         second_shot(self)
 
         end_measurement(self)
+
+    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+
+@kernel
+def blowaway_fidelity_measurement_experiment(self):
+    """
+    An experiment to measure the fidelity of blowaway.
+
+
+    """
+
+    self.core.reset()
+
+    self.require_D1_lock_to_advance = False
+
+    self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
+    ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
+    ### in each iteration.
+    self.n_atom_loaded_per_iteration = 0
+
+    if self.t_blowaway > 0.0:
+        record_chopped_blow_away(self)
+        delay(100 * ms)
+
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+
+    if self.enable_laser_feedback:
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        run_feedback_and_record_FORT_MM_power(self)
+
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
+
+    delay(1 * ms)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        if self.which_node == 'alice':
+            # load_MOT_and_FORT(self)
+            # load_MOT_and_FORT_until_atom(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_until_atom_smooth_FORT_recycle(self)
+        else:
+            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
+            load_MOT_and_FORT_until_atom_recycle(self)
+
+        delay(1 * ms)
+
+        first_shot(self)
+
+        # ############################### pump into F=1
+        # ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
+        # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+        # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+        # self.dds_AOM_A5.sw.on()
+        # self.dds_AOM_A6.sw.on()
+        #
+        # self.ttl_pumping_repump_switch.off()
+        # # delay(self.t_depumping)
+        # delay(1000*us)
+        # self.ttl_pumping_repump_switch.on()
+        # self.dds_AOM_A5.sw.off()
+        # self.dds_AOM_A6.sw.off()
+        # delay(100 * us)
+        # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+        # delay(100 * us)
+        # #############################
+
+        ############################### pump into F=2
+        ### Since the atoms after loading are already in F=2 (mostly), we first pump into F=1 with 100us fixed time.
+        ### Then this part shows how long it takes to pump into F=2.
+        self.ttl_repump_switch.off()  # turns the MOT RP AOM on
+        # delay(self.t_depumping)  # leave the repump on so atoms are left in F=2
+        delay(1000 * us)
+        self.ttl_repump_switch.on()  # turns the MOT RP AOM off
+        delay(0.1 * ms)
+        #############################
+
+        ######################## blow-away phase - push out atoms in F=2 only
+        if self.t_blowaway > 0.0:
+            chopped_blow_away(self)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(5 * ms)  ### hopefully to avoid underflow.
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
@@ -6655,9 +6754,9 @@ def microwave_map01_map11_experiment(self):
         delay(10 * us)
 
         if self.t_microwave_11_pulse > 0.0:
-            self.ttl_microwave_switch.off()
+            # self.ttl_microwave_switch.off()
             delay(self.t_microwave_11_pulse)
-            self.ttl_microwave_switch.on()
+            # self.ttl_microwave_switch.on()
 
         delay(5 * us)
         FORT_ramp2_smoothstep(self, direction="up")

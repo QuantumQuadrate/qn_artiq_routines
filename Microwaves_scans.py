@@ -661,8 +661,8 @@ class Microwaves_scans(EnvExperiment):
 
                 elif self.Frequency_m11_Scan:
                     print("f_microwaves_m11_dds original value: ", self.f_microwaves_m11_dds)
-                    self.set_dataset("f_microwaves_m11_dds", round(float(p["f0"]), -3), broadcast=True, persist=True)
-                    print("f_microwaves_m11_dds updated to ", round(float(p["f0"]), -3))
+                    self.set_dataset("f_microwaves_m11_dds", round(float(p["f0"]), -1), broadcast=True, persist=True)
+                    print("f_microwaves_m11_dds updated to ", round(float(p["f0"]), -1))
 
                 elif self.Time_00_Scan:
                     print("t_microwave_00_pulse original value: ", self.t_microwave_00_pulse)
