@@ -23,7 +23,14 @@ class XYPlot(pyqtgraph.PlotWidget):
         self.labels = ["health_check_uw_freq00", "health_check_uw_freq01", "health_check_uw_freq11"]
         self.labels_to_show = ["Freq 00\nFidelity", "Freq 01\nFidelity", "Freq 11\nFidelity"]
         # red-green color-blind friendly RGB colors from ChatGPT
-        self.colors = [(0, 92, 169),  # blue
+        self.colors = [
+                        (230, 97, 0),  # orange - yellow
+                        (255, 194, 10), # yellow
+                        (112, 173, 71), # green
+                        (64, 176, 166), # oval
+                        (12, 123, 220),  # blue
+                        (93, 58, 155),  # violet
+
                         (255, 138, 0),  # orange
                         (149, 0, 210),  # purple
                         (0, 170, 150),  # teal
