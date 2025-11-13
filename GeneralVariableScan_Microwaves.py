@@ -298,11 +298,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.setattr_argument("freq_scan_half_range_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Faster Scan] Freq Scan variables - centered at resonance")
         self.setattr_argument("freq_scan_min_step_size_kHz", NumberValue(10.0, ndecimals=1, step=1), "[Faster Scan] Freq Scan variables - centered at resonance")
 
-
         #### Time scan variables
-        self.setattr_argument("time_scan_range_start_us", NumberValue(0.0, ndecimals=2, step=1), "Time Scan variables")
-        self.setattr_argument("time_scan_range_end_us", NumberValue(15.0, ndecimals=2, step=1), "Time Scan variables")
-        self.setattr_argument("time_scan_step_size_us", NumberValue(1.0, ndecimals=2, step=1), "Time Scan variables")
+        self.setattr_argument("time_scan_sequence", StringValue('np.arange(0,10,1)*us'), "Time Scan variables")
 
         self.base.set_datasets_from_gui_args()
         print("build - done")
@@ -323,153 +320,11 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
                                                     ". Did you mistype it?")
 
-        #
-        #
-        #
-        #
-        # if self.Time_00_Scan:
-        #     ### |1,0> to |2,0> transition - time scan
-        #
-        #     print("Time_00_Scan")
-        #     self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_00_dds
-        #
-        #     self.scan_variable1_name = 't_microwave_pulse'
-        #
-        #     ### experiment function
-        #     if self.which_node == 'bob':
-        #         self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
-        #     elif self.which_node == 'alice':
-        #         self.experiment_name = "microwave_Rabi_2_experiment"
-        #
-        #     ### fitting model and initial fit parameters
-        #     fit_model = "rabi_flop"
-        #
-        #     self.initialise = {}
-        #
-        # elif self.Time_01_Scan:
-        #     ### |1,0> to |2,1> transition - time scan
-        #
-        #     print("Time_01_Scan")
-        #     self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_01_dds
-        #
-        #     self.scan_variable1_name = 't_microwave_pulse'
-        #
-        #     ### experiment function
-        #     if self.which_node == 'bob':
-        #         self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
-        #     elif self.which_node == 'alice':
-        #         self.experiment_name = "microwave_Rabi_2_experiment"
-        #
-        #     ### fitting model and initial fit parameters
-        #     fit_model = "rabi_flop"
-        #
-        #     self.initialise = {}
-        #
-        # elif self.Time_11_Scan:
-        #     ### |2,1> to |1,1> transition - time scan
-        #
-        #     print("Time_11_Scan")
-        #     self.override_ExperimentVariables_dict["f_microwaves_11_dds"] = self.f_microwaves_11_dds
-        #     self.scan_variable1_name = 't_microwave_11_pulse'
-        #
-        #     ### experiment function
-        #     if self.which_node == 'bob':
-        #         self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment"
-        #     elif self.which_node == 'alice':
-        #         self.experiment_name = "microwave_Rabi_2_experiment"
-        #
-        #     ### fitting model and initial fit parameters
-        #     fit_model = "rabi_flop_reversed"
-        #
-        #     self.initialise = {}
-        #
-        # elif self.Time_m10_Scan:
-        #     ### |2,0> to |1,-1> transition - time scan
-        #
-        #     print("Time_m10_Scan")
-        #     self.override_ExperimentVariables_dict["f_microwaves_m10_dds"] = self.f_microwaves_m10_dds
-        #
-        #     self.scan_variable1_name = 't_microwave_m10_pulse'
-        #
-        #     ### experiment function
-        #     if self.which_node == 'bob':
-        #         self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment"
-        #     elif self.which_node == 'alice':
-        #         self.experiment_name = "microwave_Rabi_2_experiment"
-        #
-        #     ### fitting model and initial fit parameters
-        #     fit_model = "rabi_flop_reversed"
-        #
-        #     self.initialise = {}
-        #
-        # elif self.Ramsey_00_Scan:
-        #     print("Ramsey_00_Scan")
-        #     self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_00_dds
-        #     self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_00_pulse
-        #
-        #     self.scan_variable1_name = 't_delay_between_shots'
-        #
-        #     ### experiment function
-        #     if self.which_node == 'bob':
-        #         self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment"
-        #     elif self.which_node == 'alice':
-        #         self.experiment_name = "microwave_Rabi_2_experiment"
-        #
-        #     ###todo:  fitting not ready for Ramsey yet
-        #     self.enable_fitting = False
-        #     ### fitting model and initial fit parameters - change to Ramsey
-        #     fit_model = "rabi_flop"
-        #
-        # elif self.Ramsey_01_Scan:
-        #     print("Ramsey_01_Scan")
-        #     self.override_ExperimentVariables_dict["f_microwaves_dds"] = self.f_microwaves_01_dds
-        #     self.override_ExperimentVariables_dict["t_microwave_pulse"] = self.t_microwave_01_pulse
-        #
-        #     self.scan_variable1_name = 't_delay_between_shots'
-        #
-        #     ### experiment function
-        #     if self.which_node == 'bob':
-        #         self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment"
-        #     elif self.which_node == 'alice':
-        #         self.experiment_name = "microwave_Rabi_2_experiment"
-        #
-        #     ###todo:  fitting not ready for Ramsey yet
-        #     self.enable_fitting = False
-        #     ### fitting model and initial fit parameters - change to Ramsey
-        #     fit_model = "rabi_flop"
-        #
-        # elif self.Ramsey_11_Scan:
-        #     print("Ramsey_11_Scan")
-        #     self.scan_variable1_name = 't_delay_between_shots'
-        #
-        #
-        #     ### experiment function
-        #     if self.which_node == 'bob':
-        #         self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment"
-        #     elif self.which_node == 'alice':
-        #         self.experiment_name = "microwave_Rabi_2_experiment"
-        #
-        #     ###todo:  fitting not ready for Ramsey yet
-        #     self.enable_fitting = False
-        #     ### fitting model and initial fit parameters - change to Ramsey
-        #     fit_model = "rabi_flop"
-        #
-        # else:
-        #     assert "Microwave Scan is not selected!"
-        #
-        #
-        #
-        #
-
-
-
-        ############ used to be individually defined for different scans
-
-
-        scan_type = self.get_scan_type()
+        ### goes through the booleans and sets the scan type
+        self.scan_type = self.get_scan_type()
 
         ### override items:
-        for var, val in scan_dict[scan_type]["override_items"].items():
+        for var, val in scan_dict[self.scan_type]["override_items"].items():
             self.override_ExperimentVariables_dict[var] = getattr(self, val)
 
         for variable, value in self.override_ExperimentVariables_dict.items():
@@ -477,25 +332,25 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                                                     ". Did you mistype it?")
 
         ### setting the scan variable
-        self.scan_variable1_name = scan_dict[scan_type]["scan_variable1_name"]
+        self.scan_variable1_name = scan_dict[self.scan_type]["scan_variable1_name"]
         self.scan_variable1 = str(self.scan_variable1_name)
         ### Note: there are some unnecessary lines so that the results are compatible with GVS analysis code
 
         ### setting the experiment function
         if self.which_node == 'bob':
-            self.experiment_name = scan_dict[scan_type]["experiment_name_bob"]
+            self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
         elif self.which_node == 'alice':
-            self.experiment_name = scan_dict[scan_type]["experiment_name_alice"]
+            self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
         self.experiment_function = lambda: eval(self.experiment_name)(self)
 
         ### setting up the fit model
-        fit_model = scan_dict[scan_type]["fit_model"]
+        fit_model = scan_dict[self.scan_type]["fit_model"]
         self.which_fit_model = fit_model_dict[fit_model]
-        self.initialise = scan_dict[scan_type]["initialise"]
+        self.initialise = scan_dict[self.scan_type]["initialise"]
 
         ### setting up the scan sequence
-        if scan_type.startswith('Freq'):
-            center = getattr(self, scan_dict[scan_type]["center"])
+        if self.scan_type.startswith('Freq'):
+            center = getattr(self, scan_dict[self.scan_type]["center"])
 
             if self.enable_faster_frequency_scan:
                 self.scan_sequence1 =self.make_symmetric_list(center=center,
@@ -506,10 +361,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                                                 center + self.freq_scan_range_right_kHz * kHz,
                                                 self.freq_scan_step_size_kHz * kHz)
 
-        elif scan_type.startswith(('Time', 'Ramsey')):
-            self.scan_sequence1 = (np.arange(self.time_scan_range_start_us * us,
-                                             self.time_scan_range_end_us * us,
-                                             self.time_scan_step_size_us * us))
+        elif self.scan_type.startswith(('Time', 'Ramsey')):
+            self.scan_sequence1 = eval(self.time_scan_sequence)
         else:
             raise KeyError("There is no such thing as ", scan_variable1_name)
 
@@ -706,42 +559,32 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.initialize_hardware()
         self.reset_datasets()
 
-        if self.Frequency_00_Scan:
-            print("Health Check - Frequency_00_Scan with pi pulse")
-            scan_type = "Frequency_00_Scan"
-        elif self.Frequency_01_Scan:
-            print("Health Check - Frequency_01_Scan with pi pulse")
-            scan_type = "Frequency_01_Scan"
-        elif self.Frequency_11_Scan:
-            print("Health Check - Frequency_11_Scan with pi pulse")
-            scan_type = "Frequency_11_Scan"
-
         if fit_check:
-            print("Original f0 value: ", getattr(self, scan_dict[scan_type]["center"]))
+            print("Original f0 value: ", getattr(self, scan_dict[self.scan_type]["center"]))
             fit_f0 = self.get_dataset("fit_parameter_f0")
-            setattr(self, scan_dict[scan_type]["center"], round(float(fit_f0), -3))
-            print("Fit check with fitted f0: ",  getattr(self, scan_dict[scan_type]["center"]))
+            setattr(self, scan_dict[self.scan_type]["center"], round(float(fit_f0), -3))
+            print("Fit check with fitted f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
         else:
-            print("Health Check with original f0: ",  getattr(self, scan_dict[scan_type]["center"]))
+            print("Health Check with original f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
 
         # todo: make sure this does not interrupt the current dataset when implementing in GVS
         # override items:
-        for var, val in scan_dict[scan_type]["override_items"].items():
+        for var, val in scan_dict[self.scan_type]["override_items"].items():
             self.override_ExperimentVariables_dict[var] = getattr(self, val)
 
-        setattr(self, scan_dict[scan_type]["scan_variable1_name"], getattr(self, scan_dict[scan_type]["center"]))
+        setattr(self, scan_dict[self.scan_type]["scan_variable1_name"], getattr(self, scan_dict[self.scan_type]["center"]))
 
         if self.which_node == 'bob':
-            self.experiment_name = scan_dict[scan_type]["experiment_name_bob"]
+            self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
         elif self.which_node == 'alice':
-            self.experiment_name = scan_dict[scan_type]["experiment_name_alice"]
+            self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
 
-        if scan_dict[scan_type]["fit_model"] == "resonance_dip":
+        if scan_dict[self.scan_type]["fit_model"] == "resonance_dip":
             resonance_dip = True        #if False, resonance_peak
-        elif scan_dict[scan_type]["fit_model"] == "resonance_peak":
+        elif scan_dict[self.scan_type]["fit_model"] == "resonance_peak":
             resonance_dip = False
 
-        self.initialise = scan_dict[scan_type]["initialise"]
+        self.initialise = scan_dict[self.scan_type]["initialise"]
 
         self.experiment_function = lambda: eval(self.experiment_name)(self)
         self.experiment_function()
@@ -766,59 +609,13 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             fidelity = retention_array[-1]
 
         #####update
-        self.set_dataset(scan_dict[scan_type]["health_check_dataset_name"], round(float(fidelity), 2), broadcast=True, persist=True)
+        self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2), broadcast=True, persist=True)
 
         if fidelity >= self.target_fidelity:
             print("Health Check - passed with fidelity: ", fidelity)
             return True
         else:
             return False
-
-    def submit_opt_exp_for_freq00(self): #todo: account for changes
-        print("submitting another experiment")
-        ## 99 seems to be the highest priority that can be set to.
-
-        #todo: make a default expid and overwrite it just a few things.
-        new_expid = {
-            "log_level": 30,
-            "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
-            "class_name": "GeneralVariableScan_Microwaves",
-            "arguments": {
-                "run_health_check_and_optimize": False,
-                "target_fidelity": 0.80,
-
-                "n_measurements": self.n_measurements,
-                "override_ExperimentVariables": "{'dummy_variable': 4}",
-                "enable_fitting": True,
-                "update_dataset": False,
-
-                # Scan type toggles
-                "Frequency_00_Scan": True,
-                "Frequency_01_Scan": False,
-                "Frequency_11_Scan": False,
-                "Frequency_m10_Scan": False,
-                "Time_00_Scan": False,
-                "Time_01_Scan": False,
-                "Time_11_Scan": False,
-                "Time_m10_Scan": False,
-                "Ramsey_00_Scan": False,
-                "Ramsey_01_Scan": False,
-                "Ramsey_11_Scan": False,
-
-                # Frequency scan parameters (kHz)
-                "freq_scan_range_left_kHz": 100.0,
-                "freq_scan_range_right_kHz": 101.0,
-                "freq_scan_step_size_kHz": 20.0,
-
-                # Time scan parameters (µs)
-                "time_scan_range_start_us": 0.0,
-                "time_scan_range_end_us": 100.0,
-                "time_scan_step_size_us": 5.0,
-            },
-            "repo_rev": "N/A",
-        }
-
-        self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
 
     def submit_opt_exp_general(self, override_arguments = None):  # todo: account for changes
         """
@@ -869,10 +666,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 "freq_scan_half_range_kHz": 100.0,
                 "freq_scan_min_step_size_kHz": 10.0,
 
-                # Time scan parameters (µs)
-                "time_scan_range_start_us": 0.0,
-                "time_scan_range_end_us": 100.0,
-                "time_scan_step_size_us": 5.0,
+                # # Time scan parameters
+                "time_scan_sequence": 'np.arange(0,10,1)*us'
+
             },
             "repo_rev": "N/A",
         }
@@ -928,12 +724,11 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         for variable, value in self.override_ExperimentVariables_dict.items():
             setattr(self, variable, value)
 
-        scan_type = self.get_scan_type()
-
         # todo: later just do all health checks no matter what
-        if scan_type.startswith("Freq") and self.run_health_check_and_optimize:
+        if self.scan_type.startswith("Freq") and self.run_health_check_and_optimize:
+            #todo: if there are more than 1 health checks, make a loop
             if self.freq_health_check() == False:
-                print("Initial Health Check - failed with fidelity: ", self.get_dataset(scan_dict[scan_type]["health_check_dataset_name"]))
+                print("Initial Health Check - failed with fidelity: ", self.get_dataset(scan_dict[self.scan_type]["health_check_dataset_name"]))
                 print("Scheduling Experiment for Optimization...")
                 self.submit_opt_exp_general(override_arguments = {"freq_scan_half_range_kHz":150.0})
 
@@ -979,7 +774,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                     iteration += 1
 
             #### for fitting
-            if self.enable_fitting and not scan_type.startswith("Ramsey"):
+            if self.enable_fitting and not self.scan_type.startswith("Ramsey"):
                 BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
                 BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
                 retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
@@ -1001,17 +796,17 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                     ds_name = f"fit_parameter_{var}_err"
                     self.set_dataset(ds_name, round(float(val),7), broadcast=True, persist=True)
 
-                if scan_type.startswith("Freq"):
+                if self.scan_type.startswith("Freq"):
                     if self.freq_health_check(fit_check = True):
                         print("optimization success - dataset updating to fitted value")
 
-                        self.set_dataset(scan_dict[scan_type]["center"], round(float(p["f0"]), -3), broadcast=True, persist=True)
-                        print(scan_dict[scan_type]["center"]," updated to ", getattr(self, scan_dict[scan_type]["center"]))
+                        self.set_dataset(scan_dict[self.scan_type]["center"], round(float(p["f0"]), -3), broadcast=True, persist=True)
+                        print(scan_dict[self.scan_type]["center"]," updated to ", getattr(self, scan_dict[self.scan_type]["center"]))
 
                     else:
                         print("optimization failed - dataset not updated")
 
-                elif scan_type.startswith("Time") and self.update_dataset:
+                elif self.scan_type.startswith("Time") and self.update_dataset:
                 ### updating dataset with fitted parameters
                 #todo: add fitcheck for time scan
                     if self.Time_00_Scan:
