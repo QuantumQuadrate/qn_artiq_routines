@@ -164,7 +164,8 @@ scan_dict={
         "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_experiment",
 
         "fit_model": "rabi_flop",
-        "initialise": {}
+        "initialise": {},
+        "health_check_dataset_name": "health_check_uw_freq00"
     },
 
     # Time scans do not have health check dataset
@@ -181,7 +182,8 @@ scan_dict={
         "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_experiment",
 
         "fit_model": "rabi_flop",
-        "initialise": {}
+        "initialise": {},
+        "health_check_dataset_name": "health_check_uw_freq01"
     },
 
     # Time scans do not have health check dataset
@@ -196,7 +198,8 @@ scan_dict={
         "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment",
 
         "fit_model": "rabi_flop_reversed",
-        "initialise": {}
+        "initialise": {},
+        "health_check_dataset_name": "health_check_uw_freq11"
     },
 
     # Time scans do not have health check dataset
@@ -211,7 +214,9 @@ scan_dict={
         "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment",
 
         "fit_model": "rabi_flop_reversed",
-        "initialise": {}
+        "initialise": {},
+
+        "health_check_dataset_name": "health_check_uw_freqm10"
     },
 
     # Time scans do not have health check dataset
@@ -288,11 +293,10 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
         # this can be retrieved in  hdf5 file.
 
-        self.setattr_argument("n_measurements", NumberValue(200, ndecimals=0, step=1), "General Setting")
+        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Setting")
         self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Setting")
         self.setattr_argument('enable_faster_frequency_scan', BooleanValue(default=False), "General Setting")
         self.setattr_argument('enable_fitting', BooleanValue(default=False), "General Setting")
-        self.setattr_argument('update_dataset', BooleanValue(default=False), "General Setting")
 
         self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
         self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
@@ -309,13 +313,14 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.setattr_argument("Ramsey_11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
 
         #### Frequency scan variables
-        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Full Scan] Freq Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Full Scan] Freq Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "[Full Scan] Freq Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Full Freq Scan] Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Full Freq Scan] Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "[Full Freq Scan] Scan variables - centered at resonance")
 
         #### Frequency scan variables - for faster scan!
-        self.setattr_argument("freq_scan_half_range_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Faster Scan] Freq Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_min_step_size_kHz", NumberValue(10.0, ndecimals=1, step=1), "[Faster Scan] Freq Scan variables - centered at resonance")
+        self.setattr_argument("shrink_factor", NumberValue(2.5, ndecimals=1, step=1), "[Faster Freq Scan] Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_half_range_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Faster Freq Scan] Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_min_step_size_kHz", NumberValue(10.0, ndecimals=1, step=1), "[Faster Freq Scan] Scan variables - centered at resonance")
 
         #### Time scan variables
         self.setattr_argument("time_scan_sequence", StringValue('np.arange(0,10,1)*us'), "Time Scan variables")
@@ -436,22 +441,31 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
     def make_symmetric_list(self, center, half_range_kHz, min_step_kHz=10.0):
         """
-        The method creates a symmetric scan list around a center frequency.
-        It starts from the maximum offset and repeatedly halves the step size toward zero,
-        giving you finer resolution near the resonance.
+        Create a symmetric scan list around a center frequency.
 
-        ex) Create a symmetric list around `center`:
-        [center - x, center - x/2, ..., center, ..., center + x/2, center + x]
-        where x = half_range_kHz, and halving continues until step < min_step_kHz.
+        Starts from the maximum offset `half_range_kHz` and repeatedly multiplies
+        it by a shrink ratio r = (1 - 1/self.shrink_factor), giving finer
+        resolution closer to the center.
 
+        <Example>
+        (if shrink_factor = 3 and half_range_kHz = 1):
+            r = (1-1/3) = 2/3
+            offsets: [1, 2/3, (2/3)^2, (2/3)^3, ...]
+            final list around `center`:
+            [center - 1, center - 2/3, center - (2/3)^2, ..., center,
+             ..., center + (2/3)^2, center + 2/3, center + 1]
         """
+        # safety: shrink_factor must be > 1 to make sense
+        assert self.shrink_factor > 1, "shrink_factor must be > 1"
+
         x = float(half_range_kHz)
         offsets = []
         val = x
+        r = (1 - 1 / self.shrink_factor)
 
         while val >= min_step_kHz:
             offsets.append(val)
-            val /= 2        #todo: make this a variable
+            val = val * r
 
         symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
         values = [center + v * kHz for v in symmetric_offsets]
@@ -555,74 +569,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             delay(200*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
-    def freq_health_check(self, fit_check = False):
-        """
-        health check for |1,0> to |2,0> transition - freq scan
-        :return: True:if passed the health_check, False: if failed the test.
-        """
-
-        self.initialize_hardware()
-        self.reset_datasets()
-
-        if fit_check:
-            print("Original f0 value: ", getattr(self, scan_dict[self.scan_type]["center"]))
-            fit_f0 = self.get_dataset("fit_parameter_f0")
-            setattr(self, scan_dict[self.scan_type]["center"], round(float(fit_f0), -3))
-            print("Fit check with fitted f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
-        else:
-            print("Health Check with original f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
-
-        # todo: make sure this does not interrupt the current dataset when implementing in GVS
-        # override items:
-        for var, val in scan_dict[self.scan_type]["override_items"].items():
-            self.override_ExperimentVariables_dict[var] = getattr(self, val)
-
-        setattr(self, scan_dict[self.scan_type]["scan_variable1_name"], getattr(self, scan_dict[self.scan_type]["center"]))
-
-        if self.which_node == 'bob':
-            self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
-        elif self.which_node == 'alice':
-            self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
-
-        if scan_dict[self.scan_type]["fit_model"] == "resonance_dip":
-            resonance_dip = True        #if False, resonance_peak
-        elif scan_dict[self.scan_type]["fit_model"] == "resonance_peak":
-            resonance_dip = False
-
-        self.initialise = scan_dict[self.scan_type]["initialise"]
-
-        self.experiment_function = lambda: eval(self.experiment_name)(self)
-        self.experiment_function()
-
-
-        #todo: if this happens within some experiment, make sure it does not disturb the current dataset.
-        BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
-        BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
-
-        # print("BothSPCMs_RO1", BothSPCMs_RO1)
-        retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(BothSPCMs_RO1,
-                                                                                                   BothSPCMs_RO2,
-                                                                                                   self.n_measurements,
-                                                                                                   int((len(BothSPCMs_RO1)-1)/(self.n_measurements)),
-                                                                                                   self.single_atom_threshold * self.t_SPCM_first_shot)
-        # print("retention_array", retention_array)
-        # todo: break; if loading_rate too low
-
-        if resonance_dip:
-            fidelity = 1.0 - retention_array[-1]
-        else:
-            fidelity = retention_array[-1]
-
-        #####update
-        self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2), broadcast=True, persist=True)
-
-        if fidelity >= self.target_fidelity:
-            print("Health Check - passed with fidelity: ", fidelity)
-            return True
-        else:
-            return False
-
-
     def health_check_general(self, fit_check = False):
         """
         health check for |1,0> to |2,0> transition - freq scan
@@ -703,6 +649,11 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         if fidelity >= self.target_fidelity:
             print("Health Check - passed with fidelity: ", fidelity)
+
+            #### update health_check dataset with TIME scanse only when it passed the test.
+            if self.scan_type.startswith("Time"):
+                self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2),
+                                 broadcast=True, persist=True)
             return True
         else:
             return False
@@ -729,7 +680,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 "override_ExperimentVariables": "{'dummy_variable': 4}",
                 "enable_fitting": True,
                 "enable_faster_frequency_scan": True,
-                "update_dataset": False,
 
                 # Scan type toggles
                 "Frequency_00_Scan": False,
@@ -750,6 +700,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 "freq_scan_step_size_kHz": 20.0,
 
                 # [Faster Scan] Frequency scan parameters - centered at resonance (kHz)
+                "shrink_factor": 2.5,
                 "freq_scan_half_range_kHz": 150.0,
                 "freq_scan_min_step_size_kHz": 10.0,
 
@@ -887,7 +838,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                     else:
                         print("optimization failed - dataset not updated")
 
-                elif self.scan_type.startswith("Time"): # and self.update_dataset
+                elif self.scan_type.startswith("Time"):
                     ### updating dataset with fitted parameters
                     if self.health_check_general(fit_check=True):
                         print("optimization success - dataset updating to fitted value")
