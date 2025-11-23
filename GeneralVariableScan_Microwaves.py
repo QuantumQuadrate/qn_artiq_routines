@@ -48,18 +48,10 @@ fit_model_dict = {
 }
 
 scan_options = [
-    "Frequency_00_Scan",
-    "Frequency_01_Scan",
-    "Frequency_11_Scan",
-    "Frequency_m10_Scan",
-    "Frequency_m11_Scan",
-    "Time_00_Scan",
-    "Time_01_Scan",
-    "Time_11_Scan",
-    "Time_m10_Scan",
-    "Ramsey_00_Scan",
-    "Ramsey_01_Scan",
-    "Ramsey_11_Scan",
+    "Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan",
+    "Frequency_m10_Scan", "Frequency_m11_Scan",
+    "Time_00_Scan", "Time_01_Scan", "Time_11_Scan", "Time_m10_Scan",
+    "Ramsey_00_Scan", "Ramsey_01_Scan", "Ramsey_11_Scan",
 ]
 
 scan_dict={
@@ -337,12 +329,15 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.base.prepare()
 
         self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
+
         assert type(self.override_ExperimentVariables_dict) == dict, \
             "override_ExperimentVariables should be a python dictionary"
 
         for variable, value in self.override_ExperimentVariables_dict.items():
             assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
                                                     ". Did you mistype it?")
+
+        print(self.override_ExperimentVariables_dict)
 
         ### goes through the booleans and sets the scan type
         self.scan_type = self.get_scan_type()
@@ -354,6 +349,12 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         for variable, value in self.override_ExperimentVariables_dict.items():
             assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
                                                     ". Did you mistype it?")
+
+        # override specific variables. this will apply to the entire scan, so it is outside the loops
+        for variable, value in self.override_ExperimentVariables_dict.items():
+            setattr(self, variable, value)
+
+        print(self.override_ExperimentVariables_dict)
 
         ### setting the scan variable
         self.scan_variable1_name = scan_dict[self.scan_type]["scan_variable1_name"]
@@ -375,11 +376,16 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         ### setting up the scan sequence
         if self.scan_type.startswith('Freq'):
             center = getattr(self, scan_dict[self.scan_type]["center"])
-
+            print("center: ", center)
             if self.enable_faster_frequency_scan:
-                self.scan_sequence1 =self.make_symmetric_list(center=center,
+                # self.scan_sequence1 =self.make_symmetric_list(center=center,
+                #                                           half_range_kHz=self.freq_scan_half_range_kHz,
+                #                                           min_step_kHz=self.freq_scan_min_step_size_kHz)
+
+                self.scan_sequence1 = self.make_scan_list(center=center,
                                                           half_range_kHz=self.freq_scan_half_range_kHz,
-                                                          min_step_kHz=self.freq_scan_min_step_size_kHz)
+                                                          min_step_kHz=self.freq_scan_min_step_size_kHz,
+                                                          mode = "pair")
             else:
                 self.scan_sequence1 = np.arange(center - self.freq_scan_range_left_kHz * kHz,
                                                 center + self.freq_scan_range_right_kHz * kHz,
@@ -471,6 +477,53 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         values = [center + v * kHz for v in symmetric_offsets]
 
         return  np.array(values)
+
+    def make_scan_list(self, center, half_range_kHz, min_step_kHz=10.0, mode="pair"):
+        """
+        Create a geometric scan list around a center frequency.
+
+        Uses a shrink ratio r = (1 - 1/self.shrink_factor), with self.shrink_factor > 1.
+
+        Modes
+        -----
+        mode = "sequential":
+            offsets: [x, x*r, x*r^2, ... >= min_step_kHz]
+            final list (sorted):
+                [-x, -x*r, -x*r^2, ..., 0, ..., x*r^2, x*r, x]
+
+        mode = "pair":
+            offsets in order:
+                [-x, +x, -x*r, +x*r, -x*r^2, +x*r^2, ..., 0]
+        """
+        assert self.shrink_factor > 1, "shrink_factor must be > 1"
+        assert mode in ("sequential", "pair"), f"Unknown mode: {mode}"
+
+        x = float(half_range_kHz)
+        r = (1 - 1 / self.shrink_factor)
+
+        # Build offsets depending on mode
+        if mode == "sequential":
+            offsets = []
+            val = x
+            while val >= min_step_kHz:
+                offsets.append(val)
+                val *= r
+
+            symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
+            values = [center + v * kHz for v in symmetric_offsets]
+
+        elif mode == "pair":
+            offsets = []
+            val = x
+            while val >= min_step_kHz:
+                offsets.append(-val)
+                offsets.append(+val)
+                val *= r
+
+            offsets.append(0.0)
+            values = [center + v * kHz for v in offsets]
+
+        return np.array(values)
 
     def get_scan_type(self):
 
@@ -590,6 +643,10 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 setattr(self, scan_dict[self.scan_type]["pi_pulse"], round(float(fit_pi_pulse), 7))
                 print("Fit check with fitted pi pulse: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
         else:
+            # override specific variables. this will apply to the entire scan, so it is outside the loops
+            for variable, value in self.override_ExperimentVariables_dict.items():
+                setattr(self, variable, value)
+
             if self.scan_type.startswith("Freq"):
                 print("Health Check with original f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
             elif self.scan_type.startswith("Time"):
@@ -718,6 +775,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 new_expid["arguments"][key] = True
                 break  # stop once the first TRUE is found
 
+        ### keeping set override_ExperimentVariables
+        new_expid["arguments"]["override_ExperimentVariables"] = self.override_ExperimentVariables
+
 
         if override_arguments is not None:
             for key, value in override_arguments.items():
@@ -751,9 +811,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)
 
-        # override specific variables. this will apply to the entire scan, so it is outside the loops
-        for variable, value in self.override_ExperimentVariables_dict.items():
-            setattr(self, variable, value)
+        # # override specific variables. this will apply to the entire scan, so it is outside the loops
+        # for variable, value in self.override_ExperimentVariables_dict.items():
+        #     setattr(self, variable, value)
 
         # todo: later just do all health checks no matter what
         if self.scan_type.startswith("Freq") and self.run_health_check_and_optimize:
@@ -775,34 +835,203 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         else:
             ##### Scan sequence - same as GVS. (to be compatibel with original GVS analysis)
-            for variable1_value in self.scan_sequence1:
-                # update the variable. setattr can't be called on the kernel, and this is what
-                # allows us to update an experiment variable without hardcoding it, i.e.
-                # explicitly naming the variable. that is why this run method does not
-                # have a kernel decorator, and we have to re-initialize the hardware each
-                # iteration.
-                setattr(self, self.scan_variable1, variable1_value)
-                logging.info(f"current iteration: {self.scan_variable1_name} = {variable1_value}")
+            scan_with_fixed_sequence = True
+            if scan_with_fixed_sequence:
+                print("scanning with fixed sequence")
+                for variable1_value in self.scan_sequence1:
+                    # update the variable. setattr can't be called on the kernel, and this is what
+                    # allows us to update an experiment variable without hardcoding it, i.e.
+                    # explicitly naming the variable. that is why this run method does not
+                    # have a kernel decorator, and we have to re-initialize the hardware each
+                    # iteration.
+                    setattr(self, self.scan_variable1, variable1_value)
+                    logging.info(f"current iteration: {self.scan_variable1_name} = {variable1_value}")
 
-                for variable2_value in self.scan_sequence2:
+                    for variable2_value in self.scan_sequence2:
+
+                        self.set_dataset("iteration", iteration, broadcast=True)
+
+                        if self.scan_variable2 != None:
+                            setattr(self, self.scan_variable2, variable2_value)
+                            logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
+
+                        self.base.prepare()
+                        self.initialize_hardware()
+                        self.reset_datasets()
+
+                        # the measurement loop.
+                        self.experiment_function()
+
+                        # write and overwrite the file here so we can quit the experiment early without losing data
+                        self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+
+                        iteration += 1
+
+            else:
+                print("scanning with adpative sequence")
+
+                pending_sequence1 = list(self.scan_sequence1)
+                early_results = []
+                n_seed_points = 4
+                did_refine = False
+
+                scanned_points = []  # ← store every scanned variable1 value
+
+                while pending_sequence1:
+                    variable1_value = pending_sequence1.pop(0)
+
+                    # ----- inner scanning loop -----
+                    setattr(self, self.scan_variable1, variable1_value)
+
+                    logging.info(f"current iteration: {self.scan_variable1_name} = {variable1_value}")
 
                     self.set_dataset("iteration", iteration, broadcast=True)
-
-                    if self.scan_variable2 != None:
-                        setattr(self, self.scan_variable2, variable2_value)
-                        logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
 
                     self.base.prepare()
                     self.initialize_hardware()
                     self.reset_datasets()
 
-                    # the measurement loop.
                     self.experiment_function()
-
-                    # write and overwrite the file here so we can quit the experiment early without losing data
-                    self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                    self.write_results({
+                        'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix
+                    })
 
                     iteration += 1
+
+                    # store the scanned variable1_value
+                    scanned_points.append(variable1_value)
+
+                    self.scan_sequence1 = np.array(scanned_points)
+                    self.set_dataset("scan_sequence1", (scanned_points), broadcast=True)
+
+                    # ---- decide if we refine ----
+                    # if (not did_refine) and (len(scanned_points) == n_seed_points):
+                    #     print("in decision loop")
+                    #
+                    #     BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
+                    #     BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+                    #
+                    #     retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(
+                    #         BothSPCMs_RO1, BothSPCMs_RO2,
+                    #         self.n_measurements,
+                    #         int((len(BothSPCMs_RO1) - 1) / (self.n_measurements)),
+                    #         self.single_atom_threshold * self.t_SPCM_first_shot)
+                    #
+                    #     # a = retention_array[0]
+                    #     # b = retention_array[1]
+                    #     # c = retention_array[2]
+                    #     # d = retention_array[3]
+                    #     #
+                    #     # slope_left = a - c
+                    #     # slope_right = b - d
+                    #
+                    #     threshold_low = 0.4
+                    #     threshold_high = 0.4
+                    #
+                    #     ### left skewed case:
+                    #     # if a <= threshold_low and d > threshold_high:
+                    #     #     if slope_left > 0:
+                    #
+                    #     lowest_index = int(np.argmin(retention_array))
+                    #     lowest_value = float(retention_array[lowest_index])
+                    #
+                    #     ## simplest version:
+                    #     ### this is for resonance dip
+                    #     #todoL change the step
+                    #     if lowest_value < threshold_low:
+                    #         print(f"Found lowest value of {lowest_value}")
+                    #         print(f"Changing the center to {scanned_points[lowest_index]}")
+                    #         new_sequence1 = self.make_scan_list(
+                    #             center=scanned_points[lowest_index] - self.freq_scan_min_step_size_kHz * kHz,
+                    #             half_range_kHz=self.freq_scan_half_range_kHz,
+                    #             min_step_kHz=self.freq_scan_step_size_kHz,
+                    #             mode="pair",
+                    #         )
+                    #
+                    #         pending_sequence1 = list(new_sequence1)
+                    #         did_refine = True
+                    #     else:
+                    #         print("proceeding as usual")
+                    if (not did_refine) and (len(scanned_points) == 4):
+                        print("in decision loop")
+
+                        BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
+                        BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+
+                        retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(
+                            BothSPCMs_RO1, BothSPCMs_RO2,
+                            self.n_measurements,
+                            int((len(BothSPCMs_RO1) - 1) / self.n_measurements),
+                            self.single_atom_threshold * self.t_SPCM_first_shot
+                        )
+
+                        # First four points of the INITIAL scan sequence:
+                        # index 0 -> -x, index 1 -> +x, index 2 -> -x/2, index 3 -> +x/2
+                        f0, f1, f2, f3 = self.scan_sequence1[0:4]
+                        R0, R1, R2, R3 = map(float, retention_array[0:4])
+
+                        # slopes:
+                        # left two points: (-x -> -x/2) => indices 0 -> 2
+                        slope_left = R2 - R0
+                        # right two points: (+x/2 -> +x) => indices 3 -> 1
+                        slope_right = R1 - R3
+
+                        lowest_index = int(np.argmin(retention_array[:4]))
+                        lowest_value = float(retention_array[lowest_index])
+
+                        threshold_low = 0.4  # tune this as needed
+                        new_center = None
+
+                        # 2.1 left skewed:
+                        # lowest at -x (index 0) and left slope positive
+                        if lowest_index == 0 and slope_left > 0 and lowest_value < threshold_low:
+                            print("Case 2.1: left-skewed (min at -x, slope_left > 0)")
+                            # example: shift center left by half current span
+                            step = abs(f2 - f0)  # distance between -x and -x/2
+                            new_center = f0 - step  # move further left
+
+                        # 2.2 right skewed:
+                        # lowest at +x (index 1) and right slope negative
+                        elif lowest_index == 1 and slope_right < 0 and lowest_value < threshold_low:
+                            print("Case 2.2: right-skewed (min at +x, slope_right < 0)")
+                            step = abs(f1 - f3)  # distance between +x/2 and +x
+                            new_center = f1 + step  # move further right
+
+                        # 2.3 within range but skewed left:
+                        # lowest at -x/2 (index 2) and slope_left negative
+                        elif lowest_index == 2 and slope_left < 0 and lowest_value < threshold_low:
+                            print("Case 2.3: in range but skewed left (min at -x/2, slope_left < 0)")
+                            # e.g. pick a center between -x and +x/2 leaning left
+                            new_center = (f0 + f2) / 2.0
+
+                        # 2.4 within range but skewed right:
+                        # lowest at +x/2 (index 3) and slope_right positive
+                        elif lowest_index == 3 and slope_right > 0 and lowest_value < threshold_low:
+                            print("Case 2.4: in range but skewed right (min at +x/2, slope_right > 0)")
+                            new_center = (f1 + f3) / 2.0
+
+                        # 2.5 else: ambiguous → probe center (0) or just proceed
+                        else:
+                            print("Case 2.5: ambiguous; proceed or add center(0) point")
+                            # simplest: do nothing special
+                            # if you want to probe 0 explicitly (in same units as f*):
+                            # if 0.0 not in scanned_points and 0.0 not in pending_sequence1:
+                            #     pending_sequence1.insert(0, 0.0)
+
+                        # If we decided on a refined center, build new scan and replace sequence
+                        if new_center is not None:
+                            print(f"Changing center to {new_center}")
+                            new_sequence1 = self.make_scan_list(
+                                center=new_center,
+                                half_range_kHz=self.freq_scan_half_range_kHz,
+                                min_step_kHz=self.freq_scan_step_size_kHz,
+                                mode="pair",
+                            )
+                            pending_sequence1 = list(new_sequence1)
+                            did_refine = True
+
+
+
 
             #### for fitting
             if self.enable_fitting and not self.scan_type.startswith("Ramsey"):
@@ -811,6 +1040,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
                                    self.single_atom_threshold * self.t_SPCM_first_shot)
 
+                print("inside fitting: ", retention_array)
                 t = self.scan_sequence1
                 y = retention_array
 
@@ -850,7 +1080,10 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                     else:
                         print("optimization failed - dataset not updated")
 
+                # write and overwrite the file here so we can quit the experiment early without losing data
+                self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
+                iteration += 1
 
 
         print("****************    General Variable Scan DONE   *****************")

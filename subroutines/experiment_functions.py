@@ -507,6 +507,158 @@ def run_zotino_stabilization(self):
     self.append_to_dataset("zotino_test8_offset_monitor", measurement8)
 
 
+@kernel
+def sampler_test_experiment(self):
+    '''
+    Zotino Stability test Experiment to see if Zotino voltage output drifts.
+
+    * for testing purposes,
+    1) AZ_bottom_volts_MOT
+        zotino_test_1_Zotino_channel:
+        zotino_test_1_Sampler_channel:
+
+    # Defined in BaseExperiment.py
+    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+
+    # Defined in BaseExperiment.py
+    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
+
+    '''
+
+    self.core.reset()
+
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+
+
+    zotino_test1_setpoint = 1.0
+
+    self.append_to_dataset("zotino_test1_setpoint", zotino_test1_setpoint)
+
+    avgs = 50
+
+    self.zotino0.set_dac([zotino_test1_setpoint], [8])
+
+    period = 1*s
+
+    for j in range(60 * self.n_measurements):
+        delay(period)
+
+        self.zotino0.set_dac([zotino_test1_setpoint], [8])
+
+
+        for i in range(avgs):
+            self.sampler0.sample(measurement_buf)
+            measurement1 += measurement_buf[7]
+            delay(0.1 * ms)
+
+            self.sampler2.sample(measurement_buf)
+            measurement2 += measurement_buf[1]
+            delay(0.1*ms)
+
+
+        measurement1 /= avgs
+        measurement2 /= avgs
+
+
+        self.append_to_dataset("zotino_test1_monitor", measurement1)
+        self.append_to_dataset("zotino_test2_monitor", measurement2)
+
+
+
+
+    delay(0.1 * ms)
+
+    # self.zotino0.set_dac([0.0], [12])
+    # self.zotino0.set_dac([0.0], [13])
+    # self.zotino0.set_dac([0.0], [14])
+    # self.zotino0.set_dac([0.0], [15])
+
+@kernel
+def AOM1_test_experiment(self):
+    '''
+    Zotino Stability test Experiment to see if Zotino voltage output drifts.
+
+    * for testing purposes,
+    1) AZ_bottom_volts_MOT
+        zotino_test_1_Zotino_channel:
+        zotino_test_1_Sampler_channel:
+
+    # Defined in BaseExperiment.py
+    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+
+    # Defined in BaseExperiment.py
+    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
+
+    '''
+
+    self.core.reset()
+
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+
+
+    # zotino_test1_setpoint = 1.0
+    #
+    # self.append_to_dataset("zotino_test1_setpoint", zotino_test1_setpoint)
+
+
+
+    avgs = 50
+
+    delay(1*s)
+    # self.zotino0.set_dac([zotino_test1_setpoint], [8])
+    # self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.p_AOM_A1)
+    self.dds_AOM_A1.sw.on()
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    self.dds_cooling_DP.sw.on()  ### turn on cooling
+    delay(0.1 * ms)
+
+    period = 1*s
+
+    for j in range(60 * self.n_measurements):
+        delay(period)
+
+        for i in range(avgs):
+            self.sampler0.sample(measurement_buf)
+            measurement1 += measurement_buf[7]
+            delay(0.1 * ms)
+
+            self.sampler2.sample(measurement_buf)
+            measurement2 += measurement_buf[1]
+            delay(0.1*ms)
+
+
+        measurement1 /= avgs
+        measurement2 /= avgs
+
+
+        self.append_to_dataset("zotino_test1_monitor", measurement1)
+        self.append_to_dataset("zotino_test2_monitor", measurement2)
+
+    self.dds_AOM_A1.sw.off()
+    self.dds_cooling_DP.sw.off()
+
+
+    delay(0.1 * ms)
+
+    # self.zotino0.set_dac([0.0], [12])
+    # self.zotino0.set_dac([0.0], [13])
+    # self.zotino0.set_dac([0.0], [14])
+    # self.zotino0.set_dac([0.0], [15])
+
 
 @kernel
 def run_feedback_and_record_FORT_MM_power(self):
@@ -3658,6 +3810,54 @@ def end_measurement(self):
         # measure_MOT_end(self)
         # delay(1*ms)
         measure_REPUMP(self)
+    else:
+        """
+        used for monitring MOT power
+        MOT_end_monitor1 defined
+
+        This is in end_measurement
+
+        AOM1: Sampler0, 7
+        
+        AOM1 test: Sampler2, 1
+        
+        """
+        ao_s1 = 7
+        ao_s1_test = 1
+
+        # avgs = 50
+        #
+        # self.dds_FORT.sw.off()
+        # self.ttl_repump_switch.on()  # turns the RP AOM off
+        # self.dds_cooling_DP.sw.on()
+        #
+        # delay(0.1 * ms)
+        #
+        # ### MOT1 & MOT2 & MOT5
+        # measurement_buf = np.array([0.0] * 8)
+        # measurement1 = 0.0  # MOT1
+        # measurement2 = 0.0  # MOT1
+        #
+        # self.dds_AOM_A1.sw.on()
+        #
+        # delay(0.1 * ms)
+        #
+        # for i in range(avgs):
+        #     self.sampler0.sample(measurement_buf)
+        #     delay(0.1 * ms)
+        #     measurement1 += measurement_buf[ao_s1]  # MOT1
+        #
+        #     self.sampler2.sample(measurement_buf)
+        #     delay(0.1 * ms)
+        #     measurement1 += measurement_buf[ao_s1_test]  # MOT1 test
+        #
+        #
+        # measurement1 /= avgs
+        # measurement2 /= avgs
+        #
+        # self.append_to_dataset("MOT1_end_monitor", measurement1)
+        # self.append_to_dataset("MOT2_end_monitor", measurement2)
+
     delay(1*ms)
 
     advance = 1
