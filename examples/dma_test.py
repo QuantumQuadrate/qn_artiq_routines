@@ -207,57 +207,57 @@ class DMATest(EnvExperiment):
 
 
 
-# """
-# Experiment 2: Sending two series of ttl pulses in parallel through two channels.
-# """
-#
-# from artiq.experiment import *
-#
-# class DMATest(EnvExperiment):
-#     def build(self):
-#         self.setattr_device("core")
-#         self.setattr_device("core_dma")
-#         self.setattr_device("ttl7")
-#         self.setattr_device("ttl13")
-#
-#     @kernel
-#     def record_pulses_TTL7(self):
-#         with self.core_dma.record("TTL7_pulses"):
-#             for i in range(5):
-#                 self.ttl7.pulse(1 * us)
-#                 delay(1 * us)
-#
-#     @kernel
-#     def record_pulses_TTL13(self):
-#         with self.core_dma.record("TTL13_pulses"):
-#             for i in range(5):
-#                 delay(100 * ns)
-#                 self.ttl13.pulse(1 * us)
-#                 delay(900 * ns)
-#
-#
-#     @rpc(flags={"async"})
-#     def print_async(self, x):
-#         print(x)
-#
-#
-#     @kernel
-#     def run(self):
-#         self.core.reset()
-#
-#         self.record_pulses_TTL7()
-#         self.record_pulses_TTL13()
-#         TTL7_pulse_handle = self.core_dma.get_handle("TTL7_pulses")
-#         TTL13_pulse_handle = self.core_dma.get_handle("TTL13_pulses")
-#
-#         delay(100 * us)
-#         for i in range(2):
-#             delay(10*us)
-#             with parallel:
-#                 self.core_dma.playback_handle(TTL7_pulse_handle)
-#                 self.core_dma.playback_handle(TTL13_pulse_handle)
-#
-#         print("***********  finished DMA test  ***********")
+"""
+Experiment 2: Sending two series of ttl pulses in parallel through two channels.
+"""
+
+from artiq.experiment import *
+
+class DMATest(EnvExperiment):
+    def build(self):
+        self.setattr_device("core")
+        self.setattr_device("core_dma")
+        self.setattr_device("ttl7")
+        self.setattr_device("ttl13")
+
+    @kernel
+    def record_pulses_TTL7(self):
+        with self.core_dma.record("TTL7_pulses"):
+            for i in range(5):
+                self.ttl7.pulse(1 * us)
+                delay(1 * us)
+
+    @kernel
+    def record_pulses_TTL13(self):
+        with self.core_dma.record("TTL13_pulses"):
+            for i in range(5):
+                delay(100 * ns)
+                self.ttl13.pulse(1 * us)
+                delay(900 * ns)
+
+
+    @rpc(flags={"async"})
+    def print_async(self, x):
+        print(x)
+
+
+    @kernel
+    def run(self):
+        self.core.reset()
+
+        self.record_pulses_TTL7()
+        self.record_pulses_TTL13()
+        TTL7_pulse_handle = self.core_dma.get_handle("TTL7_pulses")
+        TTL13_pulse_handle = self.core_dma.get_handle("TTL13_pulses")
+
+        delay(100 * us)
+        for i in range(2):
+            delay(10*us)
+            with parallel:
+                self.core_dma.playback_handle(TTL7_pulse_handle)
+                self.core_dma.playback_handle(TTL13_pulse_handle)
+
+        print("***********  finished DMA test  ***********")
 
 
 
