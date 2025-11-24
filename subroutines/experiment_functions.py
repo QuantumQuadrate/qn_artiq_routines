@@ -6754,9 +6754,9 @@ def microwave_map01_map11_experiment(self):
         delay(10 * us)
 
         if self.t_microwave_11_pulse > 0.0:
-            # self.ttl_microwave_switch.off()
+            self.ttl_microwave_switch.off()
             delay(self.t_microwave_11_pulse)
-            # self.ttl_microwave_switch.on()
+            self.ttl_microwave_switch.on()
 
         delay(5 * us)
         FORT_ramp2_smoothstep(self, direction="up")
