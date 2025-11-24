@@ -3812,7 +3812,7 @@ def end_measurement(self):
         measure_REPUMP(self)
     else:
         """
-        used for monitring MOT power
+        test used for monitring MOT power
         MOT_end_monitor1 defined
 
         This is in end_measurement

@@ -31,7 +31,10 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
-class GeneralVariableScan(EnvExperiment):
+from GeneralVariableScan_Microwaves import scan_dict
+
+
+class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     def build(self):
         """
@@ -40,24 +43,38 @@ class GeneralVariableScan(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        ## health check
+        self.setattr_argument('run_health_check_and_schedule', BooleanValue(default=False), "Health Check")
+        self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
+        self.setattr_argument("health_check_with_n_measurements", NumberValue(100, ndecimals=0, step=1), "Health Check")
+
+        self.setattr_argument('health_check_every_n_ite', BooleanValue(default=False), "Health Check")
+        self.setattr_argument('health_check_every_delta_t_hours', BooleanValue(default=False), "Health Check")
+
+        self.setattr_argument("every_n_ite", NumberValue(10, ndecimals=0, step=1), "Health Check")
+        self.setattr_argument("every_delta_t_hours", NumberValue(0.80, ndecimals=1, step=1), "Health Check")
+
+        #todo: health check microwaves freq scans - multiple - ["","",""] as a list? or boolean?
+
+
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
-        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1))
-        self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'))
+        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Variable Scan")
+        self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'), "General Variable Scan")
         self.setattr_argument("scan_sequence1", StringValue(
-            'np.array([0.000,0.005,0.02,0.05])*ms'))
+            'np.array([0.000,0.005,0.02,0.05])*ms'), "General Variable Scan")
 
         # this variable is optional
-        self.setattr_argument('scan_variable2_name', StringValue(''))
+        self.setattr_argument('scan_variable2_name', StringValue(''), "General Variable Scan")
         self.setattr_argument("scan_sequence2", StringValue(
-            'np.linspace(-2,2,5)*V'))
+            'np.linspace(-2,2,5)*V'), "General Variable Scan")
 
         # allows user to supply a dictionary of values to override. this is useful for when
         # you don't want to constantly go check ExperimentVariables to see if, e.g. blowaway_light_off
         # is False. You can just set it here to guarantee the behavior you want, without changing
         # the value stored in the dataset, so subsequent experiments will be unaffected. This leads
         # to fewer errors overall.
-        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"))
+        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Variable Scan")
 
         experiment_function_names_list = [x for x in dir(exp_functions)
             if ('__' not in x and str(type(getattr(exp_functions,x)))=="<class 'function'>"
@@ -65,7 +82,7 @@ class GeneralVariableScan(EnvExperiment):
 
         # a function that take no arguments that gets imported and run
         self.setattr_argument('experiment_function',
-                              EnumerationValue(experiment_function_names_list))
+                              EnumerationValue(experiment_function_names_list), "General Variable Scan")
 
         # toggles an interleaved control experiment, but what this means or whether
         # it has an effect depends on experiment_function
@@ -258,6 +275,7 @@ class GeneralVariableScan(EnvExperiment):
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)
+        # self.set_dataset("n_measurements", self.n_measurements, persist=True)
 
         # override specific variables. this will apply to the entire scan, so it is outside the loops
         for variable, value in self.override_ExperimentVariables_dict.items():
@@ -295,7 +313,175 @@ class GeneralVariableScan(EnvExperiment):
 
                 iteration += 1
 
+                ## Run Health Check
+                if self.run_health_check_and_schedule:
+                    if self.health_check_every_n_ite and (iteration % self.every_n_ite) == 0:
+                        print(f"running health check after iteration # {iteration-1}")
+
+                        ### run health check
+                        failed_scans = self.health_check_microwave_freqs()
+
+                        if failed_scans:
+                            print("These scans need re-optimisation:", failed_scans)
+                            ### if health check fail, i) schedule optimization
+
+                            ### if health check fail, ii) schedule resuming experiment
+
+                        else:
+                            print("All microwave health checks passed.")
+
+                            ### update everything back to previous setting
+
+
+                            ### Override variables again to avoid conflict
+                            # override specific variables. this will apply to the entire scan, so it is outside the loops
+                            for variable, value in self.override_ExperimentVariables_dict.items():
+                                setattr(self, variable, value)
+
+                            ### resume the current scan
+
+
+
         print("****************    General Variable Scan DONE   *****************")
 
 
+    def health_check_microwave_freqs(self):
 
+        prev_exp_fun = self.experiment_name
+
+
+        scan_options = ["Frequency_00_Scan"]
+        # scan_options = ["Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan"]
+
+        for i, scan_type in enumerate(scan_options):
+
+            print("Health Check - ", scan_type)
+            self.scan_type = scan_type
+
+            self.initialize_hardware()
+            self.reset_datasets()
+
+            # override specific variables. this will apply to the entire scan, so it is outside the loops
+            for variable, value in self.override_ExperimentVariables_dict.items():
+                setattr(self, variable, value)
+
+            print("Health Check with original f0: ", getattr(self, scan_dict[self.scan_type]["center"]))
+
+            # todo: make sure this does not interrupt the current dataset when implementing in GVS
+            # override items:
+            for var, val in scan_dict[self.scan_type]["override_items"].items():
+                self.override_ExperimentVariables_dict[var] = getattr(self, val)
+
+
+            setattr(self, scan_dict[self.scan_type]["scan_variable1_name"],
+                        getattr(self, scan_dict[self.scan_type]["center"]))
+
+
+            ### setting experiment function
+            if self.which_node == 'bob':
+                self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
+            elif self.which_node == 'alice':
+                self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
+
+            ### setting target retention to calculate fidelity
+            if scan_dict[self.scan_type]["fit_model"] in ["resonance_dip", "rabi_flop"]:
+                target_retention_0 = True
+            elif scan_dict[self.scan_type]["fit_model"] in ["resonance_peak", "rabi_flop_reversed"]:
+                target_retention_0 = False
+
+            self.initialise = scan_dict[self.scan_type]["initialise"]
+
+
+            # record_prev_val = self.n_measurements
+            # print(self.n_measurements)
+            # self.n_measurements = self.health_check_with_n_measurements
+            # self.set_dataset("n_measurements", self.health_check_with_n_measurements, persist=True)
+
+            # print(self.n_measurements)
+            print("Running experiment...")
+
+
+            self.experiment_function = lambda: eval(self.experiment_name)(self)
+            self.experiment_function()
+            print("Experiment finished.")
+
+
+            # todo: make sure it does not disturb the current dataset.... - does not affect the actual dataset
+            BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
+            BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+
+            # print("BothSPCMs_RO1", BothSPCMs_RO1)
+            retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(BothSPCMs_RO1,
+                                                                                                       BothSPCMs_RO2,
+                                                                                                       self.n_measurements,
+                                                                                                       int((len(BothSPCMs_RO1) - 1) / (self.n_measurements)),
+                                                                                                       self.single_atom_threshold * self.t_SPCM_first_shot)
+            # print("retention_array", retention_array)
+            # todo: break; if loading_rate too low
+
+            if target_retention_0:
+                fidelity = 1.0 - retention_array[-1]
+            else:
+                fidelity = retention_array[-1]
+
+            #####update
+            self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2),
+                                 broadcast=True, persist=True)
+
+            if fidelity >= self.target_fidelity:
+                print(f"Health Check {scan_type} - passed with fidelity: {fidelity}")
+                # self.n_measurements = record_prev_val
+                # self.set_dataset("n_measurements", record_prev_val, persist=True)
+
+            else:
+                print(f"Health Check {scan_type} - failed with fidelity: {fidelity}")
+                return scan_options[i:]
+
+        ### if passed the test: update everything back to previous setting
+        self.experiment_function = lambda: eval(prev_exp_fun)(self)
+
+        return []
+
+
+
+    def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
+        """
+        Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
+        cutoff1 and cutoff2 (optional) are the atom loading thresholds in units counts.
+        """
+
+        retention_array = np.zeros(iterations)
+        loading_rate_array = np.zeros(iterations)
+        n_atoms_loaded_array = np.zeros(iterations)
+
+        for i in range(iterations):
+            shot1 = photocounts[i * measurements:(i + 1) * measurements]
+            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+
+            atoms_loaded = [x > cutoff for x in shot1]
+            n_atoms_loaded = sum(atoms_loaded)
+            atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
+            retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / sum(atoms_loaded)
+            loading_rate_array[i] = n_atoms_loaded / measurements
+            n_atoms_loaded_array[i] = n_atoms_loaded
+            retention_array[i] = retention_fraction
+        return retention_array, loading_rate_array, n_atoms_loaded_array
+    def get_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
+        """
+        Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
+        cutoff1 and cutoff2 (optional) are the atom loading thresholds in units counts.
+        """
+
+        retention_array = np.zeros(iterations)
+
+        for i in range(iterations):
+            shot1 = photocounts[i * measurements:(i + 1) * measurements]
+            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+
+            atoms_loaded = [x > cutoff for x in shot1]
+            n_atoms_loaded = sum(atoms_loaded)
+            atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
+            retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / sum(atoms_loaded)
+            retention_array[i] = retention_fraction
+
+        return retention_array
