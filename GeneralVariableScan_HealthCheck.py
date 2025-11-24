@@ -31,8 +31,7 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
-from GeneralVariableScan_Microwaves import scan_dict
-
+from GeneralVariableScan_Microwaves import scan_dict, scan_options
 
 class GeneralVariableScan_HealthCheck(EnvExperiment):
 
@@ -46,7 +45,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         ## health check
         self.setattr_argument('run_health_check_and_schedule', BooleanValue(default=False), "Health Check")
         self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
-        self.setattr_argument("health_check_with_n_measurements", NumberValue(100, ndecimals=0, step=1), "Health Check")
+        # self.setattr_argument("health_check_with_n_measurements", NumberValue(100, ndecimals=0, step=1), "Health Check")
 
         self.setattr_argument('health_check_every_n_ite', BooleanValue(default=False), "Health Check")
         self.setattr_argument('health_check_every_delta_t_hours', BooleanValue(default=False), "Health Check")
@@ -55,6 +54,11 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         self.setattr_argument("every_delta_t_hours", NumberValue(0.80, ndecimals=1, step=1), "Health Check")
 
         #todo: health check microwaves freq scans - multiple - ["","",""] as a list? or boolean?
+
+        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwave Scans to be checked")
+        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans to be checked")
+        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwave Scans to be checked")
+        self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Microwave Scans to be checked")
 
 
         # the number of measurements to be made for a certain setting of the
@@ -300,7 +304,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                     setattr(self, self.scan_variable2, variable2_value)
                     logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
 
-                self.initialize_dependent_variables()
+                self.initialize_dependent_variables() ## base.prepare()
                 self.initialize_hardware()
                 self.reset_datasets()
 
@@ -313,6 +317,8 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
                 iteration += 1
 
+                # todo: whatever that is done in healthcheck overwrites data from previous iteration
+                #       needs fix!!!!!!!!!!!!!!
                 ## Run Health Check
                 if self.run_health_check_and_schedule:
                     if self.health_check_every_n_ite and (iteration % self.every_n_ite) == 0:
@@ -323,15 +329,14 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
                         if failed_scans:
                             print("These scans need re-optimisation:", failed_scans)
-                            ### if health check fail, i) schedule optimization
+                            ###todo: if health check fail, i) schedule optimization
 
-                            ### if health check fail, ii) schedule resuming experiment
+                            ###todo: if health check fail, ii) schedule resuming experiment
 
                         else:
                             print("All microwave health checks passed.")
 
-                            ### update everything back to previous setting
-
+                            ### update everything back to previous setting - done inside healthcheck if passed
 
                             ### Override variables again to avoid conflict
                             # override specific variables. this will apply to the entire scan, so it is outside the loops
@@ -349,11 +354,13 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
         prev_exp_fun = self.experiment_name
 
+        # scan_options = ["Frequency_00_Scan"]
+        # # scan_options = ["Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan"]
 
-        scan_options = ["Frequency_00_Scan"]
-        # scan_options = ["Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan"]
+        enabled_scan_options = [name for name in scan_options if getattr(self, name, False)]
+        print("enabled_scan_options ", enabled_scan_options)
 
-        for i, scan_type in enumerate(scan_options):
+        for i, scan_type in enumerate(enabled_scan_options):
 
             print("Health Check - ", scan_type)
             self.scan_type = scan_type
@@ -399,18 +406,22 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
             # print(self.n_measurements)
             print("Running experiment...")
-
+            self.in_health_check = True
+            print("self.in_health_check - before exp ",self.in_health_check)
 
             self.experiment_function = lambda: eval(self.experiment_name)(self)
             self.experiment_function()
             print("Experiment finished.")
 
+            ### update the experiment function back to previous setting
+            self.experiment_name = prev_exp_fun
+            self.experiment_function = lambda: eval(prev_exp_fun)(self)
+
 
             # todo: make sure it does not disturb the current dataset.... - does not affect the actual dataset
-            BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
-            BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+            BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1_in_health_check")
+            BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2_in_health_check")
 
-            # print("BothSPCMs_RO1", BothSPCMs_RO1)
             retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(BothSPCMs_RO1,
                                                                                                        BothSPCMs_RO2,
                                                                                                        self.n_measurements,
@@ -430,15 +441,17 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
             if fidelity >= self.target_fidelity:
                 print(f"Health Check {scan_type} - passed with fidelity: {fidelity}")
-                # self.n_measurements = record_prev_val
-                # self.set_dataset("n_measurements", record_prev_val, persist=True)
 
             else:
                 print(f"Health Check {scan_type} - failed with fidelity: {fidelity}")
-                return scan_options[i:]
 
-        ### if passed the test: update everything back to previous setting
-        self.experiment_function = lambda: eval(prev_exp_fun)(self)
+                return enabled_scan_options[i:]
+
+
+
+        print("self.in_health_check - after exp ", self.in_health_check)
+        self.in_health_check = False
+        print("self.in_health_check - after reset ", self.in_health_check)
 
         return []
 
@@ -466,6 +479,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
             n_atoms_loaded_array[i] = n_atoms_loaded
             retention_array[i] = retention_fraction
         return retention_array, loading_rate_array, n_atoms_loaded_array
+
     def get_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """
         Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
@@ -485,3 +499,14 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
             retention_array[i] = retention_fraction
 
         return retention_array
+
+    # def get_scan_type(self):
+    #     # Collect all scan flags that are True
+    #     enabled = [name for name in scan_options if getattr(self, name, False)]
+    #
+    #     #
+    #     # if len(enabled) == 0:
+    #     #     raise ValueError("No scan type selected. At least one scan flag must be True.")
+    #
+    #     # Exactly one scan type selected
+    #     return enabled

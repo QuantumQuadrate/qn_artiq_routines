@@ -3767,8 +3767,8 @@ def end_measurement(self):
     :param self:
     :return measurement: TInt32, the measurement index
     """
+    in_health_check = self.in_health_check
 
-    ### update the datasets
     self.set_dataset(self.measurements_progress, 100 * self.measurement / self.n_measurements, broadcast=True)
 
     self.append_to_dataset('SPCM0_RO1_current_iteration', self.SPCM0_RO1)
@@ -3887,14 +3887,23 @@ def end_measurement(self):
     if advance:
         self.measurement += 1
         delay(1 * ms)
-        self.append_to_dataset('SPCM0_RO1', self.SPCM0_RO1)
-        self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
-        self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
-        self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
-        self.append_to_dataset('BothSPCMs_RO1', self.BothSPCMs_RO1)
-        self.append_to_dataset('BothSPCMs_RO2', self.BothSPCMs_RO2)
-        self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
-        delay(1 * ms)
+        if not in_health_check:  ## advance and in_health_check are different type so can't be mixed.
+            self.append_to_dataset('SPCM0_RO1', self.SPCM0_RO1)
+            self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
+            self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
+            self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
+            self.append_to_dataset('BothSPCMs_RO1', self.BothSPCMs_RO1)
+            self.append_to_dataset('BothSPCMs_RO2', self.BothSPCMs_RO2)
+            self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
+            delay(1 * ms)
+        else:
+            self.append_to_dataset('SPCM0_RO1_in_health_check', self.SPCM0_RO1)
+            self.append_to_dataset('SPCM1_RO1_in_health_check', self.SPCM1_RO1)
+            self.append_to_dataset('SPCM0_RO2_in_health_check', self.SPCM0_RO2)
+            self.append_to_dataset('SPCM1_RO2_in_health_check', self.SPCM1_RO2)
+            self.append_to_dataset('BothSPCMs_RO1_in_health_check', self.BothSPCMs_RO1)
+            self.append_to_dataset('BothSPCMs_RO2_in_health_check', self.BothSPCMs_RO2)
+
 
 @rpc(flags={"async"})
 def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
