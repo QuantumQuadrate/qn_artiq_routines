@@ -176,8 +176,10 @@ class BaseExperiment:
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
 
             ### ttl12~15
-            self.experiment.ttl_D1_pumping = self.experiment.ttl12
-            self.experiment.FORT_mod_switch = self.experiment.ttl12
+            self.experiment.ttl_D1_pumping = self.experiment.ttl11 ### not used in node 1. Just to avoid error.
+            self.experiment.FORT_mod_switch = self.experiment.ttl11 ### should be on ttl12 when we need this to measure trap freq.
+            self.experiment.ttl_SPCM0_logic = self.experiment.ttl12
+            self.experiment.ttl_SPCM1_logic = self.experiment.ttl15
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
 
@@ -965,6 +967,12 @@ class BaseExperiment:
             self.experiment.ttl_GRIN1_switch.output()
             self.experiment.ttl_GRIN2_switch.on()  ### ensure no excitation or D1 is on at the beginning
             self.experiment.ttl_GRIN1_switch.on()  ### ensure no excitation or D1 is on at the beginning
+
+            self.experiment.ttl_SPCM0_logic.output()
+            self.experiment.ttl_SPCM1_logic.output()
+            delay(100*us)
+            self.experiment.ttl_SPCM0_logic.on()
+            self.experiment.ttl_SPCM1_logic.on()
 
             self.experiment.FORT_mod_switch.output()
 
