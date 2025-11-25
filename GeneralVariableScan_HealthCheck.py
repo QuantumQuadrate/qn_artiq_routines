@@ -1,14 +1,12 @@
 """
-For scanning a defined experiment function over an ExperimentVariable
+GeneralVariableScan_HealthCheck
 
-In many cases, we want the flexibility to be able to scan an experiment over a wide range of parameters--
-in principle, over any of the defined ExperimentVariables. Including all of these as ARTIQ ScanVariables
-in the GUI would be cumbersome for one experiment, not to mention including this for several experiments.
-This code allows the user to scan up in up to 2 dimensions by supplying ExperimentVariables by name,
-corresponding python sequences defining the scan steps, and an experiment function defined in
-utilities/experiment_functions.py. As some of these variables pertain to hardware settings, such as DDS power,
-it is necessary in general to re-initialize hardware at each scan step. We accomplish this by calling
-base.build before each call of the experiment function, i.e., at the start of each scan step.
+This class runs a GVS with chosen experiment function, periodically performs
+single-point microwave health checks, and if a check fails, it automatically schedules a dedicated
+optimization scan followed by a resumed health-check scan that continues the original sequence from
+where it left off, while keeping all necessary ExperimentVariables and overrides consistent across experiments.
+
+Note - cannot change n_measurements just for health_check because it is a non-persistent variable.
 """
 
 
@@ -47,24 +45,22 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         ## health check
         self.setattr_argument('run_health_check_and_schedule', BooleanValue(default=True), "Health Check")
         self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
-        self.setattr_argument('override_arguments_for_optimization', StringValue("{'dummy_variable':4}"),
+        self.setattr_argument('override_arguments_for_scheduling_optimization', StringValue("{'n_measurements':100}"),
                               "Health Check")
         # self.setattr_argument("health_check_with_n_measurements", NumberValue(100, ndecimals=0, step=1), "Health Check")
 
         self.setattr_argument('health_check_every_n_ite', BooleanValue(default=True), "Health Check")
-        self.setattr_argument('health_check_every_delta_t_hours', BooleanValue(default=False), "Health Check")
+        self.setattr_argument('health_check_every_delta_t_hours', BooleanValue(default=False), "Health Check - not yet implemented")
 
         self.setattr_argument("every_n_ite", NumberValue(10, ndecimals=0, step=1), "Health Check")
-        self.setattr_argument("every_delta_t_hours", NumberValue(0.80, ndecimals=1, step=1), "Health Check")
-
+        self.setattr_argument("every_delta_t_hours", NumberValue(0.80, ndecimals=1, step=1), "Health Check - not yet implemented")
 
 
         #todo: health check microwaves freq scans - multiple - ["","",""] as a list? or boolean?
-
-        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwave Scans to be checked")
-        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans to be checked")
-        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwave Scans to be checked")
-        self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Microwave Scans to be checked")
+        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Health Check - Microwave Scans to be checked")
+        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Health Check - Microwave Scans to be checked")
+        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Health Check - Microwave Scans to be checked")
+        self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Health Check - Microwave Scans to be checked")
 
 
         # the number of measurements to be made for a certain setting of the
@@ -163,12 +159,12 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                                                     ". Did you mistype it?")
 
 
-        ### override_arguments_for_optimization for scheduling optimization experiment
-        self.override_arguments_for_optimization_dict = eval(self.override_arguments_for_optimization)
-        assert type(self.override_arguments_for_optimization_dict) == dict, \
-            "override_arguments_for_optimization_dict should be a python dictionary"
+        ### override_arguments_for_scheduling_optimization for scheduling optimization experiment
+        self.override_arguments_for_scheduling_optimization_dict = eval(self.override_arguments_for_scheduling_optimization)
+        assert type(self.override_arguments_for_scheduling_optimization_dict) == dict, \
+            "override_arguments_for_scheduling_optimization_dict should be a python dictionary"
 
-        # for variable, value in self.override_arguments_for_optimization_dict.items():
+        # for variable, value in self.override_arguments_for_scheduling_optimization_dict.items():
         #     assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
         #                                             ". Did you mistype it?")
 
@@ -283,11 +279,21 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     def run(self):
         """
-        Step through the variable values defined by the scan sequences and run the experiment function.
+        Main scan loop with embedded health checks.
 
-        Because the scan variables can be any ExperimentVariable, which includes values used to initialize
-        hardware (e.g. a frequency for a dds channel), the hardware is reinitialized in each step of the
-        variable scan, i.e., each iteration.
+        - Optionally rebuilds/repairs base experiment if datasets may be stale.
+        - Initializes datasets and applies override_ExperimentVariables.
+        - Loops over scan_sequence1 and scan_sequence2:
+            * Sets scan variables.
+            * Re-prepares dependent variables and hardware.
+            * Runs the selected experiment_function.
+            * Writes scan results to file.
+        - Every `every_n_ite` iterations (if enabled), runs a microwave
+          health check:
+            * If all checks pass → resumes scan.
+            * If any checks fail → schedules optimization scan(s) and a
+              "resume" GeneralVariableScan_HealthCheck, then terminates
+              the current run and pauses the scheduler.
         """
 
         if self.needs_fresh_build:
@@ -358,10 +364,10 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                             ###todo: if health check fail, i) schedule optimization
                             for scan_name in failed_scans:
                                 print("Scheduling experiment to optimize: ", scan_name)
-                                override_args = copy.deepcopy(self.override_arguments_for_optimization_dict)
+                                override_args = copy.deepcopy(self.override_arguments_for_scheduling_optimization_dict)
                                 override_args[scan_name] = True
                                 self.submit_optimization_scans(override_arguments = override_args)
-                                self.override_arguments_for_optimization_dict[scan_name] = False
+                                self.override_arguments_for_scheduling_optimization_dict[scan_name] = False
 
                             ###todo: if health check fail, ii) schedule resuming experiment
                             self.submit_resume_scan_after_optimization(current_iteration = iteration-1)
@@ -388,9 +394,27 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
         print("****************    General Variable Scan DONE   *****************")
 
+    ################################### Health Check Functions ########################################
 
     def health_check_microwave_freqs(self):
+        """
+        Run single-point microwave health checks for selected scans.
 
+        - Looks at which Frequency_*_Scan flags are True (in scan_options).
+        - For each enabled scan_type:
+            * Sets up override_ExperimentVariables for that scan.
+            * Chooses the correct experiment_function (alice/bob).
+            * Runs one health-check experiment at the nominal center frequency.
+            * Computes retention using get_loading_and_retention().
+            * Converts retention to a fidelity metric and writes it to a
+              dedicated health-check dataset.
+            * If fidelity < target_fidelity:
+                - returns the remaining enabled scan types (this and later ones)
+                  as `failed_scans`.
+
+        - If all scans pass, returns an empty list.
+
+        """
         prev_exp_fun = self.experiment_name
 
         enabled_scan_options = [name for name in scan_options if getattr(self, name, False)]
@@ -487,12 +511,21 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
         return []
 
-
-
     def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """
-        Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
-        cutoff1 and cutoff2 (optional) are the atom loading thresholds in units counts.
+        Compute loading rate, retention, and number of atoms loaded per iteration.
+
+        - Splits photocounts into (iterations × measurements) blocks.
+        - For each iteration:
+            * Counts how many shots exceed `cutoff` in RO1 (atoms loaded).
+            * Counts how many of those are still above cutoff in RO2
+              (atoms retained).
+            * Computes loading_rate = n_loaded / measurements.
+            * Computes retention = n_retained / n_loaded (or 0 if no atoms).
+        - Returns:
+            * retention_array[iterations]
+            * loading_rate_array[iterations]
+            * n_atoms_loaded_array[iterations]
         """
 
         retention_array = np.zeros(iterations)
@@ -514,8 +547,10 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     def get_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """
-        Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
-        cutoff1 and cutoff2 (optional) are the atom loading thresholds in units counts.
+        Compute only the retention fraction per iteration.
+
+        - Same logic as get_loading_and_retention(), but returns only
+          retention_array[iterations].
         """
 
         retention_array = np.zeros(iterations)
@@ -532,21 +567,20 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
         return retention_array
 
-    # def get_scan_type(self):
-    #     # Collect all scan flags that are True
-    #     enabled = [name for name in scan_options if getattr(self, name, False)]
-    #
-    #     #
-    #     # if len(enabled) == 0:
-    #     #     raise ValueError("No scan type selected. At least one scan flag must be True.")
-    #
-    #     # Exactly one scan type selected
-    #     return enabled
-
     def submit_optimization_scans(self, override_arguments = None):
         """
-            override_arguments should be a dict like:
-                {"enable_fitting": False}
+        Schedule a GeneralVariableScan_Microwaves optimization experiment.
+
+        - Builds a default expid for GeneralVariableScan_Microwaves with:
+            * run_health_check_and_optimize = False
+            * enable_faster_frequency_scan = True
+            * all Frequency_*_Scan flags initially False
+            * default frequency scan parameters.
+        - Replaces override_ExperimentVariables with the current
+          override_ExperimentVariables_dict (stringified).
+        - Applies `override_arguments` (e.g. enabling a specific Frequency_*_Scan,
+          changing n_measurements, etc.), checking keys against default arguments.
+        - Submits the optimization job to the scheduler with priority 99.
         """
         print("submitting optimization experiment...")
         ## 99 is the highest priority that can be set to.
@@ -620,12 +654,22 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
         self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
 
-
     def submit_resume_scan_after_optimization(self, current_iteration, override_arguments = None):  # todo: account for changes
         """
-        priority: 98
-            override_arguments should be a dict like:
-                {"enable_fitting": False}
+        Schedule a follow-up GeneralVariableScan_HealthCheck to resume a scan.
+
+        - Builds a new expid for GeneralVariableScan_HealthCheck with default
+          health-check and scan settings.
+        - Copies relevant arguments from the current experiment via
+          update_default_expid_from_self().
+        - Constructs a new scan_sequence1 starting from `current_iteration`
+          onward, so the resumed job continues where the previous one stopped.
+        - Sets experiment_function to the current experiment_name (string).
+        - Optionally applies additional `override_arguments`.
+        - Serializes current override_ExperimentVariables_dict back into
+          override_ExperimentVariables.
+        - Submits the resumed scan to the scheduler with priority 98, so it
+          runs after the optimization scans.
         """
         print("submitting another experiment that starts from iteration ", current_iteration)
         ## 99 seems to be the highest priority that can be set to.
@@ -639,7 +683,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 'run_health_check_and_schedule': True,
                 'target_fidelity': 0.8,
                 # overrides
-                'override_arguments_for_optimization': "{'enable_fitting': True}",
+                'override_arguments_for_scheduling_optimization': "{'enable_fitting': True}",
                 'health_check_every_n_ite': True,
                 'health_check_every_delta_t_hours': False,
                 'every_n_ite': 2,
@@ -652,7 +696,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 'Frequency_m10_Scan': False,
 
                 # measurement settings
-                'n_measurements': 100,    ##fixed if not specified in override_arguments_for_optimization
+                'n_measurements': 100,    ##fixed if not specified in override_arguments_for_scheduling_optimization
 
                 # scan variables
                 'scan_variable1_name': 'dummy_variable',
@@ -704,8 +748,15 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     def update_default_expid_from_self(self, expid):
         """
-        Update expid['arguments'] from attributes on self.
-        Assumes all keys already exist and are set on self.
+        Populate expid['arguments'] from attributes on this experiment.
+
+        - For each key in expid['arguments']:
+            * If this object (`self`) has an attribute with that name,
+              copy its value into the argument dict.
+        - Returns the modified expid.
+
+        Used to carry over settings (n_measurements, scan flags, etc.) from
+        the current HealthCheck experiment into newly scheduled jobs.
         """
         args = expid['arguments']
         for key in list(args.keys()):
