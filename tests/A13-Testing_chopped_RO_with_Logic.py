@@ -2,6 +2,8 @@
 Testing the chopped RO using the TTL logic gate devices to block the signals externally when the FORT is on. The SPCM gates are open
 the entire time (say 20ms), but their output to the ttl input is blocked by the logic gates when the FORT is ON.
 
+I have not finished this as I got the code with sensitivity working.
+
 Akbar 2025-11-24
 
 """
