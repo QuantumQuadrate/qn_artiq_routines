@@ -33,6 +33,8 @@ from subroutines.aom_feedback import AOMPowerStabilizer
 
 from GeneralVariableScan_Microwaves import scan_dict, scan_options
 
+import copy
+
 class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     def build(self):
@@ -43,15 +45,19 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         self.base.build()
 
         ## health check
-        self.setattr_argument('run_health_check_and_schedule', BooleanValue(default=False), "Health Check")
+        self.setattr_argument('run_health_check_and_schedule', BooleanValue(default=True), "Health Check")
         self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
+        self.setattr_argument('override_arguments_for_optimization', StringValue("{'dummy_variable':4}"),
+                              "Health Check")
         # self.setattr_argument("health_check_with_n_measurements", NumberValue(100, ndecimals=0, step=1), "Health Check")
 
-        self.setattr_argument('health_check_every_n_ite', BooleanValue(default=False), "Health Check")
+        self.setattr_argument('health_check_every_n_ite', BooleanValue(default=True), "Health Check")
         self.setattr_argument('health_check_every_delta_t_hours', BooleanValue(default=False), "Health Check")
 
         self.setattr_argument("every_n_ite", NumberValue(10, ndecimals=0, step=1), "Health Check")
         self.setattr_argument("every_delta_t_hours", NumberValue(0.80, ndecimals=1, step=1), "Health Check")
+
+
 
         #todo: health check microwaves freq scans - multiple - ["","",""] as a list? or boolean?
 
@@ -64,9 +70,9 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         # the number of measurements to be made for a certain setting of the
         # experiment parameters
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Variable Scan")
-        self.setattr_argument('scan_variable1_name', StringValue('t_blowaway'), "General Variable Scan")
+        self.setattr_argument('scan_variable1_name', StringValue('dummy_variable'), "General Variable Scan")
         self.setattr_argument("scan_sequence1", StringValue(
-            'np.array([0.000,0.005,0.02,0.05])*ms'), "General Variable Scan")
+            'np.arange(0,5,1)'), "General Variable Scan")
 
         # this variable is optional
         self.setattr_argument('scan_variable2_name', StringValue(''), "General Variable Scan")
@@ -147,6 +153,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         self.scan_var_labels = ','.join(scan_vars)
         self.scan_var_filesuffix = '_and_'.join(scan_vars)
 
+        ### override_ExperimentVariables_dict for GVS
         self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
         assert type(self.override_ExperimentVariables_dict) == dict, \
             "override_ExperimentVariables should be a python dictionary"
@@ -154,6 +161,17 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         for variable, value in self.override_ExperimentVariables_dict.items():
             assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
                                                     ". Did you mistype it?")
+
+
+        ### override_arguments_for_optimization for scheduling optimization experiment
+        self.override_arguments_for_optimization_dict = eval(self.override_arguments_for_optimization)
+        assert type(self.override_arguments_for_optimization_dict) == dict, \
+            "override_arguments_for_optimization_dict should be a python dictionary"
+
+        # for variable, value in self.override_arguments_for_optimization_dict.items():
+        #     assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
+        #                                             ". Did you mistype it?")
+
 
         try:
             self.experiment_name = self.experiment_function
@@ -178,6 +196,8 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         earlier_experiments = len([rid for rid, _ in status_dict.items() if rid < my_rid])
         logging.info("my rid is", my_rid, ", and there are", earlier_experiments, " experiment(s) that I am waiting on to run")
         self.needs_fresh_build = earlier_experiments > 0
+
+        #print(status_dict)
 
     @kernel
     def initialize_hardware(self):
@@ -308,6 +328,8 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 self.initialize_hardware()
                 self.reset_datasets()
 
+                # print("experiment_function running with n_measurements :", self.n_measurements)
+
                 # the measurement loop.
                 self.experiment_function()
 
@@ -317,24 +339,38 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
                 iteration += 1
 
-                # todo: whatever that is done in healthcheck overwrites data from previous iteration
-                #       needs fix!!!!!!!!!!!!!!
                 ## Run Health Check
                 if self.run_health_check_and_schedule:
                     if self.health_check_every_n_ite and (iteration % self.every_n_ite) == 0:
                         print(f"running health check after iteration # {iteration-1}")
 
+
+                        ####todo:  error if nothing checked;
                         ### run health check
                         failed_scans = self.health_check_microwave_freqs()
+
+                        # write and overwrite the health check results
+                        self.write_results(
+                            {'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                         if failed_scans:
                             print("These scans need re-optimisation:", failed_scans)
                             ###todo: if health check fail, i) schedule optimization
+                            for scan_name in failed_scans:
+                                print("Scheduling experiment to optimize: ", scan_name)
+                                override_args = copy.deepcopy(self.override_arguments_for_optimization_dict)
+                                override_args[scan_name] = True
+                                self.submit_optimization_scans(override_arguments = override_args)
+                                self.override_arguments_for_optimization_dict[scan_name] = False
 
                             ###todo: if health check fail, ii) schedule resuming experiment
+                            self.submit_resume_scan_after_optimization(current_iteration = iteration-1)
+
+                            ### after scheduling scans above, it terminates the current experiment
+                            self.scheduler.request_termination(self.scheduler.rid)
 
                         else:
-                            print("All microwave health checks passed.")
+                            print("All microwave health checks passed. Resuming next scan")
 
                             ### update everything back to previous setting - done inside healthcheck if passed
 
@@ -344,6 +380,9 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                                 setattr(self, variable, value)
 
                             ### resume the current scan
+                        ### terminating the experiment if health_check failed.
+                        self.core.comm.close()  # placing the hardware in a safe state and disconnecting it from the core device
+                        self.scheduler.pause()
 
 
 
@@ -353,9 +392,6 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
     def health_check_microwave_freqs(self):
 
         prev_exp_fun = self.experiment_name
-
-        # scan_options = ["Frequency_00_Scan"]
-        # # scan_options = ["Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan"]
 
         enabled_scan_options = [name for name in scan_options if getattr(self, name, False)]
         print("enabled_scan_options ", enabled_scan_options)
@@ -405,13 +441,13 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
             # self.set_dataset("n_measurements", self.health_check_with_n_measurements, persist=True)
 
             # print(self.n_measurements)
+            # print("self.target_fidelity in health_check within GVShealthcheck", self.target_fidelity)
             print("Running experiment...")
             self.in_health_check = True
-            print("self.in_health_check - before exp ",self.in_health_check)
+            # print("self.in_health_check - before exp ",self.in_health_check)
 
             self.experiment_function = lambda: eval(self.experiment_name)(self)
             self.experiment_function()
-            print("Experiment finished.")
 
             ### update the experiment function back to previous setting
             self.experiment_name = prev_exp_fun
@@ -447,11 +483,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
                 return enabled_scan_options[i:]
 
-
-
-        print("self.in_health_check - after exp ", self.in_health_check)
         self.in_health_check = False
-        print("self.in_health_check - after reset ", self.in_health_check)
 
         return []
 
@@ -510,3 +542,174 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
     #
     #     # Exactly one scan type selected
     #     return enabled
+
+    def submit_optimization_scans(self, override_arguments = None):
+        """
+            override_arguments should be a dict like:
+                {"enable_fitting": False}
+        """
+        print("submitting optimization experiment...")
+        ## 99 is the highest priority that can be set to.
+        ## making a default expid and overwriting it just a few things.
+
+        # todo: make a default expid and overwrite it just a few things.
+        default_expid = {
+            "log_level": 30,
+            "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
+            "class_name": "GeneralVariableScan_Microwaves",
+            "arguments": {
+                "run_health_check_and_optimize": False,
+                "target_fidelity": 0.8,
+                "n_measurements": 100,
+                "override_ExperimentVariables": "{'dummy_variable':4}",
+
+                # scan control
+                "enable_faster_frequency_scan": True,
+                "enable_fitting": True,
+
+                # which scans to run
+                "Frequency_00_Scan": False,
+                "Frequency_01_Scan": False,
+                "Frequency_11_Scan": False,
+                "Frequency_m10_Scan": False,
+                "Time_00_Scan": False,
+                "Time_01_Scan": False,
+                "Time_11_Scan": False,
+                "Time_m10_Scan": False,
+                "Ramsey_00_Scan": False,
+                "Ramsey_01_Scan": False,
+                "Ramsey_11_Scan": False,
+
+                # frequency scan parameters
+                "freq_scan_range_left_kHz": 100.0,
+                "freq_scan_range_right_kHz": 100.0,
+                "freq_scan_step_size_kHz": 10.0,
+                "shrink_factor": 2.5,
+                "freq_scan_half_range_kHz": 100.0,
+                "freq_scan_min_step_size_kHz": 10.0,
+
+                # time scan parameters
+                "time_scan_sequence": "np.arange(0,10,.5)*us",
+            },
+            "repo_rev": "N/A",
+        }
+
+        new_expid = copy.deepcopy(default_expid)
+
+        ### keeping set override_ExperimentVariables
+        # new_expid["arguments"]["override_ExperimentVariables"] = self.override_ExperimentVariables
+
+        override_ExperimentVariables_dict_str = repr(self.override_ExperimentVariables_dict)
+        # print("override_ExperimentVariables_dict_str ", override_ExperimentVariables_dict_str)
+
+        new_expid["arguments"]["override_ExperimentVariables"] = override_ExperimentVariables_dict_str
+        new_expid["arguments"]["target_fidelity"] = self.target_fidelity
+
+        print("override_arguments in sumbmit_optimization_scans: ", override_arguments)
+
+        if override_arguments is not None:
+            for key, value in override_arguments.items():
+                if key in new_expid["arguments"]:
+                    print(f"Overriding {key}: {new_expid['arguments'][key]} to {value}")
+                    new_expid["arguments"][key] = value
+
+                else:
+                    raise KeyError(f"Invalid override key: '{key}'. ")
+
+
+
+        self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
+
+
+    def submit_resume_scan_after_optimization(self, current_iteration, override_arguments = None):  # todo: account for changes
+        """
+        priority: 98
+            override_arguments should be a dict like:
+                {"enable_fitting": False}
+        """
+        print("submitting another experiment that starts from iteration ", current_iteration)
+        ## 99 seems to be the highest priority that can be set to.
+
+        # todo: make a default expid and overwrite it just a few things.
+        default_expid = {
+            'log_level': 30,
+            'file': 'qn_artiq_routines\\GeneralVariableScan_HealthCheck.py',
+            'class_name': 'GeneralVariableScan_HealthCheck',
+            'arguments': {
+                'run_health_check_and_schedule': True,
+                'target_fidelity': 0.8,
+                # overrides
+                'override_arguments_for_optimization': "{'enable_fitting': True}",
+                'health_check_every_n_ite': True,
+                'health_check_every_delta_t_hours': False,
+                'every_n_ite': 2,
+                'every_delta_t_hours': 0.8,
+
+                # scan types
+                'Frequency_00_Scan': False,
+                'Frequency_01_Scan': False,
+                'Frequency_11_Scan': False,
+                'Frequency_m10_Scan': False,
+
+                # measurement settings
+                'n_measurements': 100,    ##fixed if not specified in override_arguments_for_optimization
+
+                # scan variables
+                'scan_variable1_name': 'dummy_variable',
+                'scan_sequence1': 'np.arange(0,3.1,1)',
+                'scan_variable2_name': '',
+                'scan_sequence2': 'np.linspace(-2,2,5)*V',
+
+                # overrides
+                'override_ExperimentVariables': "{'dummy_variable': 4}",
+
+                # experiment selection
+                'experiment_function': 'atom_loading_2_experiment',
+                'control_experiment': False,
+            },
+            'repo_rev': 'N/A'
+        }
+
+        new_expid = copy.deepcopy(default_expid)
+        new_expid = self.update_default_expid_from_self(new_expid)
+
+        ### New scan sequence - starting from the last iteration
+        # todo: start from last iteration???? or something else????
+        new_seq = self.scan_sequence1[current_iteration:]
+        new_scan_sequence1 = f"np.array({new_seq.tolist()})"  # convert to numpy-based string expression
+        # print("new_scan_sequence1: ", new_scan_sequence1)
+
+        # write back to expid arguments
+        new_expid["arguments"]["scan_sequence1"] = new_scan_sequence1
+
+        # experiment function should be in string;
+        new_expid["arguments"]["experiment_function"] = self.experiment_name
+
+        if override_arguments is not None:
+            for key, value in override_arguments.items():
+                if key in new_expid["arguments"]:
+                    print(f"Overriding {key}: {new_expid['arguments'][key]} to {value}")
+                    new_expid["arguments"][key] = value
+
+                else:
+                    raise KeyError(f"Invalid override key: '{key}'. ")
+
+        # print("sumbmit_resume - self.override_ExperimentVariables_dict: ", self.override_ExperimentVariables_dict)
+        override_ExperimentVariables_dict_str = repr(self.override_ExperimentVariables_dict)
+        new_expid["arguments"]["override_ExperimentVariables"] = override_ExperimentVariables_dict_str
+
+        print("sumbmit_resume - override_ExperimentVariables_dict_str: ", override_ExperimentVariables_dict_str)
+
+        self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=98, due_date=None, flush=False)
+
+    def update_default_expid_from_self(self, expid):
+        """
+        Update expid['arguments'] from attributes on self.
+        Assumes all keys already exist and are set on self.
+        """
+        args = expid['arguments']
+        for key in list(args.keys()):
+            if hasattr(self, key):
+                args[key] = getattr(self, key)
+
+        return expid

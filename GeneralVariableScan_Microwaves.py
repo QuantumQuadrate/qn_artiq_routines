@@ -15,7 +15,6 @@ import numpy as np
 from numpy import array  # necessary for some override_ExperimentVariable entries
 
 import copy
-
 import sys, os
 
 cwd = os.getcwd() + "\\"
@@ -337,7 +336,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             assert hasattr(self, variable), (f"There is no ExperimentVariable " + variable +
                                                     ". Did you mistype it?")
 
-        print(self.override_ExperimentVariables_dict)
+        # print(self.override_ExperimentVariables_dict)
 
         ### goes through the booleans and sets the scan type
         self.scan_type = self.get_scan_type()
@@ -354,7 +353,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         for variable, value in self.override_ExperimentVariables_dict.items():
             setattr(self, variable, value)
 
-        print(self.override_ExperimentVariables_dict)
+        # print(self.override_ExperimentVariables_dict)
 
         ### setting the scan variable
         self.scan_variable1_name = scan_dict[self.scan_type]["scan_variable1_name"]
@@ -443,6 +442,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         logging.info("my rid is", my_rid, ", and there are", earlier_experiments, " experiment(s) that I am waiting on to run")
         self.needs_fresh_build = earlier_experiments > 0
+
+        # print(status_dict)
 
 
     def make_symmetric_list(self, center, half_range_kHz, min_step_kHz=10.0):
@@ -770,6 +771,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         new_expid = copy.deepcopy(default_expid)
 
+        ###todo: update_default_expid_from_self - think about what should be updated based on initial;;
+
         for key in scan_options:
             if getattr(self, key, False):
                 new_expid["arguments"][key] = True
@@ -810,6 +813,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)
+        print("self.n_measurements in GVS_Microwaves: ", self.n_measurements)
+        print("self.shrink_factor in GVS_Microwaves: ", self.shrink_factor)
 
         # # override specific variables. this will apply to the entire scan, so it is outside the loops
         # for variable, value in self.override_ExperimentVariables_dict.items():
@@ -821,7 +826,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             if self.health_check_general() == False:
                 print("Initial Health Check - failed with fidelity: ", self.get_dataset(scan_dict[self.scan_type]["health_check_dataset_name"]))
                 print("Scheduling Experiment for Optimization...")
-                self.submit_opt_exp_general(override_arguments = {"freq_scan_half_range_kHz":150.0})
+                self.submit_opt_exp_general()
+                # self.submit_opt_exp_general(override_arguments = {"freq_scan_half_range_kHz":150.0})
 
                 self.scheduler.request_termination(self.scheduler.rid)
 
@@ -835,7 +841,9 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         else:
             ##### Scan sequence - same as GVS. (to be compatibel with original GVS analysis)
-            scan_with_fixed_sequence = True
+            ###todo: adaptive scan - make this visible in gui
+
+            scan_with_fixed_sequence = False    ### if enableadaptive scan
             if scan_with_fixed_sequence:
                 print("scanning with fixed sequence")
                 for variable1_value in self.scan_sequence1:
@@ -904,54 +912,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                     self.scan_sequence1 = np.array(scanned_points)
                     self.set_dataset("scan_sequence1", (scanned_points), broadcast=True)
 
-                    # ---- decide if we refine ----
-                    # if (not did_refine) and (len(scanned_points) == n_seed_points):
-                    #     print("in decision loop")
-                    #
-                    #     BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
-                    #     BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
-                    #
-                    #     retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(
-                    #         BothSPCMs_RO1, BothSPCMs_RO2,
-                    #         self.n_measurements,
-                    #         int((len(BothSPCMs_RO1) - 1) / (self.n_measurements)),
-                    #         self.single_atom_threshold * self.t_SPCM_first_shot)
-                    #
-                    #     # a = retention_array[0]
-                    #     # b = retention_array[1]
-                    #     # c = retention_array[2]
-                    #     # d = retention_array[3]
-                    #     #
-                    #     # slope_left = a - c
-                    #     # slope_right = b - d
-                    #
-                    #     threshold_low = 0.4
-                    #     threshold_high = 0.4
-                    #
-                    #     ### left skewed case:
-                    #     # if a <= threshold_low and d > threshold_high:
-                    #     #     if slope_left > 0:
-                    #
-                    #     lowest_index = int(np.argmin(retention_array))
-                    #     lowest_value = float(retention_array[lowest_index])
-                    #
-                    #     ## simplest version:
-                    #     ### this is for resonance dip
-                    #     #todoL change the step
-                    #     if lowest_value < threshold_low:
-                    #         print(f"Found lowest value of {lowest_value}")
-                    #         print(f"Changing the center to {scanned_points[lowest_index]}")
-                    #         new_sequence1 = self.make_scan_list(
-                    #             center=scanned_points[lowest_index] - self.freq_scan_min_step_size_kHz * kHz,
-                    #             half_range_kHz=self.freq_scan_half_range_kHz,
-                    #             min_step_kHz=self.freq_scan_step_size_kHz,
-                    #             mode="pair",
-                    #         )
-                    #
-                    #         pending_sequence1 = list(new_sequence1)
-                    #         did_refine = True
-                    #     else:
-                    #         print("proceeding as usual")
                     if (not did_refine) and (len(scanned_points) == 4):
                         print("in decision loop")
 
@@ -982,9 +942,13 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                         threshold_low = 0.4  # tune this as needed
                         new_center = None
 
+                        # 2.0 well centered:
+                        if (lowest_index == 2 or lowest_index == 3) and slope_left < 0 and slope_right > 0:
+                            print("Case 2.0: Well centered")
+                            ### do something
                         # 2.1 left skewed:
                         # lowest at -x (index 0) and left slope positive
-                        if lowest_index == 0 and slope_left > 0 and lowest_value < threshold_low:
+                        elif lowest_index == 0 and slope_left > 0 and lowest_value < threshold_low:
                             print("Case 2.1: left-skewed (min at -x, slope_left > 0)")
                             # example: shift center left by half current span
                             step = abs(f2 - f0)  # distance between -x and -x/2
@@ -1040,7 +1004,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
                                    self.single_atom_threshold * self.t_SPCM_first_shot)
 
-                print("inside fitting: ", retention_array)
+                # print("inside fitting: ", retention_array)
                 t = self.scan_sequence1
                 y = retention_array
 
@@ -1131,3 +1095,15 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         return retention_array
 
 
+    def update_default_expid_from_self(self, expid):
+        """
+        Update expid['arguments'] from attributes on self.
+        Assumes all keys already exist and are set on self.
+        """
+        args = expid['arguments']
+        for key in list(args.keys()):
+            if hasattr(self, key):
+                args[key] = getattr(self, key)
+
+
+        return expid
