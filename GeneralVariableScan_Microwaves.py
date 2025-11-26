@@ -377,9 +377,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             center = getattr(self, scan_dict[self.scan_type]["center"])
             print("center: ", center)
             if self.enable_faster_frequency_scan:
-                # self.scan_sequence1 =self.make_symmetric_list(center=center,
-                #                                           half_range_kHz=self.freq_scan_half_range_kHz,
-                #                                           min_step_kHz=self.freq_scan_min_step_size_kHz)
 
                 self.scan_sequence1 = self.make_scan_list(center=center,
                                                           half_range_kHz=self.freq_scan_half_range_kHz,
@@ -444,103 +441,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         self.needs_fresh_build = earlier_experiments > 0
 
         # print(status_dict)
-
-
-    def make_symmetric_list(self, center, half_range_kHz, min_step_kHz=10.0):
-        """
-        Create a symmetric scan list around a center frequency.
-
-        Starts from the maximum offset `half_range_kHz` and repeatedly multiplies
-        it by a shrink ratio r = (1 - 1/self.shrink_factor), giving finer
-        resolution closer to the center.
-
-        <Example>
-        (if shrink_factor = 3 and half_range_kHz = 1):
-            r = (1-1/3) = 2/3
-            offsets: [1, 2/3, (2/3)^2, (2/3)^3, ...]
-            final list around `center`:
-            [center - 1, center - 2/3, center - (2/3)^2, ..., center,
-             ..., center + (2/3)^2, center + 2/3, center + 1]
-        """
-        # safety: shrink_factor must be > 1 to make sense
-        assert self.shrink_factor > 1, "shrink_factor must be > 1"
-
-        x = float(half_range_kHz)
-        offsets = []
-        val = x
-        r = (1 - 1 / self.shrink_factor)
-
-        while val >= min_step_kHz:
-            offsets.append(val)
-            val = val * r
-
-        symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
-        values = [center + v * kHz for v in symmetric_offsets]
-
-        return  np.array(values)
-
-    def make_scan_list(self, center, half_range_kHz, min_step_kHz=10.0, mode="pair"):
-        """
-        Create a geometric scan list around a center frequency.
-
-        Uses a shrink ratio r = (1 - 1/self.shrink_factor), with self.shrink_factor > 1.
-
-        Modes
-        -----
-        mode = "sequential":
-            offsets: [x, x*r, x*r^2, ... >= min_step_kHz]
-            final list (sorted):
-                [-x, -x*r, -x*r^2, ..., 0, ..., x*r^2, x*r, x]
-
-        mode = "pair":
-            offsets in order:
-                [-x, +x, -x*r, +x*r, -x*r^2, +x*r^2, ..., 0]
-        """
-        assert self.shrink_factor > 1, "shrink_factor must be > 1"
-        assert mode in ("sequential", "pair"), f"Unknown mode: {mode}"
-
-        x = float(half_range_kHz)
-        r = (1 - 1 / self.shrink_factor)
-
-        # Build offsets depending on mode
-        if mode == "sequential":
-            offsets = []
-            val = x
-            while val >= min_step_kHz:
-                offsets.append(val)
-                val *= r
-
-            symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
-            values = [center + v * kHz for v in symmetric_offsets]
-
-        elif mode == "pair":
-            offsets = []
-            val = x
-            while val >= min_step_kHz:
-                offsets.append(-val)
-                offsets.append(+val)
-                val *= r
-
-            offsets.append(0.0)
-            values = [center + v * kHz for v in offsets]
-
-        return np.array(values)
-
-    def get_scan_type(self):
-
-        # Collect all scan flags that are True
-        enabled = [name for name in scan_options if getattr(self, name, False)]
-
-        if len(enabled) == 0:
-            raise ValueError("No scan type selected. At least one scan flag must be True.")
-
-        if len(enabled) > 1:
-            raise ValueError(
-                f"Multiple scan types selected ({enabled}). Only one can be True."
-            )
-
-        # Exactly one scan type selected
-        return enabled[0]
 
     @kernel
     def initialize_hardware(self):
@@ -623,178 +523,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             delay(200*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
-    def health_check_general(self, fit_check = False):
-        """
-        health check for |1,0> to |2,0> transition - freq scan
-        :return: True:if passed the health_check, False: if failed the test.
-        """
-
-        self.initialize_hardware()
-        self.reset_datasets()
-
-        if fit_check:
-            if self.scan_type.startswith("Freq"):
-                print("Original f0 value: ", getattr(self, scan_dict[self.scan_type]["center"]))
-                fit_f0 = self.get_dataset("fit_parameter_f0")
-                setattr(self, scan_dict[self.scan_type]["center"], round(float(fit_f0), -3))
-                print("Fit check with fitted f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
-            elif self.scan_type.startswith("Time"):
-                print("Original t_microwave_00_pulse value: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
-                fit_pi_pulse = self.get_dataset("fit_parameter_t_pi")
-                setattr(self, scan_dict[self.scan_type]["pi_pulse"], round(float(fit_pi_pulse), 7))
-                print("Fit check with fitted pi pulse: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
-        else:
-            # override specific variables. this will apply to the entire scan, so it is outside the loops
-            for variable, value in self.override_ExperimentVariables_dict.items():
-                setattr(self, variable, value)
-
-            if self.scan_type.startswith("Freq"):
-                print("Health Check with original f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
-            elif self.scan_type.startswith("Time"):
-                print("Health Check with original pi pulse: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
-
-
-        # todo: make sure this does not interrupt the current dataset when implementing in GVS
-        # override items:
-        for var, val in scan_dict[self.scan_type]["override_items"].items():
-            self.override_ExperimentVariables_dict[var] = getattr(self, val)
-
-        if self.scan_type.startswith("Freq"):
-            setattr(self, scan_dict[self.scan_type]["scan_variable1_name"], getattr(self, scan_dict[self.scan_type]["center"]))
-        elif self.scan_type.startswith("Time"):
-            setattr(self, scan_dict[self.scan_type]["scan_variable1_name"], getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
-
-        ### setting experiment function
-        if self.which_node == 'bob':
-            self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
-        elif self.which_node == 'alice':
-            self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
-
-        ### setting target retention to calculate fidelity
-        if scan_dict[self.scan_type]["fit_model"] in ["resonance_dip", "rabi_flop"]:
-            target_retention_0 = True
-        elif scan_dict[self.scan_type]["fit_model"] in ["resonance_peak", "rabi_flop_reversed"]:
-            target_retention_0 = False
-
-        self.initialise = scan_dict[self.scan_type]["initialise"]
-
-        self.experiment_function = lambda: eval(self.experiment_name)(self)
-        self.experiment_function()
-
-
-        #todo: if this happens within some experiment, make sure it does not disturb the current dataset.
-        BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
-        BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
-
-        # print("BothSPCMs_RO1", BothSPCMs_RO1)
-        retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(BothSPCMs_RO1,
-                                                                                                   BothSPCMs_RO2,
-                                                                                                   self.n_measurements,
-                                                                                                   int((len(BothSPCMs_RO1)-1)/(self.n_measurements)),
-                                                                                                   self.single_atom_threshold * self.t_SPCM_first_shot)
-        # print("retention_array", retention_array)
-        # todo: break; if loading_rate too low
-
-        if target_retention_0:
-            fidelity = 1.0 - retention_array[-1]
-        else:
-            fidelity = retention_array[-1]
-
-        #####update
-        ##### update health_check_dataset only with FREQ scans;
-        if self.scan_type.startswith("Freq"):
-            self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2), broadcast=True, persist=True)
-
-        if fidelity >= self.target_fidelity:
-            print("Health Check - passed with fidelity: ", fidelity)
-
-            #### update health_check dataset with TIME scanse only when it passed the test.
-            if self.scan_type.startswith("Time"):
-                self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2),
-                                 broadcast=True, persist=True)
-            return True
-        else:
-            return False
-
-
-    def submit_opt_exp_general(self, override_arguments = None):  # todo: account for changes
-        """
-            override_arguments should be a dict like:
-                {"enable_fitting": False}
-        """
-        print("submitting another experiment")
-        ## 99 seems to be the highest priority that can be set to.
-
-        # todo: make a default expid and overwrite it just a few things.
-        default_expid = {
-            "log_level": 30, #todo: check which level this is - debug? info? or else?
-            "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
-            "class_name": "GeneralVariableScan_Microwaves",
-            "arguments": {
-                "run_health_check_and_optimize": False,
-                "target_fidelity": 0.80,
-
-                "n_measurements": self.n_measurements,
-                "override_ExperimentVariables": "{'dummy_variable': 4}",
-                "enable_fitting": True,
-                "enable_faster_frequency_scan": True,
-
-                # Scan type toggles
-                "Frequency_00_Scan": False,
-                "Frequency_01_Scan": False,
-                "Frequency_11_Scan": False,
-                "Frequency_m10_Scan": False,
-                "Time_00_Scan": False,
-                "Time_01_Scan": False,
-                "Time_11_Scan": False,
-                "Time_m10_Scan": False,
-                "Ramsey_00_Scan": False,
-                "Ramsey_01_Scan": False,
-                "Ramsey_11_Scan": False,
-
-                # [Full Scan] Frequency scan parameters (kHz)
-                "freq_scan_range_left_kHz": 100.0,
-                "freq_scan_range_right_kHz": 101.0,
-                "freq_scan_step_size_kHz": 20.0,
-
-                # [Faster Scan] Frequency scan parameters - centered at resonance (kHz)
-                "shrink_factor": 2.5,
-                "freq_scan_half_range_kHz": 150.0,
-                "freq_scan_min_step_size_kHz": 10.0,
-
-                # # Time scan parameters
-                "time_scan_sequence": 'np.arange(0,10,1)*us'
-
-            },
-            "repo_rev": "N/A",
-        }
-
-        new_expid = copy.deepcopy(default_expid)
-
-        ###todo: update_default_expid_from_self - think about what should be updated based on initial;;
-
-        for key in scan_options:
-            if getattr(self, key, False):
-                new_expid["arguments"][key] = True
-                break  # stop once the first TRUE is found
-
-        ### keeping set override_ExperimentVariables
-        new_expid["arguments"]["override_ExperimentVariables"] = self.override_ExperimentVariables
-
-
-        if override_arguments is not None:
-            for key, value in override_arguments.items():
-                if key in new_expid["arguments"]:
-                    print(f"Overriding {key}: {new_expid['arguments'][key]} to {value}")
-                    new_expid["arguments"][key] = value
-
-                else:
-                    raise KeyError(f"Invalid override key: '{key}'. ")
-
-
-
-        self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
-
     def run(self):
         """
         Step through the variable values defined by the scan sequences and run the experiment function.
@@ -843,7 +571,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             ##### Scan sequence - same as GVS. (to be compatibel with original GVS analysis)
             ###todo: adaptive scan - make this visible in gui
 
-            scan_with_fixed_sequence = False    ### if enableadaptive scan
+            scan_with_fixed_sequence = False    ### adaptive scan enabled if False
             if scan_with_fixed_sequence:
                 print("scanning with fixed sequence")
                 for variable1_value in self.scan_sequence1:
@@ -951,28 +679,51 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                         elif lowest_index == 0 and slope_left > 0 and lowest_value < threshold_low:
                             print("Case 2.1: left-skewed (min at -x, slope_left > 0)")
                             # example: shift center left by half current span
-                            step = abs(f2 - f0)  # distance between -x and -x/2
-                            new_center = f0 - step  # move further left
+                            if lowest_value < 0.2:
+                                new_center = f0 - self.freq_scan_min_step_size_kHz
+                            elif lowest_value < 0.4:
+                                step = abs(f2 - f0)  # distance between -x and -x/2
+                                new_center = f0 - step  # move further left
+                            else:
+                                step = 2 * abs(f2 - f0)  # twice distance between -x and -x/2
+                                new_center = f0 - step  # move further left
 
                         # 2.2 right skewed:
                         # lowest at +x (index 1) and right slope negative
                         elif lowest_index == 1 and slope_right < 0 and lowest_value < threshold_low:
                             print("Case 2.2: right-skewed (min at +x, slope_right < 0)")
-                            step = abs(f1 - f3)  # distance between +x/2 and +x
-                            new_center = f1 + step  # move further right
+                            if lowest_value < 0.2:
+                                new_center = f1 + self.freq_scan_min_step_size_kHz
+                            elif lowest_value < 0.4:
+                                step = abs(f1 - f3)  # distance between +x/2 and +x
+                                new_center = f1 + step  # move further right
+                            else:
+                                step = 2 * abs(f2 - f0)  # twice distance between -x and -x/2
+                                new_center = f0 - step  # move further left
 
+                        ##todo: case2.3 and 2.4 cases are mostly captured in 2.0 case. However, sometimes,
+                        ## due to noise/uncertainty or due to sideband peak or etc slope condiction might not
+                        ## satisfy case2.0; these lines are to prevent that
                         # 2.3 within range but skewed left:
                         # lowest at -x/2 (index 2) and slope_left negative
                         elif lowest_index == 2 and slope_left < 0 and lowest_value < threshold_low:
                             print("Case 2.3: in range but skewed left (min at -x/2, slope_left < 0)")
                             # e.g. pick a center between -x and +x/2 leaning left
-                            new_center = (f0 + f2) / 2.0
+                            if lowest_value < 0.2:
+                                new_center = f2 + self.freq_scan_min_step_size_kHz
+                            else:
+                                step = abs((f2 - f0)/2)
+                                new_center = f2 + step
 
                         # 2.4 within range but skewed right:
                         # lowest at +x/2 (index 3) and slope_right positive
                         elif lowest_index == 3 and slope_right > 0 and lowest_value < threshold_low:
                             print("Case 2.4: in range but skewed right (min at +x/2, slope_right > 0)")
-                            new_center = (f1 + f3) / 2.0
+                            if lowest_value < 0.2:
+                                new_center = f3 - self.freq_scan_min_step_size_kHz
+                            else:
+                                step = abs((f1 - f3)/2)
+                                new_center = f3 - step
 
                         # 2.5 else: ambiguous → probe center (0) or just proceed
                         else:
@@ -1052,6 +803,316 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         print("****************    General Variable Scan DONE   *****************")
 
+    ################################### Health Check Functions ########################################
+
+    def health_check_general(self, fit_check = False):
+        """
+        health check for |1,0> to |2,0> transition - freq scan
+        :return: True:if passed the health_check, False: if failed the test.
+        """
+
+        self.initialize_hardware()
+        self.reset_datasets()
+
+        if fit_check:
+            if self.scan_type.startswith("Freq"):
+                print("Original f0 value: ", getattr(self, scan_dict[self.scan_type]["center"]))
+                fit_f0 = self.get_dataset("fit_parameter_f0")
+                setattr(self, scan_dict[self.scan_type]["center"], round(float(fit_f0), -3))
+                print("Fit check with fitted f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
+            elif self.scan_type.startswith("Time"):
+                print("Original t_microwave_00_pulse value: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
+                fit_pi_pulse = self.get_dataset("fit_parameter_t_pi")
+                setattr(self, scan_dict[self.scan_type]["pi_pulse"], round(float(fit_pi_pulse), 7))
+                print("Fit check with fitted pi pulse: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
+        else:
+            # override specific variables. this will apply to the entire scan, so it is outside the loops
+            for variable, value in self.override_ExperimentVariables_dict.items():
+                setattr(self, variable, value)
+
+            if self.scan_type.startswith("Freq"):
+                print("Health Check with original f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
+            elif self.scan_type.startswith("Time"):
+                print("Health Check with original pi pulse: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
+
+
+        # todo: make sure this does not interrupt the current dataset when implementing in GVS
+        # override items:
+        for var, val in scan_dict[self.scan_type]["override_items"].items():
+            self.override_ExperimentVariables_dict[var] = getattr(self, val)
+
+        if self.scan_type.startswith("Freq"):
+            setattr(self, scan_dict[self.scan_type]["scan_variable1_name"], getattr(self, scan_dict[self.scan_type]["center"]))
+        elif self.scan_type.startswith("Time"):
+            setattr(self, scan_dict[self.scan_type]["scan_variable1_name"], getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
+
+        ### setting experiment function
+        if self.which_node == 'bob':
+            self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
+        elif self.which_node == 'alice':
+            self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
+
+        ### setting target retention to calculate fidelity
+        if scan_dict[self.scan_type]["fit_model"] in ["resonance_dip", "rabi_flop"]:
+            target_retention_0 = True
+        elif scan_dict[self.scan_type]["fit_model"] in ["resonance_peak", "rabi_flop_reversed"]:
+            target_retention_0 = False
+
+        self.initialise = scan_dict[self.scan_type]["initialise"]
+
+        self.experiment_function = lambda: eval(self.experiment_name)(self)
+        self.experiment_function()
+
+
+        #todo: if this happens within some experiment, make sure it does not disturb the current dataset.
+        BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
+        BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+
+        # print("BothSPCMs_RO1", BothSPCMs_RO1)
+        retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(BothSPCMs_RO1,
+                                                                                                   BothSPCMs_RO2,
+                                                                                                   self.n_measurements,
+                                                                                                   int((len(BothSPCMs_RO1)-1)/(self.n_measurements)),
+                                                                                                   self.single_atom_threshold * self.t_SPCM_first_shot)
+        # print("retention_array", retention_array)
+        # todo: break; if loading_rate too low
+
+        if target_retention_0:
+            fidelity = 1.0 - retention_array[-1]
+        else:
+            fidelity = retention_array[-1]
+
+        #####update
+        ##### update health_check_dataset only with FREQ scans;
+        if self.scan_type.startswith("Freq"):
+            self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2), broadcast=True, persist=True)
+
+        if fidelity >= self.target_fidelity:
+            print("Health Check - passed with fidelity: ", fidelity)
+
+            #### update health_check dataset with TIME scanse only when it passed the test.
+            if self.scan_type.startswith("Time"):
+                self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2),
+                                 broadcast=True, persist=True)
+            return True
+        else:
+            return False
+
+    def submit_opt_exp_general(self, override_arguments = None):  # todo: account for changes
+        """
+            override_arguments should be a dict like:
+                {"enable_fitting": False}
+        """
+        print("submitting another experiment")
+        ## 99 seems to be the highest priority that can be set to.
+
+        # todo: make a default expid and overwrite it just a few things.
+        default_expid = {
+            "log_level": 30, #todo: check which level this is - debug? info? or else?
+            "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
+            "class_name": "GeneralVariableScan_Microwaves",
+            "arguments": {
+                "run_health_check_and_optimize": False,
+                "target_fidelity": 0.80,
+
+                "n_measurements": self.n_measurements,
+                "override_ExperimentVariables": "{'dummy_variable': 4}",
+                "enable_fitting": True,
+                "enable_faster_frequency_scan": True,
+
+                # Scan type toggles
+                "Frequency_00_Scan": False,
+                "Frequency_01_Scan": False,
+                "Frequency_11_Scan": False,
+                "Frequency_m10_Scan": False,
+                "Time_00_Scan": False,
+                "Time_01_Scan": False,
+                "Time_11_Scan": False,
+                "Time_m10_Scan": False,
+                "Ramsey_00_Scan": False,
+                "Ramsey_01_Scan": False,
+                "Ramsey_11_Scan": False,
+
+                # [Full Scan] Frequency scan parameters (kHz)
+                "freq_scan_range_left_kHz": 100.0,
+                "freq_scan_range_right_kHz": 101.0,
+                "freq_scan_step_size_kHz": 20.0,
+
+                # [Faster Scan] Frequency scan parameters - centered at resonance (kHz)
+                "shrink_factor": 2.5,
+                "freq_scan_half_range_kHz": 150.0,
+                "freq_scan_min_step_size_kHz": 10.0,
+
+                # # Time scan parameters
+                "time_scan_sequence": 'np.arange(0,10,1)*us'
+
+            },
+            "repo_rev": "N/A",
+        }
+
+        new_expid = copy.deepcopy(default_expid)
+
+        ###todo: update_default_expid_from_self - think about what should be updated based on initial;;
+
+        for key in scan_options:
+            if getattr(self, key, False):
+                new_expid["arguments"][key] = True
+                break  # stop once the first TRUE is found
+
+        ### keeping set override_ExperimentVariables
+        new_expid["arguments"]["override_ExperimentVariables"] = self.override_ExperimentVariables
+
+
+        if override_arguments is not None:
+            for key, value in override_arguments.items():
+                if key in new_expid["arguments"]:
+                    print(f"Overriding {key}: {new_expid['arguments'][key]} to {value}")
+                    new_expid["arguments"][key] = value
+
+                else:
+                    raise KeyError(f"Invalid override key: '{key}'. ")
+
+
+
+        self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
+
+    def make_symmetric_list(self, center, half_range_kHz, min_step_kHz=10.0):
+        """
+        Create a symmetric scan list around a center frequency.
+
+        Starts from the maximum offset `half_range_kHz` and repeatedly multiplies
+        it by a shrink ratio r = (1 - 1/self.shrink_factor), giving finer
+        resolution closer to the center.
+
+        <Example>
+        (if shrink_factor = 3 and half_range_kHz = 1):
+            r = (1-1/3) = 2/3
+            offsets: [1, 2/3, (2/3)^2, (2/3)^3, ...]
+            final list around `center`:
+            [center - 1, center - 2/3, center - (2/3)^2, ..., center,
+             ..., center + (2/3)^2, center + 2/3, center + 1]
+        """
+        # safety: shrink_factor must be > 1 to make sense
+        assert self.shrink_factor > 1, "shrink_factor must be > 1"
+
+        x = float(half_range_kHz)
+        offsets = []
+        val = x
+        r = (1 - 1 / self.shrink_factor)
+
+        while val >= min_step_kHz:
+            offsets.append(val)
+            val = val * r
+
+        symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
+        values = [center + v * kHz for v in symmetric_offsets]
+
+        return  np.array(values)
+
+    def make_scan_list(self, center, half_range_kHz, min_step_kHz=10.0, method="center_geometric", mode="pair"):
+        """
+        Create a geometric scan list around a center frequency.
+
+        Uses a shrink ratio r = (1 - 1/self.shrink_factor), with self.shrink_factor > 1.
+
+        Modes
+        -----
+        mode = "sequential":
+            offsets: [x, x*r, x*r^2, ... >= min_step_kHz]
+            final list (sorted):
+                [-x, -x*r, -x*r^2, ..., 0, ..., x*r^2, x*r, x]
+
+        mode = "pair":
+            offsets in order:
+                [-x, +x, -x*r, +x*r, -x*r^2, +x*r^2, ..., 0]
+        """
+        assert self.shrink_factor > 1, "shrink_factor must be > 1"
+        assert mode in ("sequential", "pair"), f"Unknown mode: {mode}"
+
+        x = float(half_range_kHz)
+        r = (1 - 1 / self.shrink_factor)
+
+        if method == "center_geometric":
+            # Build offsets depending on mode
+            if mode == "sequential":
+                offsets = []
+                val = x
+                while val >= min_step_kHz:
+                    offsets.append(val)
+                    val *= r
+
+                symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
+                values = [center + v * kHz for v in symmetric_offsets]
+
+            elif mode == "pair":
+                offsets = []
+                val = x
+                while val >= min_step_kHz:
+                    offsets.append(-val)
+                    offsets.append(+val)
+                    val *= r
+
+                offsets.append(0.0)
+                values = [center + v * kHz for v in offsets]
+
+        elif method == "quarter_geometric":
+            ### quarter span (in kHz) – clusters will be centered at ±quarter
+            quarter = x / 2.0
+
+            # Local "center_geometric" grid around 0 in [-quarter, +quarter]
+            local_pos = []
+            val_local = quarter
+            while val_local >= min_step_kHz:
+                local_pos.append(val_local)
+                val_local *= r
+
+            local_offsets = sorted([-v for v in local_pos] + [0.0] + local_pos)
+
+            if mode == "sequential":
+                raw_offsets = []
+
+                # Left cluster: centered at -quarter
+                for o in local_offsets:
+                    raw_offsets.append(-quarter + o)
+
+                # Right cluster: centered at +quarter
+                for o in local_offsets:
+                    raw_offsets.append(+quarter + o)
+
+                # Always include global center
+                raw_offsets.append(0.0)
+
+                # Clip and deduplicate
+                offsets = sorted({o for o in raw_offsets if -x <= o <= x})
+                values = [center + v * kHz for v in offsets]
+
+            elif mode == "pair":
+                raw_offsets = []
+                raw_offsets.append(-quarter)
+                raw_offsets.append(+quarter)
+
+                for o in local_offsets:
+                    if o == 0.0:
+                        continue
+                    candidates = [
+                        -quarter + o,
+                        -quarter - o,
+                        +quarter + o,
+                        +quarter - o,
+                    ]
+                    for c in candidates:
+                        if -x <= c <= x:
+                            raw_offsets.append(c)
+
+                if 0.0 not in raw_offsets:
+                    raw_offsets.append(0.0)
+
+                offsets = raw_offsets
+                values = [center + v * kHz for v in offsets]
+
+
+        return np.array(values)
+
     def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """
         Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
@@ -1094,6 +1155,21 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         return retention_array
 
+    def get_scan_type(self):
+
+        # Collect all scan flags that are True
+        enabled = [name for name in scan_options if getattr(self, name, False)]
+
+        if len(enabled) == 0:
+            raise ValueError("No scan type selected. At least one scan flag must be True.")
+
+        if len(enabled) > 1:
+            raise ValueError(
+                f"Multiple scan types selected ({enabled}). Only one can be True."
+            )
+
+        # Exactly one scan type selected
+        return enabled[0]
 
     def update_default_expid_from_self(self, expid):
         """
