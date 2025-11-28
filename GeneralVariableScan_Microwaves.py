@@ -607,8 +607,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 print("scanning with adpative sequence")
 
                 pending_sequence1 = list(self.scan_sequence1)
-                early_results = []
-                n_seed_points = 4
                 did_refine = False
 
                 scanned_points = []  # ← store every scanned variable1 value
@@ -653,6 +651,14 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                             self.single_atom_threshold * self.t_SPCM_first_shot
                         )
 
+                        fit_model = scan_dict[self.scan_type]["fit_model"]
+                        ### setting target retention to calculate fidelity
+                        if fit_model in ["resonance_dip", "rabi_flop"]:
+                            pass
+                        elif fit_model in ["resonance_peak", "rabi_flop_reversed"]:
+                            retention_array = 1.0 - retention_array
+
+
                         # First four points of the INITIAL scan sequence:
                         # index 0 -> -x, index 1 -> +x, index 2 -> -x/2, index 3 -> +x/2
                         f0, f1, f2, f3 = self.scan_sequence1[0:4]
@@ -667,7 +673,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                         lowest_index = int(np.argmin(retention_array[:4]))
                         lowest_value = float(retention_array[lowest_index])
 
-                        threshold_low = 0.4  # tune this as needed
+                        threshold_low = 0.7 # tune this as needed
                         new_center = None
 
                         # 2.0 well centered:
@@ -677,7 +683,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                         # 2.1 left skewed:
                         # lowest at -x (index 0) and left slope positive
                         elif lowest_index == 0 and slope_left > 0 and lowest_value < threshold_low:
-                            print("Case 2.1: left-skewed (min at -x, slope_left > 0)")
+                            print("Case 2.1: left-skewed (min at -x)")
                             # example: shift center left by half current span
                             if lowest_value < 0.2:
                                 new_center = f0 - self.freq_scan_min_step_size_kHz
@@ -691,7 +697,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                         # 2.2 right skewed:
                         # lowest at +x (index 1) and right slope negative
                         elif lowest_index == 1 and slope_right < 0 and lowest_value < threshold_low:
-                            print("Case 2.2: right-skewed (min at +x, slope_right < 0)")
+                            print("Case 2.2: right-skewed (min at +x )")
                             if lowest_value < 0.2:
                                 new_center = f1 + self.freq_scan_min_step_size_kHz
                             elif lowest_value < 0.4:
@@ -725,9 +731,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                                 step = abs((f1 - f3)/2)
                                 new_center = f3 - step
 
-                        # 2.5 else: ambiguous → probe center (0) or just proceed
                         else:
-                            print("Case 2.5: ambiguous; proceed or add center(0) point")
+                            print("Not in case 2.1 ~ 2.4")
                             # simplest: do nothing special
                             # if you want to probe 0 explicitly (in same units as f*):
                             # if 0.0 not in scanned_points and 0.0 not in pending_sequence1:
@@ -744,6 +749,15 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                             )
                             pending_sequence1 = list(new_sequence1)
                             did_refine = True
+                        else:
+                            if all(r > 0.8 for r in (R0, R1, R2, R3)):
+                                print("Resonance not in this range; seaching broader range")
+                                new_sequence1 = self.make_scan_list(
+                                    center=new_center,
+                                    half_range_kHz=2*self.freq_scan_half_range_kHz,
+                                    min_step_kHz=self.freq_scan_step_size_kHz,
+                                    mode="pair",
+                                )
 
 
 
@@ -975,39 +989,6 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
 
         self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
-
-    def make_symmetric_list(self, center, half_range_kHz, min_step_kHz=10.0):
-        """
-        Create a symmetric scan list around a center frequency.
-
-        Starts from the maximum offset `half_range_kHz` and repeatedly multiplies
-        it by a shrink ratio r = (1 - 1/self.shrink_factor), giving finer
-        resolution closer to the center.
-
-        <Example>
-        (if shrink_factor = 3 and half_range_kHz = 1):
-            r = (1-1/3) = 2/3
-            offsets: [1, 2/3, (2/3)^2, (2/3)^3, ...]
-            final list around `center`:
-            [center - 1, center - 2/3, center - (2/3)^2, ..., center,
-             ..., center + (2/3)^2, center + 2/3, center + 1]
-        """
-        # safety: shrink_factor must be > 1 to make sense
-        assert self.shrink_factor > 1, "shrink_factor must be > 1"
-
-        x = float(half_range_kHz)
-        offsets = []
-        val = x
-        r = (1 - 1 / self.shrink_factor)
-
-        while val >= min_step_kHz:
-            offsets.append(val)
-            val = val * r
-
-        symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
-        values = [center + v * kHz for v in symmetric_offsets]
-
-        return  np.array(values)
 
     def make_scan_list(self, center, half_range_kHz, min_step_kHz=10.0, method="center_geometric", mode="pair"):
         """
