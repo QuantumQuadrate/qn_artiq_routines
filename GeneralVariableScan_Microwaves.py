@@ -697,7 +697,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                         # 2.2 right skewed:
                         # lowest at +x (index 1) and right slope negative
                         elif lowest_index == 1 and slope_right < 0 and lowest_value < threshold_low:
-                            print("Case 2.2: right-skewed (min at +x )")
+                            print("Case 2.2: right-skewed (min at +x)")
                             if lowest_value < 0.2:
                                 new_center = f1 + self.freq_scan_min_step_size_kHz
                             elif lowest_value < 0.4:
@@ -713,7 +713,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                         # 2.3 within range but skewed left:
                         # lowest at -x/2 (index 2) and slope_left negative
                         elif lowest_index == 2 and slope_left < 0 and lowest_value < threshold_low:
-                            print("Case 2.3: in range but skewed left (min at -x/2, slope_left < 0)")
+                            print("Case 2.3: in range but skewed left")
                             # e.g. pick a center between -x and +x/2 leaning left
                             if lowest_value < 0.2:
                                 new_center = f2 + self.freq_scan_min_step_size_kHz
@@ -724,7 +724,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                         # 2.4 within range but skewed right:
                         # lowest at +x/2 (index 3) and slope_right positive
                         elif lowest_index == 3 and slope_right > 0 and lowest_value < threshold_low:
-                            print("Case 2.4: in range but skewed right (min at +x/2, slope_right > 0)")
+                            print("Case 2.4: in range but skewed right")
                             if lowest_value < 0.2:
                                 new_center = f3 - self.freq_scan_min_step_size_kHz
                             else:
@@ -821,8 +821,18 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
     def health_check_general(self, fit_check = False):
         """
-        health check for |1,0> to |2,0> transition - freq scan
-        :return: True:if passed the health_check, False: if failed the test.
+        Perform a single-point health check on the microwave or time-domain scan.
+
+        This method re-runs the experiment at the current resonance (or π-pulse)
+        condition and evaluates whether the resulting fidelity meets the required
+        `target_fidelity`. Depending on the selected scan type (frequency or time)
+        and fit model (dip/peak), it computes the retention-based fidelity and
+        updates the appropriate health-check dataset.
+
+        Returns
+        -------
+        True  : if the health check passes (fidelity ≥ target_fidelity)
+        False : if it fails and optimization is required
         """
 
         self.initialize_hardware()
@@ -914,8 +924,18 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
     def submit_opt_exp_general(self, override_arguments = None):  # todo: account for changes
         """
-            override_arguments should be a dict like:
-                {"enable_fitting": False}
+        Schedules an optimization experiment when a health check fails.
+
+        Constructs a new `expid` dictionary for the optimization scan and injects
+        the current scan configuration, override variables, and user-defined scan
+        options. It then submits this optimization run to the ARTIQ scheduler with
+        high priority (99), ensuring it executes before any follow-up scans.
+
+        Parameters
+        ----------
+        override_arguments : dict, optional
+            Key-value pairs to overwrite default optimization arguments.
+            Example: {"enable_fitting": False}
         """
         print("submitting another experiment")
         ## 99 seems to be the highest priority that can be set to.
@@ -969,7 +989,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         ###todo: update_default_expid_from_self - think about what should be updated based on initial;;
 
         for key in scan_options:
-            if getattr(self, key, False):
+            if getattr(self, key, False):     # if self.key does not exist, it returns False
                 new_expid["arguments"][key] = True
                 break  # stop once the first TRUE is found
 
@@ -986,15 +1006,21 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
                 else:
                     raise KeyError(f"Invalid override key: '{key}'. ")
 
-
-
         self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
 
     def make_scan_list(self, center, half_range_kHz, min_step_kHz=10.0, method="center_geometric", mode="pair"):
         """
         Create a geometric scan list around a center frequency.
 
-        Uses a shrink ratio r = (1 - 1/self.shrink_factor), with self.shrink_factor > 1.
+        * Supports two geometric scan strategies:
+            - "center_geometric": symmetric shrinking steps toward the center
+            - "quarter_geometric": concentrated sampling around ±half-range/2 clusters
+
+        * Two sequencing modes define point ordering:
+            - "sequential": sorted dense sampling from edges toward the center
+            - "pair": symmetric (-,+) probing at each geometric shell
+
+        ** Uses a shrink ratio r = (1 - 1/self.shrink_factor), with self.shrink_factor > 1.
 
         Modes
         -----
@@ -1006,6 +1032,7 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         mode = "pair":
             offsets in order:
                 [-x, +x, -x*r, +x*r, -x*r^2, +x*r^2, ..., 0]
+
         """
         assert self.shrink_factor > 1, "shrink_factor must be > 1"
         assert mode in ("sequential", "pair"), f"Unknown mode: {mode}"
@@ -1094,49 +1121,13 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
 
         return np.array(values)
 
-    def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
-        """
-        Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
-        cutoff1 and cutoff2 (optional) are the atom loading thresholds in units counts.
-        """
-
-        retention_array = np.zeros(iterations)
-        loading_rate_array = np.zeros(iterations)
-        n_atoms_loaded_array = np.zeros(iterations)
-
-        for i in range(iterations):
-            shot1 = photocounts[i * measurements:(i + 1) * measurements]
-            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
-
-            atoms_loaded = [x > cutoff for x in shot1]
-            n_atoms_loaded = sum(atoms_loaded)
-            atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
-            retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / sum(atoms_loaded)
-            loading_rate_array[i] = n_atoms_loaded / measurements
-            n_atoms_loaded_array[i] = n_atoms_loaded
-            retention_array[i] = retention_fraction
-        return retention_array, loading_rate_array, n_atoms_loaded_array
-    def get_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
-        """
-        Returns retention, loading rate, and number of atoms loaded for each experiment iteration.
-        cutoff1 and cutoff2 (optional) are the atom loading thresholds in units counts.
-        """
-
-        retention_array = np.zeros(iterations)
-
-        for i in range(iterations):
-            shot1 = photocounts[i * measurements:(i + 1) * measurements]
-            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
-
-            atoms_loaded = [x > cutoff for x in shot1]
-            n_atoms_loaded = sum(atoms_loaded)
-            atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
-            retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / sum(atoms_loaded)
-            retention_array[i] = retention_fraction
-
-        return retention_array
-
     def get_scan_type(self):
+        """
+        Determine which scan type (e.g., Frequency_00_Scan) is currently enabled.
+
+        Ensures that exactly one scan flag is True among `scan_options`. Prevents
+        ambiguous or conflicting scan configuration before running the experiment.
+        """
 
         # Collect all scan flags that are True
         enabled = [name for name in scan_options if getattr(self, name, False)]
@@ -1162,5 +1153,53 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
             if hasattr(self, key):
                 args[key] = getattr(self, key)
 
-
         return expid
+
+    def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
+        """
+        Compute loading rate, retention, and number of atoms loaded per iteration.
+
+        Returns:
+        * retention_array[iterations]
+        * loading_rate_array[iterations]
+        * n_atoms_loaded_array[iterations]
+        """
+
+        retention_array = np.zeros(iterations)
+        loading_rate_array = np.zeros(iterations)
+        n_atoms_loaded_array = np.zeros(iterations)
+
+        for i in range(iterations):
+            shot1 = photocounts[i * measurements:(i + 1) * measurements]
+            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+
+            atoms_loaded = [x > cutoff for x in shot1]
+            n_atoms_loaded = sum(atoms_loaded)
+            atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
+            retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / sum(atoms_loaded)
+            loading_rate_array[i] = n_atoms_loaded / measurements
+            n_atoms_loaded_array[i] = n_atoms_loaded
+            retention_array[i] = retention_fraction
+        return retention_array, loading_rate_array, n_atoms_loaded_array
+    def get_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
+        """
+        Compute only the retention fraction per iteration.
+
+        - Same logic as get_loading_and_retention(), but returns only
+          retention_array[iterations].
+        """
+
+        retention_array = np.zeros(iterations)
+
+        for i in range(iterations):
+            shot1 = photocounts[i * measurements:(i + 1) * measurements]
+            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+
+            atoms_loaded = [x > cutoff for x in shot1]
+            n_atoms_loaded = sum(atoms_loaded)
+            atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
+            retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / sum(atoms_loaded)
+            retention_array[i] = retention_fraction
+
+        return retention_array
+

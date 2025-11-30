@@ -405,7 +405,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         print("****************    General Variable Scan DONE   *****************")
 
     ################################### Health Check Functions ########################################
-    #### slightly different from health check functions in GVS_Microwaves.
+    ########### ** slightly different from health check functions in GVS_Microwaves. ** ###############
 
     def health_check_microwave_freqs(self):
         """
@@ -707,15 +707,8 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     def update_default_expid_from_self(self, expid):
         """
-        Populate expid['arguments'] from attributes on this experiment.
-
-        - For each key in expid['arguments']:
-            * If this object (`self`) has an attribute with that name,
-              copy its value into the argument dict.
-        - Returns the modified expid.
-
-        Used to carry over settings (n_measurements, scan flags, etc.) from
-        the current HealthCheck experiment into newly scheduled jobs.
+        Update expid['arguments'] from attributes on self.
+        Assumes all keys already exist and are set on self.
         """
         args = expid['arguments']
         for key in list(args.keys()):
@@ -729,17 +722,10 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         """
         Compute loading rate, retention, and number of atoms loaded per iteration.
 
-        - Splits photocounts into (iterations × measurements) blocks.
-        - For each iteration:
-            * Counts how many shots exceed `cutoff` in RO1 (atoms loaded).
-            * Counts how many of those are still above cutoff in RO2
-              (atoms retained).
-            * Computes loading_rate = n_loaded / measurements.
-            * Computes retention = n_retained / n_loaded (or 0 if no atoms).
-        - Returns:
-            * retention_array[iterations]
-            * loading_rate_array[iterations]
-            * n_atoms_loaded_array[iterations]
+        Returns:
+        * retention_array[iterations]
+        * loading_rate_array[iterations]
+        * n_atoms_loaded_array[iterations]
         """
 
         retention_array = np.zeros(iterations)
