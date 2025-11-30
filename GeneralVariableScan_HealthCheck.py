@@ -42,6 +42,9 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         self.base = BaseExperiment(experiment=self)
         self.base.build()
 
+        ## For Bookeeping purpose
+        self.setattr_argument("parent_rid", NumberValue(0, ndecimals=0, step=1), "** For bookeeping purpose - always set this to 0 **")
+
         ## health check
         self.setattr_argument('run_health_check_and_schedule', BooleanValue(default=True), "Health Check")
         self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
@@ -52,15 +55,13 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         self.setattr_argument('health_check_every_n_ite', BooleanValue(default=True), "Health Check")
         self.setattr_argument('health_check_every_delta_t_hours', BooleanValue(default=False), "Health Check - not yet implemented")
 
-        self.setattr_argument("every_n_ite", NumberValue(10, ndecimals=0, step=1), "Health Check")
+        self.setattr_argument("every_n_ite", NumberValue(5, ndecimals=0, step=1), "Health Check")
         self.setattr_argument("every_delta_t_hours", NumberValue(0.80, ndecimals=1, step=1), "Health Check - not yet implemented")
 
-
-        #todo: health check microwaves freq scans - multiple - ["","",""] as a list? or boolean?
-        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Health Check - Microwave Scans to be checked")
-        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Health Check - Microwave Scans to be checked")
-        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Health Check - Microwave Scans to be checked")
-        self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Health Check - Microwave Scans to be checked")
+        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
+        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
+        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
+        self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
 
 
         # the number of measurements to be made for a certain setting of the
@@ -103,6 +104,15 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         running the experiment.
         """
         self.base.prepare()
+
+        ### If this is the very first run (user-submitted), parent_rid will be 0
+        if int(self.parent_rid) == 0:
+            self.parent_rid = int(self.scheduler.rid)
+            print("[Parent initialized] This run is the parent. Setting parent_rid =", self.parent_rid)
+        else:
+            print("[Child scan] Inheriting parent_rid =", self.parent_rid)
+
+        self.set_dataset("parent_rid", self.parent_rid, broadcast=True, persist=True)
 
         self.scan_variable1 = str(self.scan_variable1_name)
         self.scan_variable2 = str(self.scan_variable2_name)
@@ -625,6 +635,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
             'file': 'qn_artiq_routines\\GeneralVariableScan_HealthCheck.py',
             'class_name': 'GeneralVariableScan_HealthCheck',
             'arguments': {
+                'parent_rid': self.parent_rid,
                 'run_health_check_and_schedule': True,
                 'target_fidelity': 0.8,
                 # overrides
@@ -641,7 +652,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 'Frequency_m10_Scan': False,
 
                 # measurement settings
-                'n_measurements': 100,    ##fixed if not specified in override_arguments_for_scheduling_optimization
+                'n_measurements': 100,
 
                 # scan variables
                 'scan_variable1_name': 'dummy_variable',
@@ -689,7 +700,10 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
         print("sumbmit_resume - override_ExperimentVariables_dict_str: ", override_ExperimentVariables_dict_str)
 
-        self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=98, due_date=None, flush=False)
+        child_rid = self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=98, due_date=None, flush=False)
+
+        self.set_dataset("child_rid", child_rid, broadcast=True, persist=True)
+        print("Remaining scan resuming at RID: ", child_rid)
 
     def update_default_expid_from_self(self, expid):
         """
