@@ -267,7 +267,7 @@ scan_dict={
 
 
 
-class GeneralVariableScan_Microwaves(EnvExperiment):
+class MicrowaveScanOptimizer(EnvExperiment):
 
     def build(self):
         """
@@ -943,8 +943,8 @@ class GeneralVariableScan_Microwaves(EnvExperiment):
         # todo: make a default expid and overwrite it just a few things.
         default_expid = {
             "log_level": 30, #todo: check which level this is - debug? info? or else?
-            "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
-            "class_name": "GeneralVariableScan_Microwaves",
+            "file": "qn_artiq_routines\\MicrowaveScanOptimizer.py",
+            "class_name": "MicrowaveScanOptimizer",
             "arguments": {
                 "run_health_check_and_optimize": False,
                 "target_fidelity": 0.80,

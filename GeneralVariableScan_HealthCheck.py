@@ -29,7 +29,7 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 
-from GeneralVariableScan_Microwaves import scan_dict, scan_options
+from MicrowaveScanOptimizer import scan_dict, scan_options
 
 import copy
 
@@ -358,8 +358,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 ## Run Health Check
                 if self.run_health_check_and_schedule:
                     if self.health_check_every_n_ite and (iteration % self.every_n_ite) == 0:
-                        print(f"running health check after iteration # {iteration-1}")
-
+                        print(f"running health check after iteration #{iteration-1}, scanning over {self.scan_variable1}: {variable1_value}")
 
                         ####todo:  error if nothing checked;
                         ### run health check
@@ -387,7 +386,6 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
                         else:
                             print("All microwave health checks passed. Resuming next scan")
-
                             ### update everything back to previous setting - done inside healthcheck if passed
 
                             ### Override variables again to avoid conflict
@@ -395,7 +393,6 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                             for variable, value in self.override_ExperimentVariables_dict.items():
                                 setattr(self, variable, value)
 
-                            ### resume the current scan
                         ### terminating the experiment if health_check failed.
                         self.core.comm.close()  # placing the hardware in a safe state and disconnecting it from the core device
                         self.scheduler.pause()
@@ -406,6 +403,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     ################################### Health Check Functions ########################################
     ########### ** slightly different from health check functions in GVS_Microwaves. ** ###############
+    ### todo: make health checks in MicrowaveScanOptimizer to be compatible so that it can be calle dout here
 
     def health_check_microwave_freqs(self):
         """
@@ -524,9 +522,9 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     def submit_optimization_scans(self, override_arguments = None):
         """
-        Schedule a GeneralVariableScan_Microwaves optimization experiment.
+        Schedule a MicrowaveScanOptimizer experiment.
 
-        - Builds a default expid for GeneralVariableScan_Microwaves with:
+        - Builds a default expid for MicrowaveScanOptimizer with:
             * run_health_check_and_optimize = False
             * enable_faster_frequency_scan = True
             * all Frequency_*_Scan flags initially False
@@ -544,8 +542,8 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         # todo: make a default expid and overwrite it just a few things.
         default_expid = {
             "log_level": 30,
-            "file": "qn_artiq_routines\\GeneralVariableScan_Microwaves.py",
-            "class_name": "GeneralVariableScan_Microwaves",
+            "file": "qn_artiq_routines\\MicrowaveScanOptimizer.py",
+            "class_name": "MicrowaveScanOptimizer",
             "arguments": {
                 "run_health_check_and_optimize": False,
                 "target_fidelity": 0.8,
