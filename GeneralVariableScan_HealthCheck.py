@@ -349,9 +349,10 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 # the measurement loop.
                 self.experiment_function()
 
-
                 # write and overwrite the file here so we can quit the experiment early without losing data
-                self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                # self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+
+                self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                 iteration += 1
 
@@ -365,8 +366,10 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                         failed_scans = self.health_check_microwave_freqs()
 
                         # write and overwrite the health check results
-                        self.write_results(
-                            {'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                        # self.write_results(
+                        #     {'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                        self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
+                                                                                            :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                         if failed_scans:
                             print("These scans need re-optimisation:", failed_scans)
@@ -545,6 +548,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
             "file": "qn_artiq_routines\\MicrowaveScanOptimizer.py",
             "class_name": "MicrowaveScanOptimizer",
             "arguments": {
+                'parent_rid': self.parent_rid,
                 "run_health_check_and_optimize": False,
                 "target_fidelity": 0.8,
                 "n_measurements": 100,

@@ -280,6 +280,9 @@ class MicrowaveScanOptimizer(EnvExperiment):
         # experiment parameters
         #todo: change this name to "run_health_check_and_schedule"
         #todo: add "schedule_multiple_scans"
+        ## For Bookeeping purpose
+        self.setattr_argument("parent_rid", NumberValue(0, ndecimals=0, step=1), "** For bookeeping purpose - always set this to 0 **")
+
         self.setattr_argument('run_health_check_and_optimize', BooleanValue(default=True), "Health Check")
         self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
         # this can be retrieved in  hdf5 file.
@@ -326,6 +329,15 @@ class MicrowaveScanOptimizer(EnvExperiment):
         running the experiment.
         """
         self.base.prepare()
+
+        ### If this is the very first run (user-submitted), parent_rid will be 0
+        if int(self.parent_rid) == 0:
+            self.parent_rid = int(self.scheduler.rid)
+            print("[Parent initialized] This run is the parent. Setting parent_rid =", self.parent_rid)
+        else:
+            print("[Child scan] Inheriting parent_rid =", self.parent_rid)
+
+        self.set_dataset("parent_rid", self.parent_rid, broadcast=True, persist=True)
 
         self.override_ExperimentVariables_dict = eval(self.override_ExperimentVariables)
 
@@ -552,6 +564,10 @@ class MicrowaveScanOptimizer(EnvExperiment):
         if self.scan_type.startswith("Freq") and self.run_health_check_and_optimize:
             #todo: if there are more than 1 health checks, make a loop
             if self.health_check_general() == False:
+                # write and overwrite the health check results
+                self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
+                                                                                         :-11] + "_scan_over_" + self.scan_var_filesuffix})
+
                 print("Initial Health Check - failed with fidelity: ", self.get_dataset(scan_dict[self.scan_type]["health_check_dataset_name"]))
                 print("Scheduling Experiment for Optimization...")
                 self.submit_opt_exp_general()
@@ -598,7 +614,9 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         self.experiment_function()
 
                         # write and overwrite the file here so we can quit the experiment early without losing data
-                        self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                        # self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                        self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
+                                                                                                 :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                         iteration += 1
 
@@ -809,7 +827,9 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         print("optimization failed - dataset not updated")
 
                 # write and overwrite the file here so we can quit the experiment early without losing data
-                self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                # self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+
 
                 iteration += 1
 
@@ -945,6 +965,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
             "file": "qn_artiq_routines\\MicrowaveScanOptimizer.py",
             "class_name": "MicrowaveScanOptimizer",
             "arguments": {
+                "parent_rid": self.parent_rid,
                 "run_health_check_and_optimize": False,
                 "target_fidelity": 0.80,
 
