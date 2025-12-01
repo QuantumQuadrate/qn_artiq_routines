@@ -188,8 +188,8 @@ class BaseExperiment:
 
             self.experiment.AZ_bottom_Zotino_channel = 0
             self.experiment.AZ_top_Zotino_channel = 1
-            self.experiment.AX_Zotino_channel = 2
-            self.experiment.AY_Zotino_channel = 3
+            self.experiment.AX_Zotino_channel = 13
+            self.experiment.AY_Zotino_channel = 14
 
             self.experiment.coil_channels = [self.experiment.AZ_bottom_Zotino_channel,
                                              self.experiment.AZ_top_Zotino_channel,
@@ -1009,7 +1009,7 @@ class BaseExperiment:
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
-                for zot_ch in range(32):
+                for zot_ch in range(16):
                     self.experiment.zotino0.write_dac(zot_ch, 0.0)
                     self.experiment.zotino0.load()
                     delay(1 * ms)
@@ -1080,7 +1080,7 @@ class BaseExperiment:
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
-                for zot_ch in range(32):
+                for zot_ch in range(16):
                     self.experiment.zotino0.write_dac(zot_ch, 0.0)
                     self.experiment.zotino0.load()
                     delay(1 * ms)
@@ -1128,7 +1128,7 @@ class BaseExperiment:
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
-                for zot_ch in range(32):
+                for zot_ch in range(16):
                     self.experiment.zotino0.write_dac(zot_ch, 0.0)
                     self.experiment.zotino0.load()
                     delay(1 * ms)

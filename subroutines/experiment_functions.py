@@ -1304,37 +1304,194 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
     self.dds_cooling_DP.sw.off()
 
 @kernel
+def testing_record_chopped_FORT_and_TTL(self):
+    ### Akbar 2025-11-25
+    t_FORT_offset = self.core.seconds_to_mu(100 * ns)  ### delay wrt "t0" in each cycle
+    t_FORT_OFF = self.core.seconds_to_mu(self.chop_RO_FORT_off) ### the length of the FORT OFF time
+
+    t_cooling_offset = self.core.seconds_to_mu(self.chop_RO_pulse_offset) ### delay wrt "t0" in each cycle
+    t_cooling_length = self.core.seconds_to_mu(self.chop_RO_pulse_length) ### duration of the cooling pulse
+
+    t_gate_offset = self.core.seconds_to_mu(self.chop_RO_gate_offset) ### delay wrt t0 for gate to open
+    t_gate_length = self.core.seconds_to_mu(self.chop_RO_gate_length) ### gate open time
+
+    with self.core_dma.record("FORT_and_TTL_chopped"):
+        for i in range(4000): ### number of cycles to repeat
+            t0 = now_mu()
+
+            at_mu(t0 + t_FORT_offset)
+            self.dds_FORT.sw.off()
+            at_mu(t0 + t_FORT_offset + t_FORT_OFF)
+            self.dds_FORT.sw.on()
+
+            at_mu(t0 + t_cooling_offset)
+            self.dds_cooling_DP.sw.on()  ### Turn on cooling
+            at_mu(t0 + t_cooling_offset + t_cooling_length)
+            self.dds_cooling_DP.sw.off()  ### Turn off cooling
+
+            at_mu(t0 + t_gate_offset)
+            self.ttl0._set_sensitivity(1)
+            self.ttl1._set_sensitivity(1)
+
+            at_mu(t0 + t_gate_offset + t_gate_length)
+            self.ttl0._set_sensitivity(0)
+            self.ttl1._set_sensitivity(0)
+
+            delay(0.5 * us)
+
+@kernel
+def testing_chopped_FORT_and_TTL_experiment(self):
+    """
+    xxx
+    """
+
+    self.core.reset()
+    self.require_D1_lock_to_advance = False # override experiment variable
+    delay(1 * ms)
+    self.ttl_SPCM0._set_sensitivity(0)
+    self.ttl_SPCM1._set_sensitivity(0)
+
+    ### record and get handle
+    testing_record_chopped_FORT_and_TTL(self)
+    delay(10 * ms)
+    test_chopped_handle = self.core_dma.get_handle("FORT_and_TTL_chopped")
+    delay(20 * ms)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        self.dds_cooling_DP.sw.off()  ### Turn off cooling
+
+        delay(1 * ms)
+        self.dds_FORT.sw.on()
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        delay(1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+
+        delay(1 * ms)
+        self.ttl_SPCM0._set_sensitivity(0)
+        self.ttl_SPCM1._set_sensitivity(0)
+
+        delay(1 * ms)
+
+        ### DMA playback
+        self.core_dma.playback_handle(test_chopped_handle)
+
+        delay(10 * ms)
+        self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
+        self.SPCM1_RO1 = self.ttl_SPCM1.count(now_mu())
+        self.BothSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
+
+        # delay(10*ms)
+        self.core.break_realtime()
+
+        end_measurement(self)
+
+@kernel
 def record_chopped_RO(self):
     ### Akbar 2025-11-25
-    t_FORT_ON = self.core.seconds_to_mu(1*us) ### the length of the FORT pulse
-    t_RO = self.core.seconds_to_mu(0.8*us) ### duration of RO
-    t_FORT_delay = self.core.seconds_to_mu(100*ns) ### delay wrt "t0" in each cycle
-    t_RO_delay = self.core.seconds_to_mu(0*ns)
+    t_FORT_offset = self.core.seconds_to_mu(100 * ns)  ### delay wrt "t0" in each cycle
+    t_FORT_OFF = self.core.seconds_to_mu(self.chop_RO_FORT_off)  ### the length of the FORT OFF time
+
+    t_cooling_offset = self.core.seconds_to_mu(self.chop_RO_pulse_offset)  ### delay wrt "t0" in each cycle
+    t_cooling_length = self.core.seconds_to_mu(self.chop_RO_pulse_length)  ### duration of the cooling pulse
+
+    t_gate_offset = self.core.seconds_to_mu(self.chop_RO_gate_offset)  ### delay wrt t0 for gate to open
+    t_gate_length = self.core.seconds_to_mu(self.chop_RO_gate_length)  ### gate open time
 
     with self.core_dma.record("chopped_RO"):
         for i in range(4000): ### number of cycles to repeat
             t0 = now_mu()
 
-            at_mu(t0+t_FORT_delay)
-            self.dds_FORT.sw.off()        ### turn off FORT
-            # self.ttl_repump_switch.off()  ### turn on MOT RP
-            # self.dds_cooling_DP.sw.on()   ### Turn on cooling
-            at_mu(t0 + t_FORT_delay + t_FORT_ON)
-            self.dds_FORT.sw.on()        ### turn on FORT
-            # self.ttl_repump_switch.on()  ### turn off MOT RP
-            # self.dds_cooling_DP.sw.off()  ### Turn off cooling
+            at_mu(t0 + t_FORT_offset)
+            self.dds_FORT.sw.off()
+            at_mu(t0 + t_FORT_offset + t_FORT_OFF)
+            self.dds_FORT.sw.on()
 
-            at_mu(t0 + t_RO_delay)
-            # self.ttl_GRIN1_switch.on() ### GRIN1_switch is simply used with set_sensitivity to represent that on scope.
+            at_mu(t0 + t_cooling_offset)
+            # self.dds_MW_RF.sw.on()  ### a dummy dds to turn on instead of cooling
+            self.dds_cooling_DP.sw.on()  ### Turn on cooling
+            at_mu(t0 + t_cooling_offset + t_cooling_length)
+            # self.dds_MW_RF.sw.on()  ### a dummy dds to turn off instead of cooling
+            self.dds_cooling_DP.sw.off()  ### Turn off cooling
+
+            at_mu(t0 + t_gate_offset)
             self.ttl0._set_sensitivity(1)
             self.ttl1._set_sensitivity(1)
 
-            at_mu(t0 + t_RO_delay + t_RO)
-            # self.ttl_GRIN1_switch.off()
+            at_mu(t0 + t_gate_offset + t_gate_length)
             self.ttl0._set_sensitivity(0)
             self.ttl1._set_sensitivity(0)
 
-            delay(1 * us)
+            delay(0.5 * us)
+
+@kernel
+def chopped_RO(self):
+    """
+    chopped readout for testing the effect of it on retention, for example.
+    Akbar 2025-11-26
+    """
+
+    ### Set the coils to PGC_optimization setting to scan the values
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization,
+         self.AY_volts_PGC_optimization],
+        channels=self.coil_channels)
+    delay(1 * ms)
+
+    ### set the cooling DP AOM to the PGC optimization setting to scan the values
+    ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
+
+    ### set the FORT AOM to the science settings
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
+    self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+
+    delay(1 * ms)
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    if not self.PGC_and_RO_with_on_chip_beams:
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+    else:
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+    delay(0.1 * ms)
+
+    chopped_RO_handle = self.core_dma.get_handle("chopped_RO")
+    delay(10 * ms)
+    self.ttl_repump_switch.off()  ### turn on MOT RP
+    ### DMA playback
+    self.core_dma.playback_handle(chopped_RO_handle)
+    delay(10 * ms)
+    self.SPCM0_test_RO = self.ttl_SPCM0.count(now_mu())
+    delay(0.1 * ms)
+    self.dds_cooling_DP.sw.off()  ### turn off cooling
+    self.ttl_repump_switch.on()  ### turn off MOT RP
+    delay(10 * us)
+
+    self.zotino0.set_dac([0.0], self.Osc_trig_channel)
+    delay(1 * ms)
+
+    ### Set the coils to PGC setting:
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
+         self.AY_volts_PGC],
+        channels=self.coil_channels)
+    delay(1 * ms)
+
+    ### set the cooling DP AOM to the readout settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+    delay(1 * ms)
 
 @kernel
 def first_shot(self):
@@ -1359,7 +1516,7 @@ def first_shot(self):
     ### set the FORT AOM to the science settings
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
-    self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+    # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A2.sw.on()
@@ -1373,6 +1530,7 @@ def first_shot(self):
     if self.use_chopped_readout:
         chopped_RO_handle = self.core_dma.get_handle("chopped_RO")
         delay(10 * ms)
+        self.ttl_repump_switch.off()  ### turn on MOT RP
         ### DMA playback
         self.core_dma.playback_handle(chopped_RO_handle)
         delay(10 * ms)
@@ -1380,9 +1538,9 @@ def first_shot(self):
         self.SPCM1_RO1 = self.ttl_SPCM1.count(now_mu())
         self.BothSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
         delay(0.1 * ms)
-        # self.dds_cooling_DP.sw.off()  ### turn off cooling
-        # self.ttl_repump_switch.on()  ### turn off MOT RP
-        # delay(10 * us)
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        delay(10 * us)
 
     else:
         self.ttl_repump_switch.off()  ### turn on MOT RP
@@ -1404,7 +1562,7 @@ def first_shot(self):
         self.ttl_repump_switch.on() ### turn off MOT RP
         delay(10 * us)
 
-    self.zotino0.set_dac([0.0], self.Osc_trig_channel)
+    # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
 @kernel
 def second_shot(self):
@@ -3315,12 +3473,15 @@ def atom_loading_experiment(self):
 
     delay(10 * ms)
 
-    if self.use_chopped_readout:
-        ### Akbar 2025-11-25
-        ### record and get handle
-        record_chopped_RO(self)
-        delay(10 * ms)
-        self.core.break_realtime()
+
+
+    ### Akbar 2025-11-25
+    ### record and get handle
+    record_chopped_RO(self)
+    delay(10 * ms)
+    self.core.break_realtime()
+
+
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -3372,16 +3533,14 @@ def atom_loading_2_experiment(self):
     self.core.reset()
     self.require_D1_lock_to_advance = False # override experiment variable
 
-    if self.use_chopped_readout:
-        ### Akbar 2025-11-25
-        ### record and get handle
-        record_chopped_RO(self)
-        delay(10 * ms)
-        self.core.break_realtime()
 
+
+    ### Akbar 2025-11-25
+    ### record and get handle
     record_chopped_RO(self)
     delay(10 * ms)
     self.core.break_realtime()
+
 
 
 
@@ -3421,15 +3580,12 @@ def atom_loading_2_experiment(self):
         first_shot(self)
         delay(1 * ms)
 
-        chopped_RO_handle = self.core_dma.get_handle("chopped_RO")
-        delay(10 * ms)
-        ### DMA playback
-        self.core_dma.playback_handle(chopped_RO_handle)
-        delay(10 * ms)
-        self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
-        self.SPCM1_RO1 = self.ttl_SPCM1.count(now_mu())
-        self.BothSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
-        delay(0.1 * ms)
+
+        ##### adding a dummy chopped RO to test if lose atoms due to chopping
+        chopped_RO(self)
+        delay(100*us)
+
+
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()

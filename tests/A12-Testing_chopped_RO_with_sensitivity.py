@@ -87,7 +87,8 @@ class Testing_chopped_RO_with_sensitivity(EnvExperiment):
 
         delay(1 * ms)
         self.ttl0._set_sensitivity(0)
-        self.ttl_GRIN1_switch.off()
+        self.ttl1._set_sensitivity(0)
+        # self.ttl_GRIN1_switch.off()
 
         self.ttl_SPCM0_logic.on() ### turn on the ttl to let the signal pass the logic gates
         self.ttl_SPCM1_logic.on()
@@ -99,7 +100,7 @@ class Testing_chopped_RO_with_sensitivity(EnvExperiment):
         chopped_handle = self.core_dma.get_handle("FORT_and_TTL0_chopped")
         delay(10 * ms)
 
-        self.ttl_GRIN1_switch.pulse(100*ns)
+        # self.ttl_GRIN1_switch.pulse(100*ns)
         delay(5*us)
 
         ### DMA playback
