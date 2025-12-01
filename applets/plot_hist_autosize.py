@@ -34,7 +34,8 @@ class HistogramPlot(pyqtgraph.PlotWidget):
                 bins = x
 
             if self.args.color is None:
-                color = 'b'
+                # color = 'b'
+                color = (255, 194, 10)
             else:
                 color = data[self.args.color][1][0]
             if self.args.ignore_first_n_points is not None:

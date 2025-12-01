@@ -441,6 +441,25 @@ class ExperimentVariables(EnvExperiment):
             Variable("atom_rotation_to_y", False, BooleanValue, {}, "Atom Tomography Experiment"),
             # Variable("atom_rotation_to_z", True, BooleanValue, {}, "Atom Tomography Experiment"),
 
+            Variable("zotino_test1_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
+            Variable("zotino_test2_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
+            Variable("zotino_test3_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
+            Variable("zotino_test4_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
+            Variable("zotino_test5_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
+            Variable("zotino_test6_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
+            Variable("zotino_test7_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
+            Variable("zotino_test8_offset", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Zotino"),
+
+            Variable("health_check_uw_freq00", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, "Microwaves Health Check"),
+            Variable("health_check_uw_freq01", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
+                     "Microwaves Health Check"),
+            Variable("health_check_uw_freq11", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
+                     "Microwaves Health Check"),
+            Variable("health_check_uw_freqm10", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
+                     "Microwaves Health Check"),
+            Variable("health_check_uw_freqm11", 0.0, NumberValue, {'type': 'float', 'ndecimals': 5},
+                     "Microwaves Health Check"),
+
         ]
 
         # can only call get_dataset in build, but can only call set_dataset in run. so
@@ -457,7 +476,7 @@ class ExperimentVariables(EnvExperiment):
                 else:
                     print(f"Exception {e}")
 
-        self.setattr_argument('which_node', EnumerationValue(['alice','bob','two_nodes']), "general")
+        self.setattr_argument('which_node', EnumerationValue(['bob','alice','two_nodes']), "general")
 
     def run(self):
 
@@ -483,3 +502,12 @@ class ExperimentVariables(EnvExperiment):
 
         # assumes 6.5 GHz
         self.set_dataset("f_dds_clock_resonance", 334.682*MHz, broadcast=True, persist=True)
+
+        # self.set_dataset("zotino_test1_offset", 0.0, broadcast=True, persist=True)
+        # self.set_dataset("zotino_test2_offset", 0.0, broadcast=True, persist=True)
+        # self.set_dataset("zotino_test3_offset", 0.0, broadcast=True, persist=True)
+        # self.set_dataset("zotino_test4_offset", 0.0, broadcast=True, persist=True)
+        # self.set_dataset("zotino_test5_offset", 0.0, broadcast=True, persist=True)
+        # self.set_dataset("zotino_test6_offset", 0.0, broadcast=True, persist=True)
+        # self.set_dataset("zotino_test7_offset", 0.0, broadcast=True, persist=True)
+        # self.set_dataset("zotino_test8_offset", 0.0, broadcast=True, persist=True)
