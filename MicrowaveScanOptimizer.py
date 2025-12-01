@@ -280,38 +280,38 @@ class MicrowaveScanOptimizer(EnvExperiment):
         # experiment parameters
         #todo: change this name to "run_health_check_and_schedule"
         #todo: add "schedule_multiple_scans"
-        self.setattr_argument('run_health_check_and_optimize', BooleanValue(default=False), "Health Check")
+        self.setattr_argument('run_health_check_and_optimize', BooleanValue(default=True), "Health Check")
         self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
         # this can be retrieved in  hdf5 file.
 
-        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Setting")
-        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Setting")
-        self.setattr_argument('enable_faster_frequency_scan', BooleanValue(default=False), "General Setting")
-        self.setattr_argument('enable_fitting', BooleanValue(default=False), "General Setting")
+        self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Scan Setting")
+        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Scan Setting")
+        self.setattr_argument('enable_fitting', BooleanValue(default=True), "General Scan Setting")
+        self.setattr_argument('enable_geometric_frequency_scan', BooleanValue(default=True), "General Scan Setting")
 
-        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
-        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
-        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
-        self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Microwave Scans - choose one of the following")
+        self.setattr_argument("Frequency_00_Scan", BooleanValue(default=False),"Microwave Scans - Select one of the following")
+        self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans - Select one of the following")
+        self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwave Scans - Select one of the following")
+        self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Microwave Scans - Select one of the following")
 
-        self.setattr_argument("Time_00_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
-        self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
-        self.setattr_argument("Time_11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
-        self.setattr_argument("Time_m10_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
+        self.setattr_argument("Time_00_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
+        self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
+        self.setattr_argument("Time_11_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
+        self.setattr_argument("Time_m10_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
 
-        self.setattr_argument("Ramsey_00_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
-        self.setattr_argument("Ramsey_01_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
-        self.setattr_argument("Ramsey_11_Scan", BooleanValue(default=False), "Microwave Scans - choose one of the following")
+        self.setattr_argument("Ramsey_00_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
+        self.setattr_argument("Ramsey_01_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
+        self.setattr_argument("Ramsey_11_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
 
         #### Frequency scan variables
-        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Full Freq Scan] Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Full Freq Scan] Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "[Full Freq Scan] Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Default] Frequency Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Default] Frequency Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "[Default] Frequency Scan variables - centered at resonance")
 
         #### Frequency scan variables - for faster scan!
-        self.setattr_argument("shrink_factor", NumberValue(2.5, ndecimals=1, step=1), "[Faster Freq Scan] Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_half_range_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Faster Freq Scan] Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_min_step_size_kHz", NumberValue(10.0, ndecimals=1, step=1), "[Faster Freq Scan] Scan variables - centered at resonance")
+        self.setattr_argument("shrink_factor", NumberValue(2.5, ndecimals=1, step=1), "[Geometric] Frequency Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_half_range_kHz", NumberValue(100.0, ndecimals=1, step=1), "[Geometric] Frequency Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_min_step_size_kHz", NumberValue(10.0, ndecimals=1, step=1), "[Geometric] Frequency Scan variables - centered at resonance")
 
         #### Time scan variables
         self.setattr_argument("time_scan_sequence", StringValue('np.arange(0,10,1)*us'), "Time Scan variables")
@@ -376,7 +376,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
         if self.scan_type.startswith('Freq'):
             center = getattr(self, scan_dict[self.scan_type]["center"])
             print("center: ", center)
-            if self.enable_faster_frequency_scan:
+            if self.enable_geometric_frequency_scan:
 
                 self.scan_sequence1 = self.make_scan_list(center=center,
                                                           half_range_kHz=self.freq_scan_half_range_kHz,
@@ -570,7 +570,6 @@ class MicrowaveScanOptimizer(EnvExperiment):
         else:
             ##### Scan sequence - same as GVS. (to be compatibel with original GVS analysis)
             ###todo: adaptive scan - make this visible in gui
-
             scan_with_fixed_sequence = False    ### adaptive scan enabled if False
             if scan_with_fixed_sequence:
                 print("scanning with fixed sequence")
@@ -952,7 +951,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                 "n_measurements": self.n_measurements,
                 "override_ExperimentVariables": "{'dummy_variable': 4}",
                 "enable_fitting": True,
-                "enable_faster_frequency_scan": True,
+                "enable_geometric_frequency_scan": True,
 
                 # Scan type toggles
                 "Frequency_00_Scan": False,
@@ -974,7 +973,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
 
                 # [Faster Scan] Frequency scan parameters - centered at resonance (kHz)
                 "shrink_factor": 2.5,
-                "freq_scan_half_range_kHz": 150.0,
+                "freq_scan_half_range_kHz": 100.0,
                 "freq_scan_min_step_size_kHz": 10.0,
 
                 # # Time scan parameters
@@ -1040,13 +1039,38 @@ class MicrowaveScanOptimizer(EnvExperiment):
         x = float(half_range_kHz)
         r = (1 - 1 / self.shrink_factor)
 
+        # if method == "center_geometric":
+        #     # Build offsets depending on mode
+        #     if mode == "sequential":
+        #         offsets = []
+        #         val = x
+        #         while val >= min_step_kHz:
+        #             offsets.append(val)
+        #             val *= r
+        #
+        #         symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
+        #         values = [center + v * kHz for v in symmetric_offsets]
+        #
+        #     elif mode == "pair":
+        #         offsets = []
+        #         val = x
+        #         while val >= min_step_kHz:
+        #             offsets.append(-val)
+        #             offsets.append(+val)
+        #             val *= r
+        #
+        #         offsets.append(0.0)
+        #         values = [center + v * kHz for v in offsets]
+
+
         if method == "center_geometric":
-            # Build offsets depending on mode
             if mode == "sequential":
                 offsets = []
                 val = x
-                while val >= min_step_kHz:
+                prev = None
+                while val >= min_step_kHz and (prev is None or abs(prev - val) >= min_step_kHz):
                     offsets.append(val)
+                    prev = val
                     val *= r
 
                 symmetric_offsets = sorted([-v for v in offsets] + [0.0] + offsets)
@@ -1055,13 +1079,16 @@ class MicrowaveScanOptimizer(EnvExperiment):
             elif mode == "pair":
                 offsets = []
                 val = x
-                while val >= min_step_kHz:
+                prev = None
+                while val >= min_step_kHz and (prev is None or abs(prev - val) >= min_step_kHz):
                     offsets.append(-val)
                     offsets.append(+val)
+                    prev = val
                     val *= r
 
                 offsets.append(0.0)
                 values = [center + v * kHz for v in offsets]
+
 
         elif method == "quarter_geometric":
             ### quarter span (in kHz) – clusters will be centered at ±quarter

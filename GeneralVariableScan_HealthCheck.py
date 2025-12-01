@@ -526,7 +526,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
 
         - Builds a default expid for MicrowaveScanOptimizer with:
             * run_health_check_and_optimize = False
-            * enable_faster_frequency_scan = True
+            * enable_geometric_frequency_scan = True
             * all Frequency_*_Scan flags initially False
             * default frequency scan parameters.
         - Replaces override_ExperimentVariables with the current
@@ -551,7 +551,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 "override_ExperimentVariables": "{'dummy_variable':4}",
 
                 # scan control
-                "enable_faster_frequency_scan": True,
+                "enable_geometric_frequency_scan": True,
                 "enable_fitting": True,
 
                 # which scans to run
