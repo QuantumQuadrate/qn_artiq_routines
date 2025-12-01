@@ -23,69 +23,73 @@ class Card_Tests(EnvExperiment):
         delay(1 * us)
         self.ttl15.off()
 
-        for x in range(1000):
-            self.ttl15.pulse(1*ms)
-            delay(100*ms)
+        for x in range(100):
+            self.ttl15.pulse(100*ns)
+            delay(20*ms)
 
-        # self.ttl15.off()
+        # self.ttl15.on()
 
         print("code done!")
 
 
 
 
-### Testing DDSs with phase control:
-### Without phase control, the phase between different dds channels is still fixed over time, even if the channels
-### are on different cards. Adding a delay (turning a channel on with some delay after the other channel) does not
-### affect the phase relation between different channels.
-
-    # def build(self):
-    #    self.setattr_device("core")
-    #    self.setattr_device("urukul2_cpld")
-    #    self.setattr_device("urukul2_ch0")
-    #    self.setattr_device("urukul2_ch1")
-    #
-    # @kernel
-    # def run(self):
-    #     self.core.reset()
-    #     self.urukul2_cpld.init()
-    #     self.urukul2_ch0.init()
-    #     self.urukul2_ch0.set_att(float(0))
-    #
-    #     self.urukul2_ch1.init()
-    #     self.urukul2_ch1.set_att(float(0))
-    #
-    #     delay(1 * ms)
-    #
-    #     dBm = -10
-    #     # self.urukul2_ch0.set_phase_mode(PHASE_MODE_TRACKING)
-    #     # self.urukul2_ch1.set_phase_mode(PHASE_MODE_TRACKING)
-    #
-    #     # self.urukul2_ch0.set_phase_mode(PHASE_MODE_ABSOLUTE)
-    #     # self.urukul2_ch1.set_phase_mode(PHASE_MODE_ABSOLUTE)
-    #
-    #     self.core.break_realtime()
-    #     t = now_mu() + 200_000  # ~2 ms in the future; plenty of slack
-    #
-    #     # self.urukul2_ch0.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
-    #     # self.urukul2_ch1.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
-    #
-    #     self.urukul2_ch0.set(125.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
-    #     # self.urukul2_ch1.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
-    #
-    #     with parallel:
-    #
-    #         self.urukul2_ch0.sw.on()
-    #         # self.urukul2_ch1.sw.on()
-    #
-    #
-    #     delay(100*us)
-    #
-    #     #
-    #     # self.urukul2_ch0.sw.off()
-    #     # self.urukul2_ch1.sw.off()
-    #
-    #     print("code done!")
+# ### Testing DDSs with phase control:
+# ### Without phase control, the phase between different dds channels is still fixed over time, even if the channels
+# ### are on different cards. Adding a delay (turning a channel on with some delay after the other channel) does not
+# ### affect the phase relation between different channels.
+#
+#     def build(self):
+#        self.setattr_device("core")
+#        self.setattr_device("urukul2_cpld")
+#        self.setattr_device("urukul2_ch0")
+#        self.setattr_device("urukul2_ch1")
+#
+#     @kernel
+#     def run(self):
+#         self.core.reset()
+#         self.urukul2_cpld.init()
+#         self.urukul2_ch0.init()
+#         self.urukul2_ch0.set_att(float(0))
+#
+#         self.urukul2_ch1.init()
+#         self.urukul2_ch1.set_att(float(0))
+#
+#         delay(1 * ms)
+#
+#         dBm = -10
+#         # self.urukul2_ch0.set_phase_mode(PHASE_MODE_TRACKING)
+#         # self.urukul2_ch1.set_phase_mode(PHASE_MODE_TRACKING)
+#
+#         # self.urukul2_ch0.set_phase_mode(PHASE_MODE_ABSOLUTE)
+#         # self.urukul2_ch1.set_phase_mode(PHASE_MODE_ABSOLUTE)
+#
+#         self.core.break_realtime()
+#         t = now_mu() + 200_000  # ~2 ms in the future; plenty of slack
+#
+#         # self.urukul2_ch0.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
+#         # self.urukul2_ch1.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2), phase = 0.0, ref_time_mu=t)
+#
+#         self.urukul2_ch0.set(125.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
+#         # self.urukul2_ch1.set(200.0 * MHz, amplitude=(2 * 50 * 10 ** (dBm / 10 - 3)) ** (1 / 2))
+#
+#         with parallel:
+#
+#             self.urukul2_ch0.sw.off()
+#             # self.urukul2_ch1.sw.on()
+#
+#         sta = self.urukul2_cpld.sta_read()
+#         print(sta)
+#         delay(10*ms)
+#         # urukul.urukul_sta_proto_rev(sta)
+#
+#         delay(100*us)
+#
+#         #
+#         # self.urukul2_ch0.sw.off()
+#         # self.urukul2_ch1.sw.off()
+#
+#         print("code done!")
 
 
 

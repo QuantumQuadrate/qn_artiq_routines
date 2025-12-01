@@ -184,20 +184,20 @@ class BaseExperiment:
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
 
             ### ttl12~15
-            self.experiment.ttl_D1_pumping = self.experiment.ttl12
-            self.experiment.FORT_mod_switch = self.experiment.ttl12
+            self.experiment.ttl_D1_pumping = self.experiment.ttl11 ### not used in node 1. Just to avoid error.
+            self.experiment.FORT_mod_switch = self.experiment.ttl11 ### should be on ttl12 when we need this to measure trap freq.
+            self.experiment.ttl_SPCM0_logic = self.experiment.ttl12
+            self.experiment.ttl_SPCM1_logic = self.experiment.ttl15
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_RF_switch = self.experiment.ttl15
-
 
             ### for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
 
             self.experiment.AZ_bottom_Zotino_channel = 0
             self.experiment.AZ_top_Zotino_channel = 1
-            self.experiment.AX_Zotino_channel = 2
-            self.experiment.AY_Zotino_channel = 3
+            self.experiment.AX_Zotino_channel = 13
+            self.experiment.AY_Zotino_channel = 14
 
             self.experiment.coil_channels = [self.experiment.AZ_bottom_Zotino_channel,
                                              self.experiment.AZ_top_Zotino_channel,
@@ -296,7 +296,6 @@ class BaseExperiment:
             self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_RF_switch = self.experiment.ttl15
 
             ### in experiment_functions.py, measure_FORT_MM_fiber() function
             ### BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
@@ -387,7 +386,6 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0 = self.experiment.ttl0
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
             self.experiment.ttl_Luca_trigger = self.experiment.ttl6
-            self.experiment.ttl_RF_switch = self.experiment.ttl15
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
 
             ### for debugging/logging purposes in experiments
@@ -550,7 +548,6 @@ class BaseExperiment:
         set_MW_profile("01", self.experiment.t_MW_01_ramp, self.experiment.t_microwave_01_pulse)
         set_MW_profile("11", self.experiment.t_MW_11_ramp, self.experiment.t_microwave_11_pulse)
 
-
     def prepare(self):
         """
         Initialize DeviceAliases, compute DDS amplitudes from powers, instantiate the laser servo,
@@ -591,6 +588,17 @@ class BaseExperiment:
                                              "health_check_uw_freqm10", "health_check_uw_freqm11"]
         self.experiment.default_setpoints = [getattr(self.experiment, dataset) for dataset in
                                              self.experiment.setpoint_datasets]
+
+
+        ### finding which sampler channel is used for AOM5 and 6, for exmaple, for monitoring MOT RP in experiment_functions.
+        config_file = os.path.join(cwd, "repository\\qn_artiq_routines\\utilities\\config\\", self.node,
+                                   "feedback_channels.json")
+        with open(config_file) as f:
+            stabilizer_dict = json.load(f)
+
+        self.experiment.RP_sampler_name = "sampler0"
+        self.experiment.RP_AOM5_ch = stabilizer_dict[self.experiment.RP_sampler_name]["dds_AOM_A5"]["sampler_ch"]
+        self.experiment.RP_AOM6_ch = stabilizer_dict[self.experiment.RP_sampler_name]["dds_AOM_A6"]["sampler_ch"]
 
         if self.node == "alice":
             # initialize named channels.
@@ -1008,8 +1016,13 @@ class BaseExperiment:
             self.experiment.ttl_GRIN2_switch.on()  ### ensure no excitation or D1 is on at the beginning
             self.experiment.ttl_GRIN1_switch.on()  ### ensure no excitation or D1 is on at the beginning
 
+            self.experiment.ttl_SPCM0_logic.output()
+            self.experiment.ttl_SPCM1_logic.output()
+            delay(100*us)
+            self.experiment.ttl_SPCM0_logic.on()
+            self.experiment.ttl_SPCM1_logic.on()
+
             self.experiment.FORT_mod_switch.output()
-            self.experiment.ttl_RF_switch.output()
 
             delay(1 * ms)
 
@@ -1039,14 +1052,12 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_microwave_switch.on() # blocks the microwaves after the mixer
             delay(1*ms)
-            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
-            delay(1 * ms)
             self.experiment.FORT_mod_switch.off()  # off = no modulation
 
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
-                for zot_ch in range(32):
+                for zot_ch in range(16):
                     self.experiment.zotino0.write_dac(zot_ch, 0.0)
                     self.experiment.zotino0.load()
                     delay(1 * ms)
@@ -1093,7 +1104,6 @@ class BaseExperiment:
             self.experiment.ttl_D1_pumping.output()
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
-            self.experiment.ttl_RF_switch.output()
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
@@ -1115,11 +1125,10 @@ class BaseExperiment:
             delay(1*ms)
             self.experiment.ttl_exc0_switch.on()
             delay(1 * ms)
-            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
-                for zot_ch in range(32):
+                for zot_ch in range(16):
                     self.experiment.zotino0.write_dac(zot_ch, 0.0)
                     self.experiment.zotino0.load()
                     delay(1 * ms)
@@ -1152,9 +1161,6 @@ class BaseExperiment:
             delay(1 * ms)
             self.experiment.ttl9.off()
 
-            self.experiment.ttl_RF_switch.output()
-            self.experiment.ttl_RF_switch.off() ### blocks RF when switch is off
-
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
             self.experiment.sampler2.init() # for reading laser feedback
@@ -1170,7 +1176,7 @@ class BaseExperiment:
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
-                for zot_ch in range(32):
+                for zot_ch in range(16):
                     self.experiment.zotino0.write_dac(zot_ch, 0.0)
                     self.experiment.zotino0.load()
                     delay(1 * ms)

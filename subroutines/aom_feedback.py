@@ -404,9 +404,9 @@ class AOMPowerStabilizer:
         for sampler in self.sampler_list:
             measurement_array = np.full(8, 0.0)
             for j in range(self.averages):
-                delay(0.1 * ms)
+                delay(150 * us)
                 sampler.sample(measurement_array)
-                delay(10 * us)
+                delay(100 * us)
                 dummy[i * 8:(i + 1) * 8] += measurement_array
             i += 1
         dummy /= self.averages

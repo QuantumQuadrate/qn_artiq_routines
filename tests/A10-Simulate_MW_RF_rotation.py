@@ -1,11 +1,5 @@
 """
-When a photon gets detected by the SPCM, and we want to trigger the microwave pulse for atom mapping and rotation,
-is the delay between the SPCM TTL output and the microwave signal deterministic?
-
-I wrote this simple code to test this. Use a T to split the SPCM output one goes to TTL count one goes to a scope
-for triggering. The TTL out for microwave switch also goes to the same scope. I confirmed that the delay between
-these two signals is fixed with about 1ns jitter. With self.t_start_MW_mapping_mu = 1000 I was getting Underflow
-error ocassinally, but it was good enough to run this experiment. The SPCM is just detecting noises.
+A simple code to test how the dds channels' phase behave when changing the frequency, for example, in parity experiment.
 
 """
 
@@ -23,7 +17,7 @@ from utilities.BaseExperiment import BaseExperiment
 from utilities.conversions import dB_to_V_kernel as dB_to_V
 
 
-class SPCM_microwave_delay_test(EnvExperiment):
+class Simulate_MW_RF_rotation(EnvExperiment):
 
     def build(self):
         self.base = BaseExperiment(experiment=self)
