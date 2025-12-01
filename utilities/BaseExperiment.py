@@ -290,12 +290,14 @@ class BaseExperiment:
 
             ### ttl8~11
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
+            self.experiment.ttl_SPCM1_logic = self.experiment.ttl9     #not being used
             self.experiment.FORT_mod_switch = self.experiment.ttl11
 
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
+            self.experiment.ttl_SPCM0_logic = self.experiment.ttl15    # not being used;
 
             ### in experiment_functions.py, measure_FORT_MM_fiber() function
             ### BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
