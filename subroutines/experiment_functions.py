@@ -88,6 +88,498 @@ def test_excitation_rise_time_experiment(self):
         # delay(4 * ms)  # coil relaxation time
         delay(100*us)
 
+
+@kernel
+def zotino_stability_test_experiment(self):
+    '''
+    Zotino Stability test Experiment to see if Zotino voltage output drifts.
+
+    * for testing purposes,
+    1) AZ_bottom_volts_MOT
+        zotino_test_1_Zotino_channel:
+        zotino_test_1_Sampler_channel:
+
+    # Defined in BaseExperiment.py
+    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+
+    # Defined in BaseExperiment.py
+    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
+
+    '''
+
+    self.core.reset()
+
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+    measurement3 = 0.0  # 3
+    measurement4 = 0.0  # 4
+    measurement5 = 0.0
+    measurement6 = 0.0
+    measurement7 = 0.0
+    measurement8 = 0.0
+
+    zotino_test1_setpoint = 5.0
+    zotino_test2_setpoint = 5.0
+    zotino_test3_setpoint = 5.0
+    zotino_test4_setpoint = 5.0
+    zotino_test5_setpoint = 5.0
+    zotino_test6_setpoint = 5.0
+    zotino_test7_setpoint = 5.0
+    zotino_test8_setpoint = 5.0
+
+
+    self.append_to_dataset("zotino_test1_setpoint", zotino_test1_setpoint)
+    self.append_to_dataset("zotino_test2_setpoint", zotino_test2_setpoint)
+    self.append_to_dataset("zotino_test3_setpoint", zotino_test3_setpoint)
+    self.append_to_dataset("zotino_test4_setpoint", zotino_test4_setpoint)
+    self.append_to_dataset("zotino_test5_setpoint", zotino_test5_setpoint)
+    self.append_to_dataset("zotino_test6_setpoint", zotino_test6_setpoint)
+    self.append_to_dataset("zotino_test7_setpoint", zotino_test7_setpoint)
+    self.append_to_dataset("zotino_test8_setpoint", zotino_test8_setpoint)
+
+    avgs = 50
+
+    # self.zotino0.set_dac([-5.0, -2.0, 2.0, 5.0], [12,13,14,15])
+    # self.zotino0.set_dac([zotino_test1_setpoint,
+    #                       zotino_test2_setpoint,
+    #                       zotino_test3_setpoint,
+    #                       zotino_test4_setpoint],
+    #                      [12,13,14,15])
+
+    self.zotino0.set_dac([zotino_test1_setpoint,
+                          zotino_test2_setpoint,
+                          zotino_test3_setpoint,
+                          zotino_test4_setpoint,
+                          zotino_test5_setpoint,
+                          zotino_test6_setpoint,
+                          zotino_test7_setpoint,
+                          zotino_test8_setpoint],
+                         [8,9,10,11,12,13,14,15])
+
+    period = 1*s
+
+    for j in range(60 * self.n_measurements):
+        delay(period)
+        # self.zotino0.set_dac([-5.0, -2.0, 2.0, 5.0], [12,13,14,15])
+        # self.zotino0.set_dac([zotino_test1_setpoint,
+        #                       zotino_test2_setpoint,
+        #                       zotino_test3_setpoint,
+        #                       zotino_test4_setpoint],
+        #                      [12, 13, 14, 15])
+        self.zotino0.set_dac([zotino_test1_setpoint,
+                              zotino_test2_setpoint,
+                              zotino_test3_setpoint,
+                              zotino_test4_setpoint,
+                              zotino_test5_setpoint,
+                              zotino_test6_setpoint,
+                              zotino_test7_setpoint,
+                              zotino_test8_setpoint],
+                             [8, 9, 10, 11, 12, 13, 14, 15])
+        #
+        # delay(0.01*s)
+
+        for i in range(avgs):
+            self.sampler2.sample(measurement_buf)
+
+            delay(0.1*ms)
+
+            # measurement1 += measurement_buf[4]
+            # measurement2 += measurement_buf[5]
+            # measurement3 += measurement_buf[6]
+            # measurement4 += measurement_buf[7]
+
+            measurement1 += measurement_buf[0]
+            measurement2 += measurement_buf[1]
+            measurement3 += measurement_buf[2]
+            measurement4 += measurement_buf[3]
+
+            measurement5 += measurement_buf[4]
+            measurement6 += measurement_buf[5]
+            measurement7 += measurement_buf[6]
+            measurement8 += measurement_buf[7]
+
+            delay(0.1*ms)
+
+        measurement1 /= avgs
+        measurement2 /= avgs
+        measurement3 /= avgs
+        measurement4 /= avgs
+
+        measurement5 /= avgs
+        measurement6 /= avgs
+        measurement7 /= avgs
+        measurement8 /= avgs
+
+        self.append_to_dataset("zotino_test1_monitor", measurement1)
+        self.append_to_dataset("zotino_test2_monitor", measurement2)
+        self.append_to_dataset("zotino_test3_monitor", measurement3)
+        self.append_to_dataset("zotino_test4_monitor", measurement4)
+
+        self.append_to_dataset("zotino_test5_monitor", measurement5)
+        self.append_to_dataset("zotino_test6_monitor", measurement6)
+        self.append_to_dataset("zotino_test7_monitor", measurement7)
+        self.append_to_dataset("zotino_test8_monitor", measurement8)
+
+
+
+    delay(0.1 * ms)
+
+    # self.zotino0.set_dac([0.0], [12])
+    # self.zotino0.set_dac([0.0], [13])
+    # self.zotino0.set_dac([0.0], [14])
+    # self.zotino0.set_dac([0.0], [15])
+
+
+@kernel
+def zotino_stability_test_with_offset_experiment(self):
+    '''
+    Zotino Stability test Experiment to see if Zotino voltage output drifts.
+
+    * for testing purposes,
+    1) AZ_bottom_volts_MOT
+        zotino_test_1_Zotino_channel:
+        zotino_test_1_Sampler_channel:
+
+    # Defined in BaseExperiment.py
+    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+
+    # Defined in BaseExperiment.py
+    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
+
+    '''
+
+    # run_zotino_stabilization(self)
+
+    self.core.reset()
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+    measurement3 = 0.0  # 3
+    measurement4 = 0.0  # 4
+    measurement5 = 0.0
+    measurement6 = 0.0
+    measurement7 = 0.0
+    measurement8 = 0.0
+
+    # zotino_test1_setpoint = 5.0 - self.zotino_test1_offset
+    # zotino_test2_setpoint = 5.0 - self.zotino_test2_offset
+    # zotino_test3_setpoint = 5.0 - self.zotino_test3_offset
+    # zotino_test4_setpoint = 5.0 - self.zotino_test4_offset
+    # zotino_test5_setpoint = 5.0 - self.zotino_test5_offset
+    # zotino_test6_setpoint = 5.0 - self.zotino_test6_offset
+    # zotino_test7_setpoint = 5.0 - self.zotino_test7_offset
+    # zotino_test8_setpoint = 5.0 - self.zotino_test8_offset
+    #
+    #
+    # self.append_to_dataset("zotino_test1_setpoint", zotino_test1_setpoint)
+    # self.append_to_dataset("zotino_test2_setpoint", zotino_test2_setpoint)
+    # self.append_to_dataset("zotino_test3_setpoint", zotino_test3_setpoint)
+    # self.append_to_dataset("zotino_test4_setpoint", zotino_test4_setpoint)
+    # self.append_to_dataset("zotino_test5_setpoint", zotino_test5_setpoint)
+    # self.append_to_dataset("zotino_test6_setpoint", zotino_test6_setpoint)
+    # self.append_to_dataset("zotino_test7_setpoint", zotino_test7_setpoint)
+    # self.append_to_dataset("zotino_test8_setpoint", zotino_test8_setpoint)
+
+    avgs = 50
+
+    # self.zotino0.set_dac([-5.0, -2.0, 2.0, 5.0], [12,13,14,15])
+    # self.zotino0.set_dac([zotino_test1_setpoint,
+    #                       zotino_test2_setpoint,
+    #                       zotino_test3_setpoint,
+    #                       zotino_test4_setpoint],
+    #                      [12,13,14,15])
+
+    period = 1*s
+
+    for j in range(60 * self.n_measurements):
+        delay(period)
+        # self.zotino0.set_dac([-5.0, -2.0, 2.0, 5.0], [12,13,14,15])
+        # self.zotino0.set_dac([zotino_test1_setpoint,
+        #                       zotino_test2_setpoint,
+        #                       zotino_test3_setpoint,
+        #                       zotino_test4_setpoint],
+        #                      [12, 13, 14, 15])
+        run_zotino_stabilization(self)
+        delay(1*ms)
+
+        zotino_test1_setpoint = 5.0 - self.zotino_test1_offset
+        zotino_test2_setpoint = 5.0 - self.zotino_test2_offset
+        zotino_test3_setpoint = 5.0 - self.zotino_test3_offset
+        zotino_test4_setpoint = 5.0 - self.zotino_test4_offset
+        zotino_test5_setpoint = 5.0 - self.zotino_test5_offset
+        zotino_test6_setpoint = 5.0 - self.zotino_test6_offset
+        zotino_test7_setpoint = 5.0 - self.zotino_test7_offset
+        zotino_test8_setpoint = 5.0 - self.zotino_test8_offset
+
+        self.zotino0.set_dac([zotino_test1_setpoint,
+                              zotino_test2_setpoint,
+                              zotino_test3_setpoint,
+                              zotino_test4_setpoint,
+                              zotino_test5_setpoint,
+                              zotino_test6_setpoint,
+                              zotino_test7_setpoint,
+                              zotino_test8_setpoint],
+                             [8, 9, 10, 11, 12, 13, 14, 15])
+
+        delay(10*ms)
+
+        for i in range(avgs):
+            self.sampler2.sample(measurement_buf)
+
+            delay(0.1*ms)
+
+            # measurement1 += measurement_buf[4]
+            # measurement2 += measurement_buf[5]
+            # measurement3 += measurement_buf[6]
+            # measurement4 += measurement_buf[7]
+
+            measurement1 += measurement_buf[0]
+            measurement2 += measurement_buf[1]
+            measurement3 += measurement_buf[2]
+            measurement4 += measurement_buf[3]
+            measurement5 += measurement_buf[4]
+            measurement6 += measurement_buf[5]
+            measurement7 += measurement_buf[6]
+            measurement8 += measurement_buf[7]
+            delay(0.1*ms)
+
+        measurement1 /= avgs
+        measurement2 /= avgs
+        measurement3 /= avgs
+        measurement4 /= avgs
+        measurement5 /= avgs
+        measurement6 /= avgs
+        measurement7 /= avgs
+        measurement8 /= avgs
+
+        self.append_to_dataset("zotino_test1_monitor", measurement1)
+        self.append_to_dataset("zotino_test2_monitor", measurement2)
+        self.append_to_dataset("zotino_test3_monitor", measurement3)
+        self.append_to_dataset("zotino_test4_monitor", measurement4)
+        self.append_to_dataset("zotino_test5_monitor", measurement5)
+        self.append_to_dataset("zotino_test6_monitor", measurement6)
+        self.append_to_dataset("zotino_test7_monitor", measurement7)
+        self.append_to_dataset("zotino_test8_monitor", measurement8)
+
+    delay(0.1 * ms)
+
+    # self.zotino0.set_dac([0.0], [12])
+    # self.zotino0.set_dac([0.0], [13])
+    # self.zotino0.set_dac([0.0], [14])
+    # self.zotino0.set_dac([0.0], [15])
+
+@kernel
+def run_zotino_stabilization_Aqua(self):
+    ####Start Kais's calibration code
+    ref_voltage_V = 0.00000
+    logger.debug('Hardware Setup')
+    self.core.reset()
+    self.zotino0.init()
+    self.core.break_realtime()
+    self.sampler1.init()
+    self.core.break_realtime()
+    delay(10 * ms)
+    for q in [0,1,3,4,5,6,7]:
+        delay(10 * ms)
+        self.sampler1.set_gain_mu(q, 3)
+
+    diff = [0.01] * 8
+    MV = [0.0] * 8
+    self.zotino0.init()
+    delay(10 * ms)
+    for m in range(8):
+        delay(10 * ms)
+        self.zotino0.write_dac(m, ref_voltage_V)
+    self.zotino0.load()
+    delay(10 * ms)
+    for j in range(20):
+        delay(10 * ms)
+        n_channels = 8  # sets number of channels to read off
+        smp = [0.0] * n_channels  # creates list of floating point variables
+        self.sampler1.sample(smp)
+        delay(10 * ms)
+        # print (smp)
+        for k in [0,1,3,4,5,6,7]:
+            diff[k] = ref_voltage_V - smp[k]
+            # print(diff[k])
+        # print(k)
+
+        delay(0.1)
+        self.zotino0.init()
+        self.core.break_realtime()
+        delay(10 * ms)
+        for n in [0,1,3,4,5,6,7]:
+            MV[n] = MV[n] + diff[n]
+            self.zotino0.write_offset(n, MV[n])
+            # print(n)
+        self.zotino0.load()
+        delay(10 * ms)
+    self.core.break_realtime()
+    #####End Kais's calibration code
+
+
+@kernel
+def run_zotino_stabilization(self):
+    """
+    In the beginning of an experiment, measure the zotino offset and compensate it.
+
+    :param self:
+    :return:
+    """
+
+    ref_voltage_V = 5.00000
+    self.core.reset()
+
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+    measurement3 = 0.0  # 3
+    measurement4 = 0.0  # 4
+    measurement5 = 0.0
+    measurement6 = 0.0
+    measurement7 = 0.0
+    measurement8 = 0.0
+
+    self.zotino0.set_dac([ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V,
+                          ref_voltage_V],
+                         [8,9,10,11,12,13,14,15])
+
+    delay(10*ms)
+
+    avgs = 50
+    for i in range(avgs):
+        self.sampler2.sample(measurement_buf)
+
+        delay(0.1 * ms)
+        measurement1 += measurement_buf[0]
+        measurement2 += measurement_buf[1]
+        measurement3 += measurement_buf[2]
+        measurement4 += measurement_buf[3]
+        measurement5 += measurement_buf[4]
+        measurement6 += measurement_buf[5]
+        measurement7 += measurement_buf[6]
+        measurement8 += measurement_buf[7]
+        delay(0.1 * ms)
+
+    measurement1 /= avgs
+    measurement2 /= avgs
+    measurement3 /= avgs
+    measurement4 /= avgs
+    measurement5 /= avgs
+    measurement6 /= avgs
+    measurement7 /= avgs
+    measurement8 /= avgs
+
+    self.set_dataset("zotino_test1_offset", measurement1 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test2_offset", measurement2 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test3_offset", measurement3 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test4_offset", measurement4 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test5_offset", measurement5 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test6_offset", measurement6 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test7_offset", measurement7 - ref_voltage_V, broadcast=True, persist=True)
+    self.set_dataset("zotino_test8_offset", measurement8 - ref_voltage_V, broadcast=True, persist=True)
+
+    self.append_to_dataset("zotino_test1_offset_monitor", measurement1)
+    self.append_to_dataset("zotino_test2_offset_monitor", measurement2)
+    self.append_to_dataset("zotino_test3_offset_monitor", measurement3)
+    self.append_to_dataset("zotino_test4_offset_monitor", measurement4)
+    self.append_to_dataset("zotino_test5_offset_monitor", measurement5)
+    self.append_to_dataset("zotino_test6_offset_monitor", measurement6)
+    self.append_to_dataset("zotino_test7_offset_monitor", measurement7)
+    self.append_to_dataset("zotino_test8_offset_monitor", measurement8)
+
+
+@kernel
+def sampler_test_experiment(self):
+    '''
+    Zotino Stability test Experiment to see if Zotino voltage output drifts.
+
+    * for testing purposes,
+    1) AZ_bottom_volts_MOT
+        zotino_test_1_Zotino_channel:
+        zotino_test_1_Sampler_channel:
+
+    # Defined in BaseExperiment.py
+    # zotino_test_1_Zotino_channel = 6  # Zotino 0 - ch6
+    # zotino_test_2_Zotino_channel = 7  # Zotino 0 - ch7
+
+    # Defined in BaseExperiment.py
+    # self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
+    # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
+
+    '''
+
+    self.core.reset()
+
+    measurement_buf = np.array([0.0] * 8)
+
+    measurement1 = 0.0  # 1
+    measurement2 = 0.0  # 2
+
+
+    zotino_test1_setpoint = 1.0
+
+    self.append_to_dataset("zotino_test1_setpoint", zotino_test1_setpoint)
+
+    avgs = 50
+
+    self.zotino0.set_dac([zotino_test1_setpoint], [8])
+
+    period = 1*s
+
+    for j in range(60 * self.n_measurements):
+        delay(period)
+
+        self.zotino0.set_dac([zotino_test1_setpoint], [8])
+
+
+        for i in range(avgs):
+            self.sampler0.sample(measurement_buf)
+            measurement1 += measurement_buf[7]
+            delay(0.1 * ms)
+
+            self.sampler2.sample(measurement_buf)
+            measurement2 += measurement_buf[1]
+            delay(0.1*ms)
+
+
+        measurement1 /= avgs
+        measurement2 /= avgs
+
+
+        self.append_to_dataset("zotino_test1_monitor", measurement1)
+        self.append_to_dataset("zotino_test2_monitor", measurement2)
+
+
+
+
+    delay(0.1 * ms)
+
+    # self.zotino0.set_dac([0.0], [12])
+    # self.zotino0.set_dac([0.0], [13])
+    # self.zotino0.set_dac([0.0], [14])
+    # self.zotino0.set_dac([0.0], [15])
+
 @kernel
 def run_feedback_and_record_FORT_MM_power(self):
     """
@@ -118,254 +610,6 @@ def run_feedback_and_record_FORT_MM_power(self):
     self.dds_FORT.sw.off()
 
     return power
-
-@kernel
-def FORT_optimization_routine_zigzag(self):
-    """
-    It follows the same logic as the optimization_routine, with one key difference:
-    as the routine proceeds to the next HWP value, it reverses the direction in which it scans the QWP values.
-    For example, after completing the scan at hwp_values[0], the waveplates are positioned at (hwp_values[0], qwp_values[last_index]).
-    For the next step at hwp_values[1], the scan starts from (hwp_values[1], qwp_values[last_index])
-    and proceeds backward to (hwp_values[1], qwp_values[0]). This approach minimizes the total rotation time,
-    since only the HWP needs to move to the next position, avoiding a full reset of the QWP to its starting angle.
-    """
-
-    self.core.reset()
-    delay(1*s)
-
-    # run stabilizer
-    if self.enable_laser_feedback:
-        self.laser_stabilizer.run()
-
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-    self.dds_FORT.sw.on()  ### turns FORT on
-
-
-    tolerance = float(self.tolerance_deg)   # rather than using fixed iteration, stop when step < tolerance
-    full_range = float(self.full_range)  # Start with a full range
-    sample_pts = int(self.sample_pts)  # Number of samples per iteration
-
-    # only half_range used in iteration. do not use full_range
-    half_range = full_range / 2  # Half the full range
-    measurement_count = 0  # Track number of power measurements
-
-    if self.search_start_from_scratch:
-        best_HWP, best_QWP, best_power = 0.0, 0.0, 0.0
-    else:
-        best_HWP, best_QWP, best_power = self.best_852HWP_to_max, self.best_852QWP_to_max, 0.0
-    previous_hwp, previous_qwp, previous_power = best_HWP, best_QWP, 0.0
-
-    power = 0.0
-    power_APD = 0.0
-
-    tolerance_satisfied = False
-    iteration = 0
-
-
-    # Iterative search loop
-    while not tolerance_satisfied:
-    # for iteration in range(max_iterations):
-        print("starting iteration no.", iteration) # this statement has to be here for it to run,,,, why...
-        time_ite = time_to_rotate_in_ms(self, half_range)
-
-        delay(2 * time_ite * ms + 1*s)  # rotate two waveplates - okay for full_range = 50
-
-        steps = half_range * 2 / (sample_pts - 1)
-
-        # power difference with steps less than 1 is negligible.
-        if steps < 1:
-            tolerance_satisfied = True
-
-            steps = 1.0
-            sample_pts = int(half_range/steps) * 2 + 1 # how many sample pts to cover the range
-            half_range = steps * (sample_pts - 1) / 2
-
-        hwp_values = np.array([best_HWP - half_range + i * steps for i in range(sample_pts)])
-        qwp_values = np.array([best_QWP - half_range + i * steps for i in range(sample_pts)])
-
-        # if steps <= tolerance:
-        #     tolerance_satisfied = True
-
-        for hwp_i in range(len(hwp_values)):
-            # time to rotate hwp
-            current_hwp = hwp_values[hwp_i]
-            time_hwp = time_to_rotate_in_ms(self, current_hwp - previous_hwp)
-            delay(time_hwp * ms)
-            count_down = 0
-
-            stop_loop = False
-
-
-            for qwp_i in range(len(qwp_values)):
-
-                if hwp_i % 2 != 0:
-                    qwp_i = len(qwp_values) -1 -qwp_i
-                if not stop_loop:
-                    current_qwp = qwp_values[qwp_i]
-                    # time to rotate qwp
-                    time_qwp = time_to_rotate_in_ms(self, current_qwp - previous_qwp)
-                    delay(time_qwp * ms)
-
-                    self.append_to_dataset("HWP_angle", current_hwp)
-                    self.append_to_dataset("QWP_angle", current_qwp)
-
-                    with parallel:
-                        move_to_target_deg(self, name="852_HWP", target_deg=current_hwp)
-                        move_to_target_deg(self, name="852_QWP", target_deg=current_qwp)
-
-                    delay(1*s)
-
-                    power = record_FORT_MM_power(self)
-                    power_APD = record_FORT_APD_power(self)
-
-                    if half_range > 5:
-                        delay(1*s)          # deleting this for full_range=10 scan works.
-
-                    if power > best_power:  # Update best power and angles if improved
-                        best_power = power
-                        best_HWP = current_hwp
-                        best_QWP = current_qwp
-
-                    previous_qwp = current_qwp
-                    measurement_count += 1  # Increment measurement counter
-
-                    if power < previous_power:
-                        count_down += 1
-                        if count_down > int(sample_pts / 2):
-                            stop_loop = True
-
-                    previous_power = power
-
-            previous_hwp = current_hwp
-            delay(1*s)
-
-        half_range = steps
-
-
-        delay(1 * s)
-        print("iteration # ", iteration," : best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
-        iteration += 1
-
-    # move back to the best HWP, QWP
-    move_to_target_deg(self, name="852_HWP", target_deg=best_HWP)
-    move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
-
-    print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
-    # print("difference in best_HWP, best_QWP, best_power = ", (self.best_852HWP_to_max - best_HWP), ", ", (self.best_852QWP_to_max - best_QWP), ", ", (self.best_852_power - best_power))
-
-    self.dds_FORT.sw.off()  ### turns FORT on
-
-    self.set_dataset("best_852HWP_to_max", best_HWP, broadcast=True, persist=True)
-    self.set_dataset("best_852QWP_to_max", best_QWP, broadcast=True, persist=True)
-    self.set_dataset("best_852_power", best_power, broadcast=True, persist=True)
-
-@kernel
-def FORT_run_feedback_and_record_ref_power(self):
-    """
-    Uses the `run_feedback_and_record_FORT_MM_power` function from `experiment_functions.py`
-    to record a reference power value for detecting FORT polarization drift consistently.
-
-    The function is defined in `experiment_functions.py` to ensure a unified implementation
-    that can be reused across all experiments.
-
-    Note: Since the optimization is performed with the FORT continuously ON,
-    the recorded power may not be directly comparable to the power measured
-    immediately after the FORT is turned ON. On Bob, it takes approximately
-    2 seconds for the FORT power to stabilize, with ~5% fluctuation.
-
-    This procedure is essential for reliable polarization optimization.
-    """
-    self.core.reset()
-
-    delay(0.1 * ms)
-    power = run_feedback_and_record_FORT_MM_power(self)  # in experiment_functions
-
-    print("After feedback - best_852_power set to ", power)
-    self.set_dataset("best_852_power_ref", power, broadcast=True, persist=True)
-
-def FORT_polarization_check_and_optimize(self):
-
-    power_MM = 0.0
-    difference_in_power_in_perc = 0.0
-
-    power_MM = run_feedback_and_record_FORT_MM_power(self)
-    record_FORT_APD_power(self)
-
-    # difference_in_power: normalized over the setpoint, in %.
-    #todo: if best_852_power_ref = 0
-    difference_in_power_in_perc = (power_MM - self.best_852_power_ref) / self.best_852_power_ref * 100
-
-    full_range = 0
-    # todo: think about the full_range
-    # Only run FORT pol stabilizer if the FORT power after polarizer is less than 5% of the setpoint.
-    if difference_in_power_in_perc < -2:
-
-        self.print_async("Running FORT Polarization optimization: difference_in_power_in_perc < -5")
-
-        FORT_not_optimized = True
-
-        while FORT_not_optimized:
-
-            if difference_in_power_in_perc < -30:
-                full_range = 90.0
-                sample_pts = 7
-                # self.set_dataset("full_range", 90.0, broadcast=True)
-            elif difference_in_power_in_perc < -10:
-                full_range = 45.0
-                sample_pts = 7
-                # self.set_dataset("full_range", 45.0, broadcast=True)
-            elif difference_in_power_in_perc < -5:
-                full_range = 30.0
-                sample_pts = 7
-                # self.set_dataset("full_range", 30.0, broadcast=True)
-            else:
-                full_range = 20.0
-                sample_pts = 5
-                # self.set_dataset("full_range", 20.0, broadcast=True)
-
-            delay(1*ms)
-            self.set_dataset("full_range", full_range, broadcast=True)
-            self.set_dataset("sample_pts", sample_pts, broadcast=True)
-
-
-            FORT_optimization_routine_zigzag(self)
-
-            previous_ref = self.best_852_power_ref
-            FORT_run_feedback_and_record_ref_power(self)
-            current_ref = self.best_852_power_ref
-
-            difference_in_power_in_perc = (current_ref - previous_ref) / previous_ref * 100
-
-            if difference_in_power_in_perc > -2:
-                FORT_not_optimized = False
-            else:
-                self.set_dataset("best_852_power_ref", previous_ref, broadcast=True, persist=True)
-
-
-    else:
-        self.print_async("Skipping FORT Polarization optimization. difference_in_power_in_perc > -5%")
-
-
-    self.dds_FORT.sw.off()
-
-
-
-    ###############  same upto here with def run_feedback_and_record_FORT_MM_power(self)
-
-@kernel
-def FORT_power_stabilzation_test_experiment(self):
-
-    # run the stabilizer
-    self.laser_stabilizer.run()
-
-    # Turn on the FORT with stabilized power
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-    self.dds_FORT.sw.on()
-    delay(1*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.stabilizer_FORT.run(setpoint_index=1)
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
 @kernel
 def rotator_test_experiment(self):
@@ -2245,110 +2489,6 @@ def optical_pumping_GRIN1(self):
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 @kernel
-def optical_pumping_both_sides_and_PR_with_on_chip_beams(self):
-    """
-    optical pumping without chopping the FORT
-
-    ** OP AOM is driven with external RF source.
-    ** GRIN1 and GRIN2 AOM is used to turn on/off the OP.
-
-    Note: To avoid conflict with Node1 codes, I left the names of the dds channels that are now
-    used for GRIN1 and GRIN2 dds.
-
-    Name of the dds channels >>>>   what actually does here
-    GRIN1and2_dds            >>>>   GRIN1 dds
-    dds_D1_pumping_DP        >>>>   GRIN2 dds
-
-    """
-
-    self.dds_cooling_DP.sw.off()  # no MOT cooling light
-    self.ttl_repump_switch.on()   # no MOT RP AOM
-    self.ttl_exc0_switch.on()     # no excitation
-    self.ttl_D1_pumping.on()      # no D1
-
-    ### Turning on fiber AOMs 1,2,3,4 for delivery of the pumping repump
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-5.0))
-
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-
-    delay(1*ms)
-
-    ### so that D1 can pass
-    self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-    self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_D1_pumping, amplitude=dB_to_V(self.p_GRIN2_D1_pumping))
-
-    self.ttl_D1_pumping.off()  ##turning D1 ON
-    self.GRIN1and2_dds.sw.on()  ## GRIN1 ON
-    self.dds_D1_pumping_DP.sw.on()  ## GRIN2 ON
-
-    delay(1 * ms)
-
-    ### set coils for pumping
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        channels=self.coil_channels)
-    delay(0.4 * ms)  # coil relaxation time
-
-
-    ### Optical pumping phase ###
-    ## pumping repump ON
-    self.ttl_pumping_repump_switch.off()
-
-
-    ## FORT OFF
-    # self.dds_FORT.sw.off()
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-
-
-    ## D1 && GRIN1 && GRIN2 ON
-    self.ttl_GRIN1_switch.off()
-    self.ttl_GRIN2_switch.off()
-
-
-    ## pumping time
-    delay(self.t_pumping)
-
-    ## FORT ON  #todo: do this later or 2 stage PGC??? where you lower the FORT in 2 steps
-    # self.dds_FORT.sw.on()
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-    ## D1 && GRIN1 && GRIN2 OFF
-    self.ttl_D1_pumping.on()  ##turning D1 OFF
-    self.ttl_GRIN1_switch.on()
-    self.ttl_GRIN2_switch.on()
-
-    # depumping time
-    delay(self.t_depumping)
-
-    ## pumping repump OFF
-    # self.dds_pumping_repump.sw.off()
-    self.ttl_pumping_repump_switch.on()
-
-    self.dds_AOM_A1.sw.off()
-    self.dds_AOM_A2.sw.off()
-    self.ttl_pumping_repump_switch.on()
-    self.dds_AOM_A3.sw.off()
-    self.dds_AOM_A4.sw.off()
-
-    delay(100 * us)
-
-    self.GRIN1and2_dds.sw.off()
-    self.dds_D1_pumping_DP.sw.off()
-
-    delay(10 * us)
-
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
-
-@kernel
 def optical_pumping_both_sides_with_dds_onoff(self):
     """
     optical pumping without chopping the FORT
@@ -2453,209 +2593,6 @@ def optical_pumping_both_sides_with_dds_onoff(self):
 
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
-@kernel
-def optical_pumping_both_sides_with_precise_timing(self):
-    """
-    optical pumping without chopping the FORT
-
-    ** OP AOM is driven with external RF source.
-    ** GRIN1 and GRIN2 AOM is used to turn on/off the OP.
-
-    Note: To avoid conflict with Node1 codes, I left the names of the dds channels that are now
-    used for GRIN1 and GRIN2 dds.
-
-    Name of the dds channels >>>>   what actually does here
-    GRIN1and2_dds            >>>>   GRIN1 dds
-    dds_D1_pumping_DP        >>>>   GRIN2 dds
-
-    """
-
-    self.dds_cooling_DP.sw.off()  # no MOT cooling light
-    self.ttl_repump_switch.on()  # no MOT RP AOM
-    self.ttl_exc0_switch.on()  # no excitation
-    self.ttl_D1_pumping.on()  # no D1
-
-    ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
-
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-
-    delay(1 * ms)
-
-    ### so that D1 can pass
-    self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-    self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_D1_pumping, amplitude=dB_to_V(self.p_GRIN2_D1_pumping))
-
-    self.ttl_D1_pumping.off()  ##turning D1 ON
-    self.GRIN1and2_dds.sw.on()
-    self.dds_D1_pumping_DP.sw.on()
-
-    delay(1 * ms)
-
-    ### set coils for pumping
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        channels=self.coil_channels)
-    delay(0.4 * ms)  # coil relaxation time
-
-
-    ### Optical pumping phase ###
-    # offset = int(self.t_excitation_pulse / ns)
-    offset = 500
-    t1 = now_mu()
-
-    ## FORT to science setpoint * holding
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-    ## pumping repump ON
-    self.ttl_pumping_repump_switch.off()
-
-    at_mu(t1 + offset) ## wating until FORT & PR is set.
-
-    ## D1 && GRIN1 && GRIN2 ON
-    self.ttl_GRIN1_switch.off()
-    self.ttl_GRIN2_switch.off()
-
-    ## pumping time
-    at_mu(t1 + offset + int(self.t_pumping / ns))
-
-    ## D1 && GRIN1 && GRIN2 OFF
-    self.ttl_D1_pumping.on()  ##turning D1 OFF
-    self.ttl_GRIN1_switch.on()
-    self.ttl_GRIN2_switch.on()
-    ## FORT back to science setpoint
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-    # depumping time
-    at_mu(t1 + offset + int(self.t_pumping / ns) + int(self.t_depumping / ns))
-
-    ## pumping repump OFF
-    self.ttl_pumping_repump_switch.on()
-    self.dds_AOM_A5.sw.off()
-    self.dds_AOM_A6.sw.off()
-
-    delay(100 * us)
-
-    ## shut down power for GRIN1 & GRIN2
-    self.GRIN1and2_dds.sw.off()
-    self.dds_D1_pumping_DP.sw.off()
-
-    delay(10 * us)
-
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
-@kernel
-def optical_pumping_both_sides_PR_34(self):
-    """
-    optical pumping without chopping the FORT
-
-    ** OP AOM is driven with external RF source.
-    ** GRIN1 and GRIN2 AOM is used to turn on/off the OP.
-
-    Note: To avoid conflict with Node1 codes, I left the names of the dds channels that are now
-    used for GRIN1 and GRIN2 dds.
-
-    Name of the dds channels >>>>   what actually does here
-    GRIN1and2_dds            >>>>   GRIN1 dds
-    dds_D1_pumping_DP        >>>>   GRIN2 dds
-
-    """
-
-    self.dds_cooling_DP.sw.off()  # no MOT cooling light
-    self.ttl_repump_switch.on()   # no MOT RP AOM
-    self.ttl_exc0_switch.on()     # no excitation
-    self.ttl_D1_pumping.on()      # no D1
-
-    ### Turning on fiber AOMs 3 & 4 for delivery of the pumping repump
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-5.0))
-
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-
-    ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
-
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-
-    delay(1*ms)
-
-    ### so that D1 can pass
-    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(-5.0))
-    self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-    self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_D1_pumping, amplitude=dB_to_V(self.p_GRIN2_D1_pumping))
-
-    self.ttl_D1_pumping.off()  ##turning D1 ON
-    self.GRIN1and2_dds.sw.on()
-    self.dds_D1_pumping_DP.sw.on()
-
-    ### set coils for pumping
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        channels=self.coil_channels)
-    delay(0.4 * ms)  # coil relaxation time
-
-
-    ### Optical pumping phase ###
-    ## pumping repump ON
-    self.ttl_pumping_repump_switch.off()
-
-    delay(0.5 * us)
-
-    ## D1 && GRIN1 && GRIN2 ON
-    # self.ttl_D1_pumping.off()  ##turning D1 ON
-    self.ttl_GRIN1_switch.off()
-    self.ttl_GRIN2_switch.off()
-
-    ## FORT OFF
-    self.dds_FORT.sw.off()
-
-    ## pumping time
-    delay(self.t_pumping)
-
-    ## FORT ON
-    self.dds_FORT.sw.on()
-
-    ## D1 && GRIN1 && GRIN2 OFF
-    self.ttl_D1_pumping.on()  ##turning D1 OFF
-    self.ttl_GRIN1_switch.on()
-    self.ttl_GRIN2_switch.on()
-
-    # depumping time
-    delay(self.t_depumping)
-
-    ## pumping repump OFF
-    # self.dds_pumping_repump.sw.off()
-    self.ttl_pumping_repump_switch.on()
-    self.dds_AOM_A3.sw.off()
-    self.dds_AOM_A4.sw.off()
-
-    self.ttl_pumping_repump_switch.on()
-    self.dds_AOM_A5.sw.off()
-    self.dds_AOM_A6.sw.off()
-
-
-    delay(100 * us)
-
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-    self.GRIN1and2_dds.sw.off()
-    self.dds_D1_pumping_DP.sw.off()
-
-    delay(10 * ms)
-
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
-
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
-    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
 
 @kernel
 def measure_FORT_MM_fiber(self):
@@ -3217,6 +3154,7 @@ def end_measurement(self):
     :param self:
     :return measurement: TInt32, the measurement index
     """
+    in_health_check = self.in_health_check
 
     ### update the datasets
     self.set_dataset(self.measurements_progress, 100 * self.measurement / self.n_measurements, broadcast=True)
@@ -3260,6 +3198,54 @@ def end_measurement(self):
         # measure_MOT_end(self)
         # delay(1*ms)
         measure_REPUMP(self)
+    else:
+        """
+        test used for monitring MOT power
+        MOT_end_monitor1 defined
+
+        This is in end_measurement
+
+        AOM1: Sampler0, 7
+        
+        AOM1 test: Sampler2, 1
+        
+        """
+        ao_s1 = 7
+        ao_s1_test = 1
+
+        # avgs = 50
+        #
+        # self.dds_FORT.sw.off()
+        # self.ttl_repump_switch.on()  # turns the RP AOM off
+        # self.dds_cooling_DP.sw.on()
+        #
+        # delay(0.1 * ms)
+        #
+        # ### MOT1 & MOT2 & MOT5
+        # measurement_buf = np.array([0.0] * 8)
+        # measurement1 = 0.0  # MOT1
+        # measurement2 = 0.0  # MOT1
+        #
+        # self.dds_AOM_A1.sw.on()
+        #
+        # delay(0.1 * ms)
+        #
+        # for i in range(avgs):
+        #     self.sampler0.sample(measurement_buf)
+        #     delay(0.1 * ms)
+        #     measurement1 += measurement_buf[ao_s1]  # MOT1
+        #
+        #     self.sampler2.sample(measurement_buf)
+        #     delay(0.1 * ms)
+        #     measurement1 += measurement_buf[ao_s1_test]  # MOT1 test
+        #
+        #
+        # measurement1 /= avgs
+        # measurement2 /= avgs
+        #
+        # self.append_to_dataset("MOT1_end_monitor", measurement1)
+        # self.append_to_dataset("MOT2_end_monitor", measurement2)
+
     delay(1*ms)
 
     advance = 1
@@ -3289,14 +3275,23 @@ def end_measurement(self):
     if advance:
         self.measurement += 1
         delay(1 * ms)
-        self.append_to_dataset('SPCM0_RO1', self.SPCM0_RO1)
-        self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
-        self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
-        self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
-        self.append_to_dataset('BothSPCMs_RO1', self.BothSPCMs_RO1)
-        self.append_to_dataset('BothSPCMs_RO2', self.BothSPCMs_RO2)
-        self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
-        delay(1 * ms)
+        if not in_health_check:  ## advance and in_health_check are different type so can't be mixed.
+            self.append_to_dataset('SPCM0_RO1', self.SPCM0_RO1)
+            self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
+            self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
+            self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
+            self.append_to_dataset('BothSPCMs_RO1', self.BothSPCMs_RO1)
+            self.append_to_dataset('BothSPCMs_RO2', self.BothSPCMs_RO2)
+            self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
+            delay(1 * ms)
+        else:
+            self.append_to_dataset('SPCM0_RO1_in_health_check', self.SPCM0_RO1)
+            self.append_to_dataset('SPCM1_RO1_in_health_check', self.SPCM1_RO1)
+            self.append_to_dataset('SPCM0_RO2_in_health_check', self.SPCM0_RO2)
+            self.append_to_dataset('SPCM1_RO2_in_health_check', self.SPCM1_RO2)
+            self.append_to_dataset('BothSPCMs_RO1_in_health_check', self.BothSPCMs_RO1)
+            self.append_to_dataset('BothSPCMs_RO2_in_health_check', self.BothSPCMs_RO2)
+
 
 @rpc(flags={"async"})
 def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
@@ -5230,13 +5225,13 @@ def microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment(self):
             delay(2*us)
 
             self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
-            delay(self.t_microwave_00_pulse/2)
+            delay(self.t_microwave_pulse/2)
 
             self.dds_microwaves.sw.off()
             delay(self.t_delay_between_shots)
 
             self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
-            delay(self.t_microwave_00_pulse/2)
+            delay(self.t_microwave_pulse/2)
 
             self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
@@ -5709,7 +5704,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
             delay(0.5 * us)
 
 
-        delay(5*us)
+        # delay(5*us)
 
         ##### Mapping from |2,1> to |1,1>
         if self.t_microwave_11_pulse > 0.0:
