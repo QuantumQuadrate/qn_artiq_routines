@@ -1,4 +1,6 @@
-
+"""
+Dummy experiment to be deleted
+"""
 @kernel
 def record_chopped_blow_away(self):
     n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
