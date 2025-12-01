@@ -307,13 +307,13 @@ class MicrowaveScanOptimizer(EnvExperiment):
         self.setattr_argument("Ramsey_11_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
 
         #### Frequency scan variables
-        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Default] Frequency Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(150.0, ndecimals=1, step=1), "[Default] Frequency Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_left_kHz", NumberValue(125.0, ndecimals=1, step=1), "[Default] Frequency Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_range_right_kHz", NumberValue(125.0, ndecimals=1, step=1), "[Default] Frequency Scan variables - centered at resonance")
         self.setattr_argument("freq_scan_step_size_kHz", NumberValue(20.0, ndecimals=1, step=1), "[Default] Frequency Scan variables - centered at resonance")
 
         #### Frequency scan variables - for faster scan!
         self.setattr_argument("shrink_factor", NumberValue(2.5, ndecimals=1, step=1), "[Geometric] Frequency Scan variables - centered at resonance")
-        self.setattr_argument("freq_scan_half_range_kHz", NumberValue(100.0, ndecimals=1, step=1), "[Geometric] Frequency Scan variables - centered at resonance")
+        self.setattr_argument("freq_scan_half_range_kHz", NumberValue(125.0, ndecimals=1, step=1), "[Geometric] Frequency Scan variables - centered at resonance")
         self.setattr_argument("freq_scan_min_step_size_kHz", NumberValue(10.0, ndecimals=1, step=1), "[Geometric] Frequency Scan variables - centered at resonance")
 
         #### Time scan variables
@@ -553,8 +553,9 @@ class MicrowaveScanOptimizer(EnvExperiment):
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)
-        print("self.n_measurements in GVS_Microwaves: ", self.n_measurements)
-        print("self.shrink_factor in GVS_Microwaves: ", self.shrink_factor)
+        # print("self.n_measurements in MicrowaveScanOptimizer: ", self.n_measurements)
+        # print("self.shrink_factor in MicrowaveScanOptimizer: ", self.shrink_factor)
+        # print("self.freq_scan_half_range_kHz in MicrowaveScanOptimizer: ", self.freq_scan_half_range_kHz)
 
         # # override specific variables. this will apply to the entire scan, so it is outside the loops
         # for variable, value in self.override_ExperimentVariables_dict.items():
@@ -643,9 +644,11 @@ class MicrowaveScanOptimizer(EnvExperiment):
                     self.reset_datasets()
 
                     self.experiment_function()
-                    self.write_results({
-                        'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix
-                    })
+                    # self.write_results({
+                    #     'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix
+                    # })
+                    self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
+                                                                                             :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                     iteration += 1
 

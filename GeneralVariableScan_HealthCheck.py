@@ -576,7 +576,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 "freq_scan_range_right_kHz": 100.0,
                 "freq_scan_step_size_kHz": 10.0,
                 "shrink_factor": 2.5,
-                "freq_scan_half_range_kHz": 100.0,
+                "freq_scan_half_range_kHz": 125.0,
                 "freq_scan_min_step_size_kHz": 10.0,
 
                 # time scan parameters
