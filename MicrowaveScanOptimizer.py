@@ -377,7 +377,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
             center = getattr(self, scan_dict[self.scan_type]["center"])
             print("center: ", center)
             if self.enable_geometric_frequency_scan:
-
+                # todo: scan list must use mode = "pair", for compatibility with the adaptive scan logic
                 self.scan_sequence1 = self.make_scan_list(center=center,
                                                           half_range_kHz=self.freq_scan_half_range_kHz,
                                                           min_step_kHz=self.freq_scan_min_step_size_kHz,
@@ -604,7 +604,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
 
             else:
                 print("scanning with adpative sequence")
-
+                #todo: scan list must use mode = "pair", for compatibility with the adaptive scan logic
                 pending_sequence1 = list(self.scan_sequence1)
                 did_refine = False
 
