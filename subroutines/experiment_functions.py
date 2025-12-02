@@ -3530,11 +3530,11 @@ def atom_loading_2_experiment(self):
 
 
 
-    ### Akbar 2025-11-25
-    ### record and get handle
-    record_chopped_RO(self)
-    delay(10 * ms)
-    self.core.break_realtime()
+    # ### Akbar 2025-11-25
+    # ### record and get handle
+    # record_chopped_RO(self)
+    # delay(10 * ms)
+    # self.core.break_realtime()
 
 
 
@@ -3576,9 +3576,9 @@ def atom_loading_2_experiment(self):
         delay(1 * ms)
 
 
-        ##### adding a dummy chopped RO to test if lose atoms due to chopping
-        chopped_RO(self)
-        delay(100*us)
+        # ##### adding a dummy chopped RO to test if lose atoms due to chopping
+        # chopped_RO(self)
+        # delay(100*us)
 
 
 
