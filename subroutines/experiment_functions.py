@@ -8736,6 +8736,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
         excitation_cycle = 1 ### just for initialization.
 
         for excitation_cycle in range(self.max_excitation_cycles):
+            self.core.break_realtime()
 
             delay(1000 * us)
 
@@ -8811,7 +8812,8 @@ def single_photon_experiment_3_atom_loading_advance(self):
             #     channels=self.coil_channels)
 
             self.ttl_exc0_switch.off() # turns on the excitation0 AOM
-            delay(1 * ms)
+            self.core.break_realtime()
+            delay(10 * ms)
 
             for excitation_attempt in range(self.n_excitation_attempts):
 
@@ -8857,7 +8859,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
                 # at_mu(t1 + 30000)
                 tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
-                delay(30 * us)  ### 20us is not enough
+                delay(50 * us)  ### 20us is not enough
 
             delay(20 * us)
             self.ttl_exc0_switch.on()  # block Excitation
@@ -8871,15 +8873,17 @@ def single_photon_experiment_3_atom_loading_advance(self):
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
                 delay(0.4 * ms)  ### coils relaxation time
 
-                self.dds_cooling_DP.sw.on()
-                self.ttl_repump_switch.off()
-                delay(1 * us)
                 self.dds_AOM_A1.sw.on()
                 self.dds_AOM_A2.sw.on()
                 self.dds_AOM_A3.sw.on()
                 self.dds_AOM_A4.sw.on()
-                self.dds_AOM_A5.sw.on()
-                self.dds_AOM_A6.sw.on()
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.sw.on()
+                    self.dds_AOM_A6.sw.on()
+                delay(1 * us)
+                self.dds_cooling_DP.sw.on()
+                self.ttl_repump_switch.off()
+
 
                 delay(self.t_recooling)
 
@@ -8904,15 +8908,17 @@ def single_photon_experiment_3_atom_loading_advance(self):
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
                 delay(0.4*ms)
 
-                self.dds_cooling_DP.sw.on()
-                self.ttl_repump_switch.off()
                 self.dds_AOM_A1.sw.on()
                 self.dds_AOM_A2.sw.on()
                 self.dds_AOM_A3.sw.on()
-                delay(1 * us)
                 self.dds_AOM_A4.sw.on()
-                self.dds_AOM_A5.sw.on()
-                self.dds_AOM_A6.sw.on()
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.sw.on()
+                    self.dds_AOM_A6.sw.on()
+                delay(1 * us)
+                self.dds_cooling_DP.sw.on()
+                self.ttl_repump_switch.off()
+                delay(1 * us)
 
                 with parallel:
                     self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
@@ -8941,7 +8947,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
                 # delay(1 * us)
                 # ##############################
 
-            delay(10 * us)
+            delay(100 * us)
 
         delay(1 * ms)
 
