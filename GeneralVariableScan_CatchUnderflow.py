@@ -36,7 +36,7 @@ import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 from artiq.coredevice.exceptions import RTIOUnderflow
 
-class GeneralVariableScan_Catch(EnvExperiment):
+class GeneralVariableScan_CatchError(EnvExperiment):
 
     def build(self):
         """

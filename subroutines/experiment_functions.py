@@ -88,7 +88,6 @@ def test_excitation_rise_time_experiment(self):
         # delay(4 * ms)  # coil relaxation time
         delay(100*us)
 
-
 @kernel
 def zotino_stability_test_experiment(self):
     '''
@@ -234,7 +233,6 @@ def zotino_stability_test_experiment(self):
     # self.zotino0.set_dac([0.0], [13])
     # self.zotino0.set_dac([0.0], [14])
     # self.zotino0.set_dac([0.0], [15])
-
 
 @kernel
 def zotino_stability_test_with_offset_experiment(self):
@@ -428,7 +426,6 @@ def run_zotino_stabilization_Aqua(self):
     self.core.break_realtime()
     #####End Kais's calibration code
 
-
 @kernel
 def run_zotino_stabilization(self):
     """
@@ -505,7 +502,6 @@ def run_zotino_stabilization(self):
     self.append_to_dataset("zotino_test6_offset_monitor", measurement6)
     self.append_to_dataset("zotino_test7_offset_monitor", measurement7)
     self.append_to_dataset("zotino_test8_offset_monitor", measurement8)
-
 
 @kernel
 def sampler_test_experiment(self):
@@ -3292,7 +3288,6 @@ def end_measurement(self):
             self.append_to_dataset('BothSPCMs_RO1_in_health_check', self.BothSPCMs_RO1)
             self.append_to_dataset('BothSPCMs_RO2_in_health_check', self.BothSPCMs_RO2)
 
-
 @rpc(flags={"async"})
 def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
     """
@@ -3529,12 +3524,12 @@ def atom_loading_2_experiment(self):
     self.require_D1_lock_to_advance = False # override experiment variable
 
 
-
-    ### Akbar 2025-11-25
-    ### record and get handle
-    record_chopped_RO(self)
-    delay(10 * ms)
-    self.core.break_realtime()
+    #
+    # ### Akbar 2025-11-25
+    # ### record and get handle
+    # record_chopped_RO(self)
+    # delay(10 * ms)
+    # self.core.break_realtime()
 
 
 
@@ -3576,9 +3571,9 @@ def atom_loading_2_experiment(self):
         delay(1 * ms)
 
 
-        ##### adding a dummy chopped RO to test if lose atoms due to chopping
-        chopped_RO(self)
-        delay(100*us)
+        # ##### adding a dummy chopped RO to test if lose atoms due to chopping
+        # chopped_RO(self)
+        # delay(100*us)
 
 
 
