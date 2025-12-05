@@ -11671,8 +11671,8 @@ def atom_photon_parity_6_experiment(self):
     self.core.break_realtime()
     for i in range(self.n_measurements):
         self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton[i])
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton[i])
+        self.append_to_dataset('SPCM0_SinglePhoton_parity', SPCM0_SinglePhoton[i])
+        self.append_to_dataset('SPCM1_SinglePhoton_parity', SPCM1_SinglePhoton[i])
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
         self.append_to_dataset('angle_780_QWP', angle_780_QWP[i])
     delay(50 * ms)
