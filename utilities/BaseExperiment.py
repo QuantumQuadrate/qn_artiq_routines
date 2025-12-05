@@ -686,7 +686,7 @@ class BaseExperiment:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                      [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
-            self.prepare_all_microwave_RAM_profiles()
+            # self.prepare_all_microwave_RAM_profiles() ### enable if you want to use RAM for MW. for example for CORPSE experiment
 
         elif self.node == "bob":
             # self.experiment.FORT_pol_stabilizer = FORTPolarizationStabilizer(experiment=self.experiment,
@@ -773,7 +773,7 @@ class BaseExperiment:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
-            self.prepare_all_microwave_RAM_profiles()
+            # self.prepare_all_microwave_RAM_profiles() ### enable if you want to use RAM for MW. for example for CORPSE experiment
 
         elif self.node == "two_nodes":
             ### initialize named channels.
@@ -852,7 +852,7 @@ class BaseExperiment:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
-            self.prepare_all_microwave_RAM_profiles()
+            # self.prepare_all_microwave_RAM_profiles() ### enable if you want to use RAM for MW. for example for CORPSE experiment
 
         else:
             raise KeyError
