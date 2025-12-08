@@ -345,7 +345,7 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
 
             for variable2_value in self.scan_sequence2:
 
-                self.set_dataset("iteration", iteration, broadcast=True)
+                # self.set_dataset("iteration", iteration, broadcast=True)
 
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
@@ -409,10 +409,12 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
 
                         self.experiment_function()
 
+                        iteration += 1
+                        self.set_dataset("iteration", iteration, broadcast=True)
+
                         ### If we got here, the iteration succeeded; persist results immediately
                         self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
                                                                                                  :-11] + "_scan_over_" + self.scan_var_filesuffix})
-                        iteration += 1
 
                         break  ### exit retry loop, go to next iteration
 
