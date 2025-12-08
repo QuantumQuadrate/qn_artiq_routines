@@ -1,5 +1,5 @@
 """
-GeneralVariableScan_HealthCheck
+GeneralVariableScan_HealthCheck_CatchError
 
 This class runs a GVS with chosen experiment function, periodically performs
 single-point microwave health checks, and if a check fails, it automatically schedules a dedicated
@@ -313,7 +313,7 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
           health check:
             * If all checks pass → resumes scan.
             * If any checks fail → schedules optimization scan(s) and a
-              "resume" GeneralVariableScan_HealthCheck, then terminates
+              "resume" GeneralVariableScan_HealthCheck_CatchError, then terminates
               the current run and pauses the scheduler.
         """
 
@@ -359,15 +359,13 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
                         if self.run_health_check_and_schedule:
                             if iteration % self.every_n_ite == 0:
                                 print(
-                                    f"running health check after iteration #{iteration}, scanning over {self.scan_variable1}: {variable1_value}")
+                                    f"running health check before iteration #{iteration}, scanning over {self.scan_variable1}: {variable1_value}")
 
                                 ####todo:  error if nothing checked;
                                 ### run health check
                                 failed_scans = self.health_check_microwave_freqs()
 
-                                # write and overwrite the health check results
-                                # self.write_results(
-                                #     {'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                                ### write and overwrite the health check results
                                 self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
                                                                                                          :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
@@ -648,9 +646,9 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
 
     def submit_resume_scan_after_optimization(self, current_iteration, override_arguments = None):  # todo: account for changes
         """
-        Schedule a follow-up GeneralVariableScan_HealthCheck to resume a scan.
+        Schedule a follow-up GeneralVariableScan_HealthCheck_CatchError to resume a scan.
 
-        - Builds a new expid for GeneralVariableScan_HealthCheck with default
+        - Builds a new expid for GeneralVariableScan_HealthCheck_CatchError with default
           health-check and scan settings.
         - Copies relevant arguments from the current experiment via
           update_default_expid_from_self().
@@ -669,8 +667,8 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
         # todo: make a default expid and overwrite it just a few things.
         default_expid = {
             'log_level': 30,
-            'file': 'qn_artiq_routines\\GeneralVariableScan_HealthCheck.py',
-            'class_name': 'GeneralVariableScan_HealthCheck',
+            'file': 'qn_artiq_routines\\GeneralVariableScan_HealthCheck_CatchError.py',
+            'class_name': 'GeneralVariableScan_HealthCheck_CatchError',
             'arguments': {
                 'parent_rid': self.parent_rid,
                 'run_health_check_and_schedule': True,

@@ -365,9 +365,8 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                         ### run health check
                         failed_scans = self.health_check_microwave_freqs()
 
-                        # write and overwrite the health check results
-                        # self.write_results(
-                        #     {'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                        ### I am not sure why we write_results here. I disabled and everything seems to work fine. Akbar 2025-12-07.
+                        ### write and overwrite the health check results
                         self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
                                                                                             :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
@@ -382,7 +381,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                                 self.override_arguments_for_scheduling_optimization_dict[scan_name] = False
 
                             ###todo: if health check fail, ii) schedule resuming experiment
-                            self.submit_resume_scan_after_optimization(current_iteration = iteration-1)
+                            self.submit_resume_scan_after_optimization(current_iteration = iteration)
 
                             ### after scheduling scans above, it terminates the current experiment
                             self.scheduler.request_termination(self.scheduler.rid)
@@ -718,7 +717,6 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 args[key] = getattr(self, key)
 
         return expid
-
 
     def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """
