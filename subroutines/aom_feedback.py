@@ -588,7 +588,6 @@ class AOMPowerStabilizer:
         # self.measure_background() # todo: doesn't work
         # delay(1*ms)
 
-
         ### do feedback on the series channels
         for ch in self.series_channels:
 
