@@ -608,6 +608,56 @@ def run_feedback_and_record_FORT_MM_power(self):
     return power
 
 @kernel
+def run_individual_feedback_on_fiber_AOMs(self):
+    """
+    self.laser_stabilizer.run() does not work well. Instead, I wrote this function to run the feedback on
+    each fiber AOM indovidually.
+
+    Akbar 2025-12-13
+
+    """
+    self.ttl_repump_switch.on()  # Turn off MOT RP
+    self.ttl_pumping_repump_switch.on()  # Turn off Pumping Repump
+    delay(10 * us)
+
+    self.dds_AOM_A1.sw.off()
+    self.dds_AOM_A2.sw.off()
+    self.dds_AOM_A3.sw.off()
+    self.dds_AOM_A4.sw.off()
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+    delay(10 * us)
+
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    delay(10 * us)
+    self.dds_cooling_DP.sw.on()
+
+    self.stabilizer_AOM_A1.run(setpoint_index=0)
+    delay(10 * us)
+    self.dds_AOM_A1.sw.off()
+
+    self.stabilizer_AOM_A2.run(setpoint_index=0)
+    delay(10 * us)
+    self.dds_AOM_A2.sw.off()
+
+    self.stabilizer_AOM_A3.run(setpoint_index=0)
+    delay(10 * us)
+    self.dds_AOM_A3.sw.off()
+
+    self.stabilizer_AOM_A4.run(setpoint_index=0)
+    delay(10 * us)
+    self.dds_AOM_A4.sw.off()
+
+    self.stabilizer_AOM_A5.run(setpoint_index=0)
+    delay(10 * us)
+    self.dds_AOM_A5.sw.off()
+
+    self.stabilizer_AOM_A6.run(setpoint_index=0)
+    delay(10 * us)
+    self.dds_AOM_A6.sw.off()
+
+
+@kernel
 def rotator_test_experiment(self):
     """
     ratator_test function to record the Sampler value while rotating the waveplate
@@ -1353,16 +1403,32 @@ def load_until_atom_smooth_FORT_recycle(self):
                 # delay(0.1 * ms)
                 # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-                ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-                ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-                delay(0.1 * ms)
+                # ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+                # ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+                # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+                # delay(0.1 * ms)
+                # self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+                # self.laser_stabilizer.run()
+                # self.n_feedback_per_iteration += 1
+                # # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
+                # self.dds_microwaves.sw.on()
+                # self.dds_FORT.sw.on()
+                # delay(0.1 * ms)
+
+                self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+                delay(10 * us)
                 self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-                self.laser_stabilizer.run()
+                run_individual_feedback_on_fiber_AOMs(self)
                 self.n_feedback_per_iteration += 1
-                # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
                 self.dds_microwaves.sw.on()
                 self.dds_FORT.sw.on()
+                delay(10 * us)
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
                 delay(0.1 * ms)
 
                 try_n = 0
@@ -3549,9 +3615,15 @@ def atom_loading_2_experiment(self):
 
     if self.enable_laser_feedback:
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        # self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        # run_feedback_and_record_FORT_MM_power(self)
+
+        self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+        delay(10 * us)
         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        run_feedback_and_record_FORT_MM_power(self)
+        run_individual_feedback_on_fiber_AOMs(self)
+        delay(10 * us)
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
