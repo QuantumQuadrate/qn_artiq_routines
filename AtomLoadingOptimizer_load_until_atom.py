@@ -236,13 +236,64 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         # self.core.break_realtime()
         ### warm up to make sure we get to the setpoints
         for i in range(10):
-            self.laser_stabilizer.run()
+            # self.laser_stabilizer.run()
+            self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+            delay(10 * us)
+            # run_individual_feedback_on_fiber_AOMs(self)
 
         ### Turning off AOMs to be ready to start atom loading from scratch
         self.dds_FORT.sw.off() ### turn off FORT
         self.dds_cooling_DP.sw.off()  ### turn off cooling
         self.ttl_repump_switch.on()  ### turn off MOT RP
 
+    @kernel
+    def run_individual_feedback_on_fiber_AOMs(self):
+        """
+        self.laser_stabilizer.run() does not work well. Instead, I wrote this function to run the feedback on
+        each fiber AOM indovidually.
+
+        Akbar 2025-12-13
+
+        """
+        self.ttl_repump_switch.on()  # Turn off MOT RP
+        self.ttl_pumping_repump_switch.on()  # Turn off Pumping Repump
+        delay(10 * us)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+        delay(10 * us)
+
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(10 * us)
+        self.dds_cooling_DP.sw.on()
+
+        self.stabilizer_AOM_A1.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A1.sw.off()
+
+        self.stabilizer_AOM_A2.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A2.sw.off()
+
+        self.stabilizer_AOM_A3.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A3.sw.off()
+
+        self.stabilizer_AOM_A4.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A4.sw.off()
+
+        self.stabilizer_AOM_A5.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A5.sw.off()
+
+        self.stabilizer_AOM_A6.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A6.sw.off()
 
     def get_cost(self, data: TArray(TFloat,1)) -> TInt32:
         total_t = 0.0
@@ -289,9 +340,15 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                 self.stabilizer_AOM_A6.set_points[0] = self.default_setpoints[5] * setpoint_multipliers[5]
 
             for i in range(3):
-                self.laser_stabilizer.run()
+                # self.laser_stabilizer.run()
+                self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+                delay(10 * us)
+                run_individual_feedback_on_fiber_AOMs(self)
         else:
-            self.laser_stabilizer.run()
+            # self.laser_stabilizer.run()
+            self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+            delay(10 * us)
+            run_individual_feedback_on_fiber_AOMs(self)
 
         if self.tune_coils:
             self.zotino0.set_dac(self.coil_values, channels=self.coil_channels)
@@ -303,7 +360,10 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
         self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
 
-        self.laser_stabilizer.run()
+        # self.laser_stabilizer.run()
+        self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+        delay(10 * us)
+        run_individual_feedback_on_fiber_AOMs(self)
 
         for i in range(self.n_measurements):
             delay(1 * ms)
@@ -379,7 +439,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.dds_AOM_A4.sw.on()
             self.dds_AOM_A5.sw.on()
             self.dds_AOM_A6.sw.on()
-            delay(300 * ms)  ### to dissipate MOT
+            delay(100 * ms)  ### to dissipate MOT
 
 
         cost = self.get_cost(self.atom_loading_time_list)

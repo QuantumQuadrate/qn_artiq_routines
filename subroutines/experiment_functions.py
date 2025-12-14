@@ -3551,12 +3551,18 @@ def atom_loading_experiment(self):
     while self.measurement < self.n_measurements:
 
         if self.enable_laser_feedback:
-            ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-            ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-            delay(0.1 * ms)
+            # ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+            # ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            # delay(0.1 * ms)
+            # self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+            # self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+
+            self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+            delay(10 * us)
             self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+            run_individual_feedback_on_fiber_AOMs(self)
+            delay(10 * us)
 
         load_MOT_and_FORT(self)
         delay(0.1*ms)
@@ -3668,6 +3674,7 @@ def atom_loading_2_experiment(self):
         end_measurement(self)
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
 @kernel

@@ -235,7 +235,8 @@ class GeneralVariableScan(EnvExperiment):
 
         if self.enable_laser_feedback:
             for i in range(10):
-                self.laser_stabilizer.run()
+                # self.laser_stabilizer.run()
+                run_individual_feedback_on_fiber_AOMs(self)
         else:
             delay(200*ms) # lotsa slack
         self.dds_FORT.sw.on()
