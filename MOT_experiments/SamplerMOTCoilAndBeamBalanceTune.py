@@ -118,6 +118,55 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         print("prepare - done")
 
     @kernel
+    def run_individual_feedback_on_fiber_AOMs(self):
+        """
+        self.laser_stabilizer.run() does not work well. Instead, I wrote this function to run the feedback on
+        each fiber AOM indovidually.
+
+        Akbar 2025-12-13
+
+        """
+        self.ttl_repump_switch.on()  # Turn off MOT RP
+        self.ttl_pumping_repump_switch.on()  # Turn off Pumping Repump
+        delay(10 * us)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+        delay(10 * us)
+
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(10 * us)
+        self.dds_cooling_DP.sw.on()
+
+        self.stabilizer_AOM_A1.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A1.sw.off()
+
+        self.stabilizer_AOM_A2.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A2.sw.off()
+
+        self.stabilizer_AOM_A3.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A3.sw.off()
+
+        self.stabilizer_AOM_A4.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A4.sw.off()
+
+        self.stabilizer_AOM_A5.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A5.sw.off()
+
+        self.stabilizer_AOM_A6.run(setpoint_index=0)
+        delay(10 * us)
+        self.dds_AOM_A6.sw.off()
+
+    @kernel
     def run(self):
         self.base.initialize_hardware()
 
@@ -142,9 +191,22 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         # warm up to get make sure we get to the setpoints
         for i in range(10):
-            self.laser_stabilizer.run(monitor_only=self.monitor_only)
-            if self.FORT_AOM_on:
-                self.dds_FORT.sw.on()
+            # self.laser_stabilizer.run(monitor_only=self.monitor_only)
+            self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+            delay(10 * us)
+            self.run_individual_feedback_on_fiber_AOMs()
+            delay(10 * us)
+
+        if self.FORT_AOM_on:
+            self.dds_FORT.sw.on()
+
+        delay(1 * ms)
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
 
         delay(1*ms)
 
@@ -179,8 +241,18 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
             if (i % self.AOM_feedback_period_cycles) == 0:
                 print("running feedback")
                 self.core.break_realtime()
-                self.laser_stabilizer.run(monitor_only=self.monitor_only)
-                delay(100*ms)
+                # self.laser_stabilizer.run(monitor_only=self.monitor_only)
+                self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+                delay(10 * us)
+                self.run_individual_feedback_on_fiber_AOMs()
+                delay(1*ms)
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
+                delay(1*ms)
                 if self.FORT_AOM_on:
                     self.dds_FORT.sw.on()
                 if self.FORT_modulation_switch_on:
