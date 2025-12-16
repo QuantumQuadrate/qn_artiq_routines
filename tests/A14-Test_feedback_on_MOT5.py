@@ -85,63 +85,78 @@ class Test_feedback_on_MOT5(EnvExperiment):
                 self.print_async(n)
                 delay(10*ms)
 
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-            self.laser_stabilizer.run()
-            delay(1*ms)
-            # self.stabilizer_FORT.run(setpoint_index=1)
+            ####################################  feedback
 
-            self.dds_cooling_DP.sw.on()  ### Turn on cooling
-            delay(1*ms)
-            self.dds_AOM_A5.sw.on()
-            delay(1*ms)
-            self.stabilizer_AOM_A5.run(setpoint_index=0)
-            delay(1*ms)
-
-            self.dds_cooling_DP.sw.on()  ### Turn on cooling
-            delay(1 * ms)
-            self.dds_AOM_A6.sw.on()
-            delay(1 * ms)
-            self.stabilizer_AOM_A6.run(setpoint_index=0)
-            delay(1*ms)
-
+            ################## Method 1: using laser_stabilizer.run() to run the feedback on all fiber AOMs.
             # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-            # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+            # self.laser_stabilizer.run()
+            # delay(1*ms)
 
-            delay(1*ms)
-            self.dds_cooling_DP.sw.on()  ### Turn on cooling
 
+            ################# Method 2: running stabilizer_AOM_A5, for example, on individual channels
+            ### This works well. Remember, this turns on the object AOM, for example AOM_A5, and leaves it on
+            ### at the end. It does nothing on any other AOM.
+
+            self.ttl_repump_switch.on()  # Turn off MOT RP
+            self.ttl_pumping_repump_switch.on()  # Turn off Pumping Repump
+
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+            delay(10 * us)
+            self.dds_cooling_DP.sw.on()
+
+            self.stabilizer_AOM_A1.run(setpoint_index=0)
+            delay(10 * us)
+            self.dds_AOM_A1.sw.off()
+
+            self.stabilizer_AOM_A2.run(setpoint_index=0)
+            delay(10 * us)
+            self.dds_AOM_A2.sw.off()
+
+            self.stabilizer_AOM_A3.run(setpoint_index=0)
+            delay(10 * us)
+            self.dds_AOM_A3.sw.off()
+
+            self.stabilizer_AOM_A4.run(setpoint_index=0)
+            delay(10 * us)
+            self.dds_AOM_A4.sw.off()
+
+            self.stabilizer_AOM_A5.run(setpoint_index=0)
+            delay(10 * us)
+            self.dds_AOM_A5.sw.off()
+
+            self.stabilizer_AOM_A6.run(setpoint_index=0)
+            delay(10 * us)
+            self.dds_AOM_A6.sw.off()
+
+            ####################################  Measurement after feedback
+            ### Note that you should not measure AOM1-4 simultaneously.
+
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.off()
+            self.dds_AOM_A3.sw.off()
+            delay(10*us)
+            self.dds_AOM_A4.sw.off()
             self.dds_AOM_A5.sw.on()
             self.dds_AOM_A6.sw.on()
-
             delay(10 * us)
 
             dummy0 = np.full(8, 0.0)
-            # dummy1 = np.full(8, 0.0)
-            # dummy2 = np.full(8, 0.0)
+
 
             for j in range(self.n_average):
                 self.sampler0.sample(self.smp0)  # runs sampler and saves to list
                 delay(0.1 * ms)
-                # self.sampler1.sample(self.smp1)  # runs sampler and saves to list
-                # delay(0.1 * ms)
-                # self.sampler2.sample(self.smp2)  # runs sampler and saves to list
-                # delay(0.1 * ms)
+
                 dummy0 += self.smp0
-                # dummy1 += self.smp1
-                # dummy2 += self.smp2
+
                 delay(10 * ms)
 
             dummy0 /= self.n_average
-            # dummy1 /= self.n_average
-            # dummy2 /= self.n_average
 
             self.avg0 = dummy0
-            # self.avg1 = dummy1
-            # self.avg2 = dummy2
 
             self.append_to_dataset("Sampler0Values", self.avg0)
-            # self.append_to_dataset("Sampler1Values", self.avg1)
-            # self.append_to_dataset("Sampler2Values", self.avg2)
+            ####################################
 
             delay(self.t_step_ms * ms)
 

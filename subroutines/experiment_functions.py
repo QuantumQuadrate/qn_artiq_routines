@@ -3541,6 +3541,11 @@ def atom_loading_2_experiment(self):
 
 
 
+    # delay(1 * ms)
+    # move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    # move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+    # delay(10 * ms)
+    # self.core.reset()
 
     self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
     ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
@@ -4522,10 +4527,6 @@ def microwave_Rabi_2_experiment(self):
 
         first_shot(self)
 
-        # todo: do we need to pump into F=2? Remove see what happens.
-        # self.ttl_repump_switch.off()  # turns the MOT RP AOM on
-        # delay(1 * ms) # leave the repump on so atoms are left in F=2
-        # self.ttl_repump_switch.on()  # turns the MOT RP AOM off
         delay(1 * ms)
 
         ############################
