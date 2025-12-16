@@ -703,6 +703,162 @@ def shot_without_measurement(self):
     self.dds_cooling_DP.sw.off()  ### Turn off cooling
 
 @kernel
+def _count_threshold_crossings_in_loading_window(self,
+                                                 threshold_per_s,
+                                                 gate_time,
+                                                 n_samples) -> TInt32:
+    """
+    Counts the number of above-threshold *intervals* in a time series (your "crossing" metric).
+    Equivalent to the AtomLoadingOptimizer logic: count falling edges + final high state.
+    """
+    atoms_loaded = 0
+
+    # First sample
+    delay(100 * us)
+    with parallel:
+        self.ttl_SPCM0_counter.gate_rising(gate_time)
+        self.ttl_SPCM1_counter.gate_rising(gate_time)
+    c0 = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+    q_last = (c0 / gate_time) > threshold_per_s
+
+    # Remaining samples
+    for _ in range(n_samples - 1):
+        delay(100 * us)
+        with parallel:
+            self.ttl_SPCM0_counter.gate_rising(gate_time)
+            self.ttl_SPCM1_counter.gate_rising(gate_time)
+        c = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+        q = (c / gate_time) > threshold_per_s
+
+        # Count a "loaded atom interval" when we go from above->below (falling edge)
+        if q_last and (not q):
+            atoms_loaded += 1
+        q_last = q
+
+    # If we end above threshold, count that final interval
+    if q_last:
+        atoms_loaded += 1
+
+    return atoms_loaded
+
+
+@kernel
+def tune_shims_for_atom_loading(self) -> TInt32:
+    """
+    Scan AX_volts_MOT and AY_volts_MOT within +/-0.3 V of their current values.
+    Keep MOT+FORT on continuously (assumed already on when this is called).
+    Use single_atom_threshold_for_loading as threshold (counts/s).
+    Update AX_volts_MOT and AY_volts_MOT datasets ONLY if strictly better than baseline.
+    Returns 1 if updated, 0 otherwise.
+    """
+    self.core.break_realtime()
+
+    ### Search limits around current values
+    ax0 = self.AX_volts_MOT
+    ay0 = self.AY_volts_MOT
+    ax_min = ax0 - 0.3
+    ax_max = ax0 + 0.3
+    ay_min = ay0 - 0.3
+    ay_max = ay0 + 0.3
+
+    ### Measurement settings (20 ms exposure, frequent checks)
+    gate_time = 20 * ms
+    n_samples = 100   # 100 * 20 ms = 2 s evaluation per point
+
+    ### Offsets for a coarse then fine scan (fast + robust)
+    coarse = [-0.30, -0.15, 0.0, 0.15, 0.30]
+    fine   = [-0.10, -0.05, 0.0, 0.05, 0.10]
+
+    ### Baseline at current settings
+    self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax0, ay0],
+                         channels=self.coil_channels)
+    delay(1 * ms)
+    best_atoms = _count_threshold_crossings_in_loading_window(
+        self, self.single_atom_threshold_for_loading, gate_time, n_samples)
+    best_ax = ax0
+    best_ay = ay0
+
+    # --- Coarse grid ---
+    for dx in coarse:
+        ax = ax0 + dx
+        if ax < ax_min:
+            ax = ax_min
+        elif ax > ax_max:
+            ax = ax_max
+
+        for dy in coarse:
+            ay = ay0 + dy
+            if ay < ay_min:
+                ay = ay_min
+            elif ay > ay_max:
+                ay = ay_max
+
+            delay(1 * ms)
+
+            self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax, ay],
+                                 channels=self.coil_channels)
+            delay(1 * ms)
+
+            atoms = _count_threshold_crossings_in_loading_window(self,
+                self.single_atom_threshold_for_loading, gate_time, n_samples)
+
+            if atoms > best_atoms:
+                best_atoms = atoms
+                best_ax = ax
+                best_ay = ay
+
+            delay(1 * ms)
+
+    # --- Fine grid around best (still clamped to +/-0.3 V around original ax0/ay0) ---
+    for dx in fine:
+        ax = best_ax + dx
+        if ax < ax_min:
+            ax = ax_min
+        elif ax > ax_max:
+            ax = ax_max
+
+        for dy in fine:
+            ay = best_ay + dy
+            if ay < ay_min:
+                ay = ay_min
+            elif ay > ay_max:
+                ay = ay_max
+
+            delay(1 * ms)
+            self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax, ay],
+                                 channels=self.coil_channels)
+            delay(1 * ms)
+
+            atoms = _count_threshold_crossings_in_loading_window(self,
+                self.single_atom_threshold_for_loading, gate_time, n_samples)
+
+            if atoms > best_atoms:
+                best_atoms = atoms
+                best_ax = ax
+                best_ay = ay
+
+            delay(1 * ms)
+
+    ### Only update if strictly improved
+    updated = 0
+    if (best_ax != ax0) or (best_ay != ay0):
+        # Re-check baseline improvement criterion strictly:
+        # (we already stored baseline in best_atoms initially, and only updated on ">" so it's improved)
+        self.AX_volts_MOT = best_ax
+        self.AY_volts_MOT = best_ay
+        self.set_dataset("AX_volts_MOT", best_ax, broadcast=True, persist=True)
+        self.set_dataset("AY_volts_MOT", best_ay, broadcast=True, persist=True)
+        updated = 1
+
+    # Leave coils at best found (or original if unchanged)
+    self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT,
+                          self.AX_volts_MOT, self.AY_volts_MOT],
+                         channels=self.coil_channels)
+    delay(1 * ms)
+
+    return updated
+
+@kernel
 def load_MOT_and_FORT(self):
     """
     The FORT loading sequence, from loading a MOT to hopefully trapping one atom
@@ -1307,6 +1463,8 @@ def load_until_atom_smooth_FORT_recycle(self):
         BothSPCMs_atom_check_loaded = 0  ### for initilization
         BothSPCMs_atom_check_not_loaded = 0
 
+        shim_tune_runs = 0
+
         while True:
             while not atom_loaded and try_n < max_tries:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
@@ -1344,6 +1502,30 @@ def load_until_atom_smooth_FORT_recycle(self):
             t_no_atom = now_mu()
             time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
             self.set_dataset("time_without_atom", time_without_atom, broadcast=True)
+
+
+
+
+
+            # --- AUTO SHIM TUNE TRIGGER ---
+            # Run shim tuning if loading has been bad "too long".
+            # (This is exactly where your loop already knows time_without_atom.)
+            t_shim_tune_trigger = 5.0  # seconds
+            max_shim_tune_runs = 3  # prevents infinite tuning loop
+
+            if (time_without_atom > t_shim_tune_trigger) and (shim_tune_runs < max_shim_tune_runs):
+                tune_shims_for_atom_loading(self)
+                shim_tune_runs += 1
+
+                # restart the loading attempt with the (possibly) improved shims
+                try_n = 0
+                t_before_atom = now_mu()
+                delay(0.1 * ms)
+                continue
+
+
+
+
 
             ### If max_tries reached and still no atom, run feedback
             if self.enable_laser_feedback:
