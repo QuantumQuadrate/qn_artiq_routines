@@ -209,6 +209,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.dds_AOM_A6.sw.on()
 
         delay(1*ms)
+        self.ttl_repump_switch.off()  # Turn on MOT RP
 
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
@@ -253,6 +254,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
                 delay(1*ms)
+                self.ttl_repump_switch.off()  # Turn on MOT RP
                 if self.FORT_AOM_on:
                     self.dds_FORT.sw.on()
                 if self.FORT_modulation_switch_on:

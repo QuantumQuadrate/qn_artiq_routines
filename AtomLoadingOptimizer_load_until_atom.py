@@ -343,12 +343,12 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                 # self.laser_stabilizer.run()
                 self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
                 delay(10 * us)
-                run_individual_feedback_on_fiber_AOMs(self)
+                self.run_individual_feedback_on_fiber_AOMs()
         else:
             # self.laser_stabilizer.run()
             self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
             delay(10 * us)
-            run_individual_feedback_on_fiber_AOMs(self)
+            self.run_individual_feedback_on_fiber_AOMs()
 
         if self.tune_coils:
             self.zotino0.set_dac(self.coil_values, channels=self.coil_channels)
@@ -363,7 +363,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         # self.laser_stabilizer.run()
         self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
         delay(10 * us)
-        run_individual_feedback_on_fiber_AOMs(self)
+        self.run_individual_feedback_on_fiber_AOMs()
 
         for i in range(self.n_measurements):
             delay(1 * ms)

@@ -656,7 +656,6 @@ def run_individual_feedback_on_fiber_AOMs(self):
     delay(10 * us)
     self.dds_AOM_A6.sw.off()
 
-
 @kernel
 def rotator_test_experiment(self):
     """
@@ -1347,7 +1346,7 @@ def load_until_atom_smooth_FORT_recycle(self):
         delay(1 * ms)
         self.zotino0.set_dac([3.5], self.UV_trig_channel)
 
-        max_tries = 100  ### Maximum number of attempts before running the feedback
+        max_tries = 250  ### Maximum number of attempts before running the feedback
         atom_check_time = self.t_atom_check_time
         try_n = 0
         t_before_atom = now_mu() ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
@@ -1415,21 +1414,25 @@ def load_until_atom_smooth_FORT_recycle(self):
                 # self.dds_FORT.sw.on()
                 # delay(0.1 * ms)
 
-                self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
-                delay(10 * us)
-                self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+
                 run_individual_feedback_on_fiber_AOMs(self)
+                delay(1 * ms)
+                self.stabilizer_FORT.run(setpoint_index=0)  # the loading setpoint
+                delay(1 * ms)
+                self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+                delay(1 * ms)
                 self.n_feedback_per_iteration += 1
                 self.dds_microwaves.sw.on()
                 self.dds_FORT.sw.on()
-                delay(10 * us)
+                self.ttl_repump_switch.off()  # Turn on MOT RP
+                delay(1 * ms)
                 self.dds_AOM_A1.sw.on()
                 self.dds_AOM_A2.sw.on()
                 self.dds_AOM_A3.sw.on()
                 self.dds_AOM_A4.sw.on()
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
-                delay(0.1 * ms)
+                delay(1 * ms)
 
                 try_n = 0
 
