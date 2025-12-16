@@ -703,11 +703,12 @@ def shot_without_measurement(self):
     self.dds_cooling_DP.sw.off()  ### Turn off cooling
 
 @kernel
-def _count_threshold_crossings_in_loading_window(self,
+def count_threshold_crossings_in_loading_window(self,
                                                  threshold_per_s,
                                                  gate_time,
                                                  n_samples) -> TInt32:
     """
+    Helper function for automatic shim tuning during atom loading.
     Counts the number of above-threshold *intervals* in a time series (your "crossing" metric).
     Equivalent to the AtomLoadingOptimizer logic: count falling edges + final high state.
     """
@@ -745,12 +746,14 @@ def _count_threshold_crossings_in_loading_window(self,
 @kernel
 def tune_shims_for_atom_loading(self) -> TInt32:
     """
+    Helper function for automatic shim tuning during atom loading.
     Scan AX_volts_MOT and AY_volts_MOT within +/-0.3 V of their current values.
     Keep MOT+FORT on continuously (assumed already on when this is called).
     Use single_atom_threshold_for_loading as threshold (counts/s).
     Update AX_volts_MOT and AY_volts_MOT datasets ONLY if strictly better than baseline.
     Returns 1 if updated, 0 otherwise.
     """
+
     self.core.break_realtime()
 
     ### Search limits around current values
@@ -773,12 +776,12 @@ def tune_shims_for_atom_loading(self) -> TInt32:
     self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax0, ay0],
                          channels=self.coil_channels)
     delay(1 * ms)
-    best_atoms = _count_threshold_crossings_in_loading_window(
+    best_atoms = count_threshold_crossings_in_loading_window(
         self, self.single_atom_threshold_for_loading, gate_time, n_samples)
     best_ax = ax0
     best_ay = ay0
 
-    # --- Coarse grid ---
+    #### Coarse grid
     for dx in coarse:
         ax = ax0 + dx
         if ax < ax_min:
@@ -799,7 +802,7 @@ def tune_shims_for_atom_loading(self) -> TInt32:
                                  channels=self.coil_channels)
             delay(1 * ms)
 
-            atoms = _count_threshold_crossings_in_loading_window(self,
+            atoms = count_threshold_crossings_in_loading_window(self,
                 self.single_atom_threshold_for_loading, gate_time, n_samples)
 
             if atoms > best_atoms:
@@ -809,7 +812,7 @@ def tune_shims_for_atom_loading(self) -> TInt32:
 
             delay(1 * ms)
 
-    # --- Fine grid around best (still clamped to +/-0.3 V around original ax0/ay0) ---
+    #### Fine grid around best coarse point
     for dx in fine:
         ax = best_ax + dx
         if ax < ax_min:
@@ -829,7 +832,7 @@ def tune_shims_for_atom_loading(self) -> TInt32:
                                  channels=self.coil_channels)
             delay(1 * ms)
 
-            atoms = _count_threshold_crossings_in_loading_window(self,
+            atoms = count_threshold_crossings_in_loading_window(self,
                 self.single_atom_threshold_for_loading, gate_time, n_samples)
 
             if atoms > best_atoms:
@@ -1453,7 +1456,7 @@ def load_until_atom_smooth_FORT_recycle(self):
         delay(1 * ms)
         self.zotino0.set_dac([3.5], self.UV_trig_channel)
 
-        max_tries = 100  ### Maximum number of attempts before running the feedback
+        max_tries = 200  ### Maximum number of attempts before running the feedback
         atom_check_time = self.t_atom_check_time
         try_n = 0
         t_before_atom = now_mu() ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
@@ -1503,29 +1506,20 @@ def load_until_atom_smooth_FORT_recycle(self):
             time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
             self.set_dataset("time_without_atom", time_without_atom, broadcast=True)
 
-
-
-
-
-            # --- AUTO SHIM TUNE TRIGGER ---
-            # Run shim tuning if loading has been bad "too long".
-            # (This is exactly where your loop already knows time_without_atom.)
+            ### If max_tries reached and atom loading is too bad, run shim tuning.
             t_shim_tune_trigger = 5.0  # seconds
             max_shim_tune_runs = 3  # prevents infinite tuning loop
 
             if (time_without_atom > t_shim_tune_trigger) and (shim_tune_runs < max_shim_tune_runs):
+                self.print_async("Atom loading is bad. Tuning X and Y shims.")
                 tune_shims_for_atom_loading(self)
                 shim_tune_runs += 1
 
-                # restart the loading attempt with the (possibly) improved shims
+                ### restart the loading attempt with the (possibly) improved shims
                 try_n = 0
                 t_before_atom = now_mu()
                 delay(0.1 * ms)
                 continue
-
-
-
-
 
             ### If max_tries reached and still no atom, run feedback
             if self.enable_laser_feedback:
