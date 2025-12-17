@@ -703,7 +703,40 @@ def shot_without_measurement(self):
     self.dds_cooling_DP.sw.off()  ### Turn off cooling
 
 @kernel
-def count_threshold_crossings_in_loading_window(self,
+def _rand_shift(self, step: TFloat, salt: TInt32) -> TFloat:
+    """
+    Kernel-safe pseudo-random dither for grid shifting, used in tune_shims_for_atom_loading.
+
+    Returns a random offset in [-step/2, +step/2), using:
+      1) a time-based seed (now_mu()) mixed with a user-provided salt
+      2) a small xorshift32 scrambler to improve bit mixing
+      3) conversion of a 31-bit integer to a float in [0, 1)
+      4) mapping to [-0.5, +0.5) * step
+
+    Notes:
+    - 'salt' lets you generate independent random shifts for X/Y (use different salts).
+    """
+    # --- (A) Build a 32-bit seed from time and salt ---
+    # now_mu() changes with RTIO time, so later calls naturally get different seeds.
+    # Multiplying salt by an LCG constant helps spread different salts across bits.
+    x = (now_mu() ^ (salt * 1103515245) ^ 12345) & 0xffffffff
+
+    # --- (B) Scramble the seed with xorshift32 (good enough for dithering) ---
+    x ^= ((x << 13) & 0xffffffff)
+    x ^= (x >> 17)
+    x ^= ((x << 5) & 0xffffffff)
+    x &= 0xffffffff  # keep in 32-bit space
+
+    # --- (C) Convert to uniform float u in [0, 1) ---
+    # Use only 31 bits to avoid sign issues; multiply by float constant to force float math.
+    x = x & 0x7fffffff
+    u = x * (1.0 / 2147483648.0)
+
+    # --- (D) Map u to [-step/2, +step/2) ---
+    return (u - 0.5) * step
+
+@kernel
+def _count_threshold_crossings_in_loading_window(self,
                                                  threshold_per_s,
                                                  gate_time,
                                                  n_samples) -> TInt32:
@@ -742,7 +775,6 @@ def count_threshold_crossings_in_loading_window(self,
 
     return atoms_loaded
 
-
 @kernel
 def tune_shims_for_atom_loading(self) -> TInt32:
     """
@@ -752,49 +784,61 @@ def tune_shims_for_atom_loading(self) -> TInt32:
     Use single_atom_threshold_for_loading as threshold (counts/s).
     Update AX_volts_MOT and AY_volts_MOT datasets ONLY if strictly better than baseline.
     Returns 1 if updated, 0 otherwise.
-    """
 
+    It checks atom loading at shim values with grid points that vary slightly in each trial.
+    Otherwise, the grid points will always be limited to a few shim values and the code toggles
+    between these values only.
+
+    Akbar 2025-12-17
+    """
     self.core.break_realtime()
 
-    ### Search limits around current values
+    # --- config ---
+    gate_time = 20 * ms
+    n_samples = 100                  # 1.0 s evaluation window
+    target_crossings = 14           # early exit threshold (your example)
+
+    coarse_step = 0.15
+    fine_step   = 0.05
+    fine_span   = 0.10              # search +/- 0.10 V around best in fine pass
+
+    # --- anchor (safety box around current shims) ---
     ax0 = self.AX_volts_MOT
     ay0 = self.AY_volts_MOT
-    ax_min = ax0 - 0.3
-    ax_max = ax0 + 0.3
-    ay_min = ay0 - 0.3
-    ay_max = ay0 + 0.3
+    ax_min, ax_max = ax0 - 0.3, ax0 + 0.3
+    ay_min, ay_max = ay0 - 0.3, ay0 + 0.3
 
-    ### Measurement settings (20 ms exposure, frequent checks)
-    gate_time = 20 * ms
-    n_samples = 100   # 100 * 20 ms = 2 s evaluation per point
-
-    ### Offsets for a coarse then fine scan (fast + robust)
-    coarse = [-0.30, -0.15, 0.0, 0.15, 0.30]
-    fine   = [-0.10, -0.05, 0.0, 0.05, 0.10]
-
-    ### Baseline at current settings
+    # If current point is already good enough, do nothing
     self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax0, ay0],
                          channels=self.coil_channels)
     delay(1 * ms)
-    best_atoms = count_threshold_crossings_in_loading_window(
+    baseline = _count_threshold_crossings_in_loading_window(
         self, self.single_atom_threshold_for_loading, gate_time, n_samples)
-    best_ax = ax0
-    best_ay = ay0
+    if baseline >= target_crossings:
+        return 0
 
-    #### Coarse grid
-    for dx in coarse:
+    best_atoms = baseline
+    best_ax, best_ay = ax0, ay0
+
+    # --- per-call grid dithers (change EVERY call, even hours later) ---
+    coarse_shift_x = _rand_shift(self, coarse_step, 1)
+    coarse_shift_y = _rand_shift(self, coarse_step, 2)
+    fine_shift_x   = _rand_shift(self, fine_step,   3)
+    fine_shift_y   = _rand_shift(self, fine_step,   4)
+
+    # --- coarse scan: dx,dy in [-0.3, +0.3] step 0.15, with dithers ---
+    # points per axis: 5  (i=0..4)
+    for ix in range(5):
+        dx = (-0.30 + ix * coarse_step) + coarse_shift_x
         ax = ax0 + dx
-        if ax < ax_min:
-            ax = ax_min
-        elif ax > ax_max:
-            ax = ax_max
+        if ax < ax_min: ax = ax_min
+        elif ax > ax_max: ax = ax_max
 
-        for dy in coarse:
+        for iy in range(5):
+            dy = (-0.30 + iy * coarse_step) + coarse_shift_y
             ay = ay0 + dy
-            if ay < ay_min:
-                ay = ay_min
-            elif ay > ay_max:
-                ay = ay_max
+            if ay < ay_min: ay = ay_min
+            elif ay > ay_max: ay = ay_max
 
             delay(1 * ms)
 
@@ -802,64 +846,69 @@ def tune_shims_for_atom_loading(self) -> TInt32:
                                  channels=self.coil_channels)
             delay(1 * ms)
 
-            atoms = count_threshold_crossings_in_loading_window(self,
-                self.single_atom_threshold_for_loading, gate_time, n_samples)
+            atoms = _count_threshold_crossings_in_loading_window(
+                self, self.single_atom_threshold_for_loading, gate_time, n_samples)
+
+            # EARLY EXIT: accept immediately if "good enough"
+            if atoms >= target_crossings:
+                self.AX_volts_MOT = ax
+                self.AY_volts_MOT = ay
+                self.set_dataset("AX_volts_MOT", ax, broadcast=True, persist=True)
+                self.set_dataset("AY_volts_MOT", ay, broadcast=True, persist=True)
+                self.print_async("Target loading reached at ", atoms)
+                delay(1 * ms)
+                return 1
 
             if atoms > best_atoms:
-                best_atoms = atoms
-                best_ax = ax
-                best_ay = ay
+                self.print_async("Best atom loading crossing threshold so far (coarse scan): ", atoms)
+                best_atoms, best_ax, best_ay = atoms, ax, ay
 
-            delay(1 * ms)
-
-    #### Fine grid around best coarse point
-    for dx in fine:
+    # --- fine scan around best: +/- fine_span with step 0.05, with dithers ---
+    # points per axis: 5  (i=0..4) covering [-0.10, -0.05, 0, +0.05, +0.10] + shift
+    for ix in range(5):
+        dx = (-fine_span + ix * fine_step) + fine_shift_x
         ax = best_ax + dx
-        if ax < ax_min:
-            ax = ax_min
-        elif ax > ax_max:
-            ax = ax_max
+        if ax < ax_min: ax = ax_min
+        elif ax > ax_max: ax = ax_max
 
-        for dy in fine:
+        for iy in range(5):
+            dy = (-fine_span + iy * fine_step) + fine_shift_y
             ay = best_ay + dy
-            if ay < ay_min:
-                ay = ay_min
-            elif ay > ay_max:
-                ay = ay_max
+            if ay < ay_min: ay = ay_min
+            elif ay > ay_max: ay = ay_max
 
             delay(1 * ms)
+
             self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax, ay],
                                  channels=self.coil_channels)
             delay(1 * ms)
 
-            atoms = count_threshold_crossings_in_loading_window(self,
-                self.single_atom_threshold_for_loading, gate_time, n_samples)
+            atoms = _count_threshold_crossings_in_loading_window(
+                self, self.single_atom_threshold_for_loading, gate_time, n_samples)
+
+            if atoms >= target_crossings:
+                self.AX_volts_MOT = ax
+                self.AY_volts_MOT = ay
+                self.set_dataset("AX_volts_MOT", ax, broadcast=True, persist=True)
+                self.set_dataset("AY_volts_MOT", ay, broadcast=True, persist=True)
+                self.print_async("Target loading reached at ", atoms)
+                delay(1 * ms)
+                return 1
 
             if atoms > best_atoms:
-                best_atoms = atoms
-                best_ax = ax
-                best_ay = ay
+                self.print_async("Best atom loading crossing threshold so far (fine scan): ", atoms)
+                best_atoms, best_ax, best_ay = atoms, ax, ay
 
-            delay(1 * ms)
-
-    ### Only update if strictly improved
-    updated = 0
-    if (best_ax != ax0) or (best_ay != ay0):
-        # Re-check baseline improvement criterion strictly:
-        # (we already stored baseline in best_atoms initially, and only updated on ">" so it's improved)
+    # --- update only if improved ---
+    if (best_atoms > baseline) and ((best_ax != ax0) or (best_ay != ay0)):
         self.AX_volts_MOT = best_ax
         self.AY_volts_MOT = best_ay
         self.set_dataset("AX_volts_MOT", best_ax, broadcast=True, persist=True)
         self.set_dataset("AY_volts_MOT", best_ay, broadcast=True, persist=True)
-        updated = 1
+        delay(1 * ms)
+        return 1
 
-    # Leave coils at best found (or original if unchanged)
-    self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT,
-                          self.AX_volts_MOT, self.AY_volts_MOT],
-                         channels=self.coil_channels)
-    delay(1 * ms)
-
-    return updated
+    return 0
 
 @kernel
 def load_MOT_and_FORT(self):
@@ -4724,7 +4773,7 @@ def microwave_Rabi_2_experiment(self):
         ############################
 
         if self.t_microwave_pulse > 0.0:
-            ### Changing the bias field for testing.
+            ### Changing the bias field
             self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
                                   self.AX_volts_microwave, self.AY_volts_microwave],
                                  channels=self.coil_channels)
