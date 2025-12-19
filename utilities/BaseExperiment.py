@@ -172,6 +172,7 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
             self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl3
 
             ### ttl4~7
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
@@ -181,7 +182,7 @@ class BaseExperiment:
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
 
             ### ttl8~11
-            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
+
 
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl11 ### not used in node 1. Just to avoid error.
