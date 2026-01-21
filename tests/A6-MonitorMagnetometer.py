@@ -68,6 +68,8 @@ class MonitorMagnetometer(EnvExperiment):
         self.set_dataset("Magnetometer_Y", [0.0], broadcast=True)
         self.set_dataset("Magnetometer_Z", [0.0], broadcast=True)
 
+        self.core.break_realtime()
+
         if self.Coils_settings == "MOT":
             ### Set the coils to MOT loading setting
             self.zotino0.set_dac(
@@ -97,6 +99,9 @@ class MonitorMagnetometer(EnvExperiment):
         delay(5 * ms)  ### required to avoid a kick in the first measurement
 
         for n_measrement in range(self.n_measurements):
+            if n_measrement % 300 == 0:
+                self.print_async("n_measurement: ", n_measrement)
+
             measurement_buf = np.array([0.0] * 8)
             MagnetometerX = 0.0
             MagnetometerY = 0.0

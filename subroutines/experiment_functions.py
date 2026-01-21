@@ -1484,10 +1484,10 @@ def load_until_atom_smooth_FORT_recycle(self):
             self.set_dataset("time_without_atom", time_without_atom, broadcast=True)
 
             ### If max_tries reached and atom loading is too bad, run shim tuning.
-            t_shim_tune_trigger = 5.0  # seconds
+            t_shim_tune_trigger = 10.0  # seconds
             max_shim_tune_runs = 3  # prevents infinite tuning loop
 
-            if (time_without_atom > t_shim_tune_trigger) and (shim_tune_runs < max_shim_tune_runs):
+            if self.tune_shims_when_loading_is_bad and (time_without_atom > t_shim_tune_trigger) and (shim_tune_runs < max_shim_tune_runs):
                 self.print_async("Atom loading is bad. Tuning X and Y shims.")
                 tune_shims_for_atom_loading(self)
                 shim_tune_runs += 1
