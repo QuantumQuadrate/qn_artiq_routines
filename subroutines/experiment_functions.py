@@ -4030,20 +4030,20 @@ def atom_loading_for_optimization_experiment(self):
 
 
     ######### to scan 852 waveplates with t_FORT_drop = 10us for example and find max retention (low T)
-    # delay(1*ms)
-    # move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
-    # move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
-    #
-    # delay(5*ms)
-    # self.core.reset()
-    #
-    # position_852_HWP = get_rotator_deg(self, name="852_HWP")
-    # position_852_QWP = get_rotator_deg(self, name="852_QWP")
-    #
-    # delay(5 * ms)
-    # self.core.reset()
-    # self.print_async("position_852_HWP: ", position_852_HWP)
-    # self.print_async("position_852_QWP:", position_852_QWP)
+    delay(1*ms)
+    move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+
+    delay(5*ms)
+    self.core.reset()
+
+    position_852_HWP = get_rotator_deg(self, name="852_HWP")
+    position_852_QWP = get_rotator_deg(self, name="852_QWP")
+
+    delay(5 * ms)
+    self.core.reset()
+    self.print_async("position_852_HWP: ", position_852_HWP)
+    self.print_async("position_852_QWP:", position_852_QWP)
     ###################################################################################################
 
 
@@ -4073,33 +4073,33 @@ def atom_loading_for_optimization_experiment(self):
         first_shot(self)
         delay(1 * ms)
 
-        ###########  PGC on the trapped atom to optimize coils and cooling_DP_PGC, for example #############
-        ### Set the coils to PGC_optimization setting:
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
-            channels=self.coil_channels)
-        delay(1 * ms)
-        ### set the cooling DP AOM to the PGC settings
-        ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
-        self.ttl_repump_switch.off()  ### turn on MOT RP
-        self.dds_cooling_DP.sw.on()  ### turn on cooling
-        delay(10 * us)
-        if self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-        delay(self.t_PGC_after_loading)  ### this is the PGC time
-        self.ttl_repump_switch.on()  ### turn off MOT RP
-        self.dds_cooling_DP.sw.off()  ### turn off cooling
-        delay(10*us)
-
-        ### Set the coils to PGC setting:
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
-             self.AY_volts_PGC],
-            channels=self.coil_channels)
-        delay(0.4 * ms)
-        ###################################################
+        # ###########  PGC on the trapped atom to optimize coils and cooling_DP_PGC, for example #############
+        # ### Set the coils to PGC_optimization setting:
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
+        #     channels=self.coil_channels)
+        # delay(1 * ms)
+        # ### set the cooling DP AOM to the PGC settings
+        # ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
+        # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
+        # self.ttl_repump_switch.off()  ### turn on MOT RP
+        # self.dds_cooling_DP.sw.on()  ### turn on cooling
+        # delay(10 * us)
+        # if self.PGC_and_RO_with_on_chip_beams:
+        #     self.dds_AOM_A5.sw.off()
+        #     self.dds_AOM_A6.sw.off()
+        # delay(self.t_PGC_after_loading)  ### this is the PGC time
+        # self.ttl_repump_switch.on()  ### turn off MOT RP
+        # self.dds_cooling_DP.sw.off()  ### turn off cooling
+        # delay(10*us)
+        #
+        # ### Set the coils to PGC setting:
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
+        #      self.AY_volts_PGC],
+        #     channels=self.coil_channels)
+        # delay(0.4 * ms)
+        # ###################################################
 
 
         if self.t_FORT_drop > 0:
