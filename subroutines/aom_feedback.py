@@ -548,9 +548,9 @@ class AOMPowerStabilizer:
             ch.dds_obj.sw.off()
             delay(100*us)
 
-        for ch in self.parallel_channels:
-            ch.dds_obj.sw.on()
-            delay(100 * us)
+        # for ch in self.parallel_channels:
+        #     ch.dds_obj.sw.on()
+        #     delay(100 * us)
 
 
         # ### do feedback on the "parallel" channels. We do not have any parallel channel and this is consuming time.
