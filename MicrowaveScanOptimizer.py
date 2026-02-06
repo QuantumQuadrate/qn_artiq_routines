@@ -587,7 +587,11 @@ class MicrowaveScanOptimizer(EnvExperiment):
         else:
             ##### Scan sequence - same as GVS. (to be compatibel with original GVS analysis)
             ###todo: adaptive scan - make this visible in gui
-            scan_with_fixed_sequence = False    ### adaptive scan enabled if False
+            if self.scan_type.startswith("Freq") and self.enable_geometric_frequency_scan:
+                scan_with_fixed_sequence = False    ### adaptive scan enabled if False
+            else:
+                scan_with_fixed_sequence = True
+
             if scan_with_fixed_sequence:
                 print("scanning with fixed sequence")
                 for variable1_value in self.scan_sequence1:
@@ -725,7 +729,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                                 new_center = f1 + step  # move further right
                             else:
                                 step = 2 * abs(f2 - f0)  # twice distance between -x and -x/2
-                                new_center = f0 - step  # move further left
+                                new_center = f0 + step  # move further left
 
                         ##todo: case2.3 and 2.4 cases are mostly captured in 2.0 case. However, sometimes,
                         ## due to noise/uncertainty or due to sideband peak or etc slope condiction might not
