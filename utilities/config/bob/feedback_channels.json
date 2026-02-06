@@ -10,7 +10,7 @@
                     "series": true,
                     "dataset": "MOT1_monitor",
                     "power_dataset":"p_AOM_A1",
-                    "t_measure_delay":0.0005,
+                    "t_measure_delay":0.005,
                     "max_dB": -10
                 },
             "dds_AOM_A2":
@@ -22,7 +22,7 @@
                     "series": true,
                     "dataset": "MOT2_monitor",
                     "power_dataset":"p_AOM_A2",
-                    "t_measure_delay":0.0005,
+                    "t_measure_delay":0.005,
                     "max_dB": -5
                 },
             "dds_AOM_A3":
@@ -34,7 +34,7 @@
                     "series": true,
                     "dataset": "MOT3_monitor",
                     "power_dataset":"p_AOM_A3",
-                    "t_measure_delay":0.0005,
+                    "t_measure_delay":0.005,
                     "max_dB": -5
                 },
             "dds_AOM_A4":
@@ -46,7 +46,7 @@
                     "series": true,
                     "dataset": "MOT4_monitor",
                     "power_dataset":"p_AOM_A4",
-                    "t_measure_delay":0.0005,
+                    "t_measure_delay":0.005,
                     "max_dB": -5
                 },
             "dds_AOM_A5":
@@ -58,7 +58,7 @@
                     "series": true,
                     "dataset":"MOT5_monitor",
                     "power_dataset":"p_AOM_A5",
-                    "t_measure_delay":0.0005,
+                    "t_measure_delay":0.005,
                     "max_dB": -5
                 },
             "dds_AOM_A6":
@@ -70,7 +70,7 @@
                     "series": true,
                     "dataset": "MOT6_monitor",
                     "power_dataset":"p_AOM_A6",
-                    "t_measure_delay":0.0005,
+                    "t_measure_delay":0.005,
                     "max_dB": -5
                 },
 
@@ -99,7 +99,7 @@
                     "dataset":"FORT_monitor",
                     "power_dataset":"p_FORT_loading",
                     "t_measure_delay":0.001,
-                    "max_dB": -1
+                    "max_dB": -3
                 }
 
 
