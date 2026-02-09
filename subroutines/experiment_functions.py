@@ -3501,41 +3501,51 @@ def FORT_ramp1_smoothstep(self, direction="down"):
 
     direction: "down" or "up"
     """
+    #### With t_FORT_ramp as a control variable to scan
     # assert (direction == "down" or direction == "up"), "Direction must be 'down' or 'up'"
     #
     # p_high = self.stabilizer_FORT.amplitudes[0]
     # p_low = self.stabilizer_FORT.amplitudes[1]
-    # n_steps = 100
+    # n_steps_max = 2000
+    # step_delay_min = 10 * us
+    #
+    # ### Choose step count so delay >= step_delay_min, but not more than n_steps_max
+    # n_steps = int(self.t_FORT_ramp / step_delay_min)
+    # if n_steps > n_steps_max:
+    #     n_steps = n_steps_max
+    # elif n_steps < 1:
+    #     n_steps = 1  # safety in extreme case
+    #
     # step_delay = self.t_FORT_ramp / n_steps
     #
     # for i in range(n_steps):
-    #     x = i / (n_steps - 1)  # normalized ramp position in [0,1]
+    #     x = i / (n_steps - 1) if n_steps > 1 else 1.0
     #     smoothstep = 6 * x ** 5 - 15 * x ** 4 + 10 * x ** 3
     #
     #     if direction == "down":
     #         p_FORT = p_high - smoothstep * (p_high - p_low)
-    #     else:  # direction == "up"
+    #     else:
     #         p_FORT = p_low + smoothstep * (p_high - p_low)
     #
-    #     delay(step_delay / 2)
+    #     delay(step_delay)
     #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
-    #     delay(step_delay / 2)
 
+
+
+    #### With t_FORT_step as a control variable to scan
     assert (direction == "down" or direction == "up"), "Direction must be 'down' or 'up'"
 
     p_high = self.stabilizer_FORT.amplitudes[0]
     p_low = self.stabilizer_FORT.amplitudes[1]
-    n_steps_max = 100
+    t_ramp = 10 * ms
     step_delay_min = 10 * us
 
-    ### Choose step count so delay >= step_delay_min, but not more than n_steps_max
-    n_steps = int(self.t_FORT_ramp / step_delay_min)
-    if n_steps > n_steps_max:
-        n_steps = n_steps_max
-    elif n_steps < 1:
-        n_steps = 1  # safety in extreme case
+    if self.t_FORT_step < step_delay_min:
+        self.t_FORT_step = step_delay_min
 
-    step_delay = self.t_FORT_ramp / n_steps
+    n_steps = int(t_ramp / self.t_FORT_step)
+    if n_steps < 1:
+        n_steps = 1  # safety in extreme case
 
     for i in range(n_steps):
         x = i / (n_steps - 1) if n_steps > 1 else 1.0
@@ -3546,7 +3556,7 @@ def FORT_ramp1_smoothstep(self, direction="down"):
         else:
             p_FORT = p_low + smoothstep * (p_high - p_low)
 
-        delay(step_delay)
+        delay(self.t_FORT_step)
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
 
 @kernel
@@ -3563,7 +3573,7 @@ def FORT_ramp2_smoothstep(self, direction="down"):
 
     p_high = self.stabilizer_FORT.amplitudes[1]
     p_low = self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1]
-    n_steps_max = 100
+    n_steps_max = 2000
     step_delay_min = 10 * us
 
     ### Choose step count so delay >= step_delay_min, but not more than n_steps_max
@@ -4627,6 +4637,8 @@ def microwave_Rabi_2_experiment(self):
     self.SPCM1_RO1 = 0
     self.SPCM1_RO2 = 0
 
+    self.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
+
     self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
     ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
     ### in each iteration.
@@ -4953,7 +4965,7 @@ def microwave_Ramsey_11_experiment(self):
         self.ttl_microwave_switch.off()
         delay(self.t_microwave_01_pulse)
         self.ttl_microwave_switch.on()
-        delay(2 * us)
+        delay(10 * us)
 
         ############################ microwave 2: Ramsey between mF=1 and mF'=1
         self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
