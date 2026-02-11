@@ -3011,19 +3011,17 @@ def Sampler0_test(self):
 def measure_coil_driver(self):
     '''
     I have connected "monitor out" of the coil drivers to Sampler2 ch4, 5, 6, and 7, to monitor the output
-    of the coils while loading MOT and atom to see if there is any correlation between bad atom loading
-    and coil driver outputs.
+    of the coils. I set all of the coils to 1V to have a good reference.
 
     '''
 
     avgs = 10
 
     #####################################  Measure in the MOT phase
-    ### Set the coils to MOT loading setting
+    ### Set the coils to 1V
     self.zotino0.set_dac(
-        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-        channels=self.coil_channels)
-    delay(0.4 * ms)
+        [1.0, 1.0, 1.0, 1.0], channels=self.coil_channels)
+    delay(1.0 * ms)
 
     measurement_buf = np.array([0.0] * 8)
     coilZ_bottom = 0.0
@@ -3044,10 +3042,10 @@ def measure_coil_driver(self):
     coilX /= avgs
     coilY /= avgs
 
-    self.append_to_dataset("coil_driver_AZ_bottom_MOT", coilZ_bottom)
-    self.append_to_dataset("coil_driver_AZ_top_MOT", coilZ_top)
-    self.append_to_dataset("coil_driver_AX_MOT", coilX)
-    self.append_to_dataset("coil_driver_AY_MOT", coilY)
+    self.append_to_dataset("coil_driver_AZ_bottom_1V", coilZ_bottom)
+    self.append_to_dataset("coil_driver_AZ_top_1V", coilZ_top)
+    self.append_to_dataset("coil_driver_AX_1V", coilX)
+    self.append_to_dataset("coil_driver_AY_1V", coilY)
 
     delay(0.1 * ms)
 
@@ -4636,6 +4634,13 @@ def microwave_Rabi_2_experiment(self):
     self.SPCM0_RO2 = 0
     self.SPCM1_RO1 = 0
     self.SPCM1_RO2 = 0
+
+    delay(1 * ms)
+    move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+
+    delay(5 * ms)
+    self.core.reset()
 
     self.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
 

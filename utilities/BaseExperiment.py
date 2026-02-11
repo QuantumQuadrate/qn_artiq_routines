@@ -957,10 +957,10 @@ class BaseExperiment:
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
 
-        self.experiment.set_dataset("coil_driver_AZ_bottom_MOT", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AZ_top_MOT", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AX_MOT", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AY_MOT", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AZ_bottom_1V", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AZ_top_1V", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AX_1V", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AY_1V", [0.0], broadcast=True)
 
         self.experiment.set_dataset("atom_loading_wall_clock", [0.0], broadcast=True)
 
