@@ -13,6 +13,9 @@ scipy = "*"
 tifffile = "*"
 psycopg2 = "*"
 scikit-image = "*"
+psycopg2-binary = "*"
+sqlalchemy = "*"
+pandas = "*"
 
 [dev-packages]
 

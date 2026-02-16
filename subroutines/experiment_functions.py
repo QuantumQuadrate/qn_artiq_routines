@@ -962,7 +962,7 @@ def load_MOT_and_FORT_until_atom(self):
     if self.monitors_for_atom_loading:
         measure_Magnetometer(self)
         delay(1 * ms)
-        Sampler0_test(self)
+        Sampler_test(self)
         delay(1 * ms)
         measure_coil_driver(self)
 
@@ -1187,7 +1187,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         if self.monitors_for_atom_loading:
             measure_Magnetometer(self)
             delay(1*ms)
-            Sampler0_test(self)
+            Sampler_test(self)
             delay(1*ms)
             measure_coil_driver(self)
 
@@ -1402,8 +1402,10 @@ def load_until_atom_smooth_FORT_recycle(self):
         if self.monitors_for_atom_loading:
             measure_Magnetometer(self)
             delay(1*ms)
-            Sampler0_test(self)
+            Sampler_test(self)
             delay(1*ms)
+            measure_GRIN1(self)
+            delay(1 * ms)
             measure_coil_driver(self)
 
         ### Set the coils to MOT loading setting
@@ -2778,7 +2780,7 @@ def measure_GRIN1(self):
     """
     measurement_buf = np.array([0.0]*8)
     measurement = 0.0
-    avgs = 10
+    avgs = 5
 
     # self.dds_FORT.sw.off() ### Why turnning off FORT?
     self.ttl_repump_switch.on()  # turns the RP AOM off
@@ -2984,26 +2986,46 @@ def zotino_stability_test(self):
     delay(0.1 * ms)
 
 @kernel
-def Sampler0_test(self):
+def Sampler_test(self):
     '''
-    I have conencted 5V signal from the TENMA DC power supply to Sample0, ch0. Sampler0 is used to feedback to the AOMs.
+    I have conencted 1V signal from the linear DC power supply to different sampler channels.
     I am going to see if the measurement of this channel fluctuates especially when atom loading is bad, or not.
 
     '''
 
-    ch = 0 # Sampler 0 - ch0
-    measurement_buf = np.array([0.0]*8)
-    measurement1 = 0.0
-    avgs = 10
+    Sampler0_ch = 2 # Sampler 0 - ch2
+    Sampler1_ch = 5 # Sampler 1 - ch5
+    Sampler2_ch = 0 # Sampler 2 - ch0
 
+    Sampler0_measurement_buf = np.array([0.0]*8)
+    Sampler1_measurement_buf = np.array([0.0]*8)
+    Sampler2_measurement_buf = np.array([0.0]*8)
+    Sampler0_measurement = 0.0
+    Sampler1_measurement = 0.0
+    Sampler2_measurement = 0.0
+    avgs = 5
+
+    delay(50 * us)
     for i in range(avgs):
-        self.sampler0.sample(measurement_buf)
-        delay(0.1 * ms)
-        measurement1 += measurement_buf[ch]
+        self.sampler0.sample(Sampler0_measurement_buf)
+        delay(20 * us)
+        self.sampler1.sample(Sampler1_measurement_buf)
+        delay(20 * us)
+        self.sampler2.sample(Sampler2_measurement_buf)
 
-    measurement1 /= avgs
+        delay(20 * us)
+        Sampler0_measurement += Sampler0_measurement_buf[Sampler0_ch]
+        Sampler1_measurement += Sampler1_measurement_buf[Sampler1_ch]
+        Sampler2_measurement += Sampler2_measurement_buf[Sampler2_ch]
+        delay(20 * us)
 
-    self.append_to_dataset("Sampler0_test", measurement1)
+    Sampler0_measurement /= avgs
+    Sampler1_measurement /= avgs
+    Sampler2_measurement /= avgs
+
+    self.append_to_dataset("Sampler0_test", Sampler0_measurement)
+    self.append_to_dataset("Sampler1_test", Sampler1_measurement)
+    self.append_to_dataset("Sampler2_test", Sampler2_measurement)
 
     delay(0.1 * ms)
 
@@ -3346,7 +3368,7 @@ def end_measurement(self):
         # delay(1 * ms)
         # measure_Magnetometer(self)
         # delay(1*ms)
-        # Sampler0_test(self)
+        # Sampler_test(self)
         # delay(1*ms)
         # measure_coil_driver(self)
         # delay(1*ms)
@@ -4193,7 +4215,7 @@ def atom_loading_for_PGC_optimization_experiment(self):
             [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
              self.AY_volts_PGC],
             channels=self.coil_channels)
-        delay(0.4 * ms)
+        delay(1 * ms)
         ###################################################
 
         if self.t_FORT_drop > 0:
@@ -4635,12 +4657,12 @@ def microwave_Rabi_2_experiment(self):
     self.SPCM1_RO1 = 0
     self.SPCM1_RO2 = 0
 
-    delay(1 * ms)
-    move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
-    move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
-
-    delay(5 * ms)
-    self.core.reset()
+    # delay(1 * ms)
+    # move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    # move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+    #
+    # delay(5 * ms)
+    # self.core.reset()
 
     self.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
 
@@ -4669,11 +4691,11 @@ def microwave_Rabi_2_experiment(self):
 
     # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-    delay(1 * ms)
-    move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
-    move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
-    delay(10 * ms)
-    self.core.reset()
+    # delay(1 * ms)
+    # move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
+    # move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
+    # delay(10 * ms)
+    # self.core.reset()
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
