@@ -524,6 +524,7 @@ def sampler_test_experiment(self):
     # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
     # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
 
+    to delete along with the datasets in baseExperiment?
     '''
 
     self.core.reset()
@@ -1406,7 +1407,7 @@ def load_until_atom_smooth_FORT_recycle(self):
             delay(1*ms)
             measure_GRIN1(self)
             delay(1 * ms)
-            measure_coil_driver(self)
+            # measure_coil_driver(self)
 
         ### Set the coils to MOT loading setting
         self.zotino0.set_dac(
@@ -2989,43 +2990,83 @@ def zotino_stability_test(self):
 def Sampler_test(self):
     '''
     I have conencted 1V signal from the linear DC power supply to different sampler channels.
-    I am going to see if the measurement of this channel fluctuates especially when atom loading is bad, or not.
+    I am going to see if the measurement of these channels fluctuate.
+
+    In the first block, I save only a single channel from each Sampler. For this, you need to change the dataset in BaseExperiment
+    to self.experiment.set_dataset("Sampler0_test", [0.0], broadcast=True), and the same for Sampler1&2.
+
+    In the 2nd block below, I am saving all the Sampler channels in the datasets to monitor all channels.
+    Since most of the lasers, if not all, are off during this measurement, the Sampler channels (except those connected to DC
+    power supply for monitoring) should show zero volts.
+    For this block, you should use self.experiment.set_dataset("Sampler0_test", [np.zeros(8, dtype=float)], broadcast=True)
+    and the same for Sampler1&2.
 
     '''
+    #### --------------- Use only one of the two following blocks ------------------
 
-    Sampler0_ch = 2 # Sampler 0 - ch2
-    Sampler1_ch = 5 # Sampler 1 - ch5
-    Sampler2_ch = 0 # Sampler 2 - ch0
+    # ####     saving only one channel from each Sampler ##################
+    # Sampler0_ch = 2 # Sampler 0 - ch2
+    # Sampler1_ch = 5 # Sampler 1 - ch5
+    # Sampler2_ch = 0 # Sampler 2 - ch0
+    #
+    # Sampler0_measurement_buf = np.array([0.0]*8)
+    # Sampler1_measurement_buf = np.array([0.0]*8)
+    # Sampler2_measurement_buf = np.array([0.0]*8)
+    #
+    # Sampler0_measurement = 0.0
+    # Sampler1_measurement = 0.0
+    # Sampler2_measurement = 0.0
+    # avgs = 5
+    #
+    # delay(50 * us)
+    # for i in range(avgs):
+    #     self.sampler0.sample(Sampler0_measurement_buf)
+    #     delay(20 * us)
+    #     self.sampler1.sample(Sampler1_measurement_buf)
+    #     delay(20 * us)
+    #     self.sampler2.sample(Sampler2_measurement_buf)
+    #
+    #     delay(20 * us)
+    #     Sampler0_measurement += Sampler0_measurement_buf[Sampler0_ch]
+    #     Sampler1_measurement += Sampler1_measurement_buf[Sampler1_ch]
+    #     Sampler2_measurement += Sampler2_measurement_buf[Sampler2_ch]
+    #     delay(20 * us)
+    #
+    # Sampler0_measurement /= avgs
+    # Sampler1_measurement /= avgs
+    # Sampler2_measurement /= avgs
+    #
+    # self.append_to_dataset("Sampler0_test", Sampler0_measurement)
+    # self.append_to_dataset("Sampler1_test", Sampler1_measurement)
+    # self.append_to_dataset("Sampler2_test", Sampler2_measurement)
 
-    Sampler0_measurement_buf = np.array([0.0]*8)
-    Sampler1_measurement_buf = np.array([0.0]*8)
-    Sampler2_measurement_buf = np.array([0.0]*8)
-    Sampler0_measurement = 0.0
-    Sampler1_measurement = 0.0
-    Sampler2_measurement = 0.0
-    avgs = 5
+
+
+    ####     saving all the channels from the Samplers ##################
+
+    ### Set the coils to 1V. So Sampler_test also tests coil driver output in combination with Zotino.
+    self.dds_FORT.sw.on()
+    self.zotino0.set_dac(
+        [1.0, 1.0, 1.0, 1.0], channels=self.coil_channels)
+    delay(1.0 * ms)
+
+    Sampler0_measurement_buf = np.array([0.0] * 8)
+    Sampler1_measurement_buf = np.array([0.0] * 8)
+    Sampler2_measurement_buf = np.array([0.0] * 8)
+
 
     delay(50 * us)
-    for i in range(avgs):
-        self.sampler0.sample(Sampler0_measurement_buf)
-        delay(20 * us)
-        self.sampler1.sample(Sampler1_measurement_buf)
-        delay(20 * us)
-        self.sampler2.sample(Sampler2_measurement_buf)
 
-        delay(20 * us)
-        Sampler0_measurement += Sampler0_measurement_buf[Sampler0_ch]
-        Sampler1_measurement += Sampler1_measurement_buf[Sampler1_ch]
-        Sampler2_measurement += Sampler2_measurement_buf[Sampler2_ch]
-        delay(20 * us)
+    self.sampler0.sample(Sampler0_measurement_buf)
+    delay(20 * us)
+    self.sampler1.sample(Sampler1_measurement_buf)
+    delay(20 * us)
+    self.sampler2.sample(Sampler2_measurement_buf)
+    delay(20 * us)
 
-    Sampler0_measurement /= avgs
-    Sampler1_measurement /= avgs
-    Sampler2_measurement /= avgs
-
-    self.append_to_dataset("Sampler0_test", Sampler0_measurement)
-    self.append_to_dataset("Sampler1_test", Sampler1_measurement)
-    self.append_to_dataset("Sampler2_test", Sampler2_measurement)
+    self.append_to_dataset("Sampler0_test", Sampler0_measurement_buf)
+    self.append_to_dataset("Sampler1_test", Sampler1_measurement_buf)
+    self.append_to_dataset("Sampler2_test", Sampler2_measurement_buf)
 
     delay(0.1 * ms)
 
@@ -3035,6 +3076,7 @@ def measure_coil_driver(self):
     I have connected "monitor out" of the coil drivers to Sampler2 ch4, 5, 6, and 7, to monitor the output
     of the coils. I set all of the coils to 1V to have a good reference.
 
+    To delete
     '''
 
     avgs = 10
@@ -3245,7 +3287,7 @@ def measure_MOT_end(self):
 @kernel
 def measure_Magnetometer(self):
     ### x,y, and z axes are connected to Sampler2 Ch1,2, and 3, respectively.
-    avgs = 10
+    avgs = 1
 
     #####################################  Measure in the MOT phase
     ### Set the coils to MOT loading setting
@@ -3296,6 +3338,33 @@ def measure_Magnetometer(self):
     self.append_to_dataset("Magnetometer_OP_X", MagnetometerY * 350) ### 1V corresponds to 350 mG
     self.append_to_dataset("Magnetometer_OP_Y", MagnetometerX * 350) ### sensor's X axis is coils' Y axis, and vice versa.
     self.append_to_dataset("Magnetometer_OP_Z", MagnetometerZ * 350)
+
+
+
+
+    #### I added Mag690 magnetometer (borrowed from Josiah) temporary to test our magnetometer.
+    #### It is connected to Sampler1_ch0 to 2. To be deleted soon.
+    measurement_buf = np.array([0.0] * 8)
+    MagnetometerX = 0.0
+    MagnetometerY = 0.0
+    MagnetometerZ = 0.0
+
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        MagnetometerX += measurement_buf[0]
+        MagnetometerY += measurement_buf[1]
+        MagnetometerZ += measurement_buf[2]
+        delay(0.1 * ms)
+
+    MagnetometerX /= avgs
+    MagnetometerY /= avgs
+    MagnetometerZ /= avgs
+    self.append_to_dataset("Magnetometer_Mag690_Zero_X", MagnetometerY * 100)  ### 1V corresponds to 100 mG
+    self.append_to_dataset("Magnetometer_Mag690_Zero_Y", MagnetometerX * 100)  ###
+    self.append_to_dataset("Magnetometer_Mag690_Zero_Z", MagnetometerZ * 100)
+    delay(0.1 * ms)
+
+
 
     #####################################  Measure with Zotino set to zero V
     ### Turn off all the coils

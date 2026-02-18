@@ -943,9 +943,9 @@ class BaseExperiment:
         self.experiment.set_dataset("zotino_test7_offset_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test8_offset_monitor", [0.0], broadcast=True)
 
-        self.experiment.set_dataset("Sampler0_test", [0.0], broadcast=True)
-        self.experiment.set_dataset("Sampler1_test", [0.0], broadcast=True)
-        self.experiment.set_dataset("Sampler2_test", [0.0], broadcast=True)
+        self.experiment.set_dataset("Sampler0_test", [np.zeros(8, dtype=float)], broadcast=True)
+        self.experiment.set_dataset("Sampler1_test", [np.zeros(8, dtype=float)], broadcast=True)
+        self.experiment.set_dataset("Sampler2_test", [np.zeros(8, dtype=float)], broadcast=True)
 
         self.experiment.set_dataset("Magnetometer_MOT_X", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_MOT_Y", [0.0], broadcast=True)
@@ -955,6 +955,9 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_OP_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Zero_X", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Zero_Y", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_Mag690_Zero_Z", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_Mag690_Zero_X", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_Mag690_Zero_Y", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
