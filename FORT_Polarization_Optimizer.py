@@ -389,6 +389,175 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         self.set_dataset("best_852_power", best_power, broadcast=True, persist=True)
 
     @kernel
+    def optimization_routine_zigzag_power_normalized(self):
+        """
+        It follows the same logic as the optimization_routine_zigzag, with one key difference:
+        * it optimizes using normalized FORT MM power
+        * power_APD_norm = power_APD/setpoint_APD.
+        * new_FORT_MM_power = FORT_MM_power/power_APD_norm
+        * This compensates for small transmission changes as the waveplates rotate
+          (which slightly changes the total power delivered to the chip), so the metric depends mainly on polarization,
+          not overall power drift.
+        """
+
+        self.core.reset()
+        delay(1*s)
+
+        # run stabilizer
+        self.core.break_realtime()
+        if self.enable_laser_feedback:
+            self.laser_stabilizer.run()
+
+        ### turning FORT on in the beginning to give enough time to stabilize.
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+        delay(100*us)
+        self.dds_FORT.sw.on()  ### turns FORT on
+
+        delay(1*ms)
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+
+        delay(1*ms)
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+        delay(1 * ms)
+
+
+        tolerance = float(self.tolerance_deg)   # rather than using fixed iteration, stop when step < tolerance
+        full_range = float(self.full_range)  # Start with a full range
+        sample_pts = int(self.sample_pts)  # Number of samples per iteration
+
+        # only half_range used in iteration. do not use full_range
+        half_range = full_range / 2  # Half the full range
+        measurement_count = 0  # Track number of power measurements
+
+        if self.search_start_from_scratch:
+            best_HWP, best_QWP, best_power = 0.0, 0.0, 0.0
+        else:
+            best_HWP, best_QWP, best_power = self.best_852HWP_to_max, self.best_852QWP_to_max, 0.0
+        previous_hwp, previous_qwp, previous_power = best_HWP, best_QWP, 0.0
+
+        power = 0.0
+        power_APD = 0.0
+
+        tolerance_satisfied = False
+        iteration = 0
+
+
+        # Iterative search loop
+        while not tolerance_satisfied:
+        # for iteration in range(max_iterations):
+            print("starting iteration no.", iteration) # this statement has to be here for it to run,,,, why...
+            delay(10 * ms)
+            time_ite = time_to_rotate_in_ms(self, half_range)
+
+            delay(2 * time_ite * ms + 1*s)  # rotate two waveplates - okay for full_range = 50
+
+            steps = half_range * 2 / (sample_pts - 1)
+
+            # power difference with steps less than 1 is negligible.
+            if steps < self.tolerance_deg:
+                tolerance_satisfied = True
+
+                steps = self.tolerance_deg
+                sample_pts = int(half_range/steps) * 2 + 1 # how many sample pts to cover the range
+                half_range = steps * (sample_pts - 1) / 2
+
+            hwp_values = np.array([best_HWP - half_range + i * steps for i in range(sample_pts)])
+            qwp_values = np.array([best_QWP - half_range + i * steps for i in range(sample_pts)])
+
+            # if steps <= tolerance:
+            #     tolerance_satisfied = True
+
+            for hwp_i in range(len(hwp_values)):
+                # time to rotate hwp
+                current_hwp = hwp_values[hwp_i]
+                time_hwp = time_to_rotate_in_ms(self, current_hwp - previous_hwp)
+                delay(time_hwp * ms)
+                count_down = 0
+
+                stop_loop = False
+
+
+                for qwp_i in range(len(qwp_values)):
+
+                    if hwp_i % 2 != 0:
+                        qwp_i = len(qwp_values) -1 -qwp_i
+                    if not stop_loop:
+                        current_qwp = qwp_values[qwp_i]
+                        # time to rotate qwp
+                        time_qwp = time_to_rotate_in_ms(self, current_qwp - previous_qwp)
+                        delay(time_qwp * ms)
+
+                        self.append_to_dataset("HWP_angle", current_hwp)
+                        self.append_to_dataset("QWP_angle", current_qwp)
+
+                        with parallel:
+                            move_to_target_deg(self, name="852_HWP", target_deg=current_hwp)
+                            move_to_target_deg(self, name="852_QWP", target_deg=current_qwp)
+
+                        delay(1*s)
+
+                        power = record_FORT_MM_power(self)
+                        power_APD = record_FORT_APD_power(self)
+
+                        power_APD_norm = power_APD/self.set_point_FORT_APD_loading
+
+                        power = power / power_APD_norm
+
+                        if half_range > 5:
+                            delay(1*s)          # deleting this for full_range=10 scan works.
+
+                        if power > best_power:  # Update best power and angles if improved
+                            best_power = power
+                            best_HWP = current_hwp
+                            best_QWP = current_qwp
+
+                        previous_qwp = current_qwp
+                        measurement_count += 1  # Increment measurement counter
+
+                        if power < previous_power:
+                            count_down += 1
+                            if count_down > int(sample_pts / 2):
+                                stop_loop = True
+
+                        previous_power = power
+
+                previous_hwp = current_hwp
+                delay(1*s)
+
+            half_range = steps
+
+
+            delay(1 * s)
+            print("iteration # ", iteration," : best_HWP, best_QWP, best_power = ", best_HWP,", ", best_QWP, ", ", best_power)
+            delay(10*ms)
+            iteration += 1
+
+        # move back to the best HWP, QWP
+        move_to_target_deg(self, name="852_HWP", target_deg=best_HWP)
+        move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
+
+        print("previous best_HWP, best_QWP, best_power = ", self.best_852HWP_to_max, ", ", self.best_852QWP_to_max, ", ", self.best_852_power)
+        delay(10*ms)
+        # print("difference in best_HWP, best_QWP, best_power = ", (self.best_852HWP_to_max - best_HWP), ", ", (self.best_852QWP_to_max - best_QWP), ", ", (self.best_852_power - best_power))
+        # delay(10 * ms)
+
+        self.core.break_realtime()
+        self.dds_FORT.sw.off()  ### turns FORT on
+        delay(1*ms)
+
+        self.set_dataset("best_852HWP_to_max", best_HWP, broadcast=True, persist=True)
+        self.set_dataset("best_852QWP_to_max", best_QWP, broadcast=True, persist=True)
+        self.set_dataset("best_852_power", best_power, broadcast=True, persist=True)
+
+
+
+    @kernel
     def run_feedback_and_record_ref_power(self):
         """
         Uses the `run_feedback_and_record_FORT_MM_power` function from `experiment_functions.py`
@@ -433,7 +602,8 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         self.initialize_hardware()
         self.initialize_datasets()
 
-        self.optimization_routine_zigzag()  # running zigzag as default
+        # self.optimization_routine_zigzag()  # running zigzag as default
+        self.optimization_routine_zigzag_power_normalized()
 
         self.run_feedback_and_record_ref_power()  # recording reference power
 
