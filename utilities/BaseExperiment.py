@@ -1027,8 +1027,8 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0_logic.output()
             self.experiment.ttl_SPCM1_logic.output()
             delay(100*us)
-            self.experiment.ttl_SPCM0_logic.on()
-            self.experiment.ttl_SPCM1_logic.on()
+            self.experiment.ttl_SPCM0_logic.off()
+            self.experiment.ttl_SPCM1_logic.off()
 
             self.experiment.FORT_mod_switch.output()
 
