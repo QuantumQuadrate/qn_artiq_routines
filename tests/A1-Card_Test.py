@@ -160,12 +160,25 @@ class Card_Tests(EnvExperiment):
         self.zotino0.write_dac(14, 0.2)
         self.zotino0.write_dac(15, 1.0)
         self.zotino0.load()
+        delay(1 * ms)
 
-        # for i in range(10000):
-        #     self.zotino0.set_dac([2.0], [3])
-        #     delay(2*ms)
-        #     self.zotino0.set_dac([-2.0], [3])
-        #     delay(50*ms)
+        for i in range(10000):
+            self.zotino0.set_dac([6.0], [0])
+            delay(1 * ms)
+            self.zotino0.set_dac([6.0], [1])
+            delay(1 * ms)
+            self.zotino0.set_dac([1.0], [13])
+            delay(1 * ms)
+            self.zotino0.set_dac([3.23], [14])
+            delay(5*ms)
+            self.zotino0.set_dac([0.0], [0])
+            delay(1 * ms)
+            self.zotino0.set_dac([0.0], [1])
+            delay(1 * ms)
+            self.zotino0.set_dac([0.0], [13])
+            delay(1 * ms)
+            self.zotino0.set_dac([0.0], [14])
+            delay(200*ms)
 
         # self.zotino0.set_dac([2,2,2,2])
 

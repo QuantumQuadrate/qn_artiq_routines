@@ -82,7 +82,7 @@ class AOMs_Coils(EnvExperiment):
         self.AOM_A5_ampl = math.sqrt(2*50*10**(self.AOM_A5_power/10-3))
         self.AOM_A6_ampl = math.sqrt(2*50*10**(self.AOM_A6_power/10-3))
 
-        self.coil_channels = [0, 1, 2, 3]
+        self.coil_channels = [0, 1, 13, 14]
 
 
     @kernel
