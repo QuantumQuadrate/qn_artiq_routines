@@ -263,8 +263,6 @@ class ExperimentVariables(EnvExperiment):
                      "Science coil settings"),
             Variable("AZ_bottom_volts_blowaway", -0.036, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
-            Variable("AZ_top_volts_blowaway", 0.237, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "Science coil settings"),
             Variable("AX_volts_blowaway", -0.175, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
             Variable("AY_volts_blowaway", 5.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
