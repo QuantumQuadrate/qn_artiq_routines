@@ -172,6 +172,7 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
             self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl3
 
             ### ttl4~7
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
@@ -181,7 +182,7 @@ class BaseExperiment:
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
 
             ### ttl8~11
-            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
+
 
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl11 ### not used in node 1. Just to avoid error.
@@ -688,7 +689,7 @@ class BaseExperiment:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                      [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
-            self.prepare_all_microwave_RAM_profiles()
+            # self.prepare_all_microwave_RAM_profiles() ### enable if you want to use RAM for MW. for example for CORPSE experiment
 
         elif self.node == "bob":
             # self.experiment.FORT_pol_stabilizer = FORTPolarizationStabilizer(experiment=self.experiment,
@@ -775,7 +776,7 @@ class BaseExperiment:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
-            self.prepare_all_microwave_RAM_profiles()
+            # self.prepare_all_microwave_RAM_profiles() ### enable if you want to use RAM for MW. for example for CORPSE experiment
 
         elif self.node == "two_nodes":
             ### initialize named channels.
@@ -854,7 +855,7 @@ class BaseExperiment:
                     self.experiment.set_dataset(self.experiment.laser_stabilizer.all_channels[ch_i].dB_history_dataset,
                                                 [float(self.experiment.initial_RF_dB_values[ch_i])], broadcast=True)
 
-            self.prepare_all_microwave_RAM_profiles()
+            # self.prepare_all_microwave_RAM_profiles() ### enable if you want to use RAM for MW. for example for CORPSE experiment
 
         else:
             raise KeyError
@@ -880,10 +881,12 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
         self.experiment.set_dataset("SPCM0_SinglePhoton", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_SinglePhoton_parity", [0], broadcast=True)
         self.experiment.set_dataset("reference_tStamps_t1", [0.0], broadcast=True)
         self.experiment.set_dataset("SPCM0_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_SinglePhoton_parity", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
         self.experiment.set_dataset("BothSPCMs_RO_atom_check", [0], broadcast=True)
         self.experiment.set_dataset("n_excitation_cycles", [0], broadcast=True)
@@ -942,7 +945,9 @@ class BaseExperiment:
         self.experiment.set_dataset("zotino_test7_offset_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test8_offset_monitor", [0.0], broadcast=True)
 
-        self.experiment.set_dataset("Sampler0_test", [0.0], broadcast=True)
+        self.experiment.set_dataset("Sampler0_test", [np.zeros(8, dtype=float)], broadcast=True)
+        self.experiment.set_dataset("Sampler1_test", [np.zeros(8, dtype=float)], broadcast=True)
+        self.experiment.set_dataset("Sampler2_test", [np.zeros(8, dtype=float)], broadcast=True)
 
         self.experiment.set_dataset("Magnetometer_MOT_X", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_MOT_Y", [0.0], broadcast=True)
@@ -952,14 +957,17 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_OP_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Zero_X", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Zero_Y", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_Mag690_Zero_Z", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_Mag690_Zero_X", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_Mag690_Zero_Y", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
 
-        self.experiment.set_dataset("coil_driver_AZ_bottom_MOT", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AZ_top_MOT", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AX_MOT", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AY_MOT", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AZ_bottom_1V", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AZ_top_1V", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AX_1V", [0.0], broadcast=True)
+        self.experiment.set_dataset("coil_driver_AY_1V", [0.0], broadcast=True)
 
         self.experiment.set_dataset("atom_loading_wall_clock", [0.0], broadcast=True)
 
@@ -1021,8 +1029,8 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0_logic.output()
             self.experiment.ttl_SPCM1_logic.output()
             delay(100*us)
-            self.experiment.ttl_SPCM0_logic.on()
-            self.experiment.ttl_SPCM1_logic.on()
+            self.experiment.ttl_SPCM0_logic.off()
+            self.experiment.ttl_SPCM1_logic.off()
 
             self.experiment.FORT_mod_switch.output()
 

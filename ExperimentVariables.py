@@ -263,8 +263,6 @@ class ExperimentVariables(EnvExperiment):
                      "Science coil settings"),
             Variable("AZ_bottom_volts_blowaway", -0.036, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
-            Variable("AZ_top_volts_blowaway", 0.237, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
-                     "Science coil settings"),
             Variable("AX_volts_blowaway", -0.175, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
                      "Science coil settings"),
             Variable("AY_volts_blowaway", 5.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3},
@@ -282,6 +280,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_FORT_drop", 0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_FORT_modulation", 10 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_FORT_ramp", 1 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_FORT_step", 10 * us, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_exposure", 15 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_atom_check_time", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_SPCM_first_shot", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
@@ -331,6 +330,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("verify_OP_in_photon_experiment", False, BooleanValue, {}, "Booleans"),
             Variable("monitors_for_atom_loading", False, BooleanValue, {}, "Booleans"),
             Variable("PGC_and_RO_with_on_chip_beams", False, BooleanValue, {}, "Booleans"),
+            Variable("tune_shims_when_loading_is_bad", True, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),

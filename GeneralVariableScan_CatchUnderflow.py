@@ -36,7 +36,7 @@ import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 from artiq.coredevice.exceptions import RTIOUnderflow
 
-class GeneralVariableScan_Catch(EnvExperiment):
+class GeneralVariableScan_CatchError(EnvExperiment):
 
     def build(self):
         """
@@ -75,7 +75,7 @@ class GeneralVariableScan_Catch(EnvExperiment):
 
         self.setattr_argument("underflow_max_retries", NumberValue(10, ndecimals=0, step=1), "Catch Underflow")
         self.setattr_argument("underflow_backoff_ms", NumberValue(200.0, step=0.5), "Catch Underflow")
-        self.setattr_argument("skip_only_that_iteration_if_exhausted", BooleanValue(False), "Catch Underflow")
+        self.setattr_argument("skip_only_that_iteration_if_exhausted", BooleanValue(True), "Catch Underflow")
 
         # toggles an interleaved control experiment, but what this means or whether
         # it has an effect depends on experiment_function

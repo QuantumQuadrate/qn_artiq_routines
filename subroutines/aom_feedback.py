@@ -229,9 +229,7 @@ class FeedbackChannel:
         delay(10*us)
         self.dds_obj.sw.on()
 
-        # delay(0.1 * ms)
-        delay(1 * ms)
-
+        delay(0.1 * ms)
 
         ### do feedback on the channel
         for i in range(self.stabilizer.iterations):
@@ -550,7 +548,6 @@ class AOMPowerStabilizer:
             ch.dds_obj.sw.off()
             delay(100*us)
 
-        ### todo: there is no parallel channel anyways; also why is it turning it on?
         # for ch in self.parallel_channels:
         #     ch.dds_obj.sw.on()
         #     delay(100 * us)
@@ -590,7 +587,6 @@ class AOMPowerStabilizer:
 
         # self.measure_background() # todo: doesn't work
         # delay(1*ms)
-
 
         ### do feedback on the series channels
         for ch in self.series_channels:

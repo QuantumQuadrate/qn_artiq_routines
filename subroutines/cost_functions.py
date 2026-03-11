@@ -174,7 +174,8 @@ def atom_retention_cost(self) -> TFloat:
     #     atoms_retained = [x > self.single_atom_SPCM0_RO2_threshold and y for x, y in zip(shot2, atoms_loaded)]
     #     retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
 
-    cost = - 100 * retention_fraction
+    cost = - 100 * retention_fraction ### to maximize retention
+    # cost = -100 * (1 - retention_fraction) ### to minimize retention
     # print("inside cost function:", self.iteration, cost)
     return cost
 

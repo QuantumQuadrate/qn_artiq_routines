@@ -21,6 +21,7 @@ sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
 from utilities.conversions import dB_to_V_kernel as dB_to_V
 from subroutines.k10cr1_functions import *
+from utilities.helper_functions import _rand_shift, _count_threshold_crossings_in_loading_window
 
 """
 Table of contents:
@@ -266,7 +267,6 @@ def test_excitation_rise_time_experiment(self):
         # delay(4 * ms)  # coil relaxation time
         delay(100*us)
 
-
 @kernel
 def zotino_stability_test_experiment(self):
     '''
@@ -412,7 +412,6 @@ def zotino_stability_test_experiment(self):
     # self.zotino0.set_dac([0.0], [13])
     # self.zotino0.set_dac([0.0], [14])
     # self.zotino0.set_dac([0.0], [15])
-
 
 @kernel
 def zotino_stability_test_with_offset_experiment(self):
@@ -606,7 +605,6 @@ def run_zotino_stabilization_Aqua(self):
     self.core.break_realtime()
     #####End Kais's calibration code
 
-
 @kernel
 def run_zotino_stabilization(self):
     """
@@ -684,7 +682,6 @@ def run_zotino_stabilization(self):
     self.append_to_dataset("zotino_test7_offset_monitor", measurement7)
     self.append_to_dataset("zotino_test8_offset_monitor", measurement8)
 
-
 @kernel
 def sampler_test_experiment(self):
     '''
@@ -705,6 +702,7 @@ def sampler_test_experiment(self):
     # self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
     # self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
 
+    to delete along with the datasets in baseExperiment?
     '''
 
     self.core.reset()
@@ -785,7 +783,9 @@ def run_feedback_and_record_FORT_MM_power(self):
     #       Just make another dataset for optimization
     power = record_FORT_MM_power(self)
     record_FORT_APD_power(self)
-    self.dds_FORT.sw.off()
+    delay(1*ms)
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    delay(10*us)
 
     return power
 
@@ -883,6 +883,141 @@ def shot_without_measurement(self):
 
     self.ttl_repump_switch.on()  ### turn off MOT RP
     self.dds_cooling_DP.sw.off()  ### Turn off cooling
+
+@kernel
+def tune_shims_for_atom_loading(self) -> TInt32:
+    """
+    Helper function for automatic shim tuning during atom loading.
+    Scan AX_volts_MOT and AY_volts_MOT within +/-0.3 V of their current values.
+    Keep MOT+FORT on continuously (assumed already on when this is called).
+    Use single_atom_threshold_for_loading as threshold (counts/s).
+    Update AX_volts_MOT and AY_volts_MOT datasets ONLY if strictly better than baseline.
+    Returns 1 if updated, 0 otherwise.
+
+    It checks atom loading at shim values with grid points that vary slightly in each trial.
+    Otherwise, the grid points will always be limited to a few shim values and the code toggles
+    between these values only.
+
+    Akbar 2025-12-17
+    """
+    self.core.break_realtime()
+
+    # --- config ---
+    gate_time = 20 * ms
+    n_samples = 50                  # 1s = gate_time * n_samples evaluation window
+    target_crossings = 8           # early exit threshold
+
+    coarse_step = 0.15
+    fine_step   = 0.05
+    fine_span   = 0.10              # search +/- 0.10 V around best in fine pass
+
+    # --- anchor (safety box around current shims) ---
+    ax0 = self.AX_volts_MOT
+    ay0 = self.AY_volts_MOT
+    ax_min, ax_max = ax0 - 0.3, ax0 + 0.3
+    ay_min, ay_max = ay0 - 0.3, ay0 + 0.3
+
+    # If current point is already good enough, do nothing
+    self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax0, ay0],
+                         channels=self.coil_channels)
+    delay(3 * s) ### warm up
+    baseline = _count_threshold_crossings_in_loading_window(
+        self, self.single_atom_threshold_for_loading, gate_time, n_samples)
+    if baseline >= target_crossings:
+        return 0
+
+    best_atoms = baseline
+    best_ax, best_ay = ax0, ay0
+
+    # --- per-call grid dithers (change EVERY call, even hours later) ---
+    coarse_shift_x = _rand_shift(self, coarse_step, 1)
+    coarse_shift_y = _rand_shift(self, coarse_step, 2)
+    fine_shift_x   = _rand_shift(self, fine_step,   3)
+    fine_shift_y   = _rand_shift(self, fine_step,   4)
+
+    # --- coarse scan: dx,dy in [-0.3, +0.3] step 0.15, with dithers ---
+    # points per axis: 5  (i=0..4)
+    for ix in range(5):
+        dx = (-0.30 + ix * coarse_step) + coarse_shift_x
+        ax = ax0 + dx
+        if ax < ax_min: ax = ax_min
+        elif ax > ax_max: ax = ax_max
+
+        for iy in range(5):
+            dy = (-0.30 + iy * coarse_step) + coarse_shift_y
+            ay = ay0 + dy
+            if ay < ay_min: ay = ay_min
+            elif ay > ay_max: ay = ay_max
+
+            delay(1 * ms)
+
+            self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax, ay],
+                                 channels=self.coil_channels)
+            delay(1 * ms)
+
+            atoms = _count_threshold_crossings_in_loading_window(
+                self, self.single_atom_threshold_for_loading, gate_time, n_samples)
+
+            # EARLY EXIT: accept immediately if "good enough"
+            if atoms >= target_crossings:
+                self.AX_volts_MOT = ax
+                self.AY_volts_MOT = ay
+                self.set_dataset("AX_volts_MOT", ax, broadcast=True, persist=True)
+                self.set_dataset("AY_volts_MOT", ay, broadcast=True, persist=True)
+                self.print_async("Target loading reached at ", atoms)
+                delay(1 * ms)
+                return 1
+
+            if atoms > best_atoms:
+                self.print_async("Best atom loading crossing threshold so far (coarse scan): ", atoms)
+                best_atoms, best_ax, best_ay = atoms, ax, ay
+
+    # --- fine scan around best: +/- fine_span with step 0.05, with dithers ---
+    # points per axis: 5  (i=0..4) covering [-0.10, -0.05, 0, +0.05, +0.10] + shift
+    for ix in range(5):
+        dx = (-fine_span + ix * fine_step) + fine_shift_x
+        ax = best_ax + dx
+        if ax < ax_min: ax = ax_min
+        elif ax > ax_max: ax = ax_max
+
+        for iy in range(5):
+            dy = (-fine_span + iy * fine_step) + fine_shift_y
+            ay = best_ay + dy
+            if ay < ay_min: ay = ay_min
+            elif ay > ay_max: ay = ay_max
+
+            delay(1 * ms)
+
+            self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, ax, ay],
+                                 channels=self.coil_channels)
+            delay(1 * ms)
+
+            atoms = _count_threshold_crossings_in_loading_window(
+                self, self.single_atom_threshold_for_loading, gate_time, n_samples)
+
+            if atoms >= target_crossings:
+                self.AX_volts_MOT = ax
+                self.AY_volts_MOT = ay
+                self.set_dataset("AX_volts_MOT", ax, broadcast=True, persist=True)
+                self.set_dataset("AY_volts_MOT", ay, broadcast=True, persist=True)
+                self.print_async("Target loading reached at ", atoms)
+                delay(1 * ms)
+                return 1
+
+            if atoms > best_atoms:
+                self.print_async("Best atom loading crossing threshold so far (fine scan): ", atoms)
+                best_atoms, best_ax, best_ay = atoms, ax, ay
+
+    # --- update only if improved ---
+    if (best_atoms > baseline) and ((best_ax != ax0) or (best_ay != ay0)):
+        self.AX_volts_MOT = best_ax
+        self.AY_volts_MOT = best_ay
+        self.set_dataset("AX_volts_MOT", best_ax, broadcast=True, persist=True)
+        self.set_dataset("AY_volts_MOT", best_ay, broadcast=True, persist=True)
+        delay(1 * ms)
+        return 1
+
+    return 0
 
 @kernel
 def load_MOT_and_FORT(self):
@@ -1008,7 +1143,7 @@ def load_MOT_and_FORT_until_atom(self):
     if self.monitors_for_atom_loading:
         measure_Magnetometer(self)
         delay(1 * ms)
-        Sampler0_test(self)
+        Sampler_test(self)
         delay(1 * ms)
         measure_coil_driver(self)
 
@@ -1233,7 +1368,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         if self.monitors_for_atom_loading:
             measure_Magnetometer(self)
             delay(1*ms)
-            Sampler0_test(self)
+            Sampler_test(self)
             delay(1*ms)
             measure_coil_driver(self)
 
@@ -1448,9 +1583,11 @@ def load_until_atom_smooth_FORT_recycle(self):
         if self.monitors_for_atom_loading:
             measure_Magnetometer(self)
             delay(1*ms)
-            Sampler0_test(self)
+            Sampler_test(self)
             delay(1*ms)
-            measure_coil_driver(self)
+            measure_GRIN1(self)
+            delay(1 * ms)
+            # measure_coil_driver(self)
 
         ### Set the coils to MOT loading setting
         self.zotino0.set_dac(
@@ -1489,6 +1626,8 @@ def load_until_atom_smooth_FORT_recycle(self):
         BothSPCMs_atom_check_loaded = 0  ### for initilization
         BothSPCMs_atom_check_not_loaded = 0
 
+        shim_tune_runs = 0
+
         while True:
             while not atom_loaded and try_n < max_tries:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
@@ -1526,6 +1665,21 @@ def load_until_atom_smooth_FORT_recycle(self):
             t_no_atom = now_mu()
             time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
             self.set_dataset("time_without_atom", time_without_atom, broadcast=True)
+
+            ### If max_tries reached and atom loading is too bad, run shim tuning.
+            t_shim_tune_trigger = 10.0  # seconds
+            max_shim_tune_runs = 3  # prevents infinite tuning loop
+
+            if self.tune_shims_when_loading_is_bad and (time_without_atom > t_shim_tune_trigger) and (shim_tune_runs < max_shim_tune_runs):
+                self.print_async("Atom loading is bad. Tuning X and Y shims.")
+                tune_shims_for_atom_loading(self)
+                shim_tune_runs += 1
+
+                ### restart the loading attempt with the (possibly) improved shims
+                try_n = 0
+                t_before_atom = now_mu()
+                delay(0.1 * ms)
+                continue
 
             ### If max_tries reached and still no atom, run feedback
             if self.enable_laser_feedback:
@@ -2029,6 +2183,9 @@ def second_shot(self):
     if not self.PGC_and_RO_with_on_chip_beams:
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
+    else:
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
     delay(0.1 * ms)
 
     if self.use_chopped_readout:
@@ -2149,8 +2306,6 @@ def atom_parity_shot(self):
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
                             amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
 
-    self.ttl_repump_switch.off()  ### turn on MOT RP
-    self.dds_cooling_DP.sw.on()  ### Turn on cooling
     delay(10 * us)
 
     self.dds_AOM_A1.sw.on()
@@ -2160,6 +2315,13 @@ def atom_parity_shot(self):
     if not self.PGC_and_RO_with_on_chip_beams:
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
+    else:
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+    delay(10 * us)
+
+    self.ttl_repump_switch.off()  ### turn on MOT RP
+    self.dds_cooling_DP.sw.on()  ### Turn on cooling
     delay(10 * us)
 
     with parallel:
@@ -2234,16 +2396,10 @@ def chopped_blow_away(self):
     delay(0.1 * ms)
 
     # set coils for blowaway
-    if self.which_node == 'alice':
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_blowaway, self.AZ_top_volts_blowaway,
-             self.AX_volts_blowaway, self.AY_volts_blowaway],
-            channels=self.coil_channels)
-    else:
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_blowaway, -1*self.AZ_bottom_volts_blowaway,
-             self.AX_volts_blowaway, self.AY_volts_blowaway],
-            channels=self.coil_channels)
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_blowaway, -self.AZ_bottom_volts_blowaway,
+         self.AX_volts_blowaway, self.AY_volts_blowaway],
+        channels=self.coil_channels)
     delay(0.3 * ms)
 
     with sequential:
@@ -2809,7 +2965,7 @@ def measure_GRIN1(self):
     """
     measurement_buf = np.array([0.0]*8)
     measurement = 0.0
-    avgs = 10
+    avgs = 5
 
     # self.dds_FORT.sw.off() ### Why turnning off FORT?
     self.ttl_repump_switch.on()  # turns the RP AOM off
@@ -3015,46 +3171,124 @@ def zotino_stability_test(self):
     delay(0.1 * ms)
 
 @kernel
-def Sampler0_test(self):
+def Sampler_test(self):
     '''
-    I have conencted 5V signal from the TENMA DC power supply to Sample0, ch0. Sampler0 is used to feedback to the AOMs.
-    I am going to see if the measurement of this channel fluctuates especially when atom loading is bad, or not.
+    I have conencted 1V signal from the linear DC power supply to different sampler channels.
+    I am going to see if the measurement of these channels fluctuate.
+
+    In the first block, I save only a single channel from each Sampler. For this, you need to change the dataset in BaseExperiment
+    to self.experiment.set_dataset("Sampler0_test", [0.0], broadcast=True), and the same for Sampler1&2.
+
+    In the 2nd block below, I am saving all the Sampler channels in the datasets to monitor all channels.
+    Since most of the lasers, if not all, are off during this measurement, the Sampler channels (except those connected to DC
+    power supply for monitoring) should show zero volts.
+    For this block, you should use self.experiment.set_dataset("Sampler0_test", [np.zeros(8, dtype=float)], broadcast=True)
+    and the same for Sampler1&2.
 
     '''
+    #### --------------- Use only one of the two following blocks ------------------
 
-    ch = 0 # Sampler 0 - ch0
-    measurement_buf = np.array([0.0]*8)
-    measurement1 = 0.0
-    avgs = 10
+    # ####     saving only one channel from each Sampler ##################
+    # Sampler0_ch = 2 # Sampler 0 - ch2
+    # Sampler1_ch = 5 # Sampler 1 - ch5
+    # Sampler2_ch = 0 # Sampler 2 - ch0
+    #
+    # Sampler0_measurement_buf = np.array([0.0]*8)
+    # Sampler1_measurement_buf = np.array([0.0]*8)
+    # Sampler2_measurement_buf = np.array([0.0]*8)
+    #
+    # Sampler0_measurement = 0.0
+    # Sampler1_measurement = 0.0
+    # Sampler2_measurement = 0.0
+    # avgs = 5
+    #
+    # delay(50 * us)
+    # for i in range(avgs):
+    #     self.sampler0.sample(Sampler0_measurement_buf)
+    #     delay(20 * us)
+    #     self.sampler1.sample(Sampler1_measurement_buf)
+    #     delay(20 * us)
+    #     self.sampler2.sample(Sampler2_measurement_buf)
+    #
+    #     delay(20 * us)
+    #     Sampler0_measurement += Sampler0_measurement_buf[Sampler0_ch]
+    #     Sampler1_measurement += Sampler1_measurement_buf[Sampler1_ch]
+    #     Sampler2_measurement += Sampler2_measurement_buf[Sampler2_ch]
+    #     delay(20 * us)
+    #
+    # Sampler0_measurement /= avgs
+    # Sampler1_measurement /= avgs
+    # Sampler2_measurement /= avgs
+    #
+    # self.append_to_dataset("Sampler0_test", Sampler0_measurement)
+    # self.append_to_dataset("Sampler1_test", Sampler1_measurement)
+    # self.append_to_dataset("Sampler2_test", Sampler2_measurement)
 
-    for i in range(avgs):
-        self.sampler0.sample(measurement_buf)
-        delay(0.1 * ms)
-        measurement1 += measurement_buf[ch]
 
-    measurement1 /= avgs
 
-    self.append_to_dataset("Sampler0_test", measurement1)
+    ####     saving all the channels from the Samplers ##################
+
+    ### set the cooling DP AOM to the MOT settings to monitor the MOT powers in MOT 1,2,5, and 6.
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    delay(1 * ms)
+
+    self.dds_cooling_DP.sw.on()  ### turn on cooling
+    self.ttl_repump_switch.on()  ### turn off MOT RP
+    delay(0.1 * ms)
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.off()
+    self.dds_AOM_A4.sw.off()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+    delay(0.1 * ms)
+
+    ### Set the coils to 1V. So Sampler_test also tests coil driver output in combination with Zotino.
+    # self.dds_FORT.sw.on()
+
+    self.zotino0.set_dac(
+        [1.0, 1.0, 1.0, 1.0], channels=self.coil_channels)
+    delay(1.0 * ms)
+    # self.ttl_SPCM0_logic.on()  # for oscilloscope trigger
+
+    Sampler0_measurement_buf = np.array([0.0] * 8)
+    Sampler1_measurement_buf = np.array([0.0] * 8)
+    Sampler2_measurement_buf = np.array([0.0] * 8)
+
+
+    delay(50 * us)
+
+    self.sampler0.sample(Sampler0_measurement_buf)
+    delay(20 * us)
+    self.sampler1.sample(Sampler1_measurement_buf)
+    delay(20 * us)
+    self.sampler2.sample(Sampler2_measurement_buf)
+    delay(20 * us)
+
+    self.append_to_dataset("Sampler0_test", Sampler0_measurement_buf)
+    self.append_to_dataset("Sampler1_test", Sampler1_measurement_buf)
+    self.append_to_dataset("Sampler2_test", Sampler2_measurement_buf)
 
     delay(0.1 * ms)
+    # self.ttl_SPCM0_logic.off()  # for oscilloscope trigger
 
 @kernel
 def measure_coil_driver(self):
     '''
     I have connected "monitor out" of the coil drivers to Sampler2 ch4, 5, 6, and 7, to monitor the output
-    of the coils while loading MOT and atom to see if there is any correlation between bad atom loading
-    and coil driver outputs.
+    of the coils. I set all of the coils to 1V to have a good reference.
 
+    To delete
     '''
 
     avgs = 10
 
     #####################################  Measure in the MOT phase
-    ### Set the coils to MOT loading setting
+    ### Set the coils to 1V
     self.zotino0.set_dac(
-        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-        channels=self.coil_channels)
-    delay(0.4 * ms)
+        [1.0, 1.0, 1.0, 1.0], channels=self.coil_channels)
+    delay(1.0 * ms)
 
     measurement_buf = np.array([0.0] * 8)
     coilZ_bottom = 0.0
@@ -3075,10 +3309,10 @@ def measure_coil_driver(self):
     coilX /= avgs
     coilY /= avgs
 
-    self.append_to_dataset("coil_driver_AZ_bottom_MOT", coilZ_bottom)
-    self.append_to_dataset("coil_driver_AZ_top_MOT", coilZ_top)
-    self.append_to_dataset("coil_driver_AX_MOT", coilX)
-    self.append_to_dataset("coil_driver_AY_MOT", coilY)
+    self.append_to_dataset("coil_driver_AZ_bottom_1V", coilZ_bottom)
+    self.append_to_dataset("coil_driver_AZ_top_1V", coilZ_top)
+    self.append_to_dataset("coil_driver_AX_1V", coilX)
+    self.append_to_dataset("coil_driver_AY_1V", coilY)
 
     delay(0.1 * ms)
 
@@ -3256,64 +3490,14 @@ def measure_MOT_end(self):
 @kernel
 def measure_Magnetometer(self):
     ### x,y, and z axes are connected to Sampler2 Ch1,2, and 3, respectively.
-    avgs = 10
-
-    #####################################  Measure in the MOT phase
-    ### Set the coils to MOT loading setting
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-        channels=self.coil_channels)
-    delay(1*ms)
-
-    measurement_buf = np.array([0.0]*8)
-    MagnetometerX = 0.0
-    MagnetometerY = 0.0
-    MagnetometerZ = 0.0
-
-    for i in range(avgs):
-        self.sampler2.sample(measurement_buf)
-        MagnetometerX += measurement_buf[self.Magnetometer_X_ch]
-        MagnetometerY += measurement_buf[self.Magnetometer_Y_ch]
-        MagnetometerZ += measurement_buf[self.Magnetometer_Z_ch]
-        delay(0.1*ms)
-    MagnetometerX /= avgs
-    MagnetometerY /= avgs
-    MagnetometerZ /= avgs
-    self.append_to_dataset("Magnetometer_MOT_X", MagnetometerY * 350) ### 1V corresponds to 350 mG
-    self.append_to_dataset("Magnetometer_MOT_Y", MagnetometerX * 350) ### sensor's X axis is coils' Y axis, and vice versa.
-    self.append_to_dataset("Magnetometer_MOT_Z", MagnetometerZ * 350)
-
-    #####################################  Measure in the OP phase
-    ### Set the coils to OP setting
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        channels=self.coil_channels)
-    delay(1 * ms)
-
-    measurement_buf = np.array([0.0] * 8)
-    MagnetometerX = 0.0
-    MagnetometerY = 0.0
-    MagnetometerZ = 0.0
-
-    for i in range(avgs):
-        self.sampler2.sample(measurement_buf)
-        MagnetometerX += measurement_buf[self.Magnetometer_X_ch]
-        MagnetometerY += measurement_buf[self.Magnetometer_Y_ch]
-        MagnetometerZ += measurement_buf[self.Magnetometer_Z_ch]
-        delay(0.1 * ms)
-    MagnetometerX /= avgs
-    MagnetometerY /= avgs
-    MagnetometerZ /= avgs
-    self.append_to_dataset("Magnetometer_OP_X", MagnetometerY * 350) ### 1V corresponds to 350 mG
-    self.append_to_dataset("Magnetometer_OP_Y", MagnetometerX * 350) ### sensor's X axis is coils' Y axis, and vice versa.
-    self.append_to_dataset("Magnetometer_OP_Z", MagnetometerZ * 350)
+    avgs = 1
 
     #####################################  Measure with Zotino set to zero V
     ### Turn off all the coils
     self.zotino0.set_dac(
         [0.0, 0.0, 0.0, 0.0],
         channels=self.coil_channels)
-    delay(100 * ms)
+    delay(200 * ms)
 
     measurement_buf = np.array([0.0] * 8)
     MagnetometerX = 0.0
@@ -3334,6 +3518,84 @@ def measure_Magnetometer(self):
     self.append_to_dataset("Magnetometer_Zero_Y", MagnetometerX * 350) ### sensor's X axis is coils' Y axis, and vice versa.
     self.append_to_dataset("Magnetometer_Zero_Z", MagnetometerZ * 350)
     delay(0.1*ms)
+
+    #####################################  Measure in the OP phase
+    ### Set the coils to OP setting
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        channels=self.coil_channels)
+    delay(1 * ms)
+
+    self.ttl_SPCM0_logic.on()  # for oscilloscope trigger
+
+    measurement_buf = np.array([0.0] * 8)
+    MagnetometerX = 0.0
+    MagnetometerY = 0.0
+    MagnetometerZ = 0.0
+
+    for i in range(avgs):
+        self.sampler2.sample(measurement_buf)
+        MagnetometerX += measurement_buf[self.Magnetometer_X_ch]
+        MagnetometerY += measurement_buf[self.Magnetometer_Y_ch]
+        MagnetometerZ += measurement_buf[self.Magnetometer_Z_ch]
+        delay(0.1 * ms)
+    MagnetometerX /= avgs
+    MagnetometerY /= avgs
+    MagnetometerZ /= avgs
+    self.append_to_dataset("Magnetometer_OP_X", MagnetometerY * 350)  ### 1V corresponds to 350 mG
+    self.append_to_dataset("Magnetometer_OP_Y", MagnetometerX * 350)  ### sensor's X axis is coils' Y axis, and vice versa.
+    self.append_to_dataset("Magnetometer_OP_Z", MagnetometerZ * 350)
+
+    #### I added Mag690 magnetometer (borrowed from Josiah) temporary to test our magnetometer.
+    #### It is connected to Sampler1_ch0 to 2. To be deleted soon.
+    measurement_buf = np.array([0.0] * 8)
+    MagnetometerX = 0.0
+    MagnetometerY = 0.0
+    MagnetometerZ = 0.0
+
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        MagnetometerX += measurement_buf[0]
+        MagnetometerY += measurement_buf[1]
+        MagnetometerZ += measurement_buf[2]
+        delay(0.1 * ms)
+
+    MagnetometerX /= avgs
+    MagnetometerY /= avgs
+    MagnetometerZ /= avgs
+    self.append_to_dataset("Magnetometer_Mag690_Zero_X", MagnetometerY * 100)  ### 1V corresponds to 100 mG
+    self.append_to_dataset("Magnetometer_Mag690_Zero_Y", MagnetometerX * 100)  ###
+    self.append_to_dataset("Magnetometer_Mag690_Zero_Z", MagnetometerZ * 100)
+    delay(0.1 * ms)
+
+    #####################################  Measure in the MOT phase
+    ### Set the coils to MOT loading setting
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        channels=self.coil_channels)
+    delay(1 * ms)
+
+    measurement_buf = np.array([0.0] * 8)
+    MagnetometerX = 0.0
+    MagnetometerY = 0.0
+    MagnetometerZ = 0.0
+
+    for i in range(avgs):
+        self.sampler2.sample(measurement_buf)
+        MagnetometerX += measurement_buf[self.Magnetometer_X_ch]
+        MagnetometerY += measurement_buf[self.Magnetometer_Y_ch]
+        MagnetometerZ += measurement_buf[self.Magnetometer_Z_ch]
+        delay(0.1 * ms)
+
+    MagnetometerX /= avgs
+    MagnetometerY /= avgs
+    MagnetometerZ /= avgs
+    self.append_to_dataset("Magnetometer_MOT_X", MagnetometerY * 350)  ### 1V corresponds to 350 mG
+    self.append_to_dataset("Magnetometer_MOT_Y", MagnetometerX * 350)  ### sensor's X axis is coils' Y axis, and vice versa.
+    self.append_to_dataset("Magnetometer_MOT_Z", MagnetometerZ * 350)
+    delay(1*ms)
+
+    self.ttl_SPCM0_logic.off()  # for oscilloscope trigger
 
 @kernel
 def end_measurement(self):
@@ -3379,7 +3641,7 @@ def end_measurement(self):
         # delay(1 * ms)
         # measure_Magnetometer(self)
         # delay(1*ms)
-        # Sampler0_test(self)
+        # Sampler_test(self)
         # delay(1*ms)
         # measure_coil_driver(self)
         # delay(1*ms)
@@ -3480,7 +3742,6 @@ def end_measurement(self):
             self.append_to_dataset('BothSPCMs_RO1_in_health_check', self.BothSPCMs_RO1)
             self.append_to_dataset('BothSPCMs_RO2_in_health_check', self.BothSPCMs_RO2)
 
-
 @rpc(flags={"async"})
 def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
     """
@@ -3533,41 +3794,51 @@ def FORT_ramp1_smoothstep(self, direction="down"):
 
     direction: "down" or "up"
     """
+    #### With t_FORT_ramp as a control variable to scan
     # assert (direction == "down" or direction == "up"), "Direction must be 'down' or 'up'"
     #
     # p_high = self.stabilizer_FORT.amplitudes[0]
     # p_low = self.stabilizer_FORT.amplitudes[1]
-    # n_steps = 100
+    # n_steps_max = 2000
+    # step_delay_min = 10 * us
+    #
+    # ### Choose step count so delay >= step_delay_min, but not more than n_steps_max
+    # n_steps = int(self.t_FORT_ramp / step_delay_min)
+    # if n_steps > n_steps_max:
+    #     n_steps = n_steps_max
+    # elif n_steps < 1:
+    #     n_steps = 1  # safety in extreme case
+    #
     # step_delay = self.t_FORT_ramp / n_steps
     #
     # for i in range(n_steps):
-    #     x = i / (n_steps - 1)  # normalized ramp position in [0,1]
+    #     x = i / (n_steps - 1) if n_steps > 1 else 1.0
     #     smoothstep = 6 * x ** 5 - 15 * x ** 4 + 10 * x ** 3
     #
     #     if direction == "down":
     #         p_FORT = p_high - smoothstep * (p_high - p_low)
-    #     else:  # direction == "up"
+    #     else:
     #         p_FORT = p_low + smoothstep * (p_high - p_low)
     #
-    #     delay(step_delay / 2)
+    #     delay(step_delay)
     #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
-    #     delay(step_delay / 2)
 
+
+
+    #### With t_FORT_step as a control variable to scan
     assert (direction == "down" or direction == "up"), "Direction must be 'down' or 'up'"
 
     p_high = self.stabilizer_FORT.amplitudes[0]
     p_low = self.stabilizer_FORT.amplitudes[1]
-    n_steps_max = 100
+    t_ramp = 10 * ms
     step_delay_min = 10 * us
 
-    ### Choose step count so delay >= step_delay_min, but not more than n_steps_max
-    n_steps = int(self.t_FORT_ramp / step_delay_min)
-    if n_steps > n_steps_max:
-        n_steps = n_steps_max
-    elif n_steps < 1:
-        n_steps = 1  # safety in extreme case
+    if self.t_FORT_step < step_delay_min:
+        self.t_FORT_step = step_delay_min
 
-    step_delay = self.t_FORT_ramp / n_steps
+    n_steps = int(t_ramp / self.t_FORT_step)
+    if n_steps < 1:
+        n_steps = 1  # safety in extreme case
 
     for i in range(n_steps):
         x = i / (n_steps - 1) if n_steps > 1 else 1.0
@@ -3578,7 +3849,7 @@ def FORT_ramp1_smoothstep(self, direction="down"):
         else:
             p_FORT = p_low + smoothstep * (p_high - p_low)
 
-        delay(step_delay)
+        delay(self.t_FORT_step)
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
 
 @kernel
@@ -3595,7 +3866,7 @@ def FORT_ramp2_smoothstep(self, direction="down"):
 
     p_high = self.stabilizer_FORT.amplitudes[1]
     p_low = self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1]
-    n_steps_max = 100
+    n_steps_max = 2000
     step_delay_min = 10 * us
 
     ### Choose step count so delay >= step_delay_min, but not more than n_steps_max
@@ -3716,17 +3987,6 @@ def atom_loading_2_experiment(self):
     self.core.reset()
     self.require_D1_lock_to_advance = False # override experiment variable
 
-
-
-    # ### Akbar 2025-11-25
-    # ### record and get handle
-    # record_chopped_RO(self)
-    # delay(10 * ms)
-    # self.core.break_realtime()
-
-
-
-
     self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
     ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
     ### in each iteration.
@@ -3762,86 +4022,6 @@ def atom_loading_2_experiment(self):
         delay(1*ms)
         first_shot(self)
         delay(1 * ms)
-
-
-        # ##### adding a dummy chopped RO to test if lose atoms due to chopping
-        # chopped_RO(self)
-        # delay(100*us)
-
-
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-        delay(self.t_delay_between_shots)
-        second_shot(self)
-
-        end_measurement(self)
-
-    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
-    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
-
-@kernel
-def waveplate_rotation_and_atom_loading_2_experiment(self):
-    """
-    Purpose: PGC optimization by rotating waveplate angles
-    i) Waveplate rotation to (target_852_HWP, target_852_QWP)
-    ii) atom_loading_2_experiment
-    """
-
-    self.core.reset()
-    self.require_D1_lock_to_advance = False # override experiment variable
-
-    # ### Akbar 2025-11-25
-    # ### record and get handle
-    # record_chopped_RO(self)
-    # delay(10 * ms)
-    # self.core.break_realtime()
-
-    delay(1 * ms)
-    # with parallel:
-    move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
-    delay(1*ms)
-    move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
-    delay(10 * ms)
-
-    self.core.reset()
-
-
-    self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
-    ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
-    ### in each iteration.
-    self.n_atom_loaded_per_iteration = 0
-
-    if self.enable_laser_feedback:
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        run_feedback_and_record_FORT_MM_power(self)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-        delay(10 * ms)
-
-        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
-        # delay(0.1 * ms)
-        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
-
-        load_until_atom_smooth_FORT_recycle(self)
-
-        # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
-        # delay(0.1 * ms)
-        # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
-
-        delay(1*ms)
-        first_shot(self)
-        delay(1 * ms)
-
-        # ##### adding a dummy chopped RO to test if lose atoms due to chopping
-        # chopped_RO(self)
-        # delay(100*us)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -4130,20 +4310,20 @@ def atom_loading_for_optimization_experiment(self):
 
 
     ######### to scan 852 waveplates with t_FORT_drop = 10us for example and find max retention (low T)
-    # delay(1*ms)
-    # move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
-    # move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
-    #
-    # delay(5*ms)
-    # self.core.reset()
-    #
-    # position_852_HWP = get_rotator_deg(self, name="852_HWP")
-    # position_852_QWP = get_rotator_deg(self, name="852_QWP")
-    #
-    # delay(5 * ms)
-    # self.core.reset()
-    # self.print_async("position_852_HWP: ", position_852_HWP)
-    # self.print_async("position_852_QWP:", position_852_QWP)
+    delay(1*ms)
+    move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+
+    delay(5*ms)
+    self.core.reset()
+
+    position_852_HWP = get_rotator_deg(self, name="852_HWP")
+    position_852_QWP = get_rotator_deg(self, name="852_QWP")
+
+    delay(5 * ms)
+    self.core.reset()
+    self.print_async("position_852_HWP: ", position_852_HWP)
+    self.print_async("position_852_QWP:", position_852_QWP)
     ###################################################################################################
 
 
@@ -4173,33 +4353,33 @@ def atom_loading_for_optimization_experiment(self):
         first_shot(self)
         delay(1 * ms)
 
-        ###########  PGC on the trapped atom to optimize coils and cooling_DP_PGC, for example #############
-        ### Set the coils to PGC_optimization setting:
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
-            channels=self.coil_channels)
-        delay(1 * ms)
-        ### set the cooling DP AOM to the PGC settings
-        ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
-        self.ttl_repump_switch.off()  ### turn on MOT RP
-        self.dds_cooling_DP.sw.on()  ### turn on cooling
-        delay(10 * us)
-        if self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-        delay(self.t_PGC_after_loading)  ### this is the PGC time
-        self.ttl_repump_switch.on()  ### turn off MOT RP
-        self.dds_cooling_DP.sw.off()  ### turn off cooling
-        delay(10*us)
-
-        ### Set the coils to PGC setting:
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
-             self.AY_volts_PGC],
-            channels=self.coil_channels)
-        delay(0.4 * ms)
-        ###################################################
+        # ###########  PGC on the trapped atom to optimize coils and cooling_DP_PGC, for example #############
+        # ### Set the coils to PGC_optimization setting:
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization, self.AY_volts_PGC_optimization],
+        #     channels=self.coil_channels)
+        # delay(1 * ms)
+        # ### set the cooling DP AOM to the PGC settings
+        # ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
+        # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
+        # self.ttl_repump_switch.off()  ### turn on MOT RP
+        # self.dds_cooling_DP.sw.on()  ### turn on cooling
+        # delay(10 * us)
+        # if self.PGC_and_RO_with_on_chip_beams:
+        #     self.dds_AOM_A5.sw.off()
+        #     self.dds_AOM_A6.sw.off()
+        # delay(self.t_PGC_after_loading)  ### this is the PGC time
+        # self.ttl_repump_switch.on()  ### turn off MOT RP
+        # self.dds_cooling_DP.sw.off()  ### turn off cooling
+        # delay(10*us)
+        #
+        # ### Set the coils to PGC setting:
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
+        #      self.AY_volts_PGC],
+        #     channels=self.coil_channels)
+        # delay(0.4 * ms)
+        # ###################################################
 
 
         if self.t_FORT_drop > 0:
@@ -4236,6 +4416,14 @@ def atom_loading_for_PGC_optimization_experiment(self):
 
     self.core.reset()
     self.require_D1_lock_to_advance = False # override experiment variable
+
+    ######### to scan 852 waveplates with t_FORT_drop = 10us for example and find max retention (low T)
+    delay(1 * ms)
+    move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+
+    delay(5 * ms)
+    self.core.reset()
 
 
     if self.enable_laser_feedback:
@@ -4285,7 +4473,7 @@ def atom_loading_for_PGC_optimization_experiment(self):
             [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC,
              self.AY_volts_PGC],
             channels=self.coil_channels)
-        delay(0.4 * ms)
+        delay(1 * ms)
         ###################################################
 
         if self.t_FORT_drop > 0:
@@ -4727,6 +4915,15 @@ def microwave_Rabi_2_experiment(self):
     self.SPCM1_RO1 = 0
     self.SPCM1_RO2 = 0
 
+    # delay(1 * ms)
+    # move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    # move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+    #
+    # delay(5 * ms)
+    # self.core.reset()
+
+    self.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
+
     self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
     ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
     ### in each iteration.
@@ -4752,11 +4949,11 @@ def microwave_Rabi_2_experiment(self):
 
     # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-    delay(1 * ms)
-    move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
-    move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
-    delay(10 * ms)
-    self.core.reset()
+    # delay(1 * ms)
+    # move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
+    # move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
+    # delay(10 * ms)
+    # self.core.reset()
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -4780,10 +4977,6 @@ def microwave_Rabi_2_experiment(self):
 
         first_shot(self)
 
-        # todo: do we need to pump into F=2? Remove see what happens.
-        # self.ttl_repump_switch.off()  # turns the MOT RP AOM on
-        # delay(1 * ms) # leave the repump on so atoms are left in F=2
-        # self.ttl_repump_switch.on()  # turns the MOT RP AOM off
         delay(1 * ms)
 
         ############################
@@ -4805,7 +4998,7 @@ def microwave_Rabi_2_experiment(self):
         ############################
 
         if self.t_microwave_pulse > 0.0:
-            ### Changing the bias field for testing.
+            ### Changing the bias field
             self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
                                   self.AX_volts_microwave, self.AY_volts_microwave],
                                  channels=self.coil_channels)
@@ -5056,7 +5249,7 @@ def microwave_Ramsey_11_experiment(self):
         self.ttl_microwave_switch.off()
         delay(self.t_microwave_01_pulse)
         self.ttl_microwave_switch.on()
-        delay(2 * us)
+        delay(10 * us)
 
         ############################ microwave 2: Ramsey between mF=1 and mF'=1
         self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6410,8 +6603,6 @@ def microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment(self):
     self.dds_FORT.sw.off()
     delay(1*ms)
     self.dds_microwaves.sw.off()
-
-
 
 @kernel
 def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
