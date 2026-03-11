@@ -20,8 +20,8 @@ class XYPlot(pyqtgraph.PlotWidget):
         self.args = args
         # self.labels = [f'MOT{i + 1}' for i in range(6)]
 
-        self.labels = ["health_check_uw_freq00", "health_check_uw_freq01", "health_check_uw_freq11"]
-        self.labels_to_show = ["Freq 00\nFidelity", "Freq 01\nFidelity", "Freq 11\nFidelity"]
+        self.labels = ["health_check_uw_freq00", "health_check_uw_freq01", "health_check_uw_freq11", "health_check_uw_freqm10"]
+        self.labels_to_show = ["Freq 00\nFidelity", "Freq 01\nFidelity", "Freq 11\nFidelity", "Freq m10\nFidelity"]
         # red-green color-blind friendly RGB colors from ChatGPT
         self.colors = [
                         (230, 97, 0),  # orange - yellow
@@ -45,7 +45,7 @@ class XYPlot(pyqtgraph.PlotWidget):
             # should be a numpy array where each row is a different data channel
             uw_fidelity_data = []
 
-            for i in range(3):
+            for i in range(4):
                 uw_fidelity_data.append(data[getattr(self.args, self.labels[i])][1])
 
             # MOT_switchyard_input = data.get(self.args.MOT_switchyard_input, (False, None))[1]
@@ -89,6 +89,7 @@ def main():
     applet.add_dataset("health_check_uw_freq00", "health_check_uw_freq00")
     applet.add_dataset("health_check_uw_freq01", "health_check_uw_freq01")
     applet.add_dataset("health_check_uw_freq11", "health_check_uw_freq11")
+    applet.add_dataset("health_check_uw_freqm10", "health_check_uw_freqm10")
     # applet.add_dataset("MOT_switchyard_input", "MOT PD0 voltage", required=False)
     applet.run()
 

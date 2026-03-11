@@ -238,7 +238,7 @@ def record_FORT_APD_power(self):
     measurement_buf = np.array([0.0] * 8)
     measurement1 = 0.0  # 1
 
-    avgs = 50
+    avgs = 200
 
     # APD
     for i in range(avgs):
