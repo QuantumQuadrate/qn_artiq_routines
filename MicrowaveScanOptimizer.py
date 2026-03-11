@@ -387,6 +387,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
         ### setting up the scan sequence
         if self.scan_type.startswith('Freq'):
             center = getattr(self, scan_dict[self.scan_type]["center"])
+            self.center = center
             print("center: ", center)
             if self.enable_geometric_frequency_scan:
                 # todo: scan list must use mode = "pair", for compatibility with the adaptive scan logic
@@ -703,11 +704,12 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         # 2.0 well centered:
                         if (lowest_index == 2 or lowest_index == 3) and slope_left < 0 and slope_right > 0:
                             print("Case 2.0: Well centered")
+                            # new_center = center
                             ### do something
                         # 2.1 left skewed:
                         # lowest at -x (index 0) and left slope positive
                         elif lowest_index == 0 and slope_left > 0 and lowest_value < threshold_low:
-                            print("Case 2.1: left-skewed (min at -x)")
+                            print("Case 2.1: left-skewed (out-of-range)")
                             # example: shift center left by half current span
                             if lowest_value < 0.2:
                                 new_center = f0 - self.freq_scan_min_step_size_kHz
@@ -721,7 +723,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         # 2.2 right skewed:
                         # lowest at +x (index 1) and right slope negative
                         elif lowest_index == 1 and slope_right < 0 and lowest_value < threshold_low:
-                            print("Case 2.2: right-skewed (min at +x)")
+                            print("Case 2.2: right-skewed (out-of-range)")
                             if lowest_value < 0.2:
                                 new_center = f1 + self.freq_scan_min_step_size_kHz
                             elif lowest_value < 0.4:
@@ -737,7 +739,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         # 2.3 within range but skewed left:
                         # lowest at -x/2 (index 2) and slope_left negative
                         elif lowest_index == 2 and slope_left < 0 and lowest_value < threshold_low:
-                            print("Case 2.3: in range but skewed left")
+                            print("Case 2.3: left-skewed (within-range)")
                             # e.g. pick a center between -x and +x/2 leaning left
                             if lowest_value < 0.2:
                                 new_center = f2 + self.freq_scan_min_step_size_kHz
@@ -748,7 +750,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         # 2.4 within range but skewed right:
                         # lowest at +x/2 (index 3) and slope_right positive
                         elif lowest_index == 3 and slope_right > 0 and lowest_value < threshold_low:
-                            print("Case 2.4: in range but skewed right")
+                            print("Case 2.4: right-skewed (within-range)")
                             if lowest_value < 0.2:
                                 new_center = f3 - self.freq_scan_min_step_size_kHz
                             else:
@@ -774,14 +776,24 @@ class MicrowaveScanOptimizer(EnvExperiment):
                             pending_sequence1 = list(new_sequence1)
                             did_refine = True
                         else:
-                            if all(r > 0.8 for r in (R0, R1, R2, R3)):
-                                print("Resonance not in this range; seaching broader range")
+                            if all(r > 0.9 for r in (R0, R1, R2, R3)):
+                                print("Resonance not in this range; seaching broader range with same center")
+                                self.shrink_factor = self.shrink_factor * 2
                                 new_sequence1 = self.make_scan_list(
-                                    center=new_center,
+                                    center=self.center,
                                     half_range_kHz=2*self.freq_scan_half_range_kHz,
                                     min_step_kHz=self.freq_scan_step_size_kHz,
                                     mode="pair",
                                 )
+                                print("Manual scan range: - 2* self.freq_scan_range_left_kHz ~ +2* self.freq_scan_range_left_kHz, 20kHz step")
+
+                                new_sequence1 = np.arange(center - 2* self.freq_scan_range_left_kHz * kHz,
+                                                                center + 2* self.freq_scan_range_right_kHz * kHz,
+                                                                20 * kHz)
+
+
+                                pending_sequence1 = list(new_sequence1)
+                                did_refine = True
 
 
 
@@ -819,6 +831,9 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         print(scan_dict[self.scan_type]["center"]," updated to ", getattr(self, scan_dict[self.scan_type]["center"]))
 
                     else:
+                        ### todo: When the pi_pulse is not correct,fit check might not pass the test even if the frequency is optimized.
+                        ### print("optimization may or may not have")
+
                         print("optimization failed - dataset not updated")
 
                 elif self.scan_type.startswith("Time"):
