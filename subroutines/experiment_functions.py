@@ -605,7 +605,9 @@ def run_feedback_and_record_FORT_MM_power(self):
     #       Just make another dataset for optimization
     power = record_FORT_MM_power(self)
     record_FORT_APD_power(self)
-    self.dds_FORT.sw.off()
+    delay(1*ms)
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    delay(10*us)
 
     return power
 
@@ -3044,12 +3046,29 @@ def Sampler_test(self):
 
     ####     saving all the channels from the Samplers ##################
 
+    ### set the cooling DP AOM to the MOT settings to monitor the MOT powers in MOT 1,2,5, and 6.
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+    delay(1 * ms)
+
+    self.dds_cooling_DP.sw.on()  ### turn on cooling
+    self.ttl_repump_switch.on()  ### turn off MOT RP
+    delay(0.1 * ms)
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.off()
+    self.dds_AOM_A4.sw.off()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+    delay(0.1 * ms)
+
     ### Set the coils to 1V. So Sampler_test also tests coil driver output in combination with Zotino.
     # self.dds_FORT.sw.on()
-    # self.zotino0.set_dac(
-    #     [1.0, 1.0, 1.0, 1.0], channels=self.coil_channels)
+
+    self.zotino0.set_dac(
+        [1.0, 1.0, 1.0, 1.0], channels=self.coil_channels)
     delay(1.0 * ms)
-    self.ttl_SPCM0_logic.on()  # for oscilloscope trigger
+    # self.ttl_SPCM0_logic.on()  # for oscilloscope trigger
 
     Sampler0_measurement_buf = np.array([0.0] * 8)
     Sampler1_measurement_buf = np.array([0.0] * 8)
@@ -3070,7 +3089,7 @@ def Sampler_test(self):
     self.append_to_dataset("Sampler2_test", Sampler2_measurement_buf)
 
     delay(0.1 * ms)
-    self.ttl_SPCM0_logic.off()  # for oscilloscope trigger
+    # self.ttl_SPCM0_logic.off()  # for oscilloscope trigger
 
 @kernel
 def measure_coil_driver(self):
@@ -3291,58 +3310,6 @@ def measure_Magnetometer(self):
     ### x,y, and z axes are connected to Sampler2 Ch1,2, and 3, respectively.
     avgs = 1
 
-    #####################################  Measure in the OP phase
-    ### Set the coils to OP setting
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        channels=self.coil_channels)
-    delay(200 * ms)
-
-    measurement_buf = np.array([0.0] * 8)
-    MagnetometerX = 0.0
-    MagnetometerY = 0.0
-    MagnetometerZ = 0.0
-
-    for i in range(avgs):
-        self.sampler2.sample(measurement_buf)
-        MagnetometerX += measurement_buf[self.Magnetometer_X_ch]
-        MagnetometerY += measurement_buf[self.Magnetometer_Y_ch]
-        MagnetometerZ += measurement_buf[self.Magnetometer_Z_ch]
-        delay(0.1 * ms)
-    MagnetometerX /= avgs
-    MagnetometerY /= avgs
-    MagnetometerZ /= avgs
-    self.append_to_dataset("Magnetometer_OP_X", MagnetometerY * 350) ### 1V corresponds to 350 mG
-    self.append_to_dataset("Magnetometer_OP_Y", MagnetometerX * 350) ### sensor's X axis is coils' Y axis, and vice versa.
-    self.append_to_dataset("Magnetometer_OP_Z", MagnetometerZ * 350)
-
-
-
-
-    #### I added Mag690 magnetometer (borrowed from Josiah) temporary to test our magnetometer.
-    #### It is connected to Sampler1_ch0 to 2. To be deleted soon.
-    measurement_buf = np.array([0.0] * 8)
-    MagnetometerX = 0.0
-    MagnetometerY = 0.0
-    MagnetometerZ = 0.0
-
-    for i in range(avgs):
-        self.sampler1.sample(measurement_buf)
-        MagnetometerX += measurement_buf[0]
-        MagnetometerY += measurement_buf[1]
-        MagnetometerZ += measurement_buf[2]
-        delay(0.1 * ms)
-
-    MagnetometerX /= avgs
-    MagnetometerY /= avgs
-    MagnetometerZ /= avgs
-    self.append_to_dataset("Magnetometer_Mag690_Zero_X", MagnetometerY * 100)  ### 1V corresponds to 100 mG
-    self.append_to_dataset("Magnetometer_Mag690_Zero_Y", MagnetometerX * 100)  ###
-    self.append_to_dataset("Magnetometer_Mag690_Zero_Z", MagnetometerZ * 100)
-    delay(0.1 * ms)
-
-
-
     #####################################  Measure with Zotino set to zero V
     ### Turn off all the coils
     self.zotino0.set_dac(
@@ -3370,12 +3337,61 @@ def measure_Magnetometer(self):
     self.append_to_dataset("Magnetometer_Zero_Z", MagnetometerZ * 350)
     delay(0.1*ms)
 
+    #####################################  Measure in the OP phase
+    ### Set the coils to OP setting
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        channels=self.coil_channels)
+    delay(1 * ms)
+
+    self.ttl_SPCM0_logic.on()  # for oscilloscope trigger
+
+    measurement_buf = np.array([0.0] * 8)
+    MagnetometerX = 0.0
+    MagnetometerY = 0.0
+    MagnetometerZ = 0.0
+
+    for i in range(avgs):
+        self.sampler2.sample(measurement_buf)
+        MagnetometerX += measurement_buf[self.Magnetometer_X_ch]
+        MagnetometerY += measurement_buf[self.Magnetometer_Y_ch]
+        MagnetometerZ += measurement_buf[self.Magnetometer_Z_ch]
+        delay(0.1 * ms)
+    MagnetometerX /= avgs
+    MagnetometerY /= avgs
+    MagnetometerZ /= avgs
+    self.append_to_dataset("Magnetometer_OP_X", MagnetometerY * 350)  ### 1V corresponds to 350 mG
+    self.append_to_dataset("Magnetometer_OP_Y", MagnetometerX * 350)  ### sensor's X axis is coils' Y axis, and vice versa.
+    self.append_to_dataset("Magnetometer_OP_Z", MagnetometerZ * 350)
+
+    #### I added Mag690 magnetometer (borrowed from Josiah) temporary to test our magnetometer.
+    #### It is connected to Sampler1_ch0 to 2. To be deleted soon.
+    measurement_buf = np.array([0.0] * 8)
+    MagnetometerX = 0.0
+    MagnetometerY = 0.0
+    MagnetometerZ = 0.0
+
+    for i in range(avgs):
+        self.sampler1.sample(measurement_buf)
+        MagnetometerX += measurement_buf[0]
+        MagnetometerY += measurement_buf[1]
+        MagnetometerZ += measurement_buf[2]
+        delay(0.1 * ms)
+
+    MagnetometerX /= avgs
+    MagnetometerY /= avgs
+    MagnetometerZ /= avgs
+    self.append_to_dataset("Magnetometer_Mag690_Zero_X", MagnetometerY * 100)  ### 1V corresponds to 100 mG
+    self.append_to_dataset("Magnetometer_Mag690_Zero_Y", MagnetometerX * 100)  ###
+    self.append_to_dataset("Magnetometer_Mag690_Zero_Z", MagnetometerZ * 100)
+    delay(0.1 * ms)
+
     #####################################  Measure in the MOT phase
     ### Set the coils to MOT loading setting
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         channels=self.coil_channels)
-    delay(200 * ms)
+    delay(1 * ms)
 
     measurement_buf = np.array([0.0] * 8)
     MagnetometerX = 0.0
@@ -3395,6 +3411,8 @@ def measure_Magnetometer(self):
     self.append_to_dataset("Magnetometer_MOT_Y", MagnetometerX * 350)  ### sensor's X axis is coils' Y axis, and vice versa.
     self.append_to_dataset("Magnetometer_MOT_Z", MagnetometerZ * 350)
     delay(1*ms)
+
+    self.ttl_SPCM0_logic.off()  # for oscilloscope trigger
 
 @kernel
 def end_measurement(self):
@@ -4227,6 +4245,7 @@ def atom_loading_for_optimization_experiment(self):
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
 
+
     # self.dds_FORT.sw.off()
 
 @kernel
@@ -4239,6 +4258,14 @@ def atom_loading_for_PGC_optimization_experiment(self):
 
     self.core.reset()
     self.require_D1_lock_to_advance = False # override experiment variable
+
+    ######### to scan 852 waveplates with t_FORT_drop = 10us for example and find max retention (low T)
+    delay(1 * ms)
+    move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+    move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+
+    delay(5 * ms)
+    self.core.reset()
 
 
     if self.enable_laser_feedback:
@@ -4782,8 +4809,8 @@ def microwave_Rabi_2_experiment(self):
         if self.which_node == 'alice':
             # load_MOT_and_FORT(self)
             # load_MOT_and_FORT_until_atom(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_until_atom_smooth_FORT_recycle(self)
         else:
             # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
             load_MOT_and_FORT_until_atom_recycle(self)
