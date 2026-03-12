@@ -918,24 +918,6 @@ class BaseExperiment:
         self.experiment.set_dataset("MOT5_end_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("MOT6_end_monitor", [0.0], broadcast=True)
 
-        self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test5_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test6_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test7_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test8_monitor", [0.0], broadcast=True)
-
-        self.experiment.set_dataset("zotino_test1_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test2_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test3_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test4_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test5_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test6_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test7_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test8_setpoint", [0.0], broadcast=True)
-
         self.experiment.set_dataset("zotino_test1_offset_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test2_offset_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test3_offset_monitor", [0.0], broadcast=True)
@@ -963,11 +945,6 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
-
-        self.experiment.set_dataset("coil_driver_AZ_bottom_1V", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AZ_top_1V", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AX_1V", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AY_1V", [0.0], broadcast=True)
 
         self.experiment.set_dataset("atom_loading_wall_clock", [0.0], broadcast=True)
 
