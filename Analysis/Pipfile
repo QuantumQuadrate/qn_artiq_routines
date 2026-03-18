@@ -16,6 +16,8 @@ scikit-image = "*"
 psycopg2-binary = "*"
 sqlalchemy = "*"
 pandas = "*"
+jupyter = "*"
+lab = "*"
 
 [dev-packages]
 

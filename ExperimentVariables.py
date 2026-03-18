@@ -351,7 +351,13 @@ class ExperimentVariables(EnvExperiment):
             Variable('set_point_excitation', 0.1, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
 
             # Plotting
-            Variable("MOT_beam_monitor_points", 150, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step':1},
+            Variable("MOT_beam_monitor_points", 150, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Plotting"),
+            Variable("applet_plot_points_short", 100, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Plotting"),
+            Variable("applet_plot_points_medium", 500, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Plotting"),
+            Variable("applet_plot_points_large", 1000, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
                      "Plotting"),
             Variable("ignore_first_n_histogram_points", 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1,
                      'step': 1}, "Plotting"),
