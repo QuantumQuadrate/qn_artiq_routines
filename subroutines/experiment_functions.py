@@ -140,81 +140,6 @@ def test_Repump_pulse_experiment(self):
     self.dds_AOM_A6.sw.off()
 
 @kernel
-def test_simple_feedback_experiment(self):
-    """
-    testing simple feedback code
-    """
-    self.core.reset()
-    delay(0.5*s)
-    # self.laser_stabilizer.run()
-    ### set the cooling DP AOM to the MOT settings
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=dB_to_V(-5.0))
-    self.dds_cooling_DP.sw.on()
-    delay(0.1 * ms)
-
-
-    #start from 0.5V
-    start_RF = -20.0
-    max_RF = -5.0
-    p = 40.0
-
-    # self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=start_amplitude)
-    current_RF = start_RF
-    self.set_point_PD1_AOM_A1 = 0.2
-
-    power_stabilized = False
-    while not power_stabilized:
-        delay(1*s)
-        self.append_to_dataset("MOT1_end_monitor", current_RF)
-        self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude= dB_to_V(current_RF))
-        self.dds_AOM_A1.sw.on()
-
-        delay(10 * ms)
-
-        power = record_power(self)
-        delta = power - self.set_point_PD1_AOM_A1
-        perc = delta/self.set_point_PD1_AOM_A1
-
-        if perc < 0:
-            perc = -1*perc
-
-        if perc > 0.01:
-            next_RF = current_RF - delta * p
-            current_RF = next_RF
-
-            if next_RF > max_RF:
-                print("overvoltage")
-                break
-
-        else:
-            power_stabilized = True
-            # self.dds_cooling_DP.sw.off()
-            # self.dds_AOM_A1.sw.off()
-            print("----DONE: perc = ", perc,"----")
-
-@kernel
-def record_power(self):
-    """
-    simple power monitor function for "test_simple_feedback_experiment"
-    """
-    ao_s1 = 7
-    avgs = 100
-
-    measurement_buf = np.array([0.0] * 8)
-    measurement1 = 0.0  # MOT1
-
-    delay(0.5*ms)
-    for i in range(avgs):
-        self.sampler0.sample(measurement_buf)
-        delay(0.1 * ms)
-        measurement1 += measurement_buf[ao_s1]  # MOT1
-
-    measurement1 /= avgs
-    self.append_to_dataset("MOT1_monitor", measurement1)
-
-    return measurement1
-
-@kernel
 def tune_coil_driver_experiment(self):
     self.core.reset()
     delay(1 * s)
@@ -2227,15 +2152,13 @@ def chopped_optical_pumping(self):
     # self.dds_cooling_DP.sw.off()
 
 @kernel
-def optical_pumping(self):
+def CW_optical_pumping_node1(self):
     """
-    optical pumping without chopping the FORT
+    - Includes turning on or off some AOMs, or setting their powers, setting the coils, etc.
+    - D1 is on GRIN1
 
-    ** OP AOM is driven with Urukul DDS ch
-    ** OP AOM is used to turn on/off the OP.
+    Akbar 2026-03-24
 
-    :param self:
-    :return:
     """
 
     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
@@ -2244,14 +2167,15 @@ def optical_pumping(self):
 
     ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
+    delay(5 * us)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
+    delay(5 * us)
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
 
-    delay(1*ms)
-
     ### so that D1 can pass
     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+    delay(5 * us)
     self.GRIN1and2_dds.sw.on()
     self.ttl_GRIN1_switch.off()
 
@@ -2262,18 +2186,14 @@ def optical_pumping(self):
     delay(0.4 * ms)  # coil relaxation time
 
     ### Optical pumping phase
-    self.dds_D1_pumping_DP.set(frequency=self.f_D1_pumping_DP, amplitude=dB_to_V(self.p_D1_pumping_DP))
-    delay (10 * us)
-
-    self.dds_FORT.sw.off()
     self.ttl_pumping_repump_switch.off()
     self.dds_D1_pumping_DP.sw.on()
+
     delay(self.t_pumping)
 
     self.dds_D1_pumping_DP.sw.off()
     delay(self.t_depumping)
     self.ttl_pumping_repump_switch.on()
-    self.dds_FORT.sw.on()
 
     delay(2*us)
 
@@ -2285,7 +2205,6 @@ def optical_pumping(self):
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
-    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     delay(1*ms)
     self.GRIN1and2_dds.sw.off()
     self.ttl_GRIN1_switch.on()
@@ -2305,6 +2224,7 @@ def optical_pumping_both_sides(self):
     GRIN1and2_dds            >>>>   GRIN1 dds
     dds_D1_pumping_DP        >>>>   GRIN2 dds
 
+    Eunji
     """
 
     self.dds_cooling_DP.sw.off()  # no MOT cooling light
@@ -2398,6 +2318,8 @@ def optical_pumping_GRIN1(self):
     Name of the dds channels >>>>   what actually does here
     GRIN1and2_dds            >>>>   GRIN1 dds
     dds_D1_pumping_DP        >>>>   GRIN2 dds
+
+    Eunji
 
     """
     self.dds_cooling_DP.sw.off()  # no MOT cooling light
@@ -4359,7 +4281,7 @@ def microwave_Rabi_experiment(self):
         # ### with cw pumping:
         # if self.t_pumping > 0.0:
         #     delay (10 * us)
-        #     optical_pumping(self)
+        #     CW_optical_pumping_node1(self)
         #     delay(1*ms)
 
         ############################
@@ -4495,20 +4417,26 @@ def microwave_Rabi_2_experiment(self):
         first_shot(self)
 
         delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
+
+        self.ttl_SPCM0_logic.pulse(10*us)
+        delay(1 * ms)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
-        ### With chopped pumping:
-        if self.t_pumping > 0.0:
-            chopped_optical_pumping(self)
-            delay(1 * ms)
-
-        # ### with cw pumping:
+        # ### With chopped pumping:
         # if self.t_pumping > 0.0:
-        #     delay (10 * us)
-        #     optical_pumping(self)
-        #     delay(1*ms)
+        #     chopped_optical_pumping(self)
+        #     # delay(1 * ms)
+        #     self.core.break_realtime()
+
+        ### with cw pumping:
+        if self.t_pumping > 0.0:
+            delay (10 * us)
+            CW_optical_pumping_node1(self)
+            delay(10*us)
 
         ############################
         # microwave phase
@@ -4526,15 +4454,17 @@ def microwave_Rabi_2_experiment(self):
             # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-            FORT_ramp2_smoothstep(self, direction="down")
-            delay(2 * us)
+            # FORT_ramp2_smoothstep(self, direction="down")
+            # delay(2 * us)
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(2 * us)
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            FORT_ramp2_smoothstep(self, direction="up")
+
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        FORT_ramp2_smoothstep(self, direction="up")
+        delay(2 * us)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()

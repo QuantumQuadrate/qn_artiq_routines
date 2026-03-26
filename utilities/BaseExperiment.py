@@ -1054,9 +1054,14 @@ class BaseExperiment:
                     dds_ch.sw.off()
                     delay(1*ms)
 
-            self.experiment.zotino0.write_dac(5, 0.62)  # turn on the VCA for the FORT
-            self.experiment.zotino0.load()
-            delay(1 * ms)
+            # self.experiment.zotino0.write_dac(5, 0.62)  # turn on the VCA for the FORT
+            # self.experiment.zotino0.load()
+            # delay(1 * ms)
+
+            ### setting the dds for optical pumping
+            self.experiment.dds_D1_pumping_DP.set(frequency=self.experiment.f_D1_pumping_DP,
+                                                  amplitude=dB_to_V(self.experiment.p_D1_pumping_DP))
+            delay(10 * us)
 
             self.experiment.core.break_realtime()
 

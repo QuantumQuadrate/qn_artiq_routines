@@ -787,8 +787,8 @@ class MicrowaveScanOptimizer(EnvExperiment):
                                 )
                                 print("Manual scan range: - 2* self.freq_scan_range_left_kHz ~ +2* self.freq_scan_range_left_kHz, 20kHz step")
 
-                                new_sequence1 = np.arange(center - 2* self.freq_scan_range_left_kHz * kHz,
-                                                                center + 2* self.freq_scan_range_right_kHz * kHz,
+                                new_sequence1 = np.arange(self.center - 2* self.freq_scan_range_left_kHz * kHz,
+                                                                self.center + 2* self.freq_scan_range_right_kHz * kHz,
                                                                 20 * kHz)
 
 
