@@ -8967,7 +8967,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
             self.ttl_exc0_switch.on()  # block Excitation
 
             ############################ atom cooling phase with PGC settings
-            if self.t_recooling > 0:
+            if self.t_recooling > 0 and (excitation_cycle + 1) % self.recool_every_n_OP == 0:
                 self.zotino0.set_dac(
                     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                     channels=self.coil_channels)
