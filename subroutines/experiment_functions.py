@@ -3461,6 +3461,9 @@ def atom_loading_2_experiment(self):
         first_shot(self)
         delay(1 * ms)
 
+        self.ttl_SPCM0_logic.pulse(10 * us)
+        delay(1 * ms)
+
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
@@ -4550,7 +4553,9 @@ def microwave_Ramsey_00_experiment(self):
 
         first_shot(self)
 
-        delay (1 * ms)
+        delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -4574,8 +4579,6 @@ def microwave_Ramsey_00_experiment(self):
         delay(1 * ms)
 
         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ### first pi/2 pulse
         self.ttl_microwave_switch.off()
@@ -4683,7 +4686,10 @@ def microwave_Ramsey_11_experiment(self):
         delay(1 * ms)
 
         first_shot(self)
-        delay (1 * ms)
+
+        delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################ optical pumping phase - pumps atoms into F=1,m_F=0
         # if self.t_pumping > 0.0:
@@ -4704,7 +4710,6 @@ def microwave_Ramsey_11_experiment(self):
 
         ############################ microwave 1: transfer mF=0 to mF'=1
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        FORT_ramp2_smoothstep(self, direction="down")
         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding*self.stabilizer_FORT.amplitudes[1])
         delay(5 * us)
 
@@ -4715,6 +4720,7 @@ def microwave_Ramsey_11_experiment(self):
 
         ############################ microwave 2: Ramsey between mF=1 and mF'=1
         self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+        delay(5 * us)
         ### first pi/2 pulse
         self.ttl_microwave_switch.off()
         delay(self.t_microwave_pulse)
@@ -7066,8 +7072,8 @@ def microwave_map01_map11_experiment(self):
     record_chopped_blow_away(self)
     delay(100 * ms)
 
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
+    # record_chopped_optical_pumping(self)
+    # delay(100 * ms)
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -7095,24 +7101,9 @@ def microwave_map01_map11_experiment(self):
 
         first_shot(self)
 
-        ########################################################
-        # lower level optical pumping and excitation sequence to optimize for speed
-        ########################################################
-        delay(1 * us)
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        delay(1 * us)
-
-        ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
-        self.GRIN1and2_dds.sw.on()
-
         delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7137,7 +7128,6 @@ def microwave_map01_map11_experiment(self):
         delay(1 * ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_01_pulse > 0.0:
@@ -7149,7 +7139,7 @@ def microwave_map01_map11_experiment(self):
 
         ############################ microwave phase to transfer population from F=2,mF=1 to F=1,mF=1
         self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(10 * us)
+        delay(5 * us)
 
         if self.t_microwave_11_pulse > 0.0:
             self.ttl_microwave_switch.off()
@@ -7181,7 +7171,7 @@ def microwave_map01_map11_experiment(self):
         delay(1 * ms)
 
     delay(10 * ms)
-    self.dds_FORT.sw.off()
+    # self.dds_FORT.sw.off()
     delay(1 * ms)
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
@@ -7234,8 +7224,8 @@ def microwave_map01_map11_CORPSE_experiment(self):
     record_chopped_blow_away(self)
     delay(100 * ms)
 
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
+    # record_chopped_optical_pumping(self)
+    # delay(100 * ms)
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -7262,24 +7252,9 @@ def microwave_map01_map11_CORPSE_experiment(self):
 
         first_shot(self)
 
-        ########################################################
-        # lower level optical pumping and excitation sequence to optimize for speed
-        ########################################################
-        delay(1 * us)
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        delay(1 * us)
-
-        ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
-        self.GRIN1and2_dds.sw.on()
-
         delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################
         ### optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7342,9 +7317,6 @@ def microwave_map01_map11_CORPSE_experiment(self):
             [self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave, self.AX_volts_microwave, self.AY_volts_microwave],
             channels=self.coil_channels)
         delay(1 * ms)  # coil relaxation time.
-
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(5 * us)
 
         phi = 0.0
         if self.t_microwave_01_pulse > 0.0:
@@ -7440,9 +7412,9 @@ def microwave_map00_map0m1_experiment(self):
 
     record_chopped_blow_away(self)
     delay(100 * ms)
-
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
+    #
+    # record_chopped_optical_pumping(self)
+    # delay(100 * ms)
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -7469,7 +7441,10 @@ def microwave_map00_map0m1_experiment(self):
         delay(10 * us)
 
         first_shot(self)
+
         delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7493,7 +7468,6 @@ def microwave_map00_map0m1_experiment(self):
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
-        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_00_pulse > 0.0:
@@ -7537,7 +7511,7 @@ def microwave_map00_map0m1_experiment(self):
         delay(1 * ms)
 
     delay(10 * ms)
-    self.dds_FORT.sw.off()
+    # self.dds_FORT.sw.off()
     delay(1 * ms)
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
@@ -7578,8 +7552,8 @@ def microwave_map01_MWRFm11_experiment(self):
     record_chopped_blow_away(self)
     delay(100 * ms)
 
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
+    # record_chopped_optical_pumping(self)
+    # delay(100 * ms)
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -7611,7 +7585,10 @@ def microwave_map01_MWRFm11_experiment(self):
         delay(10 * us)
 
         first_shot(self)
+
         delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7633,7 +7610,6 @@ def microwave_map01_MWRFm11_experiment(self):
         delay(1 * ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_01_pulse > 0.0:
@@ -7682,7 +7658,7 @@ def microwave_map01_MWRFm11_experiment(self):
         delay(1 * ms)
 
     self.core.break_realtime()
-    self.dds_FORT.sw.off()
+    # self.dds_FORT.sw.off()
     self.dds_MW_RF.sw.off()  ### turn off RF
     delay(1 * ms)
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
@@ -7724,8 +7700,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
     record_chopped_blow_away(self)
     delay(100 * ms)
 
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
+    # record_chopped_optical_pumping(self)
+    # delay(100 * ms)
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -7755,7 +7731,10 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         delay(10 * us)
 
         first_shot(self)
+
         delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7779,7 +7758,6 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_01_pulse > 0.0:
@@ -7845,7 +7823,7 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         delay(1 * ms)
 
     self.core.break_realtime()
-    self.dds_FORT.sw.off()
+    # self.dds_FORT.sw.off()
     delay(1 * ms)
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
@@ -7886,8 +7864,8 @@ def microwave_MW00_RF01_MW00_experiment(self):
     record_chopped_blow_away(self)
     delay(100 * ms)
 
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
+    # record_chopped_optical_pumping(self)
+    # delay(100 * ms)
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -7913,7 +7891,10 @@ def microwave_MW00_RF01_MW00_experiment(self):
         delay(10 * us)
 
         first_shot(self)
+
         delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7938,7 +7919,6 @@ def microwave_MW00_RF01_MW00_experiment(self):
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-        FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
         if self.t_microwave_00_pulse > 0.0:
@@ -7987,7 +7967,7 @@ def microwave_MW00_RF01_MW00_experiment(self):
         delay(1 * ms)
 
     self.core.break_realtime()
-    self.dds_FORT.sw.off()
+    # self.dds_FORT.sw.off()
     delay(1 * ms)
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
@@ -8747,20 +8727,10 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
     BothSPCMs_RO_atom_check_array = [0]
 
-    record_chopped_optical_pumping(self)
-    delay(100*ms)
+    # record_chopped_optical_pumping(self)
+    # delay(100*ms)
 
-    if self.verify_OP_in_photon_experiment:
-        if self.t_blowaway > 0.0:
-            record_chopped_blow_away(self)
-            delay(100*ms)
-
-        self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(10 * ms)
-        self.dds_microwaves.sw.on()
-        delay(100 * ms)
-
-    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
+    # op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -8791,18 +8761,13 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
         first_shot(self)
 
+        delay(1 * ms)
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
+
         ########################################################
         # lower level optical pumping and excitation sequence to optimize for speed
         ########################################################
-        delay(1 * us)
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        delay(1*us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
@@ -9158,18 +9123,11 @@ def single_photon_experiment_3_atom_heat_test(self):
 
         first_shot(self)
 
+        delay(1 * ms)
+
         ########################################################
         # lower level optical pumping and excitation sequence to optimize for speed
         ########################################################
-        delay(1 * us)
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        delay(1 * us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
@@ -9179,7 +9137,7 @@ def single_photon_experiment_3_atom_heat_test(self):
 
         for excitation_cycle in range(self.max_excitation_cycles):
 
-            delay(1000 * us)
+            self.core.break_realtime()
 
             ### low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
 
@@ -9231,9 +9189,12 @@ def single_photon_experiment_3_atom_heat_test(self):
 
             ### with cw pumping:
             if self.t_pumping > 0.0:
-                # delay(10 * us)
+                FORT_ramp2_smoothstep(self, direction="down")
+                delay(2 * us)
                 CW_optical_pumping_node1(self)
-                # delay(10 * us)
+                delay(2 * us)
+                FORT_ramp2_smoothstep(self, direction="up")
+                delay(2 * us)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
