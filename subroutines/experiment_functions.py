@@ -393,59 +393,6 @@ def rotator_test_experiment(self):
     # self.print_async('hwp780 at ', hwp780_deg, ' deg')
 
 @kernel
-def shot_without_measurement(self):
-    """
-    Based on non-chopped first atom readout.
-
-    Turns on:
-        Cooling DP
-        MOT RP
-        All 6 fiber AOMs
-
-    Turns off at the end:
-        Cooling DP
-        MOT RP
-
-    :return:
-    """
-    ### set the coils to PGC settings
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-        channels=self.coil_channels)
-    delay(0.4 * ms) ## coils relaxation time
-
-    ### set the FORT AOM to the readout settings
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-    # ### set the FORT AOM to the readout settings
-    # if self.which_node == 'alice':
-    #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-    # elif self.which_node == 'bob':
-    #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
-
-    ### set the cooling DP AOM to the readout settings
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                            amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
-
-    self.ttl_repump_switch.off() ### turn on MOT RP
-    self.dds_cooling_DP.sw.on() ### Turn on cooling
-    delay(0.1 * ms)
-
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-    if not self.PGC_and_RO_with_on_chip_beams:
-        self.dds_AOM_A5.sw.on()
-        self.dds_AOM_A6.sw.on()
-
-    # delay(self.t_SPCM_first_shot)
-    delay(5*ms)
-
-    self.ttl_repump_switch.on()  ### turn off MOT RP
-    self.dds_cooling_DP.sw.off()  ### Turn off cooling
-
-@kernel
 def tune_shims_for_atom_loading(self) -> TInt32:
     """
     Helper function for automatic shim tuning during atom loading.
@@ -1835,6 +1782,49 @@ def second_shot(self):
     #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
 @kernel
+def test_shot(self):
+    """
+    Based on non-chopped atom readout. Can be used as a middle RO betweek RO1 and RO2 to opimize the readout settings.
+
+    Turns on:
+        Cooling DP
+        MOT RP
+        All 6 fiber AOMs
+
+    Turns off at the end:
+        Cooling DP
+        MOT RP
+    """
+    self.ttl_repump_switch.off()  ### turn on MOT RP
+    self.dds_cooling_DP.sw.on()  ### Turn on cooling
+    delay(5 * us)
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+    if not self.PGC_and_RO_with_on_chip_beams:
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+    else:
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+    delay(5 * us)
+
+    with parallel:
+        self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_test_shot)
+        self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_test_shot)
+
+    self.SPCM0_test_RO = self.ttl_SPCM0_counter.fetch_count()
+    self.SPCM1_test_RO = self.ttl_SPCM1_counter.fetch_count()
+    self.BothSPCMs_test_RO = int((self.SPCM0_test_RO + self.SPCM1_test_RO) / 2)
+
+    delay(10 * us)
+    self.dds_cooling_DP.sw.off()  ### turn off cooling
+    self.ttl_repump_switch.on()  ### turn off MOT RP
+    delay(10 * us)
+
+@kernel
 def atom_parity_shot(self):
     """
     non-chopped atom readout used in atom parity oscillation experiments. Uses the second_shot parameters.
@@ -3170,7 +3160,6 @@ def end_measurement(self):
             self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
             self.append_to_dataset('BothSPCMs_RO1', self.BothSPCMs_RO1)
             self.append_to_dataset('BothSPCMs_RO2', self.BothSPCMs_RO2)
-            self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
             delay(1 * ms)
         else:
             self.append_to_dataset('SPCM0_RO1_in_health_check', self.SPCM0_RO1)
@@ -3749,6 +3738,12 @@ def atom_loading_for_optimization_experiment(self):
     self.core.reset()
     self.require_D1_lock_to_advance = False # override experiment variable
 
+    self.set_dataset('SPCM0_test_RO', [0], broadcast=True)
+    self.set_dataset('SPCM1_test_RO', [0], broadcast=True)
+    self.set_dataset('BothSPCMs_test_RO', [0], broadcast=True)
+
+
+
 
     ######### to scan 852 waveplates with t_FORT_drop = 10us for example and find max retention (low T)
     delay(1*ms)
@@ -3832,18 +3827,49 @@ def atom_loading_for_optimization_experiment(self):
         # ################## to see if RO heats atoms
         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
         # delay(5*us)
-        # shot_without_measurement(self)
+        # test_shot(self)
         # delay(10*us)
         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
         # ###########################################
 
+        self.ttl_SPCM0_logic.pulse(10 * us) ### Oscilloscope trigger
+
+        # ################## to optimize readout settings
+        # ### Set the coils to PGC_optimization setting:
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_PGC_optimization, -self.AZ_bottom_volts_PGC_optimization, self.AX_volts_PGC_optimization,
+        #      self.AY_volts_PGC_optimization],
+        #     channels=self.coil_channels)
+        # delay(1 * ms)
+        #
+        # ### set the cooling DP AOM to the PGC optimization settings
+        # ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
+        # self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
+        #
+        # # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        # FORT_ramp2_smoothstep(self, direction="down") ### ramping FORT to p_FORT_holding
+        #
+        # delay(5 * us)
+        # test_shot(self)
+        # delay(10 * us)
+        #
+        # # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # FORT_ramp2_smoothstep(self, direction="up")
+        # ###########################################
+
+
         # delay(self.t_delay_between_shots)
         second_shot(self)
+
+        self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
+        self.append_to_dataset('SPCM1_test_RO', self.SPCM1_test_RO)
+        self.append_to_dataset('BothSPCMs_test_RO', self.BothSPCMs_test_RO)
 
         end_measurement(self)
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+
 
     # self.dds_FORT.sw.off()
 
@@ -3895,7 +3921,7 @@ def atom_loading_for_PGC_optimization_experiment(self):
              self.AY_volts_PGC_optimization],
             channels=self.coil_channels)
         delay(1 * ms)
-        ### set the cooling DP AOM to the PGC settings
+        ### set the cooling DP AOM to the PGC optimization settings
         ampl_cooling_DP_PGC_optimization = self.ampl_cooling_DP_MOT * self.p_cooling_DP_PGC_optimization
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC_optimization, amplitude=ampl_cooling_DP_PGC_optimization)
         self.ttl_repump_switch.off()  ### turn on MOT RP
@@ -4369,8 +4395,6 @@ def microwave_Rabi_2_experiment(self):
     # delay(5 * ms)
     # self.core.reset()
 
-    self.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
-
     self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
     ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
     ### in each iteration.
@@ -4427,8 +4451,8 @@ def microwave_Rabi_2_experiment(self):
         first_shot(self)
 
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
+        # FORT_ramp2_smoothstep(self, direction="down")
+        # delay(2 * us)
 
         self.ttl_SPCM0_logic.pulse(10*us)
         delay(1 * ms)
@@ -4464,17 +4488,17 @@ def microwave_Rabi_2_experiment(self):
             # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-            # FORT_ramp2_smoothstep(self, direction="down")
-            # delay(2 * us)
+            FORT_ramp2_smoothstep(self, direction="down")
+            delay(2 * us)
 
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(2 * us)
 
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        FORT_ramp2_smoothstep(self, direction="up")
-        delay(2 * us)
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="up")
+            delay(2 * us)
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
@@ -4554,8 +4578,6 @@ def microwave_Ramsey_00_experiment(self):
         first_shot(self)
 
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -4577,6 +4599,9 @@ def microwave_Ramsey_00_experiment(self):
         self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
                               self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
         delay(1 * ms)
+
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
 
@@ -4688,8 +4713,6 @@ def microwave_Ramsey_11_experiment(self):
         first_shot(self)
 
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ############################ optical pumping phase - pumps atoms into F=1,m_F=0
         # if self.t_pumping > 0.0:
@@ -4707,6 +4730,9 @@ def microwave_Ramsey_11_experiment(self):
                               self.AX_volts_microwave, self.AY_volts_microwave],
                              channels=self.coil_channels)
         delay(1 * ms)
+
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################ microwave 1: transfer mF=0 to mF'=1
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6547,496 +6573,6 @@ def microwave_freq_scan_experiment(self):
     self.dds_microwaves.sw.off()
 
 @kernel
-def microwave_freq_scan_with_photons_experiment(self):
-    """
-    This experiment scans the microwave frequency to find the transitions from F=1 to F=2 manifold btw different Zeeman levels.
-    This is the first step for atom mapping. Works well and we found the resonance usign this experiment.
-
-    1- loads an atom using load_MOT_and_FORT_until_atom
-    2- pump atom into F=1, mF=0
-    3- excite atom to F=0,mF=0 from which it decays to F=1 manifold
-    3- Uses microwave pi pulse to transfer population from one of the Zeeman states in F=1, say mF=0, to F=2
-    4- Blow away F=2 atoms
-    5- Measure retention
-
-    * If microwave is off resonance, the retention is 100%
-    * If microwave is on resonance, the retention drops to ~1/3
-
-    """
-
-    self.core.reset()
-    delay(1 * ms)
-
-    ### overwritten below but initialized here so they are always initialized
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
-    SPCM0_SinglePhoton = 0
-    SPCM1_SinglePhoton = 0
-
-    self.n_feedback_per_iteration = 2
-    self.n_atom_loaded_per_iteration = 0
-
-    max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
-    ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
-
-    record_chopped_blow_away(self)
-    delay(100 * ms)
-
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
-    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
-    delay(10 * ms)
-
-
-
-    if self.enable_laser_feedback:
-        delay(0.1 * ms)  ### necessary to avoid underflow
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
-
-    delay(1 * ms)
-
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(0.1 * ms)
-    self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
-
-    self.measurement = 0  # advances in end_measurement
-
-    while self.measurement < self.n_measurements:
-
-        self.ttl_exc0_switch.on()  # turns off the excitation
-
-        # load_MOT_and_FORT_until_atom(self)
-        # load_MOT_and_FORT_until_atom_recycle(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(10 * us)
-
-        first_shot(self)
-
-        delay(1*ms)
-
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-        # ### With chopped pumping:
-        # if self.t_pumping > 0.0:
-        #     chopped_optical_pumping(self)
-        #     delay(1 * ms)
-
-        ### with cw pumping:
-        if self.t_pumping > 0.0:
-            delay(10 * us)
-            CW_optical_pumping_node1(self)
-            delay(10 * us)
-
-        # ########################################################
-        # # lower level optical pumping and excitation sequence to optimize for speed
-        # ########################################################
-        # delay(1 * us)
-        # self.dds_AOM_A1.sw.off()
-        # self.dds_AOM_A2.sw.off()
-        # self.dds_AOM_A3.sw.off()
-        # self.dds_AOM_A4.sw.off()
-        # self.dds_AOM_A5.sw.off()
-        # self.dds_AOM_A6.sw.off()
-        #
-        # delay(1 * us)
-        #
-        # ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        # ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
-        # self.GRIN1and2_dds.sw.on()
-        #
-        # delay(1 * ms)
-        #
-        # ### low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
-        # ############################
-        # ### optical pumping phase - pumps atoms into F=1,m_F=0
-        # ############################
-        #
-        # if self.t_pumping > 0.0:
-        #     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
-        #     self.ttl_exc0_switch.on()  # turns off the excitation
-        #     self.dds_cooling_DP.sw.off()  # no cooling light
-        #     delay(1 * us)
-        #
-        #     ### set coils for pumping
-        #     self.zotino0.set_dac(
-        #         [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        #         channels=self.coil_channels)
-        #     delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
-        #
-        #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  ### set to 5V for optical pumping
-        #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
-        #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
-        #     delay(1 * us)
-        #
-        #     ### Tunring on pumping RP:
-        #     self.ttl_pumping_repump_switch.off()
-        #     self.dds_AOM_A5.sw.on()
-        #     self.dds_AOM_A6.sw.on()
-        #
-        #     delay(1 * ms)
-        #
-        #     self.ttl_GRIN1_switch.off()  ### Turn on GRIN1 AOM
-        #     delay(10 * us)
-        #
-        #     self.core_dma.playback_handle(op_dma_handle)
-        #     delay(self.t_depumping)
-        #     self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-        #     self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
-        #
-        #     delay(2 * us)
-        #     self.dds_AOM_A5.sw.off()
-        #     self.dds_AOM_A6.sw.off()
-        #     delay(100 * us)
-        #
-        #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-        #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-        #     delay(1 * ms)
-        #
-        #     self.ttl_GRIN1_switch.on()  ### Turn off GRIN1 AOM
-        #     delay(10 * us)
-
-
-        if self.p_excitation > -39.0:
-
-            ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
-            # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
-
-            ### Change the bias field during excitation and detection
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave, self.AX_volts_microwave, self.AY_volts_microwave],
-                channels=self.coil_channels)
-
-            self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
-            delay(1 * ms)
-
-            t1 = now_mu()
-
-            self.dds_FORT.sw.off()  ### turns FORT off
-
-            at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
-            self.dds_FORT.sw.on()  ### turns FORT on
-
-            at_mu(t1 + int(self.t_excitation_offset_mu))
-            self.ttl_GRIN2_switch.off()  # turns on excitation
-
-            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-            self.ttl_GRIN2_switch.on()  # turns off excitation
-
-            at_mu(t1 + int(self.gate_start_offset_mu))
-
-            ######## Using the edge_counter (works well):
-            with parallel:
-                self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_time)
-                self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_time)
-            SPCM0_SinglePhoton = self.ttl_SPCM0_counter.fetch_count()
-            SPCM1_SinglePhoton = self.ttl_SPCM1_counter.fetch_count()
-            #############################################
-
-            delay(15 * us)
-            self.ttl_exc0_switch.on()  # block Excitation
-            delay(0.1 * ms)  # ttl count consumes all the RTIO slack.
-
-
-        ############################ microwave phase to transfer population from F=1 to F=2
-        if self.t_microwave_pulse > 0.0:
-            FORT_ramp2_smoothstep(self, direction="down")
-            delay(5*us)
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_pulse)
-            self.ttl_microwave_switch.on()
-            delay(5 * us)
-            FORT_ramp2_smoothstep(self, direction="up")
-
-
-        ############################ blow-away phase - push out atoms in F=2 only
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-        delay(0.1 * ms)
-
-        second_shot(self)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-        delay(6 * ms) ### hopefully to avoid underflow.
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
-        delay(1 * ms)
-
-    delay(10*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
-    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
-    self.dds_microwaves.sw.off()
-
-@kernel
-def microwave_freq_scan_2_with_photons_experiment(self):
-    """
-    The same as microwave_freq_scan_with_photons_experiment but with smooth microwave pulse rather than square.
-
-    This experiment scans the microwave frequency to find the transitions from F=1 to F=2 manifold btw different Zeeman levels.
-    This is the first step for atom mapping. Works well and we found the resonance usign this experiment.
-
-    1- loads an atom using load_MOT_and_FORT_until_atom
-    2- pump atom into F=1, mF=0
-    3- excite atom to F=0,mF=0 from which it decays to F=1 manifold
-    3- Uses microwave pi pulse to transfer population from one of the Zeeman states in F=1, say mF=0, to F=2
-    4- Blow away F=2 atoms
-    5- Measure retention
-
-    * If microwave is off resonance, the retention is 100%
-    * If microwave is on resonance, the retention drops to ~1/3
-
-    """
-
-    self.core.reset()
-    delay(1 * ms)
-
-    ### overwritten below but initialized here so they are always initialized
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
-    SPCM0_SinglePhoton = 0
-    SPCM1_SinglePhoton = 0
-
-    self.n_feedback_per_iteration = 2
-    self.n_atom_loaded_per_iteration = 0
-
-    max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
-    ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
-
-    record_chopped_blow_away(self)
-    delay(100 * ms)
-
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
-    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
-    delay(10 * ms)
-
-    ############################################ microwave amplitude ramp setting
-    self.ramp_time = 2 * us  # ramp time from first to max amplitude
-    self.N = 100  # number of amplitude points
-    amp_start, amp_end = 0.0, 1.0  # start and end points in scale from 0 to 1
-
-    ### Gaussian function
-    x_vals = [-3.0 + 3.0 * i / (self.N - 1) for i in range(self.N)]  ### a list from -3 to 0
-    raw = [math.exp(-0.5 * x * x) for x in x_vals]
-    g_min, g_max = raw[0], raw[-1]
-    norm = [(r - g_min) / (g_max - g_min) for r in raw]
-
-    ### scale into respective ramp according to amplitude. For some reason, we have to generate the list in reverse.
-    ### For example, for ramping up amp_points should be decreasing.
-    amp_points = [amp_end + n * (amp_start - amp_end) for n in norm]
-
-    ### some data conversion thats needed for RAM
-    amplitudes_arr = np.zeros(self.N, dtype=np.int32)
-    self.dds.amplitude_to_ram(amp_points, amplitudes_arr)  ### updates arr according to the amp_points profile
-    self.amplitudes_list = list(amplitudes_arr)
-
-    ### This is calculation of steps based on above parameters
-    self.step_ticks = int((self.ramp_time / self.N) / (4 * ns))  ### AD9910 can update the RAM every 4 clock cycles, i.e. every 4ns.
-    ### step_ticks=25, for example, mean the dds is updated every 25*4ns = 100ns.
-    ##############################################################################
-
-    if self.enable_laser_feedback:
-        delay(0.1 * ms)  ### necessary to avoid underflow
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
-
-    delay(1 * ms)
-
-    self.measurement = 0  # advances in end_measurement
-
-    while self.measurement < self.n_measurements:
-
-        self.ttl_exc0_switch.on()  # turns off the excitation
-
-        # load_MOT_and_FORT_until_atom(self)
-        # load_MOT_and_FORT_until_atom_recycle(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(10 * us)
-
-        first_shot(self)
-
-        ########################################################
-        # lower level optical pumping and excitation sequence to optimize for speed
-        ########################################################
-        delay(1 * us)
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        delay(1 * us)
-
-        ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
-        self.GRIN1and2_dds.sw.on()
-
-        delay(1 * ms)
-
-        ############################
-        ### optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-
-        ### with cw pumping:
-        if self.t_pumping > 0.0:
-            delay(10 * us)
-            CW_optical_pumping_node1(self)
-            delay(10 * us)
-
-        # if self.t_pumping > 0.0:
-        #     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
-        #     self.ttl_exc0_switch.on()  # turns off the excitation
-        #     self.dds_cooling_DP.sw.off()  # no cooling light
-        #     delay(1 * us)
-        #
-        #     ### set coils for pumping
-        #     self.zotino0.set_dac(
-        #         [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        #         channels=self.coil_channels)
-        #     delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
-        #
-        #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  ### set to 5V for optical pumping
-        #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
-        #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
-        #     delay(1 * us)
-        #
-        #     ### Tunring on pumping RP:
-        #     self.ttl_pumping_repump_switch.off()
-        #     self.dds_AOM_A5.sw.on()
-        #     self.dds_AOM_A6.sw.on()
-        #
-        #     delay(1 * ms)
-        #
-        #     self.ttl_GRIN1_switch.off()  ### Turn on GRIN1 AOM
-        #     delay(10 * us)
-        #
-        #     self.core_dma.playback_handle(op_dma_handle)
-        #     delay(self.t_depumping)
-        #     self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-        #     self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
-        #
-        #     delay(2 * us)
-        #     self.dds_AOM_A5.sw.off()
-        #     self.dds_AOM_A6.sw.off()
-        #     delay(100 * us)
-        #
-        #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-        #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-        #     delay(1 * ms)
-        #
-        #     self.ttl_GRIN1_switch.on()  ### Turn off GRIN1 AOM
-        #     delay(10 * us)
-
-
-        ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
-        # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
-
-        ### Change the bias field during excitation and detection
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave, self.AX_volts_microwave, self.AY_volts_microwave],
-            channels=self.coil_channels)
-
-        self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
-        delay(1 * ms)
-
-        t1 = now_mu()
-
-        self.dds_FORT.sw.off()  ### turns FORT off
-
-        at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
-        self.dds_FORT.sw.on()  ### turns FORT on
-
-        at_mu(t1 + int(self.t_excitation_offset_mu))
-        self.ttl_GRIN2_switch.off()  # turns on excitation
-
-        at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-        self.ttl_GRIN2_switch.on()  # turns off excitation
-
-        at_mu(t1 + int(self.gate_start_offset_mu))
-
-        ######## Using the edge_counter (works well):
-        with parallel:
-            self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_time)
-            self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_time)
-        SPCM0_SinglePhoton = self.ttl_SPCM0_counter.fetch_count()
-        SPCM1_SinglePhoton = self.ttl_SPCM1_counter.fetch_count()
-        #############################################
-
-        delay(15 * us)
-        self.ttl_exc0_switch.on()  # block Excitation
-        delay(0.1 * ms)  # ttl count consumes all the RTIO slack.
-
-
-        self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(0.1 * ms)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
-
-        ############################ microwave phase to transfer population from F=1 to F=2
-        if self.t_microwave_pulse > 0.0:
-            FORT_ramp2_smoothstep(self, direction="down")
-            delay(5 * us)
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_pulse)
-            self.ttl_microwave_switch.on()
-            delay(10 * us)
-            FORT_ramp2_smoothstep(self, direction="up")
-
-
-        ############################ blow-away phase - push out atoms in F=2 only
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-        delay(0.1 * ms)
-
-        second_shot(self)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-        delay(6 * ms) ### hopefully to avoid underflow.
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
-        delay(1 * ms)
-
-    delay(10*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
-    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
-    self.dds_microwaves.sw.off()
-
-@kernel
 def microwave_map01_map11_experiment(self):
     """
     Using the microwave frequencies found with microwave_freq_scan_with_photons_experiment, this experiment maps from
@@ -7102,8 +6638,6 @@ def microwave_map01_map11_experiment(self):
         first_shot(self)
 
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7130,8 +6664,10 @@ def microwave_map01_map11_experiment(self):
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
 
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
+
         if self.t_microwave_01_pulse > 0.0:
-            delay(5 * us)
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_01_pulse)
             self.ttl_microwave_switch.on()
@@ -7251,10 +6787,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
         delay(10 * us)
 
         first_shot(self)
-
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ############################
         ### optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7317,6 +6850,9 @@ def microwave_map01_map11_CORPSE_experiment(self):
             [self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave, self.AX_volts_microwave, self.AY_volts_microwave],
             channels=self.coil_channels)
         delay(1 * ms)  # coil relaxation time.
+
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         phi = 0.0
         if self.t_microwave_01_pulse > 0.0:
@@ -7587,8 +7123,6 @@ def microwave_map01_MWRFm11_experiment(self):
         first_shot(self)
 
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7611,6 +7145,9 @@ def microwave_map01_MWRFm11_experiment(self):
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
+
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         if self.t_microwave_01_pulse > 0.0:
             delay(5 * us)
@@ -7733,8 +7270,6 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         first_shot(self)
 
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7755,6 +7290,9 @@ def microwave_Ramsey_MWRFm11_experiment(self):
                               self.AX_volts_microwave, self.AY_volts_microwave],
                              channels=self.coil_channels)
         delay(1 * ms)
+
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -7893,8 +7431,6 @@ def microwave_MW00_RF01_MW00_experiment(self):
         first_shot(self)
 
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7915,6 +7451,9 @@ def microwave_MW00_RF01_MW00_experiment(self):
                               self.AX_volts_microwave, self.AY_volts_microwave],
                              channels=self.coil_channels)
         delay(1 * ms)
+
+        FORT_ramp2_smoothstep(self, direction="down")
+        delay(2 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -8762,8 +8301,6 @@ def single_photon_experiment_3_atom_loading_advance(self):
         first_shot(self)
 
         delay(1 * ms)
-        FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
 
         ########################################################
         # lower level optical pumping and excitation sequence to optimize for speed
@@ -9189,11 +8726,8 @@ def single_photon_experiment_3_atom_heat_test(self):
 
             ### with cw pumping:
             if self.t_pumping > 0.0:
-                FORT_ramp2_smoothstep(self, direction="down")
                 delay(2 * us)
                 CW_optical_pumping_node1(self)
-                delay(2 * us)
-                FORT_ramp2_smoothstep(self, direction="up")
                 delay(2 * us)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
@@ -9326,6 +8860,352 @@ def single_photon_experiment_3_atom_heat_test(self):
 
 
     delay(15 * ms)
+
+@kernel
+def single_photon_experiment_4_atom_loading_advance(self):
+    """
+    This is similar to single_photon_experiment_3_atom_loading_advance but with modified OP to speed up the rate.
+
+    Has bugs. Runs but with strange timing. Look at the atom loading time or BothSPCMs atom check in loading applet.
+
+
+
+
+
+    for excitation_cycle in range(self.max_excitation_cycles):
+        O.P.
+        three excitation attempts, for example
+        cooling (~5ms)
+        R.O. every 5 cycles, for example
+        if atom detected -> continue the excitation_cycle loop
+        else: break the for loop, record n_excitation_cycles, and go to atom loading.
+
+    Then we can plot n_excitation_cycles (multiples of 5) as a function of excitation attempt or cooling time, etc.
+    Since there is no RO after each excitation, all data is assumed to be with_atom; there is no distinction between
+    with_atom and no_atom.
+
+    """
+
+    self.core.reset()
+    delay(1 * ms)
+
+    max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
+    ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
+
+    BothSPCMs_RO_atom_check_array = [0]
+
+    if self.enable_laser_feedback:
+        delay(0.1 * ms)  ### necessary to avoid underflow
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+        self.laser_stabilizer.run()
+
+    self.measurement = 0  # advances in end_measurement
+
+    while self.measurement < self.n_measurements:
+
+        BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        tStamps_t1 = [0.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
+        SPCM0_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
+        SPCM1_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
+
+        self.core.break_realtime()
+
+        self.ttl_exc0_switch.on()  # turns off the excitation
+        # delay(1 * ms)
+
+        # load_MOT_and_FORT_until_atom(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        delay(1 * ms)
+
+        first_shot(self)
+
+        delay(1 * ms)
+
+        self.ttl_GRIN2_switch.on()  # turns off excitation
+
+        ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
+
+        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+        delay(5 * us)
+        self.GRIN1and2_dds.sw.on()
+
+        self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
+
+
+        ################ Preparing for fast O.P.
+        self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+        self.dds_cooling_DP.sw.off()  # no cooling light
+
+        ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+        delay(5 * us)
+        # self.dds_AOM_A5.sw.on()
+        # self.dds_AOM_A6.sw.on()
+
+        ### set coils for pumping
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+            channels=self.coil_channels)
+        delay(0.4 * ms)  # coil relaxation time
+        ##########################################
+
+
+        excitation_cycle = 1 ### just for initialization.
+
+        for excitation_cycle in range(self.max_excitation_cycles):
+            self.core.break_realtime()
+
+            ############################### CW optical pumping phase - pumps atoms into F=1,m_F=0
+            if self.t_pumping > 0.0:
+                ### Optical pumping phase
+                self.dds_AOM_A5.sw.on()
+                self.dds_AOM_A6.sw.on()
+
+                self.ttl_pumping_repump_switch.off()
+                self.dds_D1_pumping_DP.sw.on()
+
+                delay(self.t_pumping)
+
+                self.dds_D1_pumping_DP.sw.off()
+                delay(self.t_depumping)
+                self.ttl_pumping_repump_switch.on()
+
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+
+                delay(1 * us)
+
+            ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
+            # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+
+            # ### Changing the bias field to test the effect of Zeeman shift on the photons
+            # self.zotino0.set_dac(
+            #     [self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave, self.AX_volts_microwave, self.AY_volts_microwave],
+            #     channels=self.coil_channels)
+
+
+            # delay(2 * ms)
+            # self.core.break_realtime()
+
+            for excitation_attempt in range(self.n_excitation_attempts):
+
+                t1 = now_mu()
+
+                self.dds_FORT.sw.off()  ### turns FORT off
+
+                at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
+                self.dds_FORT.sw.on()  ### turns FORT on
+
+                at_mu(t1 + int(self.t_excitation_offset_mu))
+                self.ttl_GRIN2_switch.off()  # turns on excitation
+
+                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+                self.ttl_GRIN2_switch.on()  # turns off excitation
+
+                ######### time stamping the photons. Counting to be done in analysis.
+                SPCM0_click_counter = 0
+                SPCM1_click_counter = 0
+
+                at_mu(t1 + int(self.gate_start_offset_mu))
+                with parallel:
+                    t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
+                    t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
+
+                ### timestamping SPCM0 events
+                while SPCM0_click_counter < max_clicks:
+                    SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
+                    if SPCM0_click_time == -1.0:
+                        break
+                    SPCM0_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                        SPCM0_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
+                    SPCM0_click_counter += 1
+
+                ### timestamping SPCM1 events
+                while SPCM1_click_counter < max_clicks:
+                    SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
+                    if SPCM1_click_time == -1.0:
+                        break
+                    SPCM1_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                        SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
+                    SPCM1_click_counter += 1
+
+                # at_mu(t1 + 30000)
+                tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
+                delay(30 * us)  ### 20us is not enough
+
+            # delay(20 * us)
+            # self.ttl_exc0_switch.on()  # block Excitation
+
+            ############################ atom cooling phase with PGC settings
+            if self.t_recooling > 0 and (excitation_cycle + 1) % self.recool_every_n_OP == 0:
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                    channels=self.coil_channels)
+
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+
+                delay(0.4 * ms)  ### coils relaxation time
+
+                self.dds_cooling_DP.sw.on()
+                self.ttl_repump_switch.off()
+                delay(1 * us)
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+                    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+                    delay(5 * us)
+                    self.dds_AOM_A5.sw.on()
+                    self.dds_AOM_A6.sw.on()
+                else:
+                    self.dds_AOM_A5.sw.off()
+                    self.dds_AOM_A6.sw.off()
+
+                delay(self.t_recooling)
+
+                self.dds_cooling_DP.sw.off()
+                self.ttl_repump_switch.on()
+
+                ### set coils for pumping
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                    channels=self.coil_channels)
+                delay(0.4 * ms)  # coil relaxation time
+
+                delay(1 * us)
+
+                ### to be prepared for OP
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+                    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+                    delay(5*us)
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+                delay(1 * us)
+
+
+            ############################# readout to see if the atom survived every self.atom_check_every_n
+            if (excitation_cycle + 1) % self.atom_check_every_n == 0:
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                    channels=self.coil_channels)
+
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+                delay(0.4*ms)
+
+                self.dds_cooling_DP.sw.on()
+                self.ttl_repump_switch.off()
+                delay(1 * us)
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+                    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+                    delay(5*us)
+                    self.dds_AOM_A5.sw.on()
+                    self.dds_AOM_A6.sw.on()
+                else:
+                    self.dds_AOM_A5.sw.off()
+                    self.dds_AOM_A6.sw.off()
+
+                delay(1 * us)
+
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_recool_and_shot)
+
+                SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
+                SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
+                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                BothSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = BothSPCMs_RO_atom_check
+
+                ### stopping the excitation cycle after the atom is lost
+                if BothSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                    delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                    break
+
+
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+                    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+
+                delay(20*us)
+
+                ### set coils for pumping
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                    channels=self.coil_channels)
+                delay(0.4 * ms)  # coil relaxation time
+
+                self.dds_cooling_DP.sw.off()
+                self.ttl_repump_switch.on()
+                delay(1 * us)
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+                delay(1 * us)
+                ##############################
+
+            delay(10 * us)
+
+        # delay(1 * ms)
+        self.core.break_realtime()
+
+        self.GRIN1and2_dds.sw.off()
+
+        delay(0.1 * ms)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        delay(0.1 * ms)
+
+        end_measurement(self)
+
+        # delay(5 * ms)
+        self.core.break_realtime()
+
+        ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
+        ### the atom is lost. +1 is because python sttops the loop one count earlier.
+        for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+            self.append_to_dataset('BothSPCMs_RO_atom_check', val)
+
+        delay(1 * ms)
+        for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
+            self.append_to_dataset('SPCM0_SinglePhoton_tStamps', SPCM0_timestamps[i])
+            self.append_to_dataset('SPCM1_SinglePhoton_tStamps', SPCM1_timestamps[i])
+            self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
+
+        self.append_to_dataset('n_excitation_cycles', excitation_cycle)
+
+        # delay(1*ms)
+        self.core.break_realtime()
+
+    # delay(15 * ms)
+    self.core.break_realtime()
 
 @kernel
 def single_photon_experiment_3_atom_loading_advance_node2(self):
@@ -11567,14 +11447,14 @@ def atom_photon_parity_6_experiment(self):
     delay(10 * ms)
     self.core.reset()
 
-    record_chopped_optical_pumping(self)
-    delay(100 * ms)
+    # record_chopped_optical_pumping(self)
+    # delay(100 * ms)
 
     record_chopped_blow_away(self)
     delay(100 * ms)
 
-    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
-    delay(10 * ms)
+    # op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
+    # delay(10 * ms)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     delay(10 * ms)
