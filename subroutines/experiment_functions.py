@@ -8991,7 +8991,7 @@ def single_photon_experiment_4_atom_loading_advance(self):
 
 
             # delay(2 * ms)
-            # self.core.break_realtime()
+            self.core.break_realtime()
 
             for excitation_attempt in range(self.n_excitation_attempts):
 
@@ -9135,6 +9135,9 @@ def single_photon_experiment_4_atom_loading_advance(self):
 
                 ### stopping the excitation cycle after the atom is lost
                 if BothSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                    delay(100 * us)
+                    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+                    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     break
 
