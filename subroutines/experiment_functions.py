@@ -9210,8 +9210,11 @@ def single_photon_experiment_4_atom_loading_advance(self):
 def single_photon_experiment_5_atom_loading_advance(self):
     """
     This is similar to single_photon_experiment_4_atom_loading_advance but I have reduced the size of the timestamp array
-    to avoid freezing artiq. For this, I am not looking for 2nd clicks in each SPM window. Effectively, this is like
-    max_clicks = 1.
+    to avoid freezing artiq. For this:
+        1- I am not looking for 2nd clicks in each SPM window. Effectively, this is like max_clicks = 1.
+        2- I am not appending the timestamps when a photon is not registered.
+        3- I initialize and use a shorter array than max_excitation_cycles because we detect 5% of the times on average.
+
 
     IMPORTANT: for this function to work, you need to modify BaseExperiment to be like the following:
         # self.experiment.set_dataset("SPCM0_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
@@ -9226,6 +9229,10 @@ def single_photon_experiment_5_atom_loading_advance(self):
 
     BothSPCMs_RO_atom_check_array = [0]
 
+    ### short_timestamps_length is a fraction of the max_excitation_cycles. A photon is registered only in 5% of the
+    ### excitation cycles. So no need to keep a large array. For assurance, we can use an array 10% of the max_excitation_cycles.
+    short_timestamps_length = int(self.max_excitation_cycles * 0.1)
+
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -9239,10 +9246,12 @@ def single_photon_experiment_5_atom_loading_advance(self):
 
     while self.measurement < self.n_measurements:
 
+        Any_SPCM_click_counter = 0
+
         BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
-        tStamps_t1 = [0.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
-        SPCM0_timestamps = [-1.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
-        SPCM1_timestamps = [-1.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
+        tStamps_t1 = [0.0]  * short_timestamps_length
+        SPCM0_timestamps = [-1.0]  * short_timestamps_length
+        SPCM1_timestamps = [-1.0]  * short_timestamps_length
 
         self.core.break_realtime()
 
@@ -9341,26 +9350,25 @@ def single_photon_experiment_5_atom_loading_advance(self):
                 self.ttl_GRIN2_switch.on()  # turns off excitation
 
                 ######### time stamping the photons. Counting to be done in analysis.
-                SPCM0_click_counter = 0
-                SPCM1_click_counter = 0
-
                 at_mu(t1 + int(self.gate_start_offset_mu))
                 with parallel:
                     t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
                     t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
 
                 SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
-                if SPCM0_click_time > 0.0:
-                    SPCM0_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = \
-                        self.core.mu_to_seconds(SPCM0_click_time)
-
                 SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
-                if SPCM1_click_time > 0.0:
-                    SPCM1_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = \
-                        self.core.mu_to_seconds(SPCM1_click_time)
 
-                # at_mu(t1 + 30000)
-                tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
+                if SPCM0_click_time > 0.0 or SPCM1_click_time > 0.0:
+                    if Any_SPCM_click_counter < short_timestamps_length:
+                        if SPCM0_click_time > 0.0:
+                            SPCM0_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
+
+                        if SPCM1_click_time > 0.0:
+                            SPCM1_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
+
+                        tStamps_t1[Any_SPCM_click_counter] = self.core.mu_to_seconds(t1)
+                        Any_SPCM_click_counter += 1
+
                 delay(30 * us)  ### 20us is not enough
 
             # delay(20 * us)
@@ -9520,11 +9528,13 @@ def single_photon_experiment_5_atom_loading_advance(self):
         for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
             self.append_to_dataset('BothSPCMs_RO_atom_check', val)
 
-        delay(1 * ms)
-        for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
+        i = 0
+        while i < len(tStamps_t1) and tStamps_t1[i] > 0.0:
             self.append_to_dataset('SPCM0_SinglePhoton_tStamps', SPCM0_timestamps[i])
             self.append_to_dataset('SPCM1_SinglePhoton_tStamps', SPCM1_timestamps[i])
             self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
+            i += 1
+
 
         self.append_to_dataset('n_excitation_cycles', excitation_cycle)
 
