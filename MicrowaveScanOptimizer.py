@@ -764,8 +764,8 @@ class MicrowaveScanOptimizer(EnvExperiment):
                                 step = abs(f1 - f3)  # distance between +x/2 and +x
                                 new_center = f1 + step  # move further right
                             else:
-                                step = 2 * abs(f2 - f0)  # twice distance between -x and -x/2
-                                new_center = f0 + step  # move further left
+                                step = 2 * abs(f1 - f3)  # twice distance between +x/2 and x
+                                new_center = f1 + step  # move further left
 
                         ##todo: case2.3 and 2.4 cases are mostly captured in 2.0 case. However, sometimes,
                         ## due to noise/uncertainty or due to sideband peak or etc slope condiction might not
