@@ -99,7 +99,7 @@
                     "dataset":"FORT_monitor",
                     "power_dataset":"p_FORT_loading",
                     "t_measure_delay":0.005,
-                    "max_dB": -3
+                    "max_dB": -4.5
                 }
 
 
