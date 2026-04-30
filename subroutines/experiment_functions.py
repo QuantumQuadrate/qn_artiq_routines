@@ -11864,7 +11864,7 @@ def atom_photon_parity_6_experiment(self):
 
             delay(20 * ms)
 
-            # ############################### copped optical pumping phase - pumps atoms into F=1,m_F=0
+            # ############################### chopped optical pumping phase - pumps atoms into F=1,m_F=0
             # ### strange that with chopped_optical_pumping function, the experiment freezes and does not advance after a while!!
             # ### The problem is in get_handle in the function that messes up with RTIO timeline in the loop.
             # # if self.t_pumping > 0.0:
