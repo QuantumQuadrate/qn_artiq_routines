@@ -75,7 +75,6 @@ def waveplate_rotation_and_atom_loading_2_experiment(self):
     if self.enable_laser_feedback:
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     self.measurement = 0
@@ -773,37 +772,32 @@ def sampler_test_experiment(self):
     # self.zotino0.set_dac([0.0], [15])
 
 @kernel
-def run_feedback_and_record_FORT_MM_power(self):
+def run_feedback_and_record_FORT_MM_power(self, record_power = True):
     """
-    Used for FORT polarization check.
-    * PolOptTest also uses this to record the reference value "best_852_power_ref"
+    Function:
+        1. Runs feedback to everything in list (6 MOT AOMs and 3 FORT setpoints)
+        2. records FORT MM and APD powers
 
-    The function is defined in `experiment_functions.py` to ensure a unified implementation
-    that can be reused across all experiments.
+    * IF you want to only run feedback and disable recording, set "record_power = False"
 
-    Note: Since the optimization is performed with the FORT continuously ON,
-    the recorded power may not be directly comparable to the power measured
-    immediately after the FORT is turned ON. On Bob, it takes approximately
-    2 seconds for the FORT power to stabilize, with ~5% fluctuation.
-
-    This procedure is essential for reliable polarization optimization.
     """
-    self.laser_stabilizer.run()
+    if self.which_node == 'bob':
+        self.stabilizer_FORT.run(setpoint_index=2)  # FORT science holding setpoint
+        delay(0.1*ms)
+    self.stabilizer_FORT.run(setpoint_index=1)  # FORT science setpoint
+    delay(0.1*ms)
+    self.laser_stabilizer.run() # 6 MOT AOMs and FORT loading setpoint
+    delay(0.1*ms)
 
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-    self.dds_FORT.sw.on()  ### turns FORT on
-    delay(0.1 * ms)
+    ## if self.laser_stabilizer.run() is in the last sequence, it will leave the FORT at loading setpoint.
 
-    # todo: in record_FORT_MM_power function, power is recorded in "FORT_MM_monitor" dataset.
-    #       I think I'll keep this.
-    #       Just make another dataset for optimization
-    power = record_FORT_MM_power(self)
-    record_FORT_APD_power(self)
-    delay(1*ms)
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-    delay(10*us)
+    ## record FORT MM and APD powers
+    if record_power:
+        self.dds_FORT.sw.on()  ### turns FORT on
+        delay(0.1*ms)
 
-    return power
+        record_FORT_MM_power(self)
+        record_FORT_APD_power(self)
 
 @kernel
 def rotator_test_experiment(self):
@@ -1258,8 +1252,7 @@ def load_MOT_and_FORT_until_atom(self):
             ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             delay(0.1 * ms)
-            self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-            self.laser_stabilizer.run()
+            run_feedback_and_record_FORT_MM_power(self, record_power = False)
             self.n_feedback_per_iteration += 1
             # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
             self.dds_microwaves.sw.on()
@@ -1470,8 +1463,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
                 ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
                 delay(0.1 * ms)
-                self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-                self.laser_stabilizer.run()
+                run_feedback_and_record_FORT_MM_power(self, record_power = False)
                 self.n_feedback_per_iteration += 1
                 # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
                 self.dds_microwaves.sw.on()
@@ -1709,8 +1701,7 @@ def load_until_atom_smooth_FORT_recycle(self):
                 ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
                 self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
                 delay(0.1 * ms)
-                self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-                self.laser_stabilizer.run()
+                run_feedback_and_record_FORT_MM_power(self, record_power = False)
                 self.n_feedback_per_iteration += 1
                 # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
                 self.dds_microwaves.sw.on()
@@ -1856,7 +1847,8 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
         delay_mu(self.t_FORT_loading_mu)
     delay(1*ms)
     if not self.no_feedback:
-        self.stabilizer_FORT.run(setpoint_index=1) # set to  science setpoint
+        self.stabilizer_FORT.run(setpoint_index=1)  # set to  science setpoint
+        self.stabilizer_FORT.run(setpoint_index=2)  # the science holding setpoint
 
     self.dds_cooling_DP.sw.off()
     delay(1*ms)
@@ -3619,10 +3611,10 @@ def test_magnetometer_experiment(self):
     self.core.reset()
     self.measurement = 0
     while self.measurement < self.n_measurements:
-        delay(0.5*ms)
-        # measure_Magnetometer_Node2(self)
-        measure_Magnetometer_Node2_dummy_step(self)
-        delay(0.5*ms)
+        delay(100*ms)
+        measure_Magnetometer_Node2(self)
+        # measure_Magnetometer_Node2_dummy_step(self)
+        delay(100*ms)
 
         self.measurement += 1
         self.set_dataset(self.measurements_progress, 100 * self.measurement / self.n_measurements, broadcast=True)
@@ -3828,55 +3820,8 @@ def end_measurement(self):
         # measure_MOT_end(self)
         # delay(1*ms)
         measure_REPUMP(self)
-    else:
-        """
-        test used for monitring MOT power
-        MOT_end_monitor1 defined
-
-        This is in end_measurement
-
-        AOM1: Sampler0, 7
-        
-        AOM1 test: Sampler2, 1
-        
-        """
-
+    elif self.which_node == "bob":
         measure_Magnetometer_Node2(self)
-        ao_s1 = 7
-        ao_s1_test = 1
-
-        # avgs = 50
-        #
-        # self.dds_FORT.sw.off()
-        # self.ttl_repump_switch.on()  # turns the RP AOM off
-        # self.dds_cooling_DP.sw.on()
-        #
-        # delay(0.1 * ms)
-        #
-        # ### MOT1 & MOT2 & MOT5
-        # measurement_buf = np.array([0.0] * 8)
-        # measurement1 = 0.0  # MOT1
-        # measurement2 = 0.0  # MOT1
-        #
-        # self.dds_AOM_A1.sw.on()
-        #
-        # delay(0.1 * ms)
-        #
-        # for i in range(avgs):
-        #     self.sampler0.sample(measurement_buf)
-        #     delay(0.1 * ms)
-        #     measurement1 += measurement_buf[ao_s1]  # MOT1
-        #
-        #     self.sampler2.sample(measurement_buf)
-        #     delay(0.1 * ms)
-        #     measurement1 += measurement_buf[ao_s1_test]  # MOT1 test
-        #
-        #
-        # measurement1 /= avgs
-        # measurement2 /= avgs
-        #
-        # self.append_to_dataset("MOT1_end_monitor", measurement1)
-        # self.append_to_dataset("MOT2_end_monitor", measurement2)
 
     delay(1*ms)
 
@@ -4127,8 +4072,7 @@ def atom_loading_experiment(self):
             ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             delay(0.1 * ms)
-            self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+            run_feedback_and_record_FORT_MM_power(self)
 
         load_MOT_and_FORT(self)
         delay(0.1*ms)
@@ -4177,7 +4121,6 @@ def atom_loading_2_experiment(self):
     if self.enable_laser_feedback:
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     self.measurement = 0
@@ -4196,6 +4139,7 @@ def atom_loading_2_experiment(self):
         elif self.which_node == 'bob':
             # load_MOT_and_FORT_until_atom(self)
             load_MOT_and_FORT_until_atom_recycle(self)
+            # load_until_atom_smooth_FORT_recycle(self)
 
         # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
@@ -4246,7 +4190,6 @@ def blowaway_fidelity_measurement_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
@@ -4339,7 +4282,6 @@ def atom_loading_optimizer_experiment(self):
     if self.enable_laser_feedback:
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     self.measurement = 0
@@ -4515,7 +4457,6 @@ def atom_loading_for_optimization_experiment(self):
     self.n_atom_loaded_per_iteration = 0
 
     if self.enable_laser_feedback:
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     self.measurement = 0
@@ -4609,7 +4550,6 @@ def atom_loading_for_PGC_optimization_experiment(self):
 
 
     if self.enable_laser_feedback:
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     self.measurement = 0
@@ -4704,7 +4644,6 @@ def beam_balancing_with_atoms_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
@@ -4808,7 +4747,6 @@ def beam_balancing_with_atoms2_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
@@ -4913,8 +4851,7 @@ def trap_frequency_experiment(self):
         #TODO: just set the rigol frequency using pyvisa
 
         if self.enable_laser_feedback:
-            self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+            run_feedback_and_record_FORT_MM_power(self)
 
         load_MOT_and_FORT(self)
 
@@ -4993,8 +4930,7 @@ def microwave_Rabi_experiment(self):
             ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
             delay(0.1 * ms)
-            self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-            self.laser_stabilizer.run()
+            run_feedback_and_record_FORT_MM_power(self) ##todo: this will record FORT power every measurement
             # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
             self.dds_microwaves.sw.on()
 
@@ -5126,7 +5062,6 @@ def microwave_Rabi_2_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
@@ -5262,8 +5197,7 @@ def microwave_Ramsey_00_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -5390,8 +5324,7 @@ def microwave_Ramsey_11_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -5520,9 +5453,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -5580,7 +5511,9 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
         if self.t_microwave_pulse > 0.0:
 
             ### lower the FORT power
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+
             # FORT_ramp2_smoothstep(self, direction="down")
             self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
             delay(2*us)
@@ -5591,7 +5524,8 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
             self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
 
-            delay(0.5*us)
+            # delay(0.5*us)
+            delay(100*ms)
 
             ## FORT ON
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
@@ -5689,9 +5623,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -5840,9 +5772,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6006,9 +5936,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6171,9 +6099,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6307,189 +6233,6 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
     self.dds_microwaves.sw.off()
 
 
-# @kernel
-# def microwave_Rabi_2_CW_OP_UWRF_FORT_m11_experiment(self):
-#     """
-#     Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
-#
-#     This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
-#     microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
-#     - microwave Rabi oscillations to test the optical pumping fidelity
-#     - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
-#     transitions |F=1,m>->|F=2,m'>)
-#     - depumping measurements (by using a non-zero depump time)
-#
-#     self is the experiment instance to which ExperimentVariables are bound
-#     """
-#
-#     self.core.reset()
-#
-#     self.SPCM0_RO1 = 0
-#     self.SPCM0_RO2 = 0
-#     self.SPCM1_RO1 = 0
-#     self.SPCM1_RO2 = 0
-#
-#     # if self.t_pumping > 0.0:
-#     #     record_chopped_optical_pumping(self)
-#     #     delay(100*ms)
-#     delay(10 * ms)
-#
-#     if self.t_blowaway > 0.0:
-#         record_chopped_blow_away(self)
-#         delay(100*ms)
-#
-#
-#     if self.enable_laser_feedback:
-#         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-#         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-#         delay(0.1 * ms)
-#         # self.laser_stabilizer.run()
-#         run_feedback_and_record_FORT_MM_power(self)
-#         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-#
-#     # delay(1 * ms)
-#     # self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-#     # self.dds_MW_RF.set(frequency=self.f_MW_RF_dds - 250*kHz, amplitude=dB_to_V(self.p_MW_RF_dds))
-#     self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-#
-#     # delay(1 * ms)
-#     # self.dds_microwaves.sw.on()
-#     delay(1 * ms)
-#
-#     self.measurement = 0
-#     while self.measurement < self.n_measurements:
-#
-#         delay(10*ms)
-#
-#         # load_MOT_and_FORT_until_atom(self)
-#         if self.which_node == 'alice':
-#             load_MOT_and_FORT_until_atom_recycle(self)
-#         else:
-#             # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-#             # load_MOT_and_FORT_until_atom_recycle(self)
-#             load_until_atom_smooth_FORT_recycle(self)
-#             # load_MOT_and_FORT_until_atom(self)
-#             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
-#
-#         delay(1 * ms)
-#
-#         first_shot(self)   # starts with FORT science setpoint;
-#         delay (1 * ms)
-#
-#         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
-#         self.dds_AOM_A1.sw.off()
-#         self.dds_AOM_A2.sw.off()
-#         delay(0.1 * ms)
-#         self.dds_AOM_A3.sw.off()
-#         self.dds_AOM_A4.sw.off()
-#         delay(0.1 * ms)
-#         if not self.PGC_and_RO_with_on_chip_beams:
-#             self.dds_AOM_A5.sw.off()
-#             self.dds_AOM_A6.sw.off()
-#
-#
-#         ############################
-#         # optical pumping phase - pumps atoms into F=1,m_F=0
-#         ############################
-#         if self.t_pumping > 0.0:
-#             optical_pumping_GRIN1(self)
-#             delay(1*ms)
-#
-#
-#         ############################
-#         # microwave phase
-#         ############################
-#         delay(10*ms)
-#         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-#         FORT_ramp2_smoothstep(self, direction="down")
-#
-#         # self.ttl_microwave_switch.off()  # todo: do this in the beginning and the end
-#         # delay(2 * us)
-#         # self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-#
-#         ##### Mapping from |1,0> to |2,1>
-#         if self.t_microwave_01_pulse > 0.0:
-#             self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
-#             delay(2 * us)
-#
-#             # self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-#             self.dds_microwaves.sw.on()
-#             delay(self.t_microwave_01_pulse)
-#
-#             self.dds_microwaves.sw.off()
-#             self.ttl_microwave_switch.on()
-#             delay(0.5 * us)
-#
-#         # FORT_ramp2_smoothstep(self, direction="up")
-#         # delay(5*us)
-#
-#         ##### Mapping from |2,1> to |1,-1> (Microwave + RF)
-#         # self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
-#         # self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
-#
-#         # FORT_ramp2_smoothstep(self, direction="down")
-#         if self.t_MW_RF_pulse > 0.0:
-#             self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
-#             self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
-#             # delay(10*us)
-#             # FORT_ramp2_smoothstep(self, direction="down")
-#
-#             # self.dds_microwaves.set(frequency=self.f_microwaves_m10_dds + 250*kHz, amplitude=dB_to_V(self.p_microwaves))
-#             delay(5 * us)
-#
-#             with parallel:
-#                 self.ttl_microwave_switch.off() ### turn on MW
-#                 self.dds_MW_RF.sw.on()  ### turn on RF
-#
-#             delay(self.t_MW_RF_pulse)
-#
-#             with parallel:
-#                 self.ttl_microwave_switch.on() ### turn off MW
-#                 self.dds_MW_RF.sw.off()  ### turn off RF
-#
-#         FORT_ramp2_smoothstep(self, direction="up")
-#
-#         ## FORT ON
-#         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-#         # FORT_ramp2_smoothstep(self, direction="up")
-#
-#         delay(0.1 * ms)
-#
-#
-#
-#         ############################
-#         # blow-away phase - push out atoms in F=2 only
-#         ############################
-#
-#         if self.t_blowaway > 0.0:
-#             chopped_blow_away(self)
-#
-#
-#         if self.t_FORT_drop > 0:
-#             self.dds_FORT.sw.off()
-#             delay(self.t_FORT_drop)
-#             self.dds_FORT.sw.on()
-#
-#
-#         second_shot(self)
-#
-#         self.dds_AOM_A1.sw.off()
-#         self.dds_AOM_A2.sw.off()
-#         self.dds_AOM_A3.sw.off()
-#         self.dds_AOM_A4.sw.off()
-#         self.dds_AOM_A5.sw.off()
-#         self.dds_AOM_A6.sw.off()
-#
-#         end_measurement(self)
-#         delay(5 * ms) ### hopefully to avoid underflow.
-#
-#     delay(10*ms)
-#     self.dds_FORT.sw.off()
-#     delay(1*ms)
-#     self.dds_microwaves.sw.off()
-
-
 @kernel
 def microwave_Rabi_2_CW_OP_UW00_RF01_UW00_FORT_experiment(self):
     """
@@ -6525,9 +6268,7 @@ def microwave_Rabi_2_CW_OP_UW00_RF01_UW00_FORT_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6674,9 +6415,7 @@ def microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -6834,9 +6573,7 @@ def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -7048,9 +6785,7 @@ def microwave_Rabi_2_CW_OP_after_FORT_rotation_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -7188,8 +6923,7 @@ def microwave_freq_scan_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
@@ -7328,8 +7062,7 @@ def microwave_freq_scan_with_photons_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
@@ -7586,8 +7319,7 @@ def microwave_freq_scan_2_with_photons_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
@@ -7801,8 +7533,7 @@ def microwave_map01_map11_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
@@ -7963,8 +7694,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
     self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
@@ -8165,8 +7895,7 @@ def microwave_map00_map0m1_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
@@ -8296,8 +8025,7 @@ def microwave_map01_MWRFm11_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
@@ -8436,8 +8164,7 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
@@ -8591,8 +8318,7 @@ def microwave_MW00_RF01_MW00_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
@@ -8733,8 +8459,10 @@ def single_photon_experiment(self):
         SPCM1_SinglePhoton_array = [0] * self.max_excitation_cycles
 
         if self.enable_laser_feedback:
-            self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-            self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
+            ##todo:  set record_power to False if you don't want to record FORT every measurement
+            run_feedback_and_record_FORT_MM_power(self)
+            # self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
+            # self.laser_stabilizer.run()  # this tunes the MOT and FORT AOMs
 
             # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
             if self.verify_OP_in_photon_experiment:
@@ -9396,8 +9124,7 @@ def single_photon_experiment_2_atom_loading_advance(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     self.measurement = 0  # advances in end_measurement
 
@@ -9754,8 +9481,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     self.measurement = 0  # advances in end_measurement
 
@@ -10099,9 +9825,7 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        # self.laser_stabilizer.run()
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
 
     self.measurement = 0  # advances in end_measurement
 
@@ -10433,8 +10157,7 @@ def atom_photon_parity_1_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1*ms)
     move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
@@ -10657,8 +10380,7 @@ def atom_photon_parity_2_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1*ms)
     move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
@@ -10991,8 +10713,6 @@ def atom_photon_parity_2_node2_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        # self.laser_stabilizer.run()
 
     delay(1*ms)
     move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
@@ -11301,8 +11021,7 @@ def atom_photon_parity_3_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1*ms)
     move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
@@ -11660,8 +11379,7 @@ def atom_photon_parity_4_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
         self.dds_microwaves.sw.on()
 
     delay(1*ms)
@@ -12162,8 +11880,7 @@ def atom_photon_parity_5_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
         self.dds_microwaves.sw.on()
 
     self.measurement = 0  # advances in end_measurement
@@ -12628,8 +12345,7 @@ def atom_photon_parity_6_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
         self.dds_microwaves.sw.on()
 
     self.measurement = 0  # advances in end_measurement
@@ -13088,7 +12804,6 @@ def atom_photon_parity_6_node2_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
         run_feedback_and_record_FORT_MM_power(self)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         self.dds_microwaves.sw.off()
 
     self.measurement = 0  # advances in end_measurement
@@ -13753,8 +13468,7 @@ def atom_photon_tomography_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
         # bug -- microwave dds is off after AOM feedback; not clear why yet. for now, just turn it back on
         self.dds_microwaves.sw.on()
 
