@@ -11835,8 +11835,9 @@ def atom_photon_parity_6_experiment(self):
 
         load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
         self.ttl_microwave_switch.on()  ### close the switch
+        delay(20*us)
+        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
 
         first_shot(self)
 
@@ -11851,6 +11852,9 @@ def atom_photon_parity_6_experiment(self):
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
+        self.ttl_GRIN2_switch.on()  # turns off excitation
+        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+        delay(5 * us)
         self.GRIN1and2_dds.sw.on()
 
         excitation_cycle = 0  ### just for initialization.
