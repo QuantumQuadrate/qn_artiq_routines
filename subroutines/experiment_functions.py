@@ -12037,6 +12037,42 @@ def atom_photon_parity_6_experiment(self):
                     delay(10 * us)
                     chopped_blow_away(self)
 
+                    ################################### atom cooling phase with PGC settings
+                    if self.t_recooling > 0:
+                        self.zotino0.set_dac(
+                            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                            channels=self.coil_channels)
+
+                        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+                        delay(1 * ms)  ### coils relaxation time
+
+                        self.dds_cooling_DP.sw.on()
+                        self.ttl_repump_switch.off()
+                        delay(1 * us)
+                        self.dds_AOM_A1.sw.on()
+                        self.dds_AOM_A2.sw.on()
+                        self.dds_AOM_A3.sw.on()
+                        self.dds_AOM_A4.sw.on()
+                        if not self.PGC_and_RO_with_on_chip_beams:
+                            self.dds_AOM_A5.sw.on()
+                            self.dds_AOM_A6.sw.on()
+                        else:
+                            self.dds_AOM_A5.sw.off()
+                            self.dds_AOM_A6.sw.off()
+
+                        delay(self.t_recooling)
+
+                        self.dds_cooling_DP.sw.off()
+                        self.ttl_repump_switch.on()
+                        delay(1 * us)
+                        self.dds_AOM_A1.sw.off()
+                        self.dds_AOM_A2.sw.off()
+                        self.dds_AOM_A3.sw.off()
+                        self.dds_AOM_A4.sw.off()
+                        self.dds_AOM_A5.sw.off()
+                        self.dds_AOM_A6.sw.off()
+                        delay(1 * us)
+
                     delay(10 * us)
                     atom_parity_shot(self)
 
@@ -12107,6 +12143,42 @@ def atom_photon_parity_6_experiment(self):
                     delay(10 * us)
                     chopped_blow_away(self)
 
+                    ################################### atom cooling phase with PGC settings
+                    if self.t_recooling > 0:
+                        self.zotino0.set_dac(
+                            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                            channels=self.coil_channels)
+
+                        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+                        delay(1 * ms)  ### coils relaxation time
+
+                        self.dds_cooling_DP.sw.on()
+                        self.ttl_repump_switch.off()
+                        delay(1 * us)
+                        self.dds_AOM_A1.sw.on()
+                        self.dds_AOM_A2.sw.on()
+                        self.dds_AOM_A3.sw.on()
+                        self.dds_AOM_A4.sw.on()
+                        if not self.PGC_and_RO_with_on_chip_beams:
+                            self.dds_AOM_A5.sw.on()
+                            self.dds_AOM_A6.sw.on()
+                        else:
+                            self.dds_AOM_A5.sw.off()
+                            self.dds_AOM_A6.sw.off()
+
+                        delay(self.t_recooling)
+
+                        self.dds_cooling_DP.sw.off()
+                        self.ttl_repump_switch.on()
+                        delay(1 * us)
+                        self.dds_AOM_A1.sw.off()
+                        self.dds_AOM_A2.sw.off()
+                        self.dds_AOM_A3.sw.off()
+                        self.dds_AOM_A4.sw.off()
+                        self.dds_AOM_A5.sw.off()
+                        self.dds_AOM_A6.sw.off()
+                        delay(1 * us)
+
                     delay(10 * us)
                     atom_parity_shot(self)
 
@@ -12146,6 +12218,9 @@ def atom_photon_parity_6_experiment(self):
             if not self.PGC_and_RO_with_on_chip_beams:
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
+            else:
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
             delay(10 * us)
 
             with parallel:
@@ -12156,7 +12231,7 @@ def atom_photon_parity_6_experiment(self):
             SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
             BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
 
-            delay(1 * ms)
+            delay(10 * us)
 
             self.dds_cooling_DP.sw.off()
             self.ttl_repump_switch.on()
@@ -12196,6 +12271,9 @@ def atom_photon_parity_6_experiment(self):
                 if not self.PGC_and_RO_with_on_chip_beams:
                     self.dds_AOM_A5.sw.on()
                     self.dds_AOM_A6.sw.on()
+                else:
+                    self.dds_AOM_A5.sw.off()
+                    self.dds_AOM_A6.sw.off()
 
                 delay(self.t_recooling)
 
@@ -12240,8 +12318,8 @@ def atom_photon_parity_6_experiment(self):
     self.core.break_realtime()
     for i in range(self.n_measurements):
         self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton[i])
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton[i])
+        self.append_to_dataset('SPCM0_SinglePhoton_parity', SPCM0_SinglePhoton[i])
+        self.append_to_dataset('SPCM1_SinglePhoton_parity', SPCM1_SinglePhoton[i])
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
         self.append_to_dataset('angle_780_QWP', angle_780_QWP[i])
     delay(50 * ms)
