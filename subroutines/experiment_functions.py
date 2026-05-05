@@ -2808,7 +2808,8 @@ def optical_pumping_GRIN1(self):
     ## pumping repump ON and lower FORT
     # self.dds_pumping_repump.sw.on()
     self.ttl_pumping_repump_switch.off()
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2]) # holding setpoint
     # FORT_ramp2_smoothstep(self, direction="down")
     delay(1 * us)
 
@@ -2825,7 +2826,7 @@ def optical_pumping_GRIN1(self):
     ## FORT ON and pumping repump OFF
     # self.dds_pumping_repump.sw.off()
     self.ttl_pumping_repump_switch.on()
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1]) # back to science setpoint
     # FORT_ramp2_smoothstep(self, direction="up")
     delay(1*us)
 
@@ -5511,7 +5512,6 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
         if self.t_microwave_pulse > 0.0:
 
             ### lower the FORT power
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
 
             # FORT_ramp2_smoothstep(self, direction="down")
@@ -5524,8 +5524,8 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
             self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
 
-            # delay(0.5*us)
-            delay(100*ms)
+            delay(0.5*us)
+            # delay(100*ms)  #todo: switch it back to shorter delay
 
             ## FORT ON
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
@@ -5678,7 +5678,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment(self):
         if self.t_microwave_pulse > 0.0:
 
             ### lower the FORT power
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             # FORT_ramp2_smoothstep(self, direction="down")
 
             self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
@@ -5823,7 +5823,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         ############################
         # microwave phase
         ############################
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         # FORT_ramp2_smoothstep(self, direction="down")
 
         # self.ttl_microwave_switch.off()  # todo: do this in the beginning and the end
@@ -5987,7 +5987,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
         ############################
         # microwave phase
         ############################
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         # FORT_ramp2_smoothstep(self, direction="down")
 
         # self.ttl_microwave_switch.off()  # todo: do this in the beginning and the end
@@ -6151,7 +6151,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
         ############################
         # microwave phase
         ############################
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         # FORT_ramp2_smoothstep(self, direction="down")
 
         # self.ttl_microwave_switch.off()  # todo: do this in the beginning and the end
@@ -6325,7 +6325,7 @@ def microwave_Rabi_2_CW_OP_UW00_RF01_UW00_FORT_experiment(self):
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
         self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
         self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         # FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
@@ -6472,7 +6472,7 @@ def microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment(self):
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         # FORT_ramp2_smoothstep(self, direction="down")
         delay(5 * us)
 
@@ -6691,7 +6691,7 @@ def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
         if self.t_microwave_pulse > 0.0:
 
             ### lower the FORT power
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             # FORT_ramp2_smoothstep(self, direction="down")
             self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
             delay(2*us)
@@ -10817,7 +10817,7 @@ def atom_photon_parity_2_node2_experiment(self):
                 delay(20 * us)
 
                 if SPCM0_SinglePhoton>0 or SPCM1_SinglePhoton>0:
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
                     self.ttl_microwave_switch.off()
                     delay(2 * us)
                     self.dds_microwaves.sw.on()
@@ -12887,7 +12887,7 @@ def atom_photon_parity_6_node2_experiment(self):
             self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
 
             # FORT_ramp2_smoothstep(self, direction="down")
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             delay(100 * us)
 
             for excitation_attempt in range(self.n_excitation_attempts):
