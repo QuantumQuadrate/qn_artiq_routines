@@ -11957,7 +11957,7 @@ def atom_photon_parity_6_experiment(self):
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
             self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
 
-            self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
+            # self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
             FORT_ramp2_smoothstep(self, direction="down")
             delay(10 * us)
 
@@ -11970,7 +11970,7 @@ def atom_photon_parity_6_experiment(self):
                     # self.print_async("slack added in measurement:", self.measurement)
                     self.core.break_realtime()
 
-                # self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
+                self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
 
                 self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
                 delay(5 * us)
@@ -11986,6 +11986,7 @@ def atom_photon_parity_6_experiment(self):
 
                 at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
                 self.ttl_GRIN2_switch.on()  # turns off excitation
+                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns) + 1000)
                 self.ttl_exc0_switch.on()  # turns off the excitation0 AOM
 
                 at_mu(t1 + int(self.gate_start_offset_mu))
@@ -12737,22 +12738,24 @@ def atom_photon_parity_8_experiment(self):
         delay(5*us)
         self.GRIN1and2_dds.sw.on()
         self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
-        #
-        delay(self.t_delay_between_shots)
-        self.ttl_exc0_switch.on()  # turns off the excitation0 AOM
+        delay(1*us)
 
-        # t1 = now_mu()
-        # self.dds_FORT.sw.off()  ### turns FORT off
-        #
-        # at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
-        # self.dds_FORT.sw.on()  ### turns FORT on
-        #
-        # at_mu(t1 + int(self.t_excitation_offset_mu))
-        # self.ttl_GRIN2_switch.off()  # turns on excitation
-        #
-        # at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-        # self.ttl_GRIN2_switch.on()  # turns off excitation
+        # delay(self.t_delay_between_shots)
         # self.ttl_exc0_switch.on()  # turns off the excitation0 AOM
+
+        t1 = now_mu()
+        self.dds_FORT.sw.off()  ### turns FORT off
+
+        at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
+        self.dds_FORT.sw.on()  ### turns FORT on
+
+        at_mu(t1 + int(self.t_excitation_offset_mu))
+        self.ttl_GRIN2_switch.off()  # turns on excitation
+
+        at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+        self.ttl_GRIN2_switch.on()  # turns off excitation
+        at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns) + 1000)
+        self.ttl_exc0_switch.on()  # turns off the excitation0 AOM
 
         ############################
         # microwave phase
