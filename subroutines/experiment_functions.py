@@ -7088,20 +7088,14 @@ def microwave_map01_MWRFm11_experiment(self):
     self.SPCM0_RO2 = 0
     self.SPCM1_RO1 = 0
     self.SPCM1_RO2 = 0
-    SPCM0_SinglePhoton = 0
-    SPCM1_SinglePhoton = 0
+    # SPCM0_SinglePhoton = 0
+    # SPCM1_SinglePhoton = 0
 
     self.n_feedback_per_iteration = 2
     self.n_atom_loaded_per_iteration = 0
 
-    max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
-    ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
-
     record_chopped_blow_away(self)
     delay(100 * ms)
-
-    # record_chopped_optical_pumping(self)
-    # delay(100 * ms)
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -7110,10 +7104,12 @@ def microwave_map01_MWRFm11_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
         self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
 
     delay(1 * ms)
 
+    self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(1 * ms)
     self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
 
     self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
@@ -7130,7 +7126,7 @@ def microwave_map01_MWRFm11_experiment(self):
         # load_MOT_and_FORT_until_atom(self)
         # load_MOT_and_FORT_until_atom_recycle(self)
         load_until_atom_smooth_FORT_recycle(self)
-        delay(10 * us)
+        delay(1 * ms)
 
         first_shot(self)
 
@@ -7201,10 +7197,12 @@ def microwave_map01_MWRFm11_experiment(self):
         self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
-        delay(6 * ms)  ### hopefully to avoid underflow.
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
-        delay(1 * ms)
+        self.core.break_realtime()
+
+        # delay(6 * ms)  ### hopefully to avoid underflow.
+        # self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
+        # self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+        # delay(1 * ms)
 
     self.core.break_realtime()
     # self.dds_FORT.sw.off()
@@ -12473,13 +12471,13 @@ def atom_photon_parity_7_experiment(self):
             at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
             self.dds_FORT.sw.on()  ### turns FORT on
 
-            # at_mu(t1 + int(self.t_excitation_offset_mu))
-            # self.ttl_GRIN2_switch.off()  # turns on excitation
-            #
-            # at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-            # self.ttl_GRIN2_switch.on()  # turns off excitation
-            # at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns) + 1000)
-            # self.ttl_exc0_switch.on()  # turns off the excitation0 AOM
+            at_mu(t1 + int(self.t_excitation_offset_mu))
+            self.ttl_GRIN2_switch.off()  # turns on excitation
+
+            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+            self.ttl_GRIN2_switch.on()  # turns off excitation
+            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns) + 1000)
+            self.ttl_exc0_switch.on()  # turns off the excitation0 AOM
 
             at_mu(t1 + int(self.gate_start_offset_mu))
 
