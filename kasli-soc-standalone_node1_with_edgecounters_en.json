@@ -1,0 +1,69 @@
+{
+    "target": "kasli_soc",
+    "variant": "SNAQ-Node-1",
+    "hw_rev": "v1.0",
+    "base": "standalone",
+    "rtio_frequency":125e6,
+    "peripherals": [
+        {
+            "type": "dio",
+            "hw_rev": "v1.6",
+            "ports": [0],
+            "bank_direction_low": "input",
+            "bank_direction_high": "output",
+            "edge_counter":true
+        },
+        {
+            "type": "dio",
+            "hw_rev": "v1.6",
+            "ports": [1],
+            "bank_direction_low": "input",
+            "bank_direction_high": "output",
+            "edge_counter":true
+        },
+        {
+            "type": "sampler",
+            "hw_rev": "v2.3",
+            "ports": [2]
+        },
+        {
+            "type": "sampler",
+            "hw_rev": "v2.3",
+            "ports": [3]
+        },
+        {
+            "type": "sampler",
+            "hw_rev": "v2.3",
+            "ports": [4]
+        },
+        {
+            "type": "zotino",
+            "hw_rev": "v1.3",
+            "ports": [5]
+        },
+        {
+            "type": "urukul",
+            "hw_rev": "v1.5",
+            "dds": "ad9910",
+            "ports": [6, 7],
+            "synchronization":true,
+            "clk_sel": 2
+        },
+        {
+            "type": "urukul",
+            "hw_rev": "v1.5",
+            "dds": "ad9910",
+            "ports": [8, 9],
+            "synchronization":true,
+            "clk_sel": 2
+        },
+        {
+            "type": "urukul",
+            "hw_rev": "v1.5",
+            "dds": "ad9910",
+            "ports": [10, 11],
+            "synchronization":true,
+            "clk_sel": 2
+        }
+    ]
+}
