@@ -406,7 +406,7 @@ class FORT_Polarization_Optimizer(EnvExperiment):
         # run stabilizer
         self.core.break_realtime()
         if self.enable_laser_feedback:
-            self.laser_stabilizer.run()
+            self.stabilizer_FORT.run(setpoint_index=0)  # FORT loading setpoint
 
         ### turning FORT on in the beginning to give enough time to stabilize.
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
@@ -560,25 +560,27 @@ class FORT_Polarization_Optimizer(EnvExperiment):
     @kernel
     def run_feedback_and_record_ref_power(self):
         """
-        Uses the `run_feedback_and_record_FORT_MM_power` function from `experiment_functions.py`
-        to record a reference power value for detecting FORT polarization drift consistently.
-
-        The function is defined in `experiment_functions.py` to ensure a unified implementation
-        that can be reused across all experiments.
-
-        Note: Since the optimization is performed with the FORT continuously ON,
-        the recorded power may not be directly comparable to the power measured
-        immediately after the FORT is turned ON. On Bob, it takes approximately
-        2 seconds for the FORT power to stabilize, with ~5% fluctuation.
-
-        This procedure is essential for reliable polarization optimization.
+        Runs feedback to stabilize FORT to loading setpoint.
+        Then, records
         """
         #todo: why does this function underflows randomly?
         delay(1 * s)
         self.core.reset()
 
         delay(0.1 * ms)
-        power = run_feedback_and_record_FORT_MM_power(self)  # in experiment_functions
+        self.stabilizer_FORT.run(setpoint_index=0)  # FORT loading setpoint
+        delay(0.1 * ms)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+        self.dds_FORT.sw.on()  ### turns FORT on
+        delay(0.1 * ms)
+
+        power = record_FORT_MM_power(self)
+        record_FORT_APD_power(self)
+
+        self.dds_FORT.sw.off()  ### turns FORT off
+        delay(0.1 * ms)
+
+        # power = run_feedback_and_record_FORT_MM_power(self)  # in experiment_functions
 
         print("After feedback - best_852_power set to ", power)
         delay(10 * ms)

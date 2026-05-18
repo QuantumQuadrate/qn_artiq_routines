@@ -381,6 +381,26 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
             self.dds_AOM_A6.sw.on()
             delay(300 * ms)  ### to dissipate MOT
 
+            #### Eunji - testing if this is better
+            # turn_off_fiber_aoms = True
+            # if turn_off_fiber_aoms:
+            #     self.dds_AOM_A1.sw.off()
+            #     self.dds_AOM_A2.sw.off()
+            #     delay(0.1 * ms)
+            #     self.dds_AOM_A3.sw.off()
+            #     self.dds_AOM_A4.sw.off()
+            #     self.dds_AOM_A5.sw.off()
+            #     self.dds_AOM_A6.sw.off()
+            # else:
+            #     self.dds_AOM_A1.sw.on()
+            #     self.dds_AOM_A2.sw.on()
+            #     delay(0.1 * ms)
+            #     self.dds_AOM_A3.sw.on()
+            #     self.dds_AOM_A4.sw.on()
+            #     self.dds_AOM_A5.sw.on()
+            #     self.dds_AOM_A6.sw.on()
+            # delay(500 * ms)  ### to dissipate MOT
+
 
         cost = self.get_cost(self.atom_loading_time_list)
         self.append_to_dataset(self.cost_dataset, cost)

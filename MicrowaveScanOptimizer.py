@@ -134,7 +134,25 @@ scan_dict={
         "center": "f_microwaves_m11_dds",
 
         "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment",
+
+        "fit_model": "resonance_peak",
+        "initialise": {},
+        "health_check_dataset_name": "health_check_uw_freqm11"
+    },
+
+    ### Frequency_m11_Scan and Frequency_MW_RF_Scan share health_check_dataset
+    "Frequency_MW_RF_Scan": {
+        "print_statement": "Frequency_MW_RF_Scan with pi pulse",
+        "override_items": {
+            "f_microwaves_m11_dds": "f_microwaves_m11_dds"
+        },
+
+        "scan_variable1_name": "t_MW_RF_pulse",
+        "center": "t_MW_RF_pulse",
+
+        "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment",
 
         "fit_model": "resonance_peak",
         "initialise": {},
@@ -208,6 +226,22 @@ scan_dict={
         "initialise": {},
 
         "health_check_dataset_name": "health_check_uw_freqm10"
+    },
+
+    # Time scans do not have health check dataset
+    "Time_m11_Scan": {
+        "print_statement": "Time_m11_Scan with freq m11",
+        "override_items": {},
+
+        "scan_variable1_name": "t_microwave_m11_pulse",
+        "pi_pulse": "t_microwave_m11_pulse",
+
+        "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment",
+
+        "fit_model": "rabi_flop_reversed",
+        "initialise": {},
+        "health_check_dataset_name": "health_check_uw_freq11"
     },
 
     # Time scans do not have health check dataset
@@ -731,7 +765,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                                 new_center = f1 + step  # move further right
                             else:
                                 step = 2 * abs(f1 - f3)  # twice distance between +x/2 and x
-                                new_center = f1 + step  # move further right
+                                new_center = f1 + step  # move further left
 
                         ##todo: case2.3 and 2.4 cases are mostly captured in 2.0 case. However, sometimes,
                         ## due to noise/uncertainty or due to sideband peak or etc slope condiction might not

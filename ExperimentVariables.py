@@ -348,6 +348,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("set_point_PD6_AOM_A6", 0.0381, NumberValue, {'type': 'float','ndecimals':4}, "Set points"),
             Variable('set_point_FORT_APD_loading', 0.06, NumberValue, {'type': 'float', 'ndecimals': 5}, "Set points"),
             Variable('set_point_FORT_APD_science', 0.04, NumberValue, {'type': 'float', 'ndecimals': 5}, "Set points"),
+            Variable('set_point_FORT_APD_holding', 0.1, NumberValue, {'type': 'float', 'ndecimals': 5}, "Set points"),
             Variable('set_point_FORT_MM_loading', 0.3, NumberValue, {'type': 'float','ndecimals':3}, "Set points"),
             Variable('set_point_FORT_MM_science', 0.25, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),
             Variable('set_point_D1_SP', 0.2, NumberValue, {'type': 'float', 'ndecimals': 3}, "Set points"),

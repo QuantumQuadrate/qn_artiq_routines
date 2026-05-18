@@ -5,7 +5,7 @@
                 {
                     "sampler_ch": 7,
                     "set_points": ["set_point_PD1_AOM_A1"],
-                    "p": 0.05,
+                    "p": 0.01,
                     "i": 0.000,
                     "series": true,
                     "dataset": "MOT1_monitor",
@@ -92,14 +92,14 @@
             "dds_FORT":
                 {
                     "sampler_ch": 6,
-                    "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science"],
-                    "p": 0.1,
+                    "set_points": ["set_point_FORT_APD_loading", "set_point_FORT_APD_science", "set_point_FORT_APD_holding"],
+                    "p": 0.05,
                     "i": 0.0,
                     "series": true,
                     "dataset":"FORT_monitor",
                     "power_dataset":"p_FORT_loading",
                     "t_measure_delay":0.005,
-                    "max_dB": -3
+                    "max_dB": -4.5
                 }
 
 
