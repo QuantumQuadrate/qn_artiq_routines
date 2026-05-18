@@ -5,7 +5,7 @@
                 {
                     "sampler_ch": 7,
                     "set_points": ["set_point_PD1_AOM_A1"],
-                    "p": 0.05,
+                    "p": 0.01,
                     "i": 0.000,
                     "series": true,
                     "dataset": "MOT1_monitor",
