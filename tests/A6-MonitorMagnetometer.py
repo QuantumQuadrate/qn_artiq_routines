@@ -75,6 +75,7 @@ class MonitorMagnetometer(EnvExperiment):
             channels=self.coil_channels)
 
         delay(1 * ms)
+        self.dds_FORT.sw.on()
 
         if self.Coils_settings == "MOT":
             ### Set the coils to MOT loading setting

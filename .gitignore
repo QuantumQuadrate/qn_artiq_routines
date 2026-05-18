@@ -33,3 +33,6 @@ dataset_db.pyon
 last_rid.pyon
 results
 /scratchpad.py
+.venv/
+*.csv
+*.pdf

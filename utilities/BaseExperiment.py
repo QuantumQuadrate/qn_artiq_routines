@@ -119,8 +119,11 @@ class BaseExperiment:
         self.experiment.BothSPCMs_RO1 = 0
         self.experiment.BothSPCMs_RO2 = 0
         self.experiment.BothSPCMs_parity_RO = 0
-        self.experiment.SPCM0_test_RO = 0
         self.experiment.atom_loading_time = 0.0
+
+        self.experiment.SPCM0_test_RO = 0
+        self.experiment.SPCM1_test_RO = 0
+        self.experiment.BothSPCMs_test_RO = 0
 
         self.experiment.SPCM0_FORT_science = 0
         self.experiment.measurement = 0
@@ -876,7 +879,6 @@ class BaseExperiment:
         self.experiment.set_dataset("BothSPCMs_RO1", [0], broadcast=True)
         self.experiment.set_dataset("BothSPCMs_RO2", [0], broadcast=True)
         self.experiment.set_dataset("BothSPCMs_parity_RO", [0], broadcast=True)
-        self.experiment.set_dataset("SPCM0_test_RO", [0], broadcast=True)
         self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
@@ -885,6 +887,8 @@ class BaseExperiment:
         self.experiment.set_dataset("reference_tStamps_t1", [0.0], broadcast=True)
         self.experiment.set_dataset("SPCM0_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
+        # self.experiment.set_dataset("SPCM0_SinglePhoton_tStamps", [0.0], broadcast=True) ### Use this only for single_photon_experiment_5
+        # self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [0.0], broadcast=True) ### Use this only for single_photon_experiment_5
         self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton_parity", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
@@ -918,24 +922,6 @@ class BaseExperiment:
         self.experiment.set_dataset("MOT5_end_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("MOT6_end_monitor", [0.0], broadcast=True)
 
-        self.experiment.set_dataset("zotino_test1_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test2_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test3_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test4_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test5_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test6_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test7_monitor", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test8_monitor", [0.0], broadcast=True)
-
-        self.experiment.set_dataset("zotino_test1_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test2_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test3_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test4_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test5_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test6_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test7_setpoint", [0.0], broadcast=True)
-        self.experiment.set_dataset("zotino_test8_setpoint", [0.0], broadcast=True)
-
         self.experiment.set_dataset("zotino_test1_offset_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test2_offset_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("zotino_test3_offset_monitor", [0.0], broadcast=True)
@@ -963,11 +949,6 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
-
-        self.experiment.set_dataset("coil_driver_AZ_bottom_1V", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AZ_top_1V", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AX_1V", [0.0], broadcast=True)
-        self.experiment.set_dataset("coil_driver_AY_1V", [0.0], broadcast=True)
 
         self.experiment.set_dataset("atom_loading_wall_clock", [0.0], broadcast=True)
 
@@ -1077,9 +1058,14 @@ class BaseExperiment:
                     dds_ch.sw.off()
                     delay(1*ms)
 
-            self.experiment.zotino0.write_dac(5, 0.62)  # turn on the VCA for the FORT
-            self.experiment.zotino0.load()
-            delay(1 * ms)
+            # self.experiment.zotino0.write_dac(5, 0.62)  # turn on the VCA for the FORT
+            # self.experiment.zotino0.load()
+            # delay(1 * ms)
+
+            ### setting the dds for optical pumping
+            self.experiment.dds_D1_pumping_DP.set(frequency=self.experiment.f_D1_pumping_DP,
+                                                  amplitude=dB_to_V(self.experiment.p_D1_pumping_DP))
+            delay(10 * us)
 
             self.experiment.core.break_realtime()
 
