@@ -342,9 +342,9 @@ def run_feedback_and_record_FORT_MM_power(self, record_power = True):
     * IF you want to only run feedback and disable recording, set "record_power = False"
 
     """
-    if self.which_node == 'bob':
-        self.stabilizer_FORT.run(setpoint_index=2)  # FORT science holding setpoint
-        delay(0.1*ms)
+    # if self.which_node == 'bob':
+    self.stabilizer_FORT.run(setpoint_index=2)  # FORT science holding setpoint
+    delay(0.1*ms)
     self.stabilizer_FORT.run(setpoint_index=1)  # FORT science setpoint
     delay(0.1*ms)
     self.laser_stabilizer.run() # 6 MOT AOMs and FORT loading setpoint
@@ -2941,7 +2941,6 @@ def measure_Magnetometer(self):
 
     self.ttl_SPCM0_logic.off()  # for oscilloscope trigger
 
-
 @kernel
 def test_magnetometer_experiment(self):
     self.core.reset()
@@ -2954,9 +2953,6 @@ def test_magnetometer_experiment(self):
 
         self.measurement += 1
         self.set_dataset(self.measurements_progress, 100 * self.measurement / self.n_measurements, broadcast=True)
-
-
-
 
 @kernel
 def measure_Magnetometer_Node2(self):
@@ -3103,7 +3099,6 @@ def measure_Magnetometer_Node2_dummy_step(self):
     delay(0.1*ms)
 
     # self.ttl_SPCM0_logic.off()  # for oscilloscope trigger
-
 
 @kernel
 def end_measurement(self):
@@ -3325,7 +3320,8 @@ def FORT_ramp2_smoothstep(self, direction="down"):
     assert (direction == "down" or direction == "up"), "Direction must be 'down' or 'up'"
 
     p_high = self.stabilizer_FORT.amplitudes[1]
-    p_low = self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1]
+    # p_low = self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1]
+    p_low = self.stabilizer_FORT.amplitudes[2]
     n_steps_max = 2000
     step_delay_min = 10 * us
 
@@ -3349,7 +3345,6 @@ def FORT_ramp2_smoothstep(self, direction="down"):
 
         delay(step_delay)
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=p_FORT)
-
 
 ###############################################################################
 # 2. EXPERIMENT FUNCTIONS
@@ -4477,8 +4472,8 @@ def microwave_Rabi_2_experiment(self):
         # FORT_ramp2_smoothstep(self, direction="down")
         # delay(2 * us)
 
-        self.ttl_SPCM0_logic.pulse(10*us)
-        delay(1 * ms)
+        # self.ttl_SPCM0_logic.pulse(10*us)
+        # delay(1 * ms)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -4511,6 +4506,8 @@ def microwave_Rabi_2_experiment(self):
             # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+
             FORT_ramp2_smoothstep(self, direction="down")
             delay(2 * us)
 
@@ -5803,7 +5800,6 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
     self.dds_FORT.sw.off()
     delay(1*ms)
     self.dds_microwaves.sw.off()
-
 
 @kernel
 def microwave_Rabi_2_CW_OP_UW00_RF01_UW00_FORT_experiment(self):
