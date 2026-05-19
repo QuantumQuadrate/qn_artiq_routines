@@ -491,6 +491,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
 
     @kernel
     def initialize_hardware(self):
+        self.core.break_realtime()
         self.base.initialize_hardware()
 
     def initialize_datasets(self):
