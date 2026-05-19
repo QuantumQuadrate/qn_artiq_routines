@@ -342,7 +342,6 @@ def run_feedback_and_record_FORT_MM_power(self, record_power = True):
     * IF you want to only run feedback and disable recording, set "record_power = False"
 
     """
-    # if self.which_node == 'bob':
     self.stabilizer_FORT.run(setpoint_index=2)  # FORT science holding setpoint
     delay(0.1*ms)
     self.stabilizer_FORT.run(setpoint_index=1)  # FORT science setpoint
@@ -4486,7 +4485,7 @@ def microwave_Rabi_2_experiment(self):
 
         ### with cw pumping:
         if self.t_pumping > 0.0:
-            delay (10 * us)
+            delay(10 * us)
             CW_optical_pumping_node1(self)
             delay(10*us)
 
@@ -12630,7 +12629,8 @@ def atom_photon_parity_6_experiment(self):
 def atom_photon_parity_7_experiment(self):
     """
     In parity_6_experiment, we lose most of the atoms in blowaway phase. In this experiment
-    I am trying to debug this.
+    I am trying to debug this. This experiment does not care about the photon detection
+    to run faster.
 
     """
 
@@ -12664,8 +12664,7 @@ def atom_photon_parity_7_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
         self.dds_microwaves.sw.on()
 
     self.measurement = 0  # advances in end_measurement
@@ -12915,7 +12914,6 @@ def atom_photon_parity_8_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
         run_feedback_and_record_FORT_MM_power(self)
 
     # delay(1 * ms)
@@ -13092,8 +13090,7 @@ def atom_photon_parity_9_experiment(self):
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
-        self.stabilizer_FORT.run(setpoint_index=1)  # the science setpoint
-        self.laser_stabilizer.run()
+        run_feedback_and_record_FORT_MM_power(self)
         self.dds_microwaves.sw.on()
 
     self.measurement = 0  # advances in end_measurement
