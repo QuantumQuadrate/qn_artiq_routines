@@ -2317,7 +2317,85 @@ def optical_pumping_both_sides(self):
 @kernel
 def optical_pumping_GRIN1(self):
     """
-    optical pumping without chopping the FORT
+    optical pumping without chopping the FORT - swtching ON/OFF with TTL
+
+    ** OP AOM is driven with external RF source.
+    ** ONLY GRIN1 AOM is used to turn on/off the OP.
+
+    Note: To avoid conflict with Node1 codes, I left the names of the dds channels that are now
+    used for GRIN1 and GRIN2 dds.
+
+    Name of the dds channels >>>>   what actually does here
+    GRIN1and2_dds            >>>>   GRIN1 dds
+    dds_D1_pumping_DP        >>>>   GRIN2 dds
+
+    Eunji - for Node2
+
+    """
+    self.dds_cooling_DP.sw.off()  # no MOT cooling light
+    self.ttl_repump_switch.on()   # no MOT RP AOM
+    self.ttl_exc0_switch.on()     # no excitation
+    self.ttl_D1_pumping.on()      # no D1
+    delay(100 * us)
+
+    ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+    delay(10 * us)
+
+    ### set coils for pumping
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        channels=self.coil_channels)
+    delay(0.4 * ms)  # coil relaxation time
+
+    ### so that D1 can pass
+    self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+    self.GRIN1and2_dds.sw.on()  ## GRIN1 RF ON but not yet activated with external switch
+    delay(10 * us)
+
+    # ### Optical pumping phase
+    # ### - probably holding setpoint 0.05 is too leads to atom loss?? I might need a lower science setpoint,,
+    # but there's a limit in that too;
+
+    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2]) # holding setpoint
+    # delay(1 * us)
+    ### addd with parallel
+    with parallel:
+        self.ttl_pumping_repump_switch.off()  ## pumping repump ON
+        self.ttl_D1_pumping.off()  ##turning D1 ON
+        self.ttl_GRIN1_switch.off()  ## turning D1 ON
+
+    delay(self.t_pumping)     ## pumping time
+
+    with parallel:
+        self.ttl_D1_pumping.on()  ## turning D1 OFF
+        self.ttl_GRIN1_switch.on()  ## GRIN OFF
+
+    delay(self.t_depumping)    ## depumping time
+
+    self.ttl_pumping_repump_switch.on()  ## pumping repump OFF
+    delay(2 * us)
+
+    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1]) # back to science setpoint
+    # delay(1*us)
+
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+    self.GRIN1and2_dds.sw.off()  ## GRIN1 RF OFF
+    delay(10 * us)
+
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+    delay(10 * us)
+
+
+@kernel
+def optical_pumping_GRIN1_old(self):
+    """
+    optical pumping without chopping the FORT - swtching ON/OFF with DDS
 
     ** OP AOM is driven with external RF source.
     ** ONLY GRIN1 AOM is used to turn on/off the OP.
@@ -2394,6 +2472,7 @@ def optical_pumping_GRIN1(self):
 
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
 
 @kernel
 def measure_FORT_MM_fiber(self):
@@ -4844,6 +4923,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
+    self.core.break_realtime()
 
     if self.enable_laser_feedback:
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -4852,10 +4932,9 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
         delay(0.1 * ms)
         run_feedback_and_record_FORT_MM_power(self)
 
-    # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    # delay(1 * ms)
-    # self.dds_microwaves.sw.on()
+    delay(1 * ms)
+    self.dds_microwaves.sw.on()
     delay(1 * ms)
 
     self.measurement = 0
@@ -4875,10 +4954,10 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
 
         delay(1 * ms)
-
         first_shot(self)   # starts with FORT science setpoint;
         delay (1 * ms)
 
+        ##todo: check if PR with all 6 beams is better
         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
         self.dds_AOM_A1.sw.off()
         self.dds_AOM_A2.sw.off()
@@ -4895,62 +4974,32 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
+            # optical_pumping_GRIN1(self)
             optical_pumping_GRIN1(self)
-            delay(1*ms)
+            delay(10*us)
+            # delay(1*ms)  ##todo: might not be necessary
 
 
         ############################
         # microwave phase
         ############################
-        # delay(1*ms)
-        # self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-
-        delay(2 * us)
+        ##### ttl switching
         if self.t_microwave_pulse > 0.0:
 
-            ### lower the FORT power
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+            # ### FOR OP optimization
+            # self.zotino0.set_dac([-0.3, +0.3, -0.65, 7.03], channels=self.coil_channels)
+            # delay(1 * ms)  # coil relaxation time
 
-            # FORT_ramp2_smoothstep(self, direction="down")
-            self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
-            delay(2*us)
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2]) ### lower the FORT power
+            delay(2 * us)
 
-            self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
+            self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
-
-            self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
+            delay(1 * us)
 
-            delay(0.5*us)
-            # delay(100*ms)  #todo: switch it back to shorter delay
-
-            ## FORT ON
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            # FORT_ramp2_smoothstep(self, direction="up")
-            delay(0.1 * ms)
-
-        # if self.t_microwave_pulse > 0.0:
-        #
-        #     ### lower the FORT power
-        #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-        #     self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
-        #     delay(2 * us)
-        #
-        #     # FORT_ramp2_smoothstep(self, direction="down")
-        #     self.ttl_microwave_switch.off()
-        #     delay(self.t_microwave_pulse)
-        #
-        #     self.ttl_microwave_switch.on()
-        #
-        #     delay(0.5*us)
-        #
-        #     self.dds_microwaves.sw.off()
-        #
-        #
-        #     ## FORT ON
-        #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        #     # FORT_ramp2_smoothstep(self, direction="up")
-        #     delay(0.1 * ms)
+            delay(10*us)
 
         ############################
         # blow-away phase - push out atoms in F=2 only
