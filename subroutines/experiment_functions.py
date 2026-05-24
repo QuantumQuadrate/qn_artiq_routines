@@ -5298,6 +5298,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         record_chopped_blow_away(self)
         delay(100*ms)
 
+    self.core.break_realtime()
 
     if self.enable_laser_feedback:
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -5307,9 +5308,9 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         run_feedback_and_record_FORT_MM_power(self)
 
     # delay(1 * ms)
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    # delay(1 * ms)
-    # self.dds_microwaves.sw.on()
+    self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(1 * ms)
+    self.dds_microwaves.sw.on()
     delay(1 * ms)
 
     self.measurement = 0
@@ -5321,14 +5322,11 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         if self.which_node == 'alice':
             load_MOT_and_FORT_until_atom_recycle(self)
         else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
             # load_until_atom_smooth_FORT_recycle(self)
             load_MOT_and_FORT_until_atom_recycle(self)
             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
 
         delay(1 * ms)
-
         first_shot(self)   # starts with FORT science setpoint;
         delay (1 * ms)
 
@@ -5338,7 +5336,6 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
         self.dds_AOM_A1.sw.off()
         self.dds_AOM_A2.sw.off()
-        delay(0.1 * ms)
         self.dds_AOM_A3.sw.off()
         self.dds_AOM_A4.sw.off()
         delay(0.1 * ms)
@@ -5352,56 +5349,40 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         ############################
         if self.t_pumping > 0.0:
             optical_pumping_GRIN1(self)
-            delay(1*ms)
-
+            delay(10*us)  ## making this 1ms screws up;;; is this related to heating?? -> NO.
 
         ############################
         # microwave phase
         ############################
+        ### If I don't set the MW dds here again, MW doesn't work.
+        self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
+        delay(5 * us)
+
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         # FORT_ramp2_smoothstep(self, direction="down")
-
-        # self.ttl_microwave_switch.off()  # todo: do this in the beginning and the end
-        # delay(2 * us)
+        delay(2 * us)
 
         ##### Mapping from |1,0> to |2,1>
         if self.t_microwave_01_pulse > 0.0:
-            self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
-            delay(2 * us)
-
-            self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-            self.dds_microwaves.sw.on()
-
+            self.ttl_microwave_switch.off()
             delay(self.t_microwave_01_pulse)
-
-            self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
             delay(0.5 * us)
 
-
-        delay(5*us)
+        self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves)) ##this screws up
+        delay(5 * us)
 
         ##### Mapping from |2,1> to |1,1>
         if self.t_microwave_11_pulse > 0.0:
-            self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
-            delay(2 * us)
-
-            self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
-            self.dds_microwaves.sw.on()
-
+            self.ttl_microwave_switch.off()
             delay(self.t_microwave_11_pulse)
-
-            self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
             delay(0.5 * us)
 
         ## FORT ON
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
         # FORT_ramp2_smoothstep(self, direction="up")
-
-        delay(0.1 * ms)
-
-
+        delay(10 * us)
 
         ############################
         # blow-away phase - push out atoms in F=2 only
@@ -5409,7 +5390,6 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
 
         if self.t_blowaway > 0.0:
             chopped_blow_away(self)
-
 
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
