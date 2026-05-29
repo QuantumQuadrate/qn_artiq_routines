@@ -295,7 +295,7 @@ class BaseExperiment:
             ### ttl8~11
             self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
             self.experiment.ttl_SPCM1_logic = self.experiment.ttl9     #not being used
-            self.experiment.FORT_mod_switch = self.experiment.ttl11
+            self.experiment.FORT_mod_switch = self.experiment.ttl11    #not being used
 
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl12
