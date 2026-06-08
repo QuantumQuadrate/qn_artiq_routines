@@ -580,7 +580,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
         """
 
         if self.needs_fresh_build:
-            self.base.build()
+            # self.base.build()
             self.base.prepare()
 
         self.initialize_datasets()

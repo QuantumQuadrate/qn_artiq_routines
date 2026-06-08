@@ -1045,47 +1045,45 @@ def load_until_atom_smooth_FORT_recycle(self):
     """
 
     ### First check if there is already an atom in the FORT based on RO2
+    ### This will miss the first measurement of each iteration (except the first iteration)
+    ### and results in the first RO1 to be less than threshold. But it is OK.
     delay(100 * us)
-    if self.measurement > 0:
-        if self.BothSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold:
-            atom_loaded = True
+    if self.BothSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold:
+        atom_loaded = True
 
-            # ### Lower the FORT to science setpoint
-            # if self.which_node == 'alice':
-            #     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            # elif self.which_node == 'bob':
-            #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+        # ### Lower the FORT to science setpoint
+        # if self.which_node == 'alice':
+        #     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # elif self.which_node == 'bob':
+        #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
 
-            ###########  PGC on the trapped atom  #############
-            if self.do_PGC_after_loading:
-                ### Set the coils to PGC setting
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                    channels=self.coil_channels)
-                delay(1 * ms)
-                ### set the cooling DP AOM to the PGC settings
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+        ###########  PGC on the trapped atom  #############
+        if self.do_PGC_after_loading:
+            ### Set the coils to PGC setting
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                channels=self.coil_channels)
+            delay(1 * ms)
+            ### set the cooling DP AOM to the PGC settings
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
 
-                self.dds_AOM_A1.sw.on()
-                self.dds_AOM_A2.sw.on()
-                self.dds_AOM_A3.sw.on()
-                self.dds_AOM_A4.sw.on()
-                delay(0.1 * ms)
-                if self.PGC_and_RO_with_on_chip_beams:
-                    self.dds_AOM_A5.sw.off()
-                    self.dds_AOM_A6.sw.off()
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A4.sw.on()
+            delay(0.1 * ms)
+            if self.PGC_and_RO_with_on_chip_beams:
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
 
-                self.dds_cooling_DP.sw.on()  ### turn on cooling
-                self.ttl_repump_switch.off()  ### turn on MOT RP
-                delay(self.t_PGC_after_loading)  ### this is the PGC time
-                self.dds_cooling_DP.sw.off()  ### turn off cooling
-                self.ttl_repump_switch.on()  ### turn off MOT RP
-            ###################################################
-        else:
-            atom_loaded = False
+            self.dds_cooling_DP.sw.on()  ### turn on cooling
+            self.ttl_repump_switch.off()  ### turn on MOT RP
+            delay(self.t_PGC_after_loading)  ### this is the PGC time
+            self.dds_cooling_DP.sw.off()  ### turn off cooling
+            self.ttl_repump_switch.on()  ### turn off MOT RP
+        ###################################################
     else:
         atom_loaded = False
-
 
     ### load an atom if atom_loaded = False
     if not atom_loaded:
@@ -12301,7 +12299,8 @@ def atom_photon_parity_6_experiment(self):
                     # self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+                    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 1000)
                     self.ttl_microwave_switch.off()
@@ -12412,7 +12411,8 @@ def atom_photon_parity_6_experiment(self):
                     # self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+                    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 1000)
                     self.ttl_microwave_switch.off()
@@ -12769,7 +12769,7 @@ def atom_photon_parity_7_experiment(self):
 
 
             delay(self.t_start_MW_mapping_mu*ns)
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
 
             # delay(self.t_start_MW_mapping_mu*ns + 1000*ns)
             # self.ttl_microwave_switch.off()
@@ -13005,7 +13005,7 @@ def atom_photon_parity_8_experiment(self):
                                  channels=self.coil_channels)
             delay(1 * ms)
 
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             # FORT_ramp2_smoothstep(self, direction="down")
             delay(1 * us)
 
@@ -13191,7 +13191,7 @@ def atom_photon_parity_9_experiment(self):
 
                 if SPCM0_click_time > 0 and SPCM1_click_time < 0:
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
 
                     at_mu(SPCM0_click_time + self.t_start_MW_mapping_mu + 1000)
                     self.ttl_microwave_switch.off()
@@ -13245,7 +13245,7 @@ def atom_photon_parity_9_experiment(self):
 
                 if SPCM0_click_time < 0 and SPCM1_click_time > 0:
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu)
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
 
                     at_mu(SPCM1_click_time + self.t_start_MW_mapping_mu + 1000)
                     self.ttl_microwave_switch.off()
@@ -13295,9 +13295,6 @@ def atom_photon_parity_9_experiment(self):
                     self.measurement += 1
 
                     break
-
-            if self.measurement == self.n_measurements:
-                break
 
             delay(20 * us)
             excitation_cycle += 1
