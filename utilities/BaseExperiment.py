@@ -175,7 +175,6 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
             self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
-            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl3
 
             ### ttl4~7
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
@@ -185,7 +184,11 @@ class BaseExperiment:
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
 
             ### ttl8~11
-
+            self.experiment.ttl_SPCM0_OtherNode = self.experiment.ttl8
+            self.experiment.ttl_SPCM0_OtherNode_counter = self.experiment.ttl8_counter
+            self.experiment.ttl_SPCM1_OtherNode = self.experiment.ttl9
+            self.experiment.ttl_SPCM1_OtherNode_counter = self.experiment.ttl9_counter
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl10
 
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl11 ### not used in node 1. Just to avoid error.
@@ -228,6 +231,8 @@ class BaseExperiment:
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
+            self.experiment.SPCM0_OtherNode_rate_dataset = 'SPCM0_OtherNode_counts_per_s'
+            self.experiment.SPCM1_OtherNode_rate_dataset = 'SPCM1_OtherNode_counts_per_s'
             self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
@@ -281,10 +286,15 @@ class BaseExperiment:
             ### todo: do this in the device_db
 
             ### ttl0~3
-            self.experiment.ttl_SPCM0 = self.experiment.ttl0   # SPCM2
-            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter   # SPCM2 counter
-            self.experiment.ttl_SPCM1 = self.experiment.ttl1   # SPCM3
-            self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter   # SPCM3 counter
+            self.experiment.ttl_SPCM0 = self.experiment.ttl0
+            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
+            self.experiment.ttl_SPCM1 = self.experiment.ttl1
+            self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
+
+            self.experiment.ttl_SPCM0_OtherNode = self.experiment.ttl2
+            self.experiment.ttl_SPCM0_OtherNode_counter = self.experiment.ttl2_counter
+            self.experiment.ttl_SPCM1_OtherNode = self.experiment.ttl3
+            self.experiment.ttl_SPCM1_OtherNode_counter = self.experiment.ttl3_counter
 
             ### ttl4~7
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
@@ -336,6 +346,8 @@ class BaseExperiment:
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
+            self.experiment.SPCM0_OtherNode_rate_dataset = 'SPCM0_OtherNode_counts_per_s'
+            self.experiment.SPCM1_OtherNode_rate_dataset = 'SPCM1_OtherNode_counts_per_s'
             self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
@@ -990,6 +1002,9 @@ class BaseExperiment:
             ### ttl0~3
             self.experiment.ttl_SPCM0.input()
             self.experiment.ttl_SPCM1.input()
+            self.experiment.ttl_SPCM0_OtherNode.input()
+            self.experiment.ttl_SPCM1_OtherNode.input()
+
 
             ### ttl4~7: already configured to be used as output at TTL card
             self.experiment.ttl_microwave_switch.output()
@@ -1084,6 +1099,8 @@ class BaseExperiment:
             ### ttl0~3
             self.experiment.ttl_SPCM0.input()
             self.experiment.ttl_SPCM1.input()
+            self.experiment.ttl_SPCM0_OtherNode.input()
+            self.experiment.ttl_SPCM1_OtherNode.input()
 
             ### ttl4~7: already configured to be used as output at TTL card
             self.experiment.ttl_microwave_switch.output()
