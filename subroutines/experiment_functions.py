@@ -1141,8 +1141,13 @@ def load_until_atom_smooth_FORT_recycle(self):
                 with parallel:
                     self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                     self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
 
-                AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() +
+                                           self.ttl_SPCM1_counter.fetch_count() +
+                                           self.ttl_SPCM0_OtherNode_counter.fetch_count() +
+                                           self.ttl_SPCM1_OtherNode_counter.fetch_count() ) / 2)
 
                 try_n += 1
 
@@ -1638,10 +1643,14 @@ def first_shot(self):
         with parallel:
             self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_first_shot)
             self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_first_shot)
+            self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_first_shot)
+            self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_first_shot)
 
         self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
         self.SPCM1_RO1 = self.ttl_SPCM1_counter.fetch_count()
-        self.AllSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
+        self.SPCM0_OtherNode_RO1 = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+        self.SPCM1_OtherNode_RO1 = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+        self.AllSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1 + self.SPCM0_OtherNode_RO1 + self.SPCM1_OtherNode_RO1) / 2)
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off() ### turn off cooling
         self.ttl_repump_switch.on() ### turn off MOT RP
@@ -1770,10 +1779,14 @@ def second_shot(self):
         with parallel:
             self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
             self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
+            self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_second_shot)
+            self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_second_shot)
 
         self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
         self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
-        self.AllSPCMs_RO2 = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
+        self.SPCM0_OtherNode_RO2 = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+        self.SPCM1_OtherNode_RO2 = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+        self.AllSPCMs_RO2 = int((self.SPCM0_RO2 + self.SPCM1_RO2 + self.SPCM0_OtherNode_RO2 + self.SPCM1_OtherNode_RO2) / 2)
 
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off() ### turn off cooling
@@ -1819,10 +1832,14 @@ def test_shot(self):
     with parallel:
         self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_test_shot)
         self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_test_shot)
+        self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_test_shot)
+        self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_test_shot)
 
     self.SPCM0_test_RO = self.ttl_SPCM0_counter.fetch_count()
     self.SPCM1_test_RO = self.ttl_SPCM1_counter.fetch_count()
-    self.AllSPCMs_test_RO = int((self.SPCM0_test_RO + self.SPCM1_test_RO) / 2)
+    self.SPCM0_OtherNode_test_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+    self.SPCM1_OtherNode_test_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+    self.AllSPCMs_test_RO = int((self.SPCM0_test_RO + self.SPCM1_test_RO + self.SPCM0_OtherNode_test_RO + self.SPCM1_OtherNode_test_RO) / 2)
 
     delay(10 * us)
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -1877,10 +1894,14 @@ def atom_parity_shot(self):
     with parallel:
         self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_second_shot)
         self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_second_shot)
+        self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_second_shot)
+        self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_second_shot)
 
     self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
     self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
-    self.AllSPCMs_parity_RO = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
+    self.SPCM0_OtherNode_RO2 = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+    self.SPCM1_OtherNode_RO2 = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+    self.AllSPCMs_parity_RO = int((self.SPCM0_RO2 + self.SPCM1_RO2 + self.SPCM0_OtherNode_RO2 + self.SPCM1_OtherNode_RO2) / 2)
 
     delay(0.1 * ms)
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -3099,9 +3120,13 @@ def end_measurement(self):
 
     self.append_to_dataset('SPCM0_RO1_current_iteration', self.SPCM0_RO1)
     self.append_to_dataset('SPCM1_RO1_current_iteration', self.SPCM1_RO1)
+    self.append_to_dataset('SPCM0_OtherNode_RO1_current_iteration', self.SPCM0_OtherNode_RO1)
+    self.append_to_dataset('SPCM1_OtherNode_RO1_current_iteration', self.SPCM1_OtherNode_RO1)
     delay(1 * ms)
     self.append_to_dataset('SPCM0_RO2_current_iteration', self.SPCM0_RO2)
     self.append_to_dataset('SPCM1_RO2_current_iteration', self.SPCM1_RO2)
+    self.append_to_dataset('SPCM0_OtherNode_RO2_current_iteration', self.SPCM0_OtherNode_RO2)
+    self.append_to_dataset('SPCM1_OtherNode_RO2_current_iteration', self.SPCM1_OtherNode_RO2)
     delay(1 * ms)
     self.append_to_dataset('AllSPCMs_RO1_current_iteration', self.AllSPCMs_RO1)
     self.append_to_dataset('AllSPCMs_RO2_current_iteration', self.AllSPCMs_RO2)
@@ -3111,6 +3136,11 @@ def end_measurement(self):
     self.SPCM0_RO2_list[self.measurement] = self.SPCM0_RO2
     self.SPCM1_RO2_list[self.measurement] = self.SPCM1_RO2
 
+    self.SPCM0_OtherNode_RO1_list[self.measurement] = self.SPCM0_OtherNode_RO1
+    self.SPCM1_OtherNode_RO1_list[self.measurement] = self.SPCM1_OtherNode_RO1
+    self.SPCM0_OtherNode_RO2_list[self.measurement] = self.SPCM0_OtherNode_RO2
+    self.SPCM1_OtherNode_RO2_list[self.measurement] = self.SPCM1_OtherNode_RO2
+    delay(1 * ms)
     self.AllSPCMs_RO1_list[self.measurement] = self.AllSPCMs_RO1
     self.AllSPCMs_RO2_list[self.measurement] = self.AllSPCMs_RO2
     self.atom_loading_time_list[self.measurement] = self.atom_loading_time
@@ -3171,6 +3201,12 @@ def end_measurement(self):
             self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
             self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
             self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
+            delay(1 * ms)
+            self.append_to_dataset('SPCM0_OtherNode_RO1', self.SPCM0_OtherNode_RO1)
+            self.append_to_dataset('SPCM1_OtherNode_RO1', self.SPCM1_OtherNode_RO1)
+            self.append_to_dataset('SPCM0_OtherNode_RO2', self.SPCM0_OtherNode_RO2)
+            self.append_to_dataset('SPCM1_OtherNode_RO2', self.SPCM1_OtherNode_RO2)
+
             self.append_to_dataset('AllSPCMs_RO1', self.AllSPCMs_RO1)
             self.append_to_dataset('AllSPCMs_RO2', self.AllSPCMs_RO2)
             delay(1 * ms)
@@ -3179,6 +3215,12 @@ def end_measurement(self):
             self.append_to_dataset('SPCM1_RO1_in_health_check', self.SPCM1_RO1)
             self.append_to_dataset('SPCM0_RO2_in_health_check', self.SPCM0_RO2)
             self.append_to_dataset('SPCM1_RO2_in_health_check', self.SPCM1_RO2)
+            delay(1 * ms)
+            self.append_to_dataset('SPCM0_OtherNode_RO1_in_health_check', self.SPCM0_OtherNode_RO1)
+            self.append_to_dataset('SPCM1_OtherNode_RO1_in_health_check', self.SPCM1_OtherNode_RO1)
+            self.append_to_dataset('SPCM0_OtherNode_RO2_in_health_check', self.SPCM0_OtherNode_RO2)
+            self.append_to_dataset('SPCM1_OtherNode_RO2_in_health_check', self.SPCM1_OtherNode_RO2)
+
             self.append_to_dataset('AllSPCMs_RO1_in_health_check', self.AllSPCMs_RO1)
             self.append_to_dataset('AllSPCMs_RO2_in_health_check', self.AllSPCMs_RO2)
 
@@ -3644,11 +3686,15 @@ def atom_loading_optimizer_experiment(self):
             with parallel:
                 self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                 self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+                self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
+                self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
 
             SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_atom_check = self.ttl_SPCM1_counter.fetch_count()
+            SPCM0_OtherNode_atom_check = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+            SPCM1_OtherNode_atom_check = self.ttl_SPCM1_OtherNode_counter.fetch_count()
 
-            AllSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check) / 2)
+            AllSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check + SPCM0_OtherNode_atom_check + SPCM1_OtherNode_atom_check) / 2)
 
             try_n += 1
 
@@ -3748,6 +3794,8 @@ def atom_loading_for_optimization_experiment(self):
 
     self.set_dataset('SPCM0_test_RO', [0], broadcast=True)
     self.set_dataset('SPCM1_test_RO', [0], broadcast=True)
+    self.set_dataset('SPCM0_OtherNode_test_RO', [0], broadcast=True)
+    self.set_dataset('SPCM1_OtherNode_test_RO', [0], broadcast=True)
     self.set_dataset('AllSPCMs_test_RO', [0], broadcast=True)
 
 
@@ -3869,6 +3917,8 @@ def atom_loading_for_optimization_experiment(self):
 
         self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
         self.append_to_dataset('SPCM1_test_RO', self.SPCM1_test_RO)
+        self.append_to_dataset('SPCM0_OtherNode_test_RO', self.SPCM0_OtherNode_test_RO)
+        self.append_to_dataset('SPCM1_OtherNode_test_RO', self.SPCM1_OtherNode_test_RO)
         self.append_to_dataset('AllSPCMs_test_RO', self.AllSPCMs_test_RO)
 
         end_measurement(self)
@@ -3973,11 +4023,6 @@ def beam_balancing_with_atoms_experiment(self):
     """
 
     self.core.reset()
-
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
 
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
@@ -4089,12 +4134,6 @@ def beam_balancing_with_atoms2_experiment(self):
 
     self.core.reset()
     self.require_D1_lock_to_advance = False  # override experiment variable
-
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
-
 
     # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
@@ -4384,10 +4423,10 @@ def microwave_Rabi_2_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # delay(1 * ms)
     # move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
@@ -4537,10 +4576,10 @@ def microwave_Ramsey_00_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
@@ -4671,10 +4710,10 @@ def microwave_Ramsey_11_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     if self.t_pumping > 0.0:
         record_chopped_optical_pumping(self)
@@ -4809,10 +4848,10 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -4981,10 +5020,10 @@ def microwave_Rabi_2_CW_OP_UW_FORT_with_pol_rotation_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -5151,10 +5190,10 @@ def microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -5300,10 +5339,10 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -5464,10 +5503,10 @@ def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -5627,10 +5666,10 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -5794,11 +5833,11 @@ def microwave_Rabi_2_CW_OP_UW00_RF01_UW00_FORT_experiment(self):
     """
 
     self.core.reset()
-
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    #
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -5942,10 +5981,10 @@ def microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -6100,10 +6139,10 @@ def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -6312,10 +6351,10 @@ def microwave_Rabi_2_CW_OP_after_FORT_rotation_experiment(self):
     # move_to_target_deg(self, name="852_QWP", target_deg=best_QWP)
 
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     # if self.t_pumping > 0.0:
     #     record_chopped_optical_pumping(self)
@@ -6452,10 +6491,10 @@ def microwave_freq_scan_experiment(self):
 
     self.core.reset()
 
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
 
     if self.t_blowaway > 0.0:
         record_chopped_blow_away(self)
@@ -6574,12 +6613,15 @@ def microwave_map01_map11_experiment(self):
     delay(1 * ms)
 
     ### overwritten below but initialized here so they are always initialized
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
-    SPCM0_SinglePhoton = 0
-    SPCM1_SinglePhoton = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
+
+    # SPCM0_SinglePhoton = 0
+    # SPCM1_SinglePhoton = 0
+    # SPCM0_OtherNode_SinglePhoton = 0
+    # SPCM1_OtherNode_SinglePhoton = 0
 
     self.n_feedback_per_iteration = 2
     self.n_atom_loaded_per_iteration = 0
@@ -6682,9 +6724,11 @@ def microwave_map01_map11_experiment(self):
         self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
-        delay(6 * ms)  ### hopefully to avoid underflow.
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+        # delay(6 * ms)  ### hopefully to avoid underflow.
+        # self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
+        # self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+        # self.append_to_dataset('SPCM0_OtherNode_SinglePhoton', SPCM0_OtherNode_SinglePhoton)
+        # self.append_to_dataset('SPCM1_OtherNode_SinglePhoton', SPCM1_OtherNode_SinglePhoton)
         delay(1 * ms)
 
     delay(10 * ms)
@@ -6916,12 +6960,12 @@ def microwave_map00_map0m1_experiment(self):
     delay(1 * ms)
 
     ### overwritten below but initialized here so they are always initialized
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
-    SPCM0_SinglePhoton = 0
-    SPCM1_SinglePhoton = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
+    # SPCM0_SinglePhoton = 0
+    # SPCM1_SinglePhoton = 0
 
     self.n_feedback_per_iteration = 2
     self.n_atom_loaded_per_iteration = 0
@@ -7020,9 +7064,9 @@ def microwave_map00_map0m1_experiment(self):
         self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
-        delay(6 * ms)  ### hopefully to avoid underflow.
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+        # delay(6 * ms)  ### hopefully to avoid underflow.
+        # self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
+        # self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
         delay(1 * ms)
 
     delay(10 * ms)
@@ -7051,10 +7095,10 @@ def microwave_map01_MWRFm11_experiment(self):
     delay(1 * ms)
 
     ### overwritten below but initialized here so they are always initialized
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
     # SPCM0_SinglePhoton = 0
     # SPCM1_SinglePhoton = 0
 
@@ -7197,12 +7241,12 @@ def microwave_Ramsey_MWRFm11_experiment(self):
     delay(1 * ms)
 
     ### overwritten below but initialized here so they are always initialized
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
-    SPCM0_SinglePhoton = 0
-    SPCM1_SinglePhoton = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
+    # SPCM0_SinglePhoton = 0
+    # SPCM1_SinglePhoton = 0
 
     self.n_feedback_per_iteration = 2
     self.n_atom_loaded_per_iteration = 0
@@ -7330,9 +7374,9 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
-        delay(6 * ms)  ### hopefully to avoid underflow.
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+        # delay(6 * ms)  ### hopefully to avoid underflow.
+        # self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
+        # self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
         delay(1 * ms)
 
     self.core.break_realtime()
@@ -7361,12 +7405,12 @@ def microwave_MW00_RF01_MW00_experiment(self):
     delay(1 * ms)
 
     ### overwritten below but initialized here so they are always initialized
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-    self.SPCM1_RO1 = 0
-    self.SPCM1_RO2 = 0
-    SPCM0_SinglePhoton = 0
-    SPCM1_SinglePhoton = 0
+    # self.SPCM0_RO1 = 0
+    # self.SPCM0_RO2 = 0
+    # self.SPCM1_RO1 = 0
+    # self.SPCM1_RO2 = 0
+    # SPCM0_SinglePhoton = 0
+    # SPCM1_SinglePhoton = 0
 
     self.n_feedback_per_iteration = 2
     self.n_atom_loaded_per_iteration = 0
@@ -7474,9 +7518,9 @@ def microwave_MW00_RF01_MW00_experiment(self):
         self.dds_AOM_A6.sw.off()
 
         end_measurement(self)
-        delay(6 * ms)  ### hopefully to avoid underflow.
-        self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-        self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
+        # delay(6 * ms)  ### hopefully to avoid underflow.
+        # self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
+        # self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
         delay(1 * ms)
 
     self.core.break_realtime()
@@ -7489,6 +7533,8 @@ def microwave_MW00_RF01_MW00_experiment(self):
 @kernel
 def single_photon_experiment_3_atom_loading_advance(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     This is based on load_MOT_and_FORT_until_atom. Does not check for atom after each excitation attempt:
 
     for excitation_cycle in range(self.max_excitation_cycles):
@@ -7851,6 +7897,8 @@ def single_photon_experiment_3_atom_loading_advance(self):
 @kernel
 def single_photon_experiment_3_atom_heat_test(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     This is similar to single_photon_experiment_3 that I used for photon generation, but for the purpose of optimizing the cycle.
     Here I am going to see how many excitation + OP cycle I can run (max_excitation_cycles) on the atom before loosing the atom
     without recooling, or keep max_excitation_cycles fixed, and change t_recooling and see how that affects the retention from
@@ -8111,6 +8159,8 @@ def single_photon_experiment_3_atom_heat_test(self):
 @kernel
 def single_photon_experiment_4_atom_loading_advance(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     This is similar to single_photon_experiment_3_atom_loading_advance but with modified OP to speed up the rate.
     If max_excitation_cycles is large (like 3000), the timestamp arrays get too large and artiq may freeze
     randomly after sometime. So, keep max_excitation_cycles <= 2000 and n_measurements <=100.
@@ -8456,6 +8506,8 @@ def single_photon_experiment_4_atom_loading_advance(self):
 @kernel
 def single_photon_experiment_5_atom_loading_advance(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     This is similar to single_photon_experiment_4_atom_loading_advance but I have reduced the size of the timestamp array
     to avoid freezing artiq. For this:
         1- I am not looking for 2nd clicks in each SPM window. Effectively, this is like max_clicks = 1.
@@ -8794,6 +8846,8 @@ def single_photon_experiment_5_atom_loading_advance(self):
 @kernel
 def single_photon_experiment_3_atom_loading_advance_node2(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     This is based on load_MOT_and_FORT_until_atom_and_recycle.
     Does not check for atom after each excitation attempt:
 
@@ -9135,229 +9189,10 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
     delay(15 * ms)
 
 @kernel
-def atom_photon_parity_1_experiment(self):
-    """
-    Never used.
-    A simple parity oscillation experiment. It uses a few excitation_attempts, but not excitation_cycle. So, goes
-    back to atom loading after say 5 excitation attempts. However, it recycles atoms. So effectively, we are
-    attempting excitation after about 100ms.
-
-    1- Load an atom
-    2- OP
-    3- Excite
-    4- gate the SPCMs, conditioned on detection from SPCM0 proceed with microwave mapping
-    5- microwave mapping from F=1,mF=1 to F=2,mF=1
-    6- Blow away F=2 and measure retention
-    7- Change the 780 waveplates in GVS and repeat the experiment
-
-    """
-
-    self.core.reset()
-    delay(1 * ms)
-
-    AllSPCMs_RO_atom_check_array = [0]
-
-    record_chopped_optical_pumping(self)
-    delay(200*ms)
-
-    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(10 * ms)
-    self.dds_microwaves.sw.on() ### turns on the DDS not the switches.
-
-    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
-
-    if self.enable_laser_feedback:
-        delay(0.1 * ms)
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    delay(1*ms)
-    move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
-    move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
-    delay(10 * ms)
-    self.core.reset()
-
-    self.measurement = 0  # advances in end_measurement
-
-    while self.measurement < self.n_measurements:
-        SPCM0_SinglePhoton = 0
-        SPCM1_SinglePhoton = 0
-
-        delay(0.1 * ms) ### with n_excitation_attempts = 5, 30ms delay is not enough
-
-        self.ttl_exc0_switch.on()  # turns off the excitation
-        delay(0.1 * ms)
-
-        # load_MOT_and_FORT_until_atom_recycle(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
-
-        first_shot(self)
-
-        ########################################################
-        # lower level optical pumping and excitation sequence to optimize for speed
-        ########################################################
-        delay(1 * us)
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        delay(1*us)
-
-        ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
-        self.GRIN1and2_dds.sw.on()
-
-        delay(1000 * us)
-
-        ############################### optical pumping phase - pumps atoms into F=1,m_F=0
-        if self.t_pumping > 0.0:
-
-            self.ttl_repump_switch.on()  # turns off the MOT RP AOM
-            self.ttl_exc0_switch.on()  # turns off the excitation
-            self.dds_cooling_DP.sw.off()  # no cooling light
-            delay(1 * us)
-
-            ### set coils for pumping
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-                channels=self.coil_channels)
-            delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
-
-            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  ### set to 5V for optical pumping
-            self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
-            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
-            delay(1 * us)
-
-            ### Tunring on pumping RP:
-            self.ttl_pumping_repump_switch.off()
-            self.dds_AOM_A5.sw.on()
-            self.dds_AOM_A6.sw.on()
-
-            delay(1 * ms)
-
-            self.ttl_GRIN1_switch.off()
-            delay(10 * us)
-
-            self.core_dma.playback_handle(op_dma_handle)
-            delay(self.t_depumping)
-            self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-            self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
-
-            delay(2 * us)
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-            delay(100 * us)
-
-            self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-            delay(1 * ms)
-
-            self.ttl_GRIN1_switch.on()
-            delay(10 * us)
-
-            ############ microwave phase - ONLY USED FOR VERIFYING OP.
-            if self.t_microwave_pulse > 0.0 and self.verify_OP_in_photon_experiment:
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-                delay(5 * us)
-                self.ttl_microwave_switch.off()
-                delay(self.t_microwave_pulse)
-                self.ttl_microwave_switch.on()
-                delay(5 * us)
-                self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-            ############ blow-away phase - push out atoms in F=2 only
-            if self.t_blowaway > 0.0 and self.verify_OP_in_photon_experiment:
-                chopped_blow_away(self)
-
-        ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
-        # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
-
-        self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
-        delay(5 * ms)
-
-        for excitation_attempt in range(self.n_excitation_attempts):
-
-            t1 = now_mu()
-
-            self.dds_FORT.sw.off()  ### turns FORT off
-
-            at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
-            self.dds_FORT.sw.on()  ### turns FORT on
-
-            at_mu(t1 + int(self.t_excitation_offset_mu))
-            self.ttl_GRIN2_switch.off()  # turns on excitation
-
-            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-            self.ttl_GRIN2_switch.on()  # turns off excitation
-
-            at_mu(t1 + int(self.gate_start_offset_mu))
-
-            ######### Using the edge_counter (works well):
-            with parallel:
-                self.ttl_SPCM0_counter.gate_rising(self.t_photon_collection_time)
-                self.ttl_SPCM1_counter.gate_rising(self.t_photon_collection_time)
-            SPCM0_SinglePhoton = self.ttl_SPCM0_counter.fetch_count()
-            SPCM1_SinglePhoton = self.ttl_SPCM1_counter.fetch_count()
-
-            delay(20 * us)  ### 20us is not enough
-
-            if SPCM0_SinglePhoton>0 or SPCM1_SinglePhoton>0:
-                if self.AllSPCMs_RO1/self.t_SPCM_first_shot > self.single_atom_threshold:
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
-                    delay(5 * us)
-                    self.ttl_microwave_switch.off()
-                    delay(self.t_microwave_11_pulse)
-                    self.ttl_microwave_switch.on()
-                    delay(5 * us)
-                    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-                    ############################ blow-away phase - push out atoms in F=2 only
-                    delay(100 * us)
-                    chopped_blow_away(self)
-
-                    delay(20 * us)
-                    atom_parity_shot(self)
-                    self.append_to_dataset('AllSPCMs_parity_RO', self.AllSPCMs_parity_RO)
-                    self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
-                    self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
-                    self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
-                    self.append_to_dataset('angle_780_QWP', self.target_780_QWP)
-
-                break
-
-        delay(20 * us)
-        self.ttl_exc0_switch.on()  # block Excitation
-
-        delay(1 * ms)
-        second_shot(self)
-
-        delay(1*ms)
-        self.GRIN1and2_dds.sw.off()
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-
-        delay(5 * ms)
-
-    delay(15 * ms)
-
-@kernel
 def atom_photon_parity_2_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     Used to get nice parity oscillation before state rotation.
 
     A simple parity oscillation experiment. To speed up the experiment, I reuse the atom and
@@ -9688,6 +9523,8 @@ def atom_photon_parity_2_experiment(self):
 @kernel
 def atom_photon_parity_2_node2_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     Node2 version of atom_photon_parity_2_experiment
 
     Used to get nice parity oscillation before state rotation.
@@ -9993,6 +9830,8 @@ def atom_photon_parity_2_node2_experiment(self):
 @kernel
 def atom_photon_parity_3_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     Similar to parity_2_experiment, but with MW+RF pi/2 pulse to rotate to x-basis.
 
     To speed up the experiment, I reuse the atom and
@@ -10343,6 +10182,8 @@ def atom_photon_parity_3_experiment(self):
 @kernel
 def atom_photon_parity_4_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     Atom-photon parity oscillation in X-basis. Compared to #3, here I am timetagging the photons and starting the MW pulses
     at a fixed time relative to photon detection.
 
@@ -10836,6 +10677,8 @@ def atom_photon_parity_4_experiment(self):
 @kernel
 def atom_photon_parity_5_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     Basically the same as parity_4_experiment with minor differences/improvements
 
     Atom-photon parity oscillation in X-basis. Compared to #3, here I am timetagging the photons and starting the MW pulses
@@ -11317,6 +11160,8 @@ def atom_photon_parity_5_experiment(self):
 @kernel
 def atom_photon_parity_6_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     Trying to reduce the delay after photon detection. Do we need to set all the phases to 0.0?
 
     """
@@ -11885,6 +11730,8 @@ def atom_photon_parity_6_experiment(self):
 @kernel
 def atom_photon_parity_7_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     In parity_6_experiment, we lose most of the atoms in blowaway phase. In this experiment
     I am trying to debug this. This experiment does not care about the photon detection
     to run faster.
@@ -12143,6 +11990,8 @@ def atom_photon_parity_7_experiment(self):
 @kernel
 def atom_photon_parity_8_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     this is yet another debugging experiment similar to atom_photon_parity_7_experiment, but based on Rabi_2
     with added excitation. The goal is to see why blowaway removes the atoms from the trap after excitation.
     All atoms should be in f=1 manifold and should survive the blowaway.
@@ -12296,6 +12145,8 @@ def atom_photon_parity_8_experiment(self):
 @kernel
 def atom_photon_parity_9_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     After optimizing the sequence using parity_7 and parity_8, this experiment is an improved version of
     parity_6 experiment. I have tried to minimize atom loss during the process.
 
@@ -12580,6 +12431,8 @@ def atom_photon_parity_9_experiment(self):
 @kernel
 def atom_photon_parity_6_node2_experiment(self):
     """
+    TODO: MUST add _OtherNode SPCMs now that we have a 50:50 BS in the BSA setup.
+
     Trying to reduce the delay after photon detection. Do we need to set all the phases to 0.0?
 
     """
