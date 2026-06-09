@@ -46,7 +46,7 @@ def atom_photon_parity_6_experiment(self):
 
     self.measurement = 0  # advances in end_measurement
 
-    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    AllSPCMs_parity_RO = [-1] * self.n_measurements
     SPCM0_SinglePhoton = [-1.0] * self.n_measurements
     SPCM1_SinglePhoton = [-1.0] * self.n_measurements
     angle_780_HWP = [-1] * self.n_measurements
@@ -87,7 +87,7 @@ def atom_photon_parity_6_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -313,7 +313,7 @@ def atom_photon_parity_6_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 1.0
                     SPCM1_SinglePhoton[self.measurement] = 0.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP

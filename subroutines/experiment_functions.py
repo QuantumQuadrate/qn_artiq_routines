@@ -697,8 +697,8 @@ def load_MOT_and_FORT_until_atom(self):
     t_after_atom = now_mu()
     time_without_atom = 0.0
 
-    BothSPCMs_atom_check_loaded = 0  ### for initilization
-    BothSPCMs_atom_check_not_loaded = 0
+    AllSPCMs_atom_check_loaded = 0  ### for initilization
+    AllSPCMs_atom_check_not_loaded = 0
 
     # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
@@ -712,19 +712,19 @@ def load_MOT_and_FORT_until_atom(self):
             SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_atom_check = self.ttl_SPCM1_counter.fetch_count()
 
-            BothSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check) / 2)
+            AllSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check) / 2)
 
             try_n += 1
 
             ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
             ### would overwhelm the dataset.
             if try_n == 1:
-                BothSPCMs_atom_check_not_loaded = BothSPCMs_atom_check
+                AllSPCMs_atom_check_not_loaded = AllSPCMs_atom_check
 
-            if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
+            if AllSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
-                BothSPCMs_atom_check_loaded = BothSPCMs_atom_check
+                AllSPCMs_atom_check_loaded = AllSPCMs_atom_check
 
 
         if atom_loaded:
@@ -733,8 +733,8 @@ def load_MOT_and_FORT_until_atom(self):
             t_after_atom = now_mu()
 
             ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
-            self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_loaded)
-            self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_not_loaded)
+            self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_loaded)
+            self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_not_loaded)
             delay(1 * ms)
             break  ### Exit the outer loop if an atom is loaded
 
@@ -837,7 +837,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
     ### First check if there is already an atom in the FORT based on RO2
     delay(100 * us)
     if self.measurement > 0:
-        if self.BothSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold:
             atom_loaded = True
 
             ### Lower the FORT to science setpoint
@@ -916,8 +916,8 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         t_after_atom = now_mu()
         time_without_atom = 0.0
 
-        BothSPCMs_atom_check_loaded = 0 ### for initilization
-        BothSPCMs_atom_check_not_loaded = 0
+        AllSPCMs_atom_check_loaded = 0 ### for initilization
+        AllSPCMs_atom_check_not_loaded = 0
 
         while True:
             while not atom_loaded and try_n < max_tries:
@@ -926,19 +926,19 @@ def load_MOT_and_FORT_until_atom_recycle(self):
                     self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                     self.ttl_SPCM1_counter.gate_rising(atom_check_time)
 
-                BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
 
                 try_n += 1
 
                 ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
                 ### would overwhelm the dataset.
                 if try_n==1:
-                    BothSPCMs_atom_check_not_loaded = BothSPCMs_atom_check
+                    AllSPCMs_atom_check_not_loaded = AllSPCMs_atom_check
 
-                if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
+                if AllSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
-                    BothSPCMs_atom_check_loaded = BothSPCMs_atom_check
+                    AllSPCMs_atom_check_loaded = AllSPCMs_atom_check
 
 
             if atom_loaded:
@@ -946,8 +946,8 @@ def load_MOT_and_FORT_until_atom_recycle(self):
                 t_after_atom = now_mu()
 
                 ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
-                self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_loaded)
-                self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_not_loaded)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_loaded)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_not_loaded)
                 delay(1 * ms)
                 break  ### Exit the outer loop if an atom is loaded
 
@@ -1048,7 +1048,7 @@ def load_until_atom_smooth_FORT_recycle(self):
     ### This will miss the first measurement of each iteration (except the first iteration)
     ### and results in the first RO1 to be less than threshold. But it is OK.
     delay(100 * us)
-    if self.BothSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold:
+    if self.AllSPCMs_RO2/self.t_SPCM_second_shot > self.single_atom_threshold:
         atom_loaded = True
 
         # ### Lower the FORT to science setpoint
@@ -1130,8 +1130,8 @@ def load_until_atom_smooth_FORT_recycle(self):
         t_after_atom = now_mu()
         time_without_atom = 0.0
 
-        BothSPCMs_atom_check_loaded = 0  ### for initilization
-        BothSPCMs_atom_check_not_loaded = 0
+        AllSPCMs_atom_check_loaded = 0  ### for initilization
+        AllSPCMs_atom_check_not_loaded = 0
 
         shim_tune_runs = 0
 
@@ -1142,19 +1142,19 @@ def load_until_atom_smooth_FORT_recycle(self):
                     self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                     self.ttl_SPCM1_counter.gate_rising(atom_check_time)
 
-                BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
 
                 try_n += 1
 
                 ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
                 ### would overwhelm the dataset.
                 if try_n == 1:
-                    BothSPCMs_atom_check_not_loaded = BothSPCMs_atom_check
+                    AllSPCMs_atom_check_not_loaded = AllSPCMs_atom_check
 
-                if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
+                if AllSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
-                    BothSPCMs_atom_check_loaded = BothSPCMs_atom_check
+                    AllSPCMs_atom_check_loaded = AllSPCMs_atom_check
 
 
             if atom_loaded:
@@ -1162,8 +1162,8 @@ def load_until_atom_smooth_FORT_recycle(self):
                 t_after_atom = now_mu()
 
                 ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
-                self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_loaded)
-                self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check_not_loaded)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_loaded)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_not_loaded)
                 delay(1 * ms)
                 break  ### Exit the outer loop if an atom is loaded
 
@@ -1470,7 +1470,7 @@ def testing_chopped_FORT_and_TTL_experiment(self):
         delay(10 * ms)
         self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
         self.SPCM1_RO1 = self.ttl_SPCM1.count(now_mu())
-        self.BothSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
+        self.AllSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
 
         # delay(10*ms)
         self.core.break_realtime()
@@ -1621,7 +1621,7 @@ def first_shot(self):
         delay(10 * ms)
         self.SPCM0_RO1 = self.ttl_SPCM0.count(now_mu())
         self.SPCM1_RO1 = self.ttl_SPCM1.count(now_mu())
-        self.BothSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
+        self.AllSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off()  ### turn off cooling
         self.ttl_repump_switch.on()  ### turn off MOT RP
@@ -1641,7 +1641,7 @@ def first_shot(self):
 
         self.SPCM0_RO1 = self.ttl_SPCM0_counter.fetch_count()
         self.SPCM1_RO1 = self.ttl_SPCM1_counter.fetch_count()
-        self.BothSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
+        self.AllSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1) / 2)
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off() ### turn off cooling
         self.ttl_repump_switch.on() ### turn off MOT RP
@@ -1703,7 +1703,7 @@ def second_shot(self):
         delay(10 * ms)
         self.SPCM0_RO2 = self.ttl_SPCM0.count(now_mu())
         self.SPCM1_RO2 = self.ttl_SPCM1.count(now_mu())
-        self.BothSPCMs_RO2 = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
+        self.AllSPCMs_RO2 = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
         delay(0.1 * ms)
         # self.dds_cooling_DP.sw.off()  ### turn off cooling
         # self.ttl_repump_switch.on()  ### turn off MOT RP
@@ -1773,7 +1773,7 @@ def second_shot(self):
 
         self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
         self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
-        self.BothSPCMs_RO2 = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
+        self.AllSPCMs_RO2 = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
 
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off() ### turn off cooling
@@ -1822,7 +1822,7 @@ def test_shot(self):
 
     self.SPCM0_test_RO = self.ttl_SPCM0_counter.fetch_count()
     self.SPCM1_test_RO = self.ttl_SPCM1_counter.fetch_count()
-    self.BothSPCMs_test_RO = int((self.SPCM0_test_RO + self.SPCM1_test_RO) / 2)
+    self.AllSPCMs_test_RO = int((self.SPCM0_test_RO + self.SPCM1_test_RO) / 2)
 
     delay(10 * us)
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -1880,7 +1880,7 @@ def atom_parity_shot(self):
 
     self.SPCM0_RO2 = self.ttl_SPCM0_counter.fetch_count()
     self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
-    self.BothSPCMs_parity_RO = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
+    self.AllSPCMs_parity_RO = int((self.SPCM0_RO2 + self.SPCM1_RO2) / 2)
 
     delay(0.1 * ms)
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -3115,16 +3115,16 @@ def end_measurement(self):
     self.append_to_dataset('SPCM0_RO2_current_iteration', self.SPCM0_RO2)
     self.append_to_dataset('SPCM1_RO2_current_iteration', self.SPCM1_RO2)
     delay(1 * ms)
-    self.append_to_dataset('BothSPCMs_RO1_current_iteration', self.BothSPCMs_RO1)
-    self.append_to_dataset('BothSPCMs_RO2_current_iteration', self.BothSPCMs_RO2)
+    self.append_to_dataset('AllSPCMs_RO1_current_iteration', self.AllSPCMs_RO1)
+    self.append_to_dataset('AllSPCMs_RO2_current_iteration', self.AllSPCMs_RO2)
     delay(1 * ms)
     self.SPCM0_RO1_list[self.measurement] = self.SPCM0_RO1
     self.SPCM1_RO1_list[self.measurement] = self.SPCM1_RO1
     self.SPCM0_RO2_list[self.measurement] = self.SPCM0_RO2
     self.SPCM1_RO2_list[self.measurement] = self.SPCM1_RO2
 
-    self.BothSPCMs_RO1_list[self.measurement] = self.BothSPCMs_RO1
-    self.BothSPCMs_RO2_list[self.measurement] = self.BothSPCMs_RO2
+    self.AllSPCMs_RO1_list[self.measurement] = self.AllSPCMs_RO1
+    self.AllSPCMs_RO2_list[self.measurement] = self.AllSPCMs_RO2
     self.atom_loading_time_list[self.measurement] = self.atom_loading_time
 
     self.append_to_dataset("SPCM0_FORT_science", self.SPCM0_FORT_science)
@@ -3183,16 +3183,16 @@ def end_measurement(self):
             self.append_to_dataset('SPCM1_RO1', self.SPCM1_RO1)
             self.append_to_dataset('SPCM0_RO2', self.SPCM0_RO2)
             self.append_to_dataset('SPCM1_RO2', self.SPCM1_RO2)
-            self.append_to_dataset('BothSPCMs_RO1', self.BothSPCMs_RO1)
-            self.append_to_dataset('BothSPCMs_RO2', self.BothSPCMs_RO2)
+            self.append_to_dataset('AllSPCMs_RO1', self.AllSPCMs_RO1)
+            self.append_to_dataset('AllSPCMs_RO2', self.AllSPCMs_RO2)
             delay(1 * ms)
         else:
             self.append_to_dataset('SPCM0_RO1_in_health_check', self.SPCM0_RO1)
             self.append_to_dataset('SPCM1_RO1_in_health_check', self.SPCM1_RO1)
             self.append_to_dataset('SPCM0_RO2_in_health_check', self.SPCM0_RO2)
             self.append_to_dataset('SPCM1_RO2_in_health_check', self.SPCM1_RO2)
-            self.append_to_dataset('BothSPCMs_RO1_in_health_check', self.BothSPCMs_RO1)
-            self.append_to_dataset('BothSPCMs_RO2_in_health_check', self.BothSPCMs_RO2)
+            self.append_to_dataset('AllSPCMs_RO1_in_health_check', self.AllSPCMs_RO1)
+            self.append_to_dataset('AllSPCMs_RO2_in_health_check', self.AllSPCMs_RO2)
 
 @rpc(flags={"async"})
 def set_RigolDG1022Z(frequency: TFloat, vpp: TFloat, vdc: TFloat):
@@ -3662,16 +3662,16 @@ def atom_loading_optimizer_experiment(self):
             SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_atom_check = self.ttl_SPCM1_counter.fetch_count()
 
-            BothSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check) / 2)
+            AllSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check) / 2)
 
             try_n += 1
 
-            if BothSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
+            if AllSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
             ### just to check the histogram during atom loading to find a good single_atom_threshold_for_loading
-            self.append_to_dataset("BothSPCMs_atom_check_in_loading", BothSPCMs_atom_check)
+            self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check)
 
         delay(1 * ms)
         self.zotino0.set_dac([0.0], self.UV_trig_channel)
@@ -3725,7 +3725,7 @@ def atom_loading_optimizer_experiment(self):
         first_shot(self)
         delay(1 * ms)
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             delay(100 * us)  ### Needs a delay of about 100us or maybe less
             atom_loaded = True
             t_after_atom = now_mu()
@@ -3762,7 +3762,7 @@ def atom_loading_for_optimization_experiment(self):
 
     self.set_dataset('SPCM0_test_RO', [0], broadcast=True)
     self.set_dataset('SPCM1_test_RO', [0], broadcast=True)
-    self.set_dataset('BothSPCMs_test_RO', [0], broadcast=True)
+    self.set_dataset('AllSPCMs_test_RO', [0], broadcast=True)
 
 
 
@@ -3884,7 +3884,7 @@ def atom_loading_for_optimization_experiment(self):
 
         self.append_to_dataset('SPCM0_test_RO', self.SPCM0_test_RO)
         self.append_to_dataset('SPCM1_test_RO', self.SPCM1_test_RO)
-        self.append_to_dataset('BothSPCMs_test_RO', self.BothSPCMs_test_RO)
+        self.append_to_dataset('AllSPCMs_test_RO', self.AllSPCMs_test_RO)
 
         end_measurement(self)
 
@@ -8255,7 +8255,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
     max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
-    BothSPCMs_RO_atom_check_array = [0]
+    AllSPCMs_RO_atom_check_array = [0]
 
     # record_chopped_optical_pumping(self)
     # delay(100*ms)
@@ -8274,7 +8274,7 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
     while self.measurement < self.n_measurements:
 
-        BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        AllSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         tStamps_t1 = [0.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
         SPCM0_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
         SPCM1_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
@@ -8526,11 +8526,11 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
                 SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
-                BothSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = BothSPCMs_RO_atom_check
+                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
 
                 ### stopping the excitation cycle after the atom is lost
-                if BothSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     break
 
@@ -8574,8 +8574,8 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
         ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
         ### the atom is lost. +1 is because python sttops the loop one count earlier.
-        for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
-            self.append_to_dataset('BothSPCMs_RO_atom_check', val)
+        for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+            self.append_to_dataset('AllSPCMs_RO_atom_check', val)
 
         delay(1 * ms)
         for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
@@ -8878,7 +8878,7 @@ def single_photon_experiment_4_atom_loading_advance(self):
     max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
-    BothSPCMs_RO_atom_check_array = [0]
+    AllSPCMs_RO_atom_check_array = [0]
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -8893,7 +8893,7 @@ def single_photon_experiment_4_atom_loading_advance(self):
 
     while self.measurement < self.n_measurements:
 
-        BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        AllSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         tStamps_t1 = [0.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
         SPCM0_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
         SPCM1_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
@@ -9116,11 +9116,11 @@ def single_photon_experiment_4_atom_loading_advance(self):
 
                 SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
-                BothSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = BothSPCMs_RO_atom_check
+                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
 
                 ### stopping the excitation cycle after the atom is lost
-                if BothSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
                     delay(100 * us)
                     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
                     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
@@ -9179,8 +9179,8 @@ def single_photon_experiment_4_atom_loading_advance(self):
 
         ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
         ### the atom is lost. +1 is because python sttops the loop one count earlier.
-        for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
-            self.append_to_dataset('BothSPCMs_RO_atom_check', val)
+        for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+            self.append_to_dataset('AllSPCMs_RO_atom_check', val)
 
         delay(1 * ms)
         for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
@@ -9217,7 +9217,7 @@ def single_photon_experiment_5_atom_loading_advance(self):
     self.core.reset()
     delay(1 * ms)
 
-    BothSPCMs_RO_atom_check_array = [0]
+    AllSPCMs_RO_atom_check_array = [0]
 
     ### short_timestamps_length is a fraction of the max_excitation_cycles. A photon is registered only in 5% of the
     ### excitation cycles. So no need to keep a large array. For assurance, we can use an array 10% of the max_excitation_cycles.
@@ -9238,7 +9238,7 @@ def single_photon_experiment_5_atom_loading_advance(self):
 
         Any_SPCM_click_counter = 0
 
-        BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        AllSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         tStamps_t1 = [0.0]  * short_timestamps_length
         SPCM0_timestamps = [-1.0]  * short_timestamps_length
         SPCM1_timestamps = [-1.0]  * short_timestamps_length
@@ -9452,11 +9452,11 @@ def single_photon_experiment_5_atom_loading_advance(self):
 
                 SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
-                BothSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = BothSPCMs_RO_atom_check
+                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
 
                 ### stopping the excitation cycle after the atom is lost
-                if BothSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
                     delay(100 * us)
                     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
                     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
@@ -9515,8 +9515,8 @@ def single_photon_experiment_5_atom_loading_advance(self):
 
         ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
         ### the atom is lost. +1 is because python sttops the loop one count earlier.
-        for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
-            self.append_to_dataset('BothSPCMs_RO_atom_check', val)
+        for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+            self.append_to_dataset('AllSPCMs_RO_atom_check', val)
 
         i = 0
         while i < len(tStamps_t1) and tStamps_t1[i] > 0.0:
@@ -9561,7 +9561,7 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
     max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
-    BothSPCMs_RO_atom_check_array = [0]
+    AllSPCMs_RO_atom_check_array = [0]
 
     delay(100*ms)
 
@@ -9589,7 +9589,7 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
 
     while self.measurement < self.n_measurements:
 
-        BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        AllSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         tStamps_t1 = [0.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
         SPCM0_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
         SPCM1_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
@@ -9816,11 +9816,11 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
 
                 SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
-                BothSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = BothSPCMs_RO_atom_check
+                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
 
                 ### stopping the excitation cycle after the atom is lost
-                if BothSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     break
 
@@ -9863,8 +9863,8 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
 
         ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
         ### the atom is lost. +1 is because python sttops the loop one count earlier.
-        for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
-            self.append_to_dataset('BothSPCMs_RO_atom_check', val)
+        for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+            self.append_to_dataset('AllSPCMs_RO_atom_check', val)
 
         delay(1 * ms)
         for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
@@ -9898,7 +9898,7 @@ def atom_photon_parity_1_experiment(self):
     self.core.reset()
     delay(1 * ms)
 
-    BothSPCMs_RO_atom_check_array = [0]
+    AllSPCMs_RO_atom_check_array = [0]
 
     record_chopped_optical_pumping(self)
     delay(200*ms)
@@ -10053,7 +10053,7 @@ def atom_photon_parity_1_experiment(self):
             delay(20 * us)  ### 20us is not enough
 
             if SPCM0_SinglePhoton>0 or SPCM1_SinglePhoton>0:
-                if self.BothSPCMs_RO1/self.t_SPCM_first_shot > self.single_atom_threshold:
+                if self.AllSPCMs_RO1/self.t_SPCM_first_shot > self.single_atom_threshold:
                     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
                     delay(5 * us)
                     self.ttl_microwave_switch.off()
@@ -10068,7 +10068,7 @@ def atom_photon_parity_1_experiment(self):
 
                     delay(20 * us)
                     atom_parity_shot(self)
-                    self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    self.append_to_dataset('AllSPCMs_parity_RO', self.AllSPCMs_parity_RO)
                     self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
                     self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
                     self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
@@ -10122,7 +10122,7 @@ def atom_photon_parity_2_experiment(self):
     self.core.reset()
     delay(1 * ms)
 
-    # BothSPCMs_RO_atom_check_array = [0]
+    # AllSPCMs_RO_atom_check_array = [0]
 
     record_chopped_optical_pumping(self)
     delay(200*ms)
@@ -10152,7 +10152,7 @@ def atom_photon_parity_2_experiment(self):
         SPCM0_SinglePhoton = 0
         SPCM1_SinglePhoton = 0
 
-        # BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        # AllSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         # SPCM0_SinglePhoton_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         # SPCM1_SinglePhoton_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
 
@@ -10183,7 +10183,7 @@ def atom_photon_parity_2_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -10290,7 +10290,7 @@ def atom_photon_parity_2_experiment(self):
 
                     delay(20 * us)
                     atom_parity_shot(self)
-                    self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    self.append_to_dataset('AllSPCMs_parity_RO', self.AllSPCMs_parity_RO)
                     self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
                     self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
                     self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
@@ -10364,7 +10364,7 @@ def atom_photon_parity_2_experiment(self):
 
                 SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
 
                 delay(10*us)
 
@@ -10380,7 +10380,7 @@ def atom_photon_parity_2_experiment(self):
                 delay(1 * us)
 
                 ### stopping the excitation cycle after the atom is lost
-                if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+                if AllSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
 
@@ -10414,8 +10414,8 @@ def atom_photon_parity_2_experiment(self):
 
         ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
         ### the atom is lost. +1 is because python stops the loop one count earlier.
-        # for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
-        #     self.append_to_dataset('BothSPCMs_RO_atom_check', val)
+        # for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+        #     self.append_to_dataset('AllSPCMs_RO_atom_check', val)
 
         # delay(1 * ms)
         # for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
@@ -10481,7 +10481,7 @@ def atom_photon_parity_2_node2_experiment(self):
         SPCM0_SinglePhoton = 0
         SPCM1_SinglePhoton = 0
 
-        # BothSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        # AllSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         # SPCM0_SinglePhoton_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
         # SPCM1_SinglePhoton_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
 
@@ -10518,7 +10518,7 @@ def atom_photon_parity_2_node2_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -10590,7 +10590,7 @@ def atom_photon_parity_2_node2_experiment(self):
 
                     delay(20 * us)
                     atom_parity_shot(self)
-                    self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    self.append_to_dataset('AllSPCMs_parity_RO', self.AllSPCMs_parity_RO)
                     self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
                     self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
                     self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
@@ -10667,7 +10667,7 @@ def atom_photon_parity_2_node2_experiment(self):
 
                 SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
 
                 delay(10*us)
 
@@ -10684,7 +10684,7 @@ def atom_photon_parity_2_node2_experiment(self):
                 delay(1 * us)
 
                 ### stopping the excitation cycle after the atom is lost
-                if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+                if AllSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
 
@@ -10719,8 +10719,8 @@ def atom_photon_parity_2_node2_experiment(self):
 
         ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
         ### the atom is lost. +1 is because python stops the loop one count earlier.
-        # for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
-        #     self.append_to_dataset('BothSPCMs_RO_atom_check', val)
+        # for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+        #     self.append_to_dataset('AllSPCMs_RO_atom_check', val)
 
         # delay(1 * ms)
         # for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
@@ -10817,7 +10817,7 @@ def atom_photon_parity_3_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -10943,7 +10943,7 @@ def atom_photon_parity_3_experiment(self):
 
                     delay(20 * us)
                     atom_parity_shot(self)
-                    self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    self.append_to_dataset('AllSPCMs_parity_RO', self.AllSPCMs_parity_RO)
                     self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton)
                     self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton)
                     self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
@@ -11018,7 +11018,7 @@ def atom_photon_parity_3_experiment(self):
 
                 SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
 
                 delay(1*ms)
 
@@ -11034,7 +11034,7 @@ def atom_photon_parity_3_experiment(self):
                 delay(1 * us)
 
                 ### stopping the excitation cycle after the atom is lost
-                if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+                if AllSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
 
@@ -11068,8 +11068,8 @@ def atom_photon_parity_3_experiment(self):
 
         ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
         ### the atom is lost. +1 is because python stops the loop one count earlier.
-        # for val in BothSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
-        #     self.append_to_dataset('BothSPCMs_RO_atom_check', val)
+        # for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+        #     self.append_to_dataset('AllSPCMs_RO_atom_check', val)
 
         # delay(1 * ms)
         # for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
@@ -11145,7 +11145,7 @@ def atom_photon_parity_4_experiment(self):
 
     self.measurement = 0  # advances in end_measurement
 
-    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    AllSPCMs_parity_RO = [-1] * self.n_measurements
     SPCM0_SinglePhoton = [-1.0] * self.n_measurements
     SPCM1_SinglePhoton = [-1.0] * self.n_measurements
     angle_780_HWP = [-1] * self.n_measurements
@@ -11182,7 +11182,7 @@ def atom_photon_parity_4_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -11351,7 +11351,7 @@ def atom_photon_parity_4_experiment(self):
 
 
                     # self.core.break_realtime()
-                    # self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    # self.append_to_dataset('AllSPCMs_parity_RO', self.AllSPCMs_parity_RO)
                     # self.append_to_dataset('SPCM0_SinglePhoton', 1)
                     # self.append_to_dataset('SPCM1_SinglePhoton', 0)
                     # self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
@@ -11361,7 +11361,7 @@ def atom_photon_parity_4_experiment(self):
 
 
                     delay(1*ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 1.0
                     SPCM1_SinglePhoton[self.measurement] = 0.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -11433,7 +11433,7 @@ def atom_photon_parity_4_experiment(self):
 
 
                     # self.core.break_realtime()
-                    # self.append_to_dataset('BothSPCMs_parity_RO', self.BothSPCMs_parity_RO)
+                    # self.append_to_dataset('AllSPCMs_parity_RO', self.AllSPCMs_parity_RO)
                     # self.append_to_dataset('SPCM0_SinglePhoton', 0)
                     # self.append_to_dataset('SPCM1_SinglePhoton', 1)
                     # self.append_to_dataset('angle_780_HWP', self.target_780_HWP)
@@ -11442,7 +11442,7 @@ def atom_photon_parity_4_experiment(self):
                     # self.core.break_realtime()
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 0.0
                     SPCM1_SinglePhoton[self.measurement] = 1.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -11484,7 +11484,7 @@ def atom_photon_parity_4_experiment(self):
 
             SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-            BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+            AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
 
             delay(1 * ms)
 
@@ -11500,7 +11500,7 @@ def atom_photon_parity_4_experiment(self):
             delay(1 * us)
 
             ### stopping the excitation cycle after the atom is lost
-            if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+            if AllSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
@@ -11569,7 +11569,7 @@ def atom_photon_parity_4_experiment(self):
     # delay(15 * ms)
     self.core.break_realtime()
     for i in range(self.n_measurements):
-        self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
+        self.append_to_dataset('AllSPCMs_parity_RO', AllSPCMs_parity_RO[i])
         self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton[i])
         self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton[i])
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
@@ -11640,7 +11640,7 @@ def atom_photon_parity_5_experiment(self):
 
     self.measurement = 0  # advances in end_measurement
 
-    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    AllSPCMs_parity_RO = [-1] * self.n_measurements
     SPCM0_SinglePhoton = [-1.0] * self.n_measurements
     SPCM1_SinglePhoton = [-1.0] * self.n_measurements
     angle_780_HWP = [-1] * self.n_measurements
@@ -11677,7 +11677,7 @@ def atom_photon_parity_5_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -11852,7 +11852,7 @@ def atom_photon_parity_5_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 1.0
                     SPCM1_SinglePhoton[self.measurement] = 0.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -11922,7 +11922,7 @@ def atom_photon_parity_5_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 0.0
                     SPCM1_SinglePhoton[self.measurement] = 1.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -11965,7 +11965,7 @@ def atom_photon_parity_5_experiment(self):
 
             SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-            BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+            AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
 
             delay(1 * ms)
 
@@ -11981,7 +11981,7 @@ def atom_photon_parity_5_experiment(self):
             delay(10 * us)
 
             ### stopping the excitation cycle after the atom is lost
-            if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+            if AllSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
@@ -12050,7 +12050,7 @@ def atom_photon_parity_5_experiment(self):
     # delay(15 * ms)
     self.core.break_realtime()
     for i in range(self.n_measurements):
-        self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
+        self.append_to_dataset('AllSPCMs_parity_RO', AllSPCMs_parity_RO[i])
         self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton[i])
         self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton[i])
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
@@ -12105,7 +12105,7 @@ def atom_photon_parity_6_experiment(self):
 
     self.measurement = 0  # advances in end_measurement
 
-    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    AllSPCMs_parity_RO = [-1] * self.n_measurements
     SPCM0_SinglePhoton = [-1.0] * self.n_measurements
     SPCM1_SinglePhoton = [-1.0] * self.n_measurements
     angle_780_HWP = [-1] * self.n_measurements
@@ -12146,7 +12146,7 @@ def atom_photon_parity_6_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -12373,7 +12373,7 @@ def atom_photon_parity_6_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 1.0
                     SPCM1_SinglePhoton[self.measurement] = 0.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -12484,7 +12484,7 @@ def atom_photon_parity_6_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 0.0
                     SPCM1_SinglePhoton[self.measurement] = 1.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -12530,7 +12530,7 @@ def atom_photon_parity_6_experiment(self):
 
             SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-            BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+            AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
 
             delay(10 * us)
 
@@ -12546,7 +12546,7 @@ def atom_photon_parity_6_experiment(self):
             delay(10 * us)
 
             ### stopping the excitation cycle after the atom is lost
-            if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+            if AllSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
@@ -12618,7 +12618,7 @@ def atom_photon_parity_6_experiment(self):
     # delay(15 * ms)
     self.core.break_realtime()
     for i in range(self.n_measurements):
-        self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
+        self.append_to_dataset('AllSPCMs_parity_RO', AllSPCMs_parity_RO[i])
         self.append_to_dataset('SPCM0_SinglePhoton_parity', SPCM0_SinglePhoton[i])
         self.append_to_dataset('SPCM1_SinglePhoton_parity', SPCM1_SinglePhoton[i])
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
@@ -12669,7 +12669,7 @@ def atom_photon_parity_7_experiment(self):
 
     self.measurement = 0  # advances in end_measurement
 
-    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    AllSPCMs_parity_RO = [-1] * self.n_measurements
     SPCM0_SinglePhoton = [-1.0] * self.n_measurements
     SPCM1_SinglePhoton = [-1.0] * self.n_measurements
     angle_780_HWP = [-1] * self.n_measurements
@@ -12710,7 +12710,7 @@ def atom_photon_parity_7_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -12787,7 +12787,7 @@ def atom_photon_parity_7_experiment(self):
             atom_parity_shot(self)
 
             delay(1 * ms)
-            BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+            AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
             SPCM0_SinglePhoton[self.measurement] = 1.0
             SPCM1_SinglePhoton[self.measurement] = 1.0
             angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -12803,7 +12803,7 @@ def atom_photon_parity_7_experiment(self):
             FORT_ramp2_smoothstep(self, direction="up")
 
             ### stopping the excitation cycle after the atom is lost
-            if self.BothSPCMs_parity_RO / self.t_SPCM_second_shot > self.single_atom_threshold:
+            if self.AllSPCMs_parity_RO / self.t_SPCM_second_shot > self.single_atom_threshold:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 # atom_loaded = True
                 atom_loaded = False
@@ -12876,7 +12876,7 @@ def atom_photon_parity_7_experiment(self):
     # delay(15 * ms)
     self.core.break_realtime()
     for i in range(self.n_measurements):
-        self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
+        self.append_to_dataset('AllSPCMs_parity_RO', AllSPCMs_parity_RO[i])
         self.append_to_dataset('SPCM0_SinglePhoton_parity', SPCM0_SinglePhoton[i])
         self.append_to_dataset('SPCM1_SinglePhoton_parity', SPCM1_SinglePhoton[i])
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
@@ -13095,7 +13095,7 @@ def atom_photon_parity_9_experiment(self):
 
     self.measurement = 0  # advances in end_measurement
 
-    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    AllSPCMs_parity_RO = [-1] * self.n_measurements
     SPCM0_SinglePhoton = [-1.0] * self.n_measurements
     SPCM1_SinglePhoton = [-1.0] * self.n_measurements
     angle_780_HWP = [-1] * self.n_measurements
@@ -13136,7 +13136,7 @@ def atom_photon_parity_9_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             delay(1 * ms)
 
             ### with cw pumping:
@@ -13232,7 +13232,7 @@ def atom_photon_parity_9_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 1.0
                     SPCM1_SinglePhoton[self.measurement] = 0.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -13285,7 +13285,7 @@ def atom_photon_parity_9_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 0.0
                     SPCM1_SinglePhoton[self.measurement] = 1.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -13322,7 +13322,7 @@ def atom_photon_parity_9_experiment(self):
     # delay(15 * ms)
     self.core.break_realtime()
     for i in range(self.n_measurements):
-        self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
+        self.append_to_dataset('AllSPCMs_parity_RO', AllSPCMs_parity_RO[i])
         self.append_to_dataset('SPCM0_SinglePhoton_parity', SPCM0_SinglePhoton[i])
         self.append_to_dataset('SPCM1_SinglePhoton_parity', SPCM1_SinglePhoton[i])
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
@@ -13371,7 +13371,7 @@ def atom_photon_parity_6_node2_experiment(self):
 
     self.measurement = 0  # advances in end_measurement
 
-    BothSPCMs_parity_RO = [-1] * self.n_measurements
+    AllSPCMs_parity_RO = [-1] * self.n_measurements
     SPCM0_SinglePhoton = [-1.0] * self.n_measurements
     SPCM1_SinglePhoton = [-1.0] * self.n_measurements
     angle_780_HWP = [-1.0] * self.n_measurements
@@ -13417,7 +13417,7 @@ def atom_photon_parity_6_node2_experiment(self):
 
         excitation_cycle = 0  ### just for initialization.
 
-        if self.BothSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
+        if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             atom_loaded = True
         else:
             atom_loaded = False
@@ -13533,7 +13533,7 @@ def atom_photon_parity_6_node2_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 1.0
                     SPCM1_SinglePhoton[self.measurement] = 0.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -13586,7 +13586,7 @@ def atom_photon_parity_6_node2_experiment(self):
                     atom_parity_shot(self)
 
                     delay(1 * ms)
-                    BothSPCMs_parity_RO[self.measurement] = self.BothSPCMs_parity_RO
+                    AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 0.0
                     SPCM1_SinglePhoton[self.measurement] = 1.0
                     angle_780_HWP[self.measurement] = self.target_780_HWP
@@ -13630,7 +13630,7 @@ def atom_photon_parity_6_node2_experiment(self):
 
             SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-            BothSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+            AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
 
             delay(1 * ms)
 
@@ -13646,7 +13646,7 @@ def atom_photon_parity_6_node2_experiment(self):
             delay(10 * us)
 
             ### stopping the excitation cycle after the atom is lost
-            if BothSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
+            if AllSPCMs_RO_atom_check / self.t_SPCM_second_shot > self.single_atom_threshold:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
                 atom_loaded = True
 
@@ -13716,7 +13716,7 @@ def atom_photon_parity_6_node2_experiment(self):
     self.core.break_realtime()
     for i in range(self.n_measurements):
         delay(10*ms)
-        self.append_to_dataset('BothSPCMs_parity_RO', BothSPCMs_parity_RO[i])
+        self.append_to_dataset('AllSPCMs_parity_RO', AllSPCMs_parity_RO[i])
         self.append_to_dataset('SPCM0_SinglePhoton', SPCM0_SinglePhoton[i])
         self.append_to_dataset('SPCM1_SinglePhoton', SPCM1_SinglePhoton[i])
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
@@ -13987,7 +13987,7 @@ def atom_photon_tomography_experiment(self):
     by Eunji
     """
 
-    # todo: SPCM0_RO_atom_check should be replaced by BothSPCMs_RO_atom_check. See single_photon_experiment_3_atom_loading_advance.
+    # todo: SPCM0_RO_atom_check should be replaced by AllSPCMs_RO_atom_check. See single_photon_experiment_3_atom_loading_advance.
 
     self.core.reset()
     delay(1 * ms)

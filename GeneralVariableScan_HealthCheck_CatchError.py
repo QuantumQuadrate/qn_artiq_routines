@@ -243,8 +243,8 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
-        self.set_dataset('BothSPCMs_RO1_current_iteration', [0], broadcast=True)
-        self.set_dataset('BothSPCMs_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('AllSPCMs_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('AllSPCMs_RO2_current_iteration', [0], broadcast=True)
 
         # these are set here because running BaseExperiment.initialize_hardware resets these to be empty
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
@@ -526,13 +526,13 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
 
 
             # todo: make sure it does not disturb the current dataset.... - does not affect the actual dataset
-            BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1_in_health_check")
-            BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2_in_health_check")
+            AllSPCMs_RO1 = self.get_dataset("AllSPCMs_RO1_in_health_check")
+            AllSPCMs_RO2 = self.get_dataset("AllSPCMs_RO2_in_health_check")
 
-            retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(BothSPCMs_RO1,
-                                                                                                       BothSPCMs_RO2,
+            retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(AllSPCMs_RO1,
+                                                                                                       AllSPCMs_RO2,
                                                                                                        self.n_measurements,
-                                                                                                       int((len(BothSPCMs_RO1) - 1) / (self.n_measurements)),
+                                                                                                       int((len(AllSPCMs_RO1) - 1) / (self.n_measurements)),
                                                                                                        self.single_atom_threshold * self.t_SPCM_first_shot)
             # print("retention_array", retention_array)
             # todo: break; if loading_rate too low

@@ -113,7 +113,7 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
         self.set_dataset(self.SPCM1_rate_dataset, [0.0], broadcast=True)
-        self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.AllSPCMs_rate_dataset, [0.0], broadcast=True)
 
         print("prepare - done")
 
@@ -218,11 +218,11 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                     self.ttl_SPCM1_counter.gate_rising(self.dt_exposure)
                 SPCM0_count = self.ttl_SPCM0_counter.fetch_count()
                 SPCM1_count = self.ttl_SPCM1_counter.fetch_count()
-                BothSPCMs_count = int((SPCM0_count + SPCM1_count) / 2)
-                BothSPCMs_counts_per_s = BothSPCMs_count / self.dt_exposure
+                AllSPCMs_count = int((SPCM0_count + SPCM1_count) / 2)
+                AllSPCMs_counts_per_s = AllSPCMs_count / self.dt_exposure
 
                 delay(1 * ms)
-                self.append_to_dataset(self.BothSPCMs_rate_dataset, BothSPCMs_counts_per_s)
+                self.append_to_dataset(self.AllSPCMs_rate_dataset, AllSPCMs_counts_per_s)
 
             # check the current state of 14 read by ttl3
             self.ttl3.sample_input()

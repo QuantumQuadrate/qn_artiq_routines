@@ -116,14 +116,14 @@ class BaseExperiment:
         self.experiment.SPCM0_RO2 = 0
         self.experiment.SPCM1_RO1 = 0
         self.experiment.SPCM1_RO2 = 0
-        self.experiment.BothSPCMs_RO1 = 0
-        self.experiment.BothSPCMs_RO2 = 0
-        self.experiment.BothSPCMs_parity_RO = 0
+        self.experiment.AllSPCMs_RO1 = 0
+        self.experiment.AllSPCMs_RO2 = 0
+        self.experiment.AllSPCMs_parity_RO = 0
         self.experiment.atom_loading_time = 0.0
 
         self.experiment.SPCM0_test_RO = 0
         self.experiment.SPCM1_test_RO = 0
-        self.experiment.BothSPCMs_test_RO = 0
+        self.experiment.AllSPCMs_test_RO = 0
 
         self.experiment.SPCM0_FORT_science = 0
         self.experiment.measurement = 0
@@ -142,8 +142,8 @@ class BaseExperiment:
         self.experiment.SPCM0_RO2_in_health_check = 0
         self.experiment.SPCM1_RO1_in_health_check = 0
         self.experiment.SPCM1_RO2_in_health_check = 0
-        self.experiment.BothSPCMs_RO1_in_health_check = 0
-        self.experiment.BothSPCMs_RO2_in_health_check = 0
+        self.experiment.AllSPCMs_RO1_in_health_check = 0
+        self.experiment.AllSPCMs_RO2_in_health_check = 0
 
         if self.node == "alice":
             ### devices without nicknames. core should come first
@@ -233,7 +233,7 @@ class BaseExperiment:
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
             self.experiment.SPCM0_OtherNode_rate_dataset = 'SPCM0_OtherNode_counts_per_s'
             self.experiment.SPCM1_OtherNode_rate_dataset = 'SPCM1_OtherNode_counts_per_s'
-            self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
+            self.experiment.AllSPCMs_rate_dataset = 'AllSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -348,7 +348,7 @@ class BaseExperiment:
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
             self.experiment.SPCM0_OtherNode_rate_dataset = 'SPCM0_OtherNode_counts_per_s'
             self.experiment.SPCM1_OtherNode_rate_dataset = 'SPCM1_OtherNode_counts_per_s'
-            self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
+            self.experiment.AllSPCMs_rate_dataset = 'AllSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -649,8 +649,8 @@ class BaseExperiment:
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
 
             except:
@@ -745,8 +745,8 @@ class BaseExperiment:
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
 
             except:
@@ -824,8 +824,8 @@ class BaseExperiment:
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
 
             except:
@@ -888,9 +888,9 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_RO2", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO1", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO2", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO1", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO2", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_parity_RO", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_RO1", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_RO2", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_parity_RO", [0], broadcast=True)
         self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
@@ -904,12 +904,12 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton_parity", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO_atom_check", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_RO_atom_check", [0], broadcast=True)
         self.experiment.set_dataset("n_excitation_cycles", [0], broadcast=True)
         self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
 
-        self.experiment.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_atom_check_in_loading", [0], broadcast=True)
 
         self.experiment.set_dataset("SPCM0_total_click_counter", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_total_click_counter", [0], broadcast=True)
@@ -974,8 +974,8 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_RO2_in_health_check", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO1_in_health_check", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO2_in_health_check", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO1_in_health_check", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO2_in_health_check", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_RO1_in_health_check", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_RO2_in_health_check", [0], broadcast=True)
 
 
     @kernel

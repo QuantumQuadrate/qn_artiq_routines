@@ -116,7 +116,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         self.default_setpoints = np.array([getattr(self, dataset) for dataset in self.setpoint_datasets])
 
         self.atom_loading_time_list = np.zeros(self.n_measurements)
-        self.set_dataset(self.BothSPCMs_rate_dataset,
+        self.set_dataset(self.AllSPCMs_rate_dataset,
                          [0.0],
                          broadcast=True)
 
@@ -301,7 +301,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ##################### This is the core of the optimizer that runs the sequence and get a cost:
 
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
-        self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.AllSPCMs_rate_dataset, [0.0], broadcast=True)
 
         self.laser_stabilizer.run()
 
@@ -339,19 +339,19 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                         self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                         self.ttl_SPCM1_counter.gate_rising(atom_check_time)
 
-                    BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                    AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
                 else:
                     with parallel:
                         self.ttl_SPCM0_counter.gate_rising(atom_check_time)
 
-                    BothSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count())
+                    AllSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count())
 
-                BothSPCMs_counts_per_s = BothSPCMs_atom_check / atom_check_time
+                AllSPCMs_counts_per_s = AllSPCMs_atom_check / atom_check_time
                 delay(1 * ms)
-                self.append_to_dataset(self.BothSPCMs_rate_dataset, BothSPCMs_counts_per_s)
+                self.append_to_dataset(self.AllSPCMs_rate_dataset, AllSPCMs_counts_per_s)
                 try_n += 1
 
-                if BothSPCMs_counts_per_s > self.atom_counts_per_s_threshold:
+                if AllSPCMs_counts_per_s > self.atom_counts_per_s_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
 
@@ -490,7 +490,7 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
         ##################### This is the core of the optimizer that runs the sequence and get a cost:
 
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
-        self.set_dataset(self.BothSPCMs_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.AllSPCMs_rate_dataset, [0.0], broadcast=True)
 
         for i in range(self.n_measurements):
             if self.tune_coils:
@@ -526,19 +526,19 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                         self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                         self.ttl_SPCM1_counter.gate_rising(atom_check_time)
 
-                    BothSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                    AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
                 else:
                     with parallel:
                         self.ttl_SPCM0_counter.gate_rising(atom_check_time)
 
-                    BothSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count())
+                    AllSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count())
 
-                BothSPCMs_counts_per_s = BothSPCMs_atom_check / atom_check_time
+                AllSPCMs_counts_per_s = AllSPCMs_atom_check / atom_check_time
                 delay(1 * ms)
-                self.append_to_dataset(self.BothSPCMs_rate_dataset, BothSPCMs_counts_per_s)
+                self.append_to_dataset(self.AllSPCMs_rate_dataset, AllSPCMs_counts_per_s)
                 try_n += 1
 
-                if BothSPCMs_counts_per_s > self.atom_counts_per_s_threshold:
+                if AllSPCMs_counts_per_s > self.atom_counts_per_s_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     atom_loaded = True
 
