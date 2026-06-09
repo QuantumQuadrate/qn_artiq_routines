@@ -1144,10 +1144,10 @@ def load_until_atom_smooth_FORT_recycle(self):
                     self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
                     self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
 
-                AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() +
+                AllSPCMs_atom_check = self.ttl_SPCM0_counter.fetch_count() +
                                            self.ttl_SPCM1_counter.fetch_count() +
                                            self.ttl_SPCM0_OtherNode_counter.fetch_count() +
-                                           self.ttl_SPCM1_OtherNode_counter.fetch_count() ) / 2)
+                                           self.ttl_SPCM1_OtherNode_counter.fetch_count()
 
                 try_n += 1
 
@@ -1650,7 +1650,7 @@ def first_shot(self):
         self.SPCM1_RO1 = self.ttl_SPCM1_counter.fetch_count()
         self.SPCM0_OtherNode_RO1 = self.ttl_SPCM0_OtherNode_counter.fetch_count()
         self.SPCM1_OtherNode_RO1 = self.ttl_SPCM1_OtherNode_counter.fetch_count()
-        self.AllSPCMs_RO1 = int((self.SPCM0_RO1 + self.SPCM1_RO1 + self.SPCM0_OtherNode_RO1 + self.SPCM1_OtherNode_RO1) / 2)
+        self.AllSPCMs_RO1 = self.SPCM0_RO1 + self.SPCM1_RO1 + self.SPCM0_OtherNode_RO1 + self.SPCM1_OtherNode_RO1
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off() ### turn off cooling
         self.ttl_repump_switch.on() ### turn off MOT RP
@@ -1786,7 +1786,7 @@ def second_shot(self):
         self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
         self.SPCM0_OtherNode_RO2 = self.ttl_SPCM0_OtherNode_counter.fetch_count()
         self.SPCM1_OtherNode_RO2 = self.ttl_SPCM1_OtherNode_counter.fetch_count()
-        self.AllSPCMs_RO2 = int((self.SPCM0_RO2 + self.SPCM1_RO2 + self.SPCM0_OtherNode_RO2 + self.SPCM1_OtherNode_RO2) / 2)
+        self.AllSPCMs_RO2 = self.SPCM0_RO2 + self.SPCM1_RO2 + self.SPCM0_OtherNode_RO2 + self.SPCM1_OtherNode_RO2
 
         delay(0.1 * ms)
         self.dds_cooling_DP.sw.off() ### turn off cooling
@@ -1839,7 +1839,7 @@ def test_shot(self):
     self.SPCM1_test_RO = self.ttl_SPCM1_counter.fetch_count()
     self.SPCM0_OtherNode_test_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
     self.SPCM1_OtherNode_test_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
-    self.AllSPCMs_test_RO = int((self.SPCM0_test_RO + self.SPCM1_test_RO + self.SPCM0_OtherNode_test_RO + self.SPCM1_OtherNode_test_RO) / 2)
+    self.AllSPCMs_test_RO = self.SPCM0_test_RO + self.SPCM1_test_RO + self.SPCM0_OtherNode_test_RO + self.SPCM1_OtherNode_test_RO
 
     delay(10 * us)
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -1901,7 +1901,7 @@ def atom_parity_shot(self):
     self.SPCM1_RO2 = self.ttl_SPCM1_counter.fetch_count()
     self.SPCM0_OtherNode_RO2 = self.ttl_SPCM0_OtherNode_counter.fetch_count()
     self.SPCM1_OtherNode_RO2 = self.ttl_SPCM1_OtherNode_counter.fetch_count()
-    self.AllSPCMs_parity_RO = int((self.SPCM0_RO2 + self.SPCM1_RO2 + self.SPCM0_OtherNode_RO2 + self.SPCM1_OtherNode_RO2) / 2)
+    self.AllSPCMs_parity_RO = self.SPCM0_RO2 + self.SPCM1_RO2 + self.SPCM0_OtherNode_RO2 + self.SPCM1_OtherNode_RO2
 
     delay(0.1 * ms)
     self.dds_cooling_DP.sw.off()  ### turn off cooling
@@ -3694,7 +3694,7 @@ def atom_loading_optimizer_experiment(self):
             SPCM0_OtherNode_atom_check = self.ttl_SPCM0_OtherNode_counter.fetch_count()
             SPCM1_OtherNode_atom_check = self.ttl_SPCM1_OtherNode_counter.fetch_count()
 
-            AllSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check + SPCM0_OtherNode_atom_check + SPCM1_OtherNode_atom_check) / 2)
+            AllSPCMs_atom_check = SPCM0_atom_check + SPCM1_atom_check + SPCM0_OtherNode_atom_check + SPCM1_OtherNode_atom_check
 
             try_n += 1
 

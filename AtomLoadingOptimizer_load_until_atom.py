@@ -338,8 +338,11 @@ class AtomLoadingOptimizer_load_until_atom(EnvExperiment):
                     with parallel:
                         self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                         self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+                        self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
+                        self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
 
-                    AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                    AllSPCMs_atom_check = self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count() + \
+                                          self.ttl_SPCM0_OtherNode_counter.fetch_count() + self.ttl_SPCM1_OtherNode_counter.fetch_count()
                 else:
                     with parallel:
                         self.ttl_SPCM0_counter.gate_rising(atom_check_time)

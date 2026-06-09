@@ -464,6 +464,11 @@ class MicrowaveScanOptimizer(EnvExperiment):
         self.SPCM1_RO1 = 0
         self.SPCM1_RO2 = 0
 
+        self.SPCM0_OtherNode_RO1 = 0
+        self.SPCM0_OtherNode_RO2 = 0
+        self.SPCM1_OtherNode_RO1 = 0
+        self.SPCM1_OtherNode_RO2 = 0
+
         # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
         # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
         # datasets. However, ARTIQ runs build and prepare while the previous experiment is running, so our base.build
@@ -521,6 +526,12 @@ class MicrowaveScanOptimizer(EnvExperiment):
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
+
+        self.set_dataset('SPCM0_OtherNode_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_OtherNode_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_OtherNode_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_OtherNode_RO2_current_iteration', [0], broadcast=True)
+
         self.set_dataset('AllSPCMs_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('AllSPCMs_RO2_current_iteration', [0], broadcast=True)
 
@@ -971,7 +982,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
         retention_array, loading_rate_array, n_atoms_loaded_array = self.get_loading_and_retention(AllSPCMs_RO1,
                                                                                                    AllSPCMs_RO2,
                                                                                                    self.n_measurements,
-                                                                                                   int((len(AllSPCMs_RO1)-1)/(self.n_measurements)),
+                                                                                                   int((len(AllSPCMs_RO1)-1) / self.n_measurements),
                                                                                                    self.single_atom_threshold * self.t_SPCM_first_shot)
         # print("retention_array", retention_array)
         # todo: break; if loading_rate too low

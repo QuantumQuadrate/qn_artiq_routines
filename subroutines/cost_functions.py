@@ -182,8 +182,6 @@ def atom_retention_cost(self) -> TFloat:
     ### use cost = -100 * retention_fraction to maximize retention
     ### use cost = -100 * (1 - retention_fraction) to minimize retention
 
-
-
 def atom_blowaway_cost(self) -> TFloat:
     """
     the cost function for minimizing the fraction of atoms retained in a two-shot experiment.
