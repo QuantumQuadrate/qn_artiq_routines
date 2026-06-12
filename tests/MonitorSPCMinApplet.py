@@ -50,6 +50,8 @@ class MonitorSPCMinApplet(EnvExperiment):
 
         self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
         self.set_dataset(self.SPCM1_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.SPCM0_OtherNode_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.SPCM1_OtherNode_rate_dataset, [0.0], broadcast=True)
 
         delay(10 * ms)
 
@@ -57,11 +59,17 @@ class MonitorSPCMinApplet(EnvExperiment):
             with parallel:
                 self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_exposure)
                 self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_exposure)
+                self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_exposure)
+                self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_exposure)
             SPCM0_counts = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_counts = self.ttl_SPCM1_counter.fetch_count()
+            SPCM0_OtherNode_counts = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+            SPCM1_OtherNode_counts = self.ttl_SPCM1_OtherNode_counter.fetch_count()
 
             delay(1 * ms)
             self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts / self.t_SPCM_exposure)
             self.append_to_dataset(self.SPCM1_rate_dataset, SPCM1_counts / self.t_SPCM_exposure)
+            self.append_to_dataset(self.SPCM0_OtherNode_rate_dataset, SPCM0_OtherNode_counts / self.t_SPCM_exposure)
+            self.append_to_dataset(self.SPCM1_OtherNode_rate_dataset, SPCM1_OtherNode_counts / self.t_SPCM_exposure)
 
         print("Experiment finished.")

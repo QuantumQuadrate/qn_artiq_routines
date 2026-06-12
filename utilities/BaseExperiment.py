@@ -281,10 +281,15 @@ class BaseExperiment:
             ### todo: do this in the device_db
 
             ### ttl0~3
-            self.experiment.ttl_SPCM0 = self.experiment.ttl0   # SPCM2
-            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter   # SPCM2 counter
-            self.experiment.ttl_SPCM1 = self.experiment.ttl1   # SPCM3
-            self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter   # SPCM3 counter
+            self.experiment.ttl_SPCM0 = self.experiment.ttl0   # NODE2 SPCM0
+            self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter   # NODE2 SPCM0 counter
+            self.experiment.ttl_SPCM1 = self.experiment.ttl1   # NODE2 SPCM1
+            self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter   # NODE2 SPCM1 counter
+
+            self.experiment.ttl_SPCM0_OtherNode = self.experiment.ttl2   # NODE1 SPCM0
+            self.experiment.ttl_SPCM0_OtherNode_counter = self.experiment.ttl2_counter   # NODE1 SPCM0 counter
+            self.experiment.ttl_SPCM1_OtherNode = self.experiment.ttl3   # NODE1 SPCM1
+            self.experiment.ttl_SPCM1_OtherNode_counter = self.experiment.ttl3_counter   # NODE1 SPCM1 counter
 
             ### ttl4~7
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
@@ -293,15 +298,15 @@ class BaseExperiment:
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
 
             ### ttl8~11
-            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8
-            self.experiment.ttl_SPCM1_logic = self.experiment.ttl9     #not being used
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8 #planninng to use this for Node1-2 communication
+            self.experiment.ttl_SPCM1_logic = self.experiment.ttl9     #planninng to use this for Node1-2 communication
             self.experiment.FORT_mod_switch = self.experiment.ttl11    #not being used
 
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_SPCM0_logic = self.experiment.ttl15    # not being used;
+            self.experiment.ttl_SPCM0_logic = self.experiment.ttl15    # to send signal to Node1
 
             ### in experiment_functions.py, measure_FORT_MM_fiber() function
             ### BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
@@ -334,8 +339,10 @@ class BaseExperiment:
 
             ### dataset names
             self.experiment.measurements_progress = 'measurements_progress'
-            self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
-            self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
+            self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'  ## Node2
+            self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'  ## Node2
+            self.experiment.SPCM0_OtherNode_rate_dataset = 'SPCM0_OtherNode_counts_per_s'  ## Node1
+            self.experiment.SPCM1_OtherNode_rate_dataset = 'SPCM1_OtherNode_counts_per_s'  ## Node1
             self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
@@ -1084,6 +1091,8 @@ class BaseExperiment:
             ### ttl0~3
             self.experiment.ttl_SPCM0.input()
             self.experiment.ttl_SPCM1.input()
+            self.experiment.ttl_SPCM0_OtherNode.input()
+            self.experiment.ttl_SPCM1_OtherNode.input()
 
             ### ttl4~7: already configured to be used as output at TTL card
             self.experiment.ttl_microwave_switch.output()

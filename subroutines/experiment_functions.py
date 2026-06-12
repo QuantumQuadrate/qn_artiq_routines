@@ -116,6 +116,42 @@ def waveplate_rotation_and_atom_loading_2_experiment(self):
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
+
+@kernel
+def test_ttl_pulse_experiment(self):
+    """
+    testing TTL on scope
+    """
+    self.core.reset()
+
+    self.measurement = 0
+
+    while self.measurement < self.n_measurements:
+        delay(1*s)
+
+        self.ttl15.on()
+        # delay(5*s)
+        delay(80 * ns)
+        # delay(100*ns)
+
+        self.ttl8.sample_input()
+        readout = int(self.ttl8.sample_get())  ## this is 1 when the laser is locked, it is 0 otherwise.
+        delay(1*s)
+        print('ttl15 on, readout with ttl8 = ', readout)
+
+        self.ttl15.off()
+        # delay(5*s)
+        delay(80*ns)
+        # delay(100*ns)
+
+        self.ttl8.sample_input()
+        readout = int(self.ttl8.sample_get())  ## this is 1 when the laser is locked, it is 0 otherwise.
+        delay(1*s)
+        print('ttl15 off, readout with ttl8 = ', readout)
+
+        delay(1*s)
+
+
 @kernel
 def test_RF_pulse_experiment(self):
     """
@@ -13059,8 +13095,7 @@ def atom_photon_parity_6_experiment(self):
 @kernel
 def atom_photon_parity_6_node2_experiment(self):
     """
-    Trying to reduce the delay after photon detection. Do we need to set all the phases to 0.0?
-
+    Needs more work;
     """
 
     self.core.reset()
@@ -13118,12 +13153,12 @@ def atom_photon_parity_6_node2_experiment(self):
         self.core.break_realtime()
 
         self.ttl_exc0_switch.on()  # turns off the excitation
-        # delay(1 * ms)
-        delay(100 * ms)  ###might not be necessary
+        delay(10 * us)
+        # delay(100 * ms)  ###might not be necessary
 
         load_MOT_and_FORT_until_atom_recycle(self)
-        # delay(1 * ms)
-        delay(10 * ms)
+        delay(1 * ms)
+        # delay(10 * ms)
         self.ttl_microwave_switch.on()  ### close the switch
         delay(20*us)
         self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
@@ -13164,11 +13199,11 @@ def atom_photon_parity_6_node2_experiment(self):
             atom_loaded = True
         else:
             atom_loaded = False
-            delay(100 * ms)
+            delay(1 * ms)
 
         while atom_loaded:
 
-            delay(100 * ms)
+            delay(1 * ms)
 
             if self.t_pumping > 0.0:
                 delay(10 * us)
