@@ -491,6 +491,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
 
     @kernel
     def initialize_hardware(self):
+        self.core.break_realtime()
         self.base.initialize_hardware()
 
     def initialize_datasets(self):
@@ -580,7 +581,10 @@ class MicrowaveScanOptimizer(EnvExperiment):
         """
 
         if self.needs_fresh_build:
-            self.base.build()
+            # Do not call base.build() here.
+            # base.build() is intended to run once during ARTIQ build and can reset/recompute
+            # experiment attributes such as DDS amplitudes, causing later queued MSO scans
+            # to run with different microwave power.
             self.base.prepare()
 
         self.initialize_datasets()
@@ -920,7 +924,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                 setattr(self, scan_dict[self.scan_type]["center"], round(float(fit_f0), -3))
                 print("Fit check with fitted f0: ",  getattr(self, scan_dict[self.scan_type]["center"]))
             elif self.scan_type.startswith("Time"):
-                print("Original t_microwave_00_pulse value: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
+                print("Original", scan_dict[self.scan_type]["pi_pulse"] ,"value: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
                 fit_pi_pulse = self.get_dataset("fit_parameter_t_pi")
                 setattr(self, scan_dict[self.scan_type]["pi_pulse"], round(float(fit_pi_pulse), 7))
                 print("Fit check with fitted pi pulse: ", getattr(self, scan_dict[self.scan_type]["pi_pulse"]))

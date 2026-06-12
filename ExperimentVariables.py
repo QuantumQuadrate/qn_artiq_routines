@@ -82,7 +82,7 @@ class ExperimentVariables(EnvExperiment):
                      {'type': 'float', 'unit': "dBm", 'scale': 1, 'ndecimals': 1}, "FORT AOM"),
             Variable("p_FORT_holding", 0.8, NumberValue,
                      {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 2},
-                     "FORT AOM"),
+                     "FORT AOM - outdated"),
             Variable("p_FORT_RO", 0.8, NumberValue,
                      {'type': 'float', 'unit': "(fractional)", 'scale': 1, 'ndecimals': 1},
                      "FORT AOM - outdated"),
@@ -291,6 +291,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_SPCM_recool_and_shot", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_after_loading", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
+            Variable("t_recooling_after_first_shot", 500 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_MOT_dissipation", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_blowaway", 150 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 3000 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
@@ -488,7 +489,8 @@ class ExperimentVariables(EnvExperiment):
                 else:
                     print(f"Exception {e}")
 
-        self.setattr_argument('which_node', EnumerationValue(['alice', 'bob', 'two_nodes']), "general")
+        # self.setattr_argument('which_node', EnumerationValue(['alice', 'bob', 'two_nodes']), "general")
+        self.setattr_argument('which_node', EnumerationValue(['bob', 'alice', 'two_nodes']), "general")
 
     def run(self):
 
