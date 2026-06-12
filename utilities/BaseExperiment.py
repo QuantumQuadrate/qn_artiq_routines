@@ -1064,7 +1064,7 @@ class BaseExperiment:
             self.experiment.ttl_D1_lock_monitor.input()
 
             ### ttl12~15: already configured to be used as output at TTL card
-            self.experiment.ttl_osc_trig.output()
+            self.experiment.ttl_osc_trig.output() ### can be repurposed
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
             self.experiment.ttl_GRIN2_switch.on()  ### ensure no excitation or D1 is on at the beginning
