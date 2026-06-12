@@ -46,7 +46,7 @@ def _count_threshold_crossings_in_loading_window(self,
                                                  n_samples) -> TInt32:
     """
     Helper function for automatic shim tuning during atom loading.
-    Counts the number of above-threshold *intervals* in a time series (your "crossing" metric).
+    Counts the number of above-threshold *intervals* in a time series.
     Equivalent to the AtomLoadingOptimizer logic: count falling edges + final high state.
     """
     atoms_loaded = 0
@@ -56,7 +56,10 @@ def _count_threshold_crossings_in_loading_window(self,
     with parallel:
         self.ttl_SPCM0_counter.gate_rising(gate_time)
         self.ttl_SPCM1_counter.gate_rising(gate_time)
-    c0 = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+        self.ttl_SPCM0_OtherNode_counter.gate_rising(gate_time)
+        self.ttl_SPCM1_OtherNode_counter.gate_rising(gate_time)
+    c0 = self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count() + \
+         self.ttl_SPCM0_OtherNode_counter.fetch_count() + self.ttl_SPCM1_OtherNode_counter.fetch_count()
     q_last = (c0 / gate_time) > threshold_per_s
 
     # Remaining samples
@@ -65,7 +68,10 @@ def _count_threshold_crossings_in_loading_window(self,
         with parallel:
             self.ttl_SPCM0_counter.gate_rising(gate_time)
             self.ttl_SPCM1_counter.gate_rising(gate_time)
-        c = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+            self.ttl_SPCM0_OtherNode_counter.gate_rising(gate_time)
+            self.ttl_SPCM1_OtherNode_counter.gate_rising(gate_time)
+        c = self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count() + \
+            self.ttl_SPCM0_OtherNode_counter.fetch_count() + self.ttl_SPCM1_OtherNode_counter.fetch_count()
         q = (c / gate_time) > threshold_per_s
 
         # Count a "loaded atom interval" when we go from above->below (falling edge)

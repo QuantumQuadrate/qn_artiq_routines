@@ -116,14 +116,22 @@ class BaseExperiment:
         self.experiment.SPCM0_RO2 = 0
         self.experiment.SPCM1_RO1 = 0
         self.experiment.SPCM1_RO2 = 0
-        self.experiment.BothSPCMs_RO1 = 0
-        self.experiment.BothSPCMs_RO2 = 0
-        self.experiment.BothSPCMs_parity_RO = 0
+
+        self.experiment.SPCM0_OtherNode_RO1 = 0
+        self.experiment.SPCM0_OtherNode_RO2 = 0
+        self.experiment.SPCM1_OtherNode_RO1 = 0
+        self.experiment.SPCM1_OtherNode_RO2 = 0
+
+        self.experiment.AllSPCMs_RO1 = 0
+        self.experiment.AllSPCMs_RO2 = 0
+        self.experiment.AllSPCMs_parity_RO = 0
         self.experiment.atom_loading_time = 0.0
 
         self.experiment.SPCM0_test_RO = 0
         self.experiment.SPCM1_test_RO = 0
-        self.experiment.BothSPCMs_test_RO = 0
+        self.experiment.SPCM0_OtherNode_test_RO = 0
+        self.experiment.SPCM1_OtherNode_test_RO = 0
+        self.experiment.AllSPCMs_test_RO = 0
 
         self.experiment.SPCM0_FORT_science = 0
         self.experiment.measurement = 0
@@ -142,8 +150,14 @@ class BaseExperiment:
         self.experiment.SPCM0_RO2_in_health_check = 0
         self.experiment.SPCM1_RO1_in_health_check = 0
         self.experiment.SPCM1_RO2_in_health_check = 0
-        self.experiment.BothSPCMs_RO1_in_health_check = 0
-        self.experiment.BothSPCMs_RO2_in_health_check = 0
+
+        self.experiment.SPCM0_OtherNode_RO1_in_health_check = 0
+        self.experiment.SPCM0_OtherNode_RO2_in_health_check = 0
+        self.experiment.SPCM1_OtherNode_RO1_in_health_check = 0
+        self.experiment.SPCM1_OtherNode_RO2_in_health_check = 0
+
+        self.experiment.AllSPCMs_RO1_in_health_check = 0
+        self.experiment.AllSPCMs_RO2_in_health_check = 0
 
         if self.node == "alice":
             ### devices without nicknames. core should come first
@@ -175,7 +189,6 @@ class BaseExperiment:
             self.experiment.ttl_SPCM0_counter = self.experiment.ttl0_counter
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
             self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
-            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl3
 
             ### ttl4~7
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
@@ -185,13 +198,16 @@ class BaseExperiment:
             self.experiment.ttl_pumping_repump_switch = self.experiment.ttl7
 
             ### ttl8~11
-
+            self.experiment.ttl_SPCM0_OtherNode = self.experiment.ttl8
+            self.experiment.ttl_SPCM0_OtherNode_counter = self.experiment.ttl8_counter
+            self.experiment.ttl_SPCM1_OtherNode = self.experiment.ttl9
+            self.experiment.ttl_SPCM1_OtherNode_counter = self.experiment.ttl9_counter
+            self.experiment.ttl_D1_lock_monitor = self.experiment.ttl10
 
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl11 ### not used in node 1. Just to avoid error.
             self.experiment.FORT_mod_switch = self.experiment.ttl11 ### should be on ttl12 when we need this to measure trap freq.
-            self.experiment.ttl_SPCM0_logic = self.experiment.ttl12
-            self.experiment.ttl_SPCM1_logic = self.experiment.ttl15
+            self.experiment.ttl_osc_trig = self.experiment.ttl12 ### for triggering oscilloscope. Can be repurposed.
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
 
@@ -228,7 +244,9 @@ class BaseExperiment:
             self.experiment.measurements_progress = 'measurements_progress'
             self.experiment.SPCM0_rate_dataset = 'SPCM0_counts_per_s'
             self.experiment.SPCM1_rate_dataset = 'SPCM1_counts_per_s'
-            self.experiment.BothSPCMs_rate_dataset = 'BothSPCMs_counts_per_s'
+            self.experiment.SPCM0_OtherNode_rate_dataset = 'SPCM0_OtherNode_counts_per_s'
+            self.experiment.SPCM1_OtherNode_rate_dataset = 'SPCM1_OtherNode_counts_per_s'
+            self.experiment.AllSPCMs_rate_dataset = 'AllSPCMs_counts_per_s'
             self.experiment.scan_var_dataset = "scan_variables"
             self.experiment.scan_sequence1_dataset = "scan_sequence1"
             self.experiment.scan_sequence2_dataset = "scan_sequence2"
@@ -306,7 +324,6 @@ class BaseExperiment:
             self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_SPCM0_logic = self.experiment.ttl15    # to send signal to Node1
 
             ### in experiment_functions.py, measure_FORT_MM_fiber() function
             ### BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
@@ -644,8 +661,14 @@ class BaseExperiment:
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+
+                self.experiment.SPCM0_OtherNode_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM0_OtherNode_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_OtherNode_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_OtherNode_RO2_list = [0] * self.experiment.n_measurements
+
+                self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
 
             except:
@@ -740,8 +763,14 @@ class BaseExperiment:
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+
+                self.experiment.SPCM0_OtherNode_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM0_OtherNode_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_OtherNode_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_OtherNode_RO2_list = [0] * self.experiment.n_measurements
+
+                self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
 
             except:
@@ -819,8 +848,12 @@ class BaseExperiment:
                 self.experiment.SPCM0_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_RO2_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO1_list = [0] * self.experiment.n_measurements
-                self.experiment.BothSPCMs_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM0_OtherNode_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM0_OtherNode_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_OtherNode_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.SPCM1_OtherNode_RO2_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
 
             except:
@@ -883,31 +916,45 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_RO2", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO1", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO2", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO1", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO2", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_parity_RO", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_OtherNode_RO1", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_OtherNode_RO2", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_OtherNode_RO1", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_OtherNode_RO2", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_RO1", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_RO2", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_parity_RO", [0], broadcast=True)
         self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
+
         self.experiment.set_dataset("SPCM0_SinglePhoton", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_OtherNode_SinglePhoton", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_OtherNode_SinglePhoton", [0], broadcast=True)
+
         self.experiment.set_dataset("SPCM0_SinglePhoton_parity", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_SinglePhoton_parity", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_OtherNode_SinglePhoton_parity", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_OtherNode_SinglePhoton_parity", [0], broadcast=True)
+
         self.experiment.set_dataset("reference_tStamps_t1", [0.0], broadcast=True)
+
+        ### Used in single photon experiments with indivdual nodes
         self.experiment.set_dataset("SPCM0_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
-        # self.experiment.set_dataset("SPCM0_SinglePhoton_tStamps", [0.0], broadcast=True) ### Use this only for single_photon_experiment_5
-        # self.experiment.set_dataset("SPCM1_SinglePhoton_tStamps", [0.0], broadcast=True) ### Use this only for single_photon_experiment_5
-        self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)
-        self.experiment.set_dataset("SPCM1_SinglePhoton_parity", [0], broadcast=True)
-        self.experiment.set_dataset("SPCM0_every_exc_RO", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO_atom_check", [0], broadcast=True)
+
+        ### Added from 2026-06-09 for two-node experiments
+        self.experiment.set_dataset("SPCM0_Photon_tStamps", [0.0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_Photon_tStamps", [0.0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_OtherNode_Photon_tStamps", [0.0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_OtherNode_Photon_tStamps", [0.0], broadcast=True)
+
+        self.experiment.set_dataset("AllSPCMs_RO_atom_check", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_atom_check_in_loading", [0], broadcast=True)
+
         self.experiment.set_dataset("n_excitation_cycles", [0], broadcast=True)
         self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
-
-        self.experiment.set_dataset("BothSPCMs_atom_check_in_loading", [0], broadcast=True)
-
-        self.experiment.set_dataset("SPCM0_total_click_counter", [0], broadcast=True)
-        self.experiment.set_dataset("SPCM1_total_click_counter", [0], broadcast=True)
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("GRIN1_EXC_monitor", [0.0], broadcast=True)
@@ -969,8 +1016,14 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_RO2_in_health_check", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO1_in_health_check", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_RO2_in_health_check", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO1_in_health_check", [0], broadcast=True)
-        self.experiment.set_dataset("BothSPCMs_RO2_in_health_check", [0], broadcast=True)
+
+        self.experiment.set_dataset("SPCM0_OtherNode_RO1_in_health_check", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_OtherNode_RO2_in_health_check", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_OtherNode_RO1_in_health_check", [0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_OtherNode_RO2_in_health_check", [0], broadcast=True)
+
+        self.experiment.set_dataset("AllSPCMs_RO1_in_health_check", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_RO2_in_health_check", [0], broadcast=True)
 
 
     @kernel
@@ -997,6 +1050,9 @@ class BaseExperiment:
             ### ttl0~3
             self.experiment.ttl_SPCM0.input()
             self.experiment.ttl_SPCM1.input()
+            self.experiment.ttl_SPCM0_OtherNode.input()
+            self.experiment.ttl_SPCM1_OtherNode.input()
+
 
             ### ttl4~7: already configured to be used as output at TTL card
             self.experiment.ttl_microwave_switch.output()
@@ -1009,16 +1065,11 @@ class BaseExperiment:
             self.experiment.ttl_D1_lock_monitor.input()
 
             ### ttl12~15: already configured to be used as output at TTL card
+            self.experiment.ttl_osc_trig.output() ### can be repurposed
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
             self.experiment.ttl_GRIN2_switch.on()  ### ensure no excitation or D1 is on at the beginning
             self.experiment.ttl_GRIN1_switch.on()  ### ensure no excitation or D1 is on at the beginning
-
-            self.experiment.ttl_SPCM0_logic.output()
-            self.experiment.ttl_SPCM1_logic.output()
-            delay(100*us)
-            self.experiment.ttl_SPCM0_logic.off()
-            self.experiment.ttl_SPCM1_logic.off()
 
             self.experiment.FORT_mod_switch.output()
 

@@ -291,7 +291,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_SPCM_recool_and_shot", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_delay_between_shots", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_PGC_after_loading", 20 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
-            Variable("t_recooling_after_first_shot", 500 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_recooling_after_first_shot", 0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_MOT_dissipation", 50 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_blowaway", 150 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 3000 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),

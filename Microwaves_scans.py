@@ -463,6 +463,11 @@ class Microwaves_scans(EnvExperiment):
         self.SPCM1_RO1 = 0
         self.SPCM1_RO2 = 0
 
+        self.SPCM0_OtherNode_RO1 = 0
+        self.SPCM0_OtherNode_RO2 = 0
+        self.SPCM1_OtherNode_RO1 = 0
+        self.SPCM1_OtherNode_RO2 = 0
+
         # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
         # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
         # datasets. However, ARTIQ runs build and prepare while the previous experiment is running, so our base.build
@@ -507,8 +512,14 @@ class Microwaves_scans(EnvExperiment):
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM1_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM1_RO2_current_iteration', [0], broadcast=True)
-        self.set_dataset('BothSPCMs_RO1_current_iteration', [0], broadcast=True)
-        self.set_dataset('BothSPCMs_RO2_current_iteration', [0], broadcast=True)
+
+        self.set_dataset('SPCM0_OtherNode_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM0_OtherNode_RO2_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_OtherNode_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('SPCM1_OtherNode_RO2_current_iteration', [0], broadcast=True)
+
+        self.set_dataset('AllSPCMs_RO1_current_iteration', [0], broadcast=True)
+        self.set_dataset('AllSPCMs_RO2_current_iteration', [0], broadcast=True)
 
         # these are set here because running BaseExperiment.initialize_hardware resets these to be empty
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
@@ -613,10 +624,10 @@ class Microwaves_scans(EnvExperiment):
 
         #### for fitting
         if self.enable_fitting:
-            BothSPCMs_RO1 = self.get_dataset("BothSPCMs_RO1")
-            BothSPCMs_RO2 = self.get_dataset("BothSPCMs_RO2")
+            AllSPCMs_RO1 = self.get_dataset("AllSPCMs_RO1")
+            AllSPCMs_RO2 = self.get_dataset("AllSPCMs_RO2")
 
-            retention_array = self.get_retention(BothSPCMs_RO1, BothSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
+            retention_array = self.get_retention(AllSPCMs_RO1, AllSPCMs_RO2, self.n_measurements, len(self.scan_sequence1),
                                self.single_atom_threshold * self.t_SPCM_first_shot)
 
             t = self.scan_sequence1
