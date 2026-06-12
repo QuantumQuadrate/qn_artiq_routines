@@ -60,15 +60,11 @@ class MonitorSPCMinApplet(EnvExperiment):
                 self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_exposure)
                 self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_exposure)
                 self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_exposure)
-                # self.ttl_SPCM1_OtherNode.pulse(100*us)
                 self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_exposure)
-
             SPCM0_counts = self.ttl_SPCM0_counter.fetch_count()
             SPCM1_counts = self.ttl_SPCM1_counter.fetch_count()
             SPCM0_OtherNode_counts = self.ttl_SPCM0_OtherNode_counter.fetch_count()
             SPCM1_OtherNode_counts = self.ttl_SPCM1_OtherNode_counter.fetch_count()
-            #
-            # self.print_async("SPCM1_OtherNode_counts:", SPCM1_OtherNode_counts / self.t_SPCM_exposure)
 
             delay(1 * ms)
             self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts / self.t_SPCM_exposure)
