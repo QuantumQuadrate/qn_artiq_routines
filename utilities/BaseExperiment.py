@@ -207,6 +207,7 @@ class BaseExperiment:
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl11 ### not used in node 1. Just to avoid error.
             self.experiment.FORT_mod_switch = self.experiment.ttl11 ### should be on ttl12 when we need this to measure trap freq.
+            self.experiment.ttl_osc_trig = self.experiment.ttl12 ### for triggering oscilloscope. Can be repurposed.
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
 
@@ -1063,6 +1064,7 @@ class BaseExperiment:
             self.experiment.ttl_D1_lock_monitor.input()
 
             ### ttl12~15: already configured to be used as output at TTL card
+            self.experiment.ttl_osc_trig.output()
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
             self.experiment.ttl_GRIN2_switch.on()  ### ensure no excitation or D1 is on at the beginning
