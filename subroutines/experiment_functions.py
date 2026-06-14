@@ -156,9 +156,9 @@ def test_ttl_pulse_experiment(self):
     """
     testing TTL on scope
                                 Node1              Node2
-    ttl_Node1_atom:            ttl 12(out)         ttl 8 (in)
-    ttl_Node2_atom:            ttl 11(in)          ttl 15 (out)
-    ttl_Node1_exc_timing:      ttl 15(out)         ttl 9 (in)
+    ttl_Node1_atom_ output/input:            ttl 12(out)         ttl 8 (in)
+    ttl_Node2_atom_ input/output:            ttl 11(in)          ttl 15 (out)
+    ttl_Node1_exc_timing_ output/input:      ttl 15(out)         ttl 9 (in)
 
     """
     self.core.reset()
@@ -3326,23 +3326,23 @@ def end_measurement(self):
             if not self.SPCM0_RO1/self.t_SPCM_first_shot > self.single_atom_threshold:
                 advance = 0
 
-        if self.require_D1_lock_to_advance:
-            t1_D1_checked = now_mu()
-            while True:
-                self.ttl_D1_lock_monitor.sample_input()
-                delay(0.1 * ms)
-                laser_locked = int(1 - self.ttl_D1_lock_monitor.sample_get()) ## this is 1 when the laser is locked, it is 0 otherwise.
-
-                if laser_locked:
-                    advance = 1
-                    self.set_dataset("time_without_D1", 0.0, broadcast=True)  ### resetting time_without_D1 when the laser is locked
-                    delay(10*us)
-                    break
-                else:
-                    t2_D1_checked = now_mu()
-                    time_without_D1 = self.core.mu_to_seconds(t2_D1_checked - t1_D1_checked)
-                    self.set_dataset("time_without_D1", time_without_D1, broadcast=True)
-                    delay(2 * s)
+        # if self.require_D1_lock_to_advance:
+        #     t1_D1_checked = now_mu()
+        #     while True:
+        #         self.ttl_D1_lock_monitor.sample_input()
+        #         delay(0.1 * ms)
+        #         laser_locked = int(1 - self.ttl_D1_lock_monitor.sample_get()) ## this is 1 when the laser is locked, it is 0 otherwise.
+        #
+        #         if laser_locked:
+        #             advance = 1
+        #             self.set_dataset("time_without_D1", 0.0, broadcast=True)  ### resetting time_without_D1 when the laser is locked
+        #             delay(10*us)
+        #             break
+        #         else:
+        #             t2_D1_checked = now_mu()
+        #             time_without_D1 = self.core.mu_to_seconds(t2_D1_checked - t1_D1_checked)
+        #             self.set_dataset("time_without_D1", time_without_D1, broadcast=True)
+        #             delay(2 * s)
 
     if advance:
         self.measurement += 1
@@ -4396,78 +4396,78 @@ def beam_balancing_with_atoms2_experiment(self):
     self.dds_FORT.sw.off()
     delay(1 * ms)
 
-@kernel
-def trap_frequency_experiment(self):
-    """
-    For spectroscopy of the trap vibrational frequencies with the Rigol D11022Z function generator.
-
-    One way to use this is with GeneralVariableScan and scan_variable1 = f_Rigol_modulation,
-    where f_Rigol_modulation must be within the boundaries Rigol_carrier_frequency +/- Rigol_FM_deviation
-    specified in ExpermientVariables (which in turn must be set on the Rigol D11022Z).
-
-    :param self: an experiment instance.
-    :return:
-    """
-
-    set_RigolDG1022Z(frequency=self.Rigol_carrier_frequency,
-                     vpp=self.Rigol_V_pp,
-                     vdc=self.Rigol_V_DC)
-
-    self.core.reset()
-
-    self.SPCM0_RO1 = 0
-    self.SPCM0_RO2 = 0
-
-    self.require_D1_lock_to_advance = False # override experiment variable
-
-    # self.set_dataset(self.SPCM0_rate_dataset,
-    #                  [0.0],
-    #                  broadcast=True)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        #TODO: just set the rigol frequency using pyvisa
-
-        if self.enable_laser_feedback:
-            run_feedback_and_record_FORT_MM_power(self)
-
-        load_MOT_and_FORT(self)
-
-        delay(0.1*ms)
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-            channels=self.coil_channels)
-
-        # set the FORT AOM to the science setting. this is only valid if we have run
-        # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
-        self.dds_FORT.set(frequency=self.f_FORT,
-                                amplitude=self.stabilizer_FORT.amplitudes[1])
-
-        # set the cooling DP AOM to the readout settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                                amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
-
-        if not self.no_first_shot:
-            first_shot(self)
-
-            if self.t_recooling_after_first_shot > 0:
-                recooling_after_first_shot(self)
-
-        ##############################################################################
-        # modulate the FORT
-        ##############################################################################
-
-        self.FORT_mod_switch.on()  # toggle the modulation to the VCA
-        delay(10 * ms)
-        self.FORT_mod_switch.off()
-        delay(1 * ms)
-
-        second_shot(self)
-
-        end_measurement(self)
-
-    self.dds_FORT.sw.off()
+# @kernel
+# def trap_frequency_experiment(self):
+#     """
+#     For spectroscopy of the trap vibrational frequencies with the Rigol D11022Z function generator.
+#
+#     One way to use this is with GeneralVariableScan and scan_variable1 = f_Rigol_modulation,
+#     where f_Rigol_modulation must be within the boundaries Rigol_carrier_frequency +/- Rigol_FM_deviation
+#     specified in ExpermientVariables (which in turn must be set on the Rigol D11022Z).
+#
+#     :param self: an experiment instance.
+#     :return:
+#     """
+#
+#     set_RigolDG1022Z(frequency=self.Rigol_carrier_frequency,
+#                      vpp=self.Rigol_V_pp,
+#                      vdc=self.Rigol_V_DC)
+#
+#     self.core.reset()
+#
+#     self.SPCM0_RO1 = 0
+#     self.SPCM0_RO2 = 0
+#
+#     self.require_D1_lock_to_advance = False # override experiment variable
+#
+#     # self.set_dataset(self.SPCM0_rate_dataset,
+#     #                  [0.0],
+#     #                  broadcast=True)
+#
+#     self.measurement = 0
+#     while self.measurement < self.n_measurements:
+#
+#         #TODO: just set the rigol frequency using pyvisa
+#
+#         if self.enable_laser_feedback:
+#             run_feedback_and_record_FORT_MM_power(self)
+#
+#         load_MOT_and_FORT(self)
+#
+#         delay(0.1*ms)
+#         self.zotino0.set_dac(
+#             [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+#             channels=self.coil_channels)
+#
+#         # set the FORT AOM to the science setting. this is only valid if we have run
+#         # feedback to reach the corresponding setpoint first, which in this case, happened in load_MOT_and_FORT
+#         self.dds_FORT.set(frequency=self.f_FORT,
+#                                 amplitude=self.stabilizer_FORT.amplitudes[1])
+#
+#         # set the cooling DP AOM to the readout settings
+#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
+#                                 amplitude=self.ampl_cooling_DP_MOT*self.p_cooling_DP_RO)
+#
+#         if not self.no_first_shot:
+#             first_shot(self)
+#
+#             if self.t_recooling_after_first_shot > 0:
+#                 recooling_after_first_shot(self)
+#
+#         ##############################################################################
+#         # modulate the FORT
+#         ##############################################################################
+#
+#         self.FORT_mod_switch.on()  # toggle the modulation to the VCA
+#         delay(10 * ms)
+#         self.FORT_mod_switch.off()
+#         delay(1 * ms)
+#
+#         second_shot(self)
+#
+#         end_measurement(self)
+#
+#     self.dds_FORT.sw.off()
 
 @kernel
 def microwave_Rabi_experiment(self):

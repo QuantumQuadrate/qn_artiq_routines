@@ -220,10 +220,10 @@ class FeedbackChannel:
         if not self.stabilizer.exp.enable_laser_feedback:
             monitor_only = True
 
-        if self.stabilizer.exp.which_node == "alice":
-            # make sure we're feeding back without the modulation on
-            self.stabilizer.exp.FORT_mod_switch.off()
-            delay(0.1*ms)
+        # if self.stabilizer.exp.which_node == "alice":
+        #     # make sure we're feeding back without the modulation on
+        #     self.stabilizer.exp.FORT_mod_switch.off()
+        #     delay(0.1*ms)
 
         self.set_dds_to_defaults(setpoint_index)
         delay(10*us)
@@ -538,11 +538,11 @@ class AOMPowerStabilizer:
                 ch.set_dds_to_defaults()
                 delay(0.1 * ms)
 
-        if self.exp.which_node == "alice":
-            # make sure we're feeding back without the modulation on
-            delay(0.1*ms)
-            self.exp.FORT_mod_switch.off()
-            delay(0.1*ms)
+        # if self.exp.which_node == "alice":
+        #     # make sure we're feeding back without the modulation on
+        #     delay(0.1*ms)
+        #     self.exp.FORT_mod_switch.off()
+        #     delay(0.1*ms)
 
         for ch in self.series_channels:
             ch.dds_obj.sw.off()
