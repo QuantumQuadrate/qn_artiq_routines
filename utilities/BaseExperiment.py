@@ -190,9 +190,6 @@ class BaseExperiment:
             self.experiment.ttl_SPCM1 = self.experiment.ttl1
             self.experiment.ttl_SPCM1_counter = self.experiment.ttl1_counter
 
-            #todo: This is used as output in Node2; here I am putting here just to avoid error. keep noted;
-            self.experiment.ttl_D1_pumping = self.experiment.ttl3  ### not used in node 1. Just to avoid error.
-
             ### ttl4~7
             self.experiment.ttl_microwave_switch = self.experiment.ttl4
             self.experiment.ttl_repump_switch = self.experiment.ttl5
@@ -206,13 +203,21 @@ class BaseExperiment:
             self.experiment.ttl_SPCM1_OtherNode = self.experiment.ttl9
             self.experiment.ttl_SPCM1_OtherNode_counter = self.experiment.ttl9_counter
             # self.experiment.ttl_D1_lock_monitor = self.experiment.ttl10
+            self.experiment.ttl_Node2_atom_input = self.experiment.ttl11
 
             ### ttl12~15
-
-            self.experiment.ttl_Node2_atom = self.experiment.ttl11 ### should be on ttl12 when we need this to measure trap freq.
+            self.experiment.ttl_Node1_atom_output = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_Node1_exc_timing = self.experiment.ttl15
+            self.experiment.ttl_Node1_exc_timing_output = self.experiment.ttl15
+
+            ### todo: These are dummy definitions to avoid crashing; Keep in ming that these exist!!!!!!!
+            ##output: #todo: note that ttl15 is being used for "ttl_Node1_exc_timing_output"
+            self.experiment.ttl_Node2_atom_output = self.experiment.ttl15
+            ##input: ttl3 is not being used
+            self.experiment.ttl_Node1_atom_input = self.experiment.ttl3
+            self.experiment.ttl_Node1_exc_timing_input = self.experiment.ttl3
+            self.experiment.ttl_D1_pumping = self.experiment.ttl3 ## not used in node1
 
             ### for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -320,15 +325,15 @@ class BaseExperiment:
 
             ### ttl8~11
             # self.experiment.ttl_D1_lock_monitor = self.experiment.ttl8 #planninng to use this for Node1-2 communication
-            self.experiment.ttl_Node1_atom = self.experiment.ttl8
-            self.experiment.ttl_Node1_exc_timing = self.experiment.ttl9     #planninng to use this for Node1-2 communication
+            self.experiment.ttl_Node1_atom_input = self.experiment.ttl8
+            self.experiment.ttl_Node1_exc_timing_input = self.experiment.ttl9     #planninng to use this for Node1-2 communication
             # self.experiment.FORT_mod_switch = self.experiment.ttl11    #not being used
 
             ### ttl12~15
             self.experiment.ttl_D1_pumping = self.experiment.ttl12
             self.experiment.ttl_GRIN2_switch = self.experiment.ttl13
             self.experiment.ttl_GRIN1_switch = self.experiment.ttl14
-            self.experiment.ttl_Node2_atom = self.experiment.ttl15
+            self.experiment.ttl_Node2_atom_output = self.experiment.ttl15
 
             ### in experiment_functions.py, measure_FORT_MM_fiber() function
             ### BOB: IF FORT feedback use APD, make sure to change MM smapler ch & APD sampler ch in BaseExperiment.py
@@ -337,7 +342,12 @@ class BaseExperiment:
             # ##Sampler1; function "measure_GRIN1" in experiment functions.py
             self.experiment.GRIN1_sampler_ch = 4  # to avoid error. not implemented in node2
 
-
+            ### todo: These are dummy definitions to avoid crashing; Keep this in mind!!!!
+            ##input: ttl11 is not being used
+            self.experiment.ttl_Node2_atom_input = self.experiment.ttl11
+            ##output: #todo: note that ttl15 is being used for "ttl_Node2_atom_output"
+            self.experiment.ttl_Node1_atom_output = self.experiment.ttl5
+            self.experiment.ttl_Node1_exc_timing_output = self.experiment.ttl5
 
             ### for debugging/logging purposes in experiments
             self.experiment.coil_names = ["AZ bottom","AZ top","AX","AY"]
@@ -1068,14 +1078,14 @@ class BaseExperiment:
 
             ### ttl8~11
             # self.experiment.ttl_D1_lock_monitor.input()
-            self.experiment.ttl_Node2_atom.input()
+            self.experiment.ttl_Node2_atom_input.input()
 
             ### ttl12~15: already configured to be used as output at TTL card
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
             self.experiment.ttl_GRIN2_switch.on()  ### ensure no excitation or D1 is on at the beginning
             self.experiment.ttl_GRIN1_switch.on()  ### ensure no excitation or D1 is on at the beginning
-            self.experiment.ttl_Node1_exc_timing.output()
+            self.experiment.ttl_Node1_exc_timing_output.output()
 
             # self.experiment.FORT_mod_switch.output()
 
@@ -1109,8 +1119,8 @@ class BaseExperiment:
             delay(1*ms)
             # self.experiment.FORT_mod_switch.off()  # off = no modulation
 
-            self.experiment.ttl_Node1_exc_timing.off()
-            self.experiment.ttl_Node1_atom.off()
+            self.experiment.ttl_Node1_exc_timing_output.off()
+            self.experiment.ttl_Node1_atom_output.off()
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
@@ -1162,15 +1172,15 @@ class BaseExperiment:
 
             ### ttl8~11
             # self.experiment.ttl_D1_lock_monitor.input()
-            self.experiment.ttl_Node1_atom.input()   ##ttl8
-            self.experiment.ttl_Node1_exc_timing.input()   ##ttl9
+            self.experiment.ttl_Node1_atom_input.input()   ##ttl8
+            self.experiment.ttl_Node1_exc_timing_input.input()   ##ttl9
             # self.experiment.FORT_mod_switch.output()  ##?? why is this set to output
 
             ### ttl12~15: already configured to be used as output at TTL card
             self.experiment.ttl_D1_pumping.output()
             self.experiment.ttl_GRIN2_switch.output()
             self.experiment.ttl_GRIN1_switch.output()
-            self.experiment.ttl_Node2_atom.output()
+            self.experiment.ttl_Node2_atom_output.output()
 
             self.experiment.sampler0.init() # for reading laser feedback
             self.experiment.sampler1.init() # for reading laser feedback
@@ -1197,7 +1207,7 @@ class BaseExperiment:
             #todo: FOR Networking TTLs btw Nodes, what convention should I use; ON/OFF or OFF/ON
 
             # self.experiment.ttl_Node1_exc_timing.off()
-            self.experiment.ttl_Node2_atom.off()
+            self.experiment.ttl_Node2_atom_output.off()
 
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
