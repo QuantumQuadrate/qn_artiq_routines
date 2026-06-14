@@ -117,41 +117,109 @@ def waveplate_rotation_and_atom_loading_2_experiment(self):
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
 
+# @kernel
+# def test_ttl_pulse_experiment(self):
+#     """
+#     testing TTL on scope
+#     """
+#     self.core.reset()
+#
+#     self.measurement = 0
+#
+#     while self.measurement < self.n_measurements:
+#         delay(1*s)
+#
+#         self.ttl15.on()
+#         # delay(5*s)
+#         delay(80 * ns)
+#         # delay(100*ns)
+#
+#         self.ttl8.sample_input()
+#         readout = int(self.ttl8.sample_get())  ## this is 1 when the laser is locked, it is 0 otherwise.
+#         delay(1*s)
+#         print('ttl15 on, readout with ttl8 = ', readout)
+#
+#         self.ttl15.off()
+#         # delay(5*s)
+#         delay(80*ns)
+#         # delay(100*ns)
+#
+#         self.ttl8.sample_input()
+#         readout = int(self.ttl8.sample_get())  ## this is 1 when the laser is locked, it is 0 otherwise.
+#         delay(1*s)
+#         print('ttl15 off, readout with ttl8 = ', readout)
+#
+#         delay(1*s)
+
 @kernel
 def test_ttl_pulse_experiment(self):
     """
     testing TTL on scope
+                                Node1              Node2
+    ttl_Node1_atom:            ttl 12(out)         ttl 8 (in)
+    ttl_Node2_atom:            ttl 11(in)          ttl 15 (out)
+    ttl_Node1_exc_timing:      ttl 15(out)         ttl 9 (in)
+
     """
     self.core.reset()
-
     self.measurement = 0
 
+    if self.which_node == 'alice':
+        self.ttl11.input()
+        self.ttl12.output()
+        self.ttl15.output()
+    else:
+        self.ttl8.input()
+        self.ttl15.output()
+        self.ttl9.input()
+
     while self.measurement < self.n_measurements:
-        delay(1*s)
+        delay(1 * s)
+        # with parallel:
+        #     self.ttl8.sample_input()
+        #     self.ttl9.sample_input()
+        #
+        # with parallel:
+        #     readout1 = int(self.ttl8.sample_get())
+        #     readout2 = int(self.ttl9.sample_get())
+
+        print("-----n_measurements: ", self.measurement ,"-------")
+        print("pulsed ")
 
         self.ttl15.on()
-        # delay(5*s)
-        delay(80 * ns)
-        # delay(100*ns)
-
         self.ttl8.sample_input()
-        readout = int(self.ttl8.sample_get())  ## this is 1 when the laser is locked, it is 0 otherwise.
-        delay(1*s)
-        print('ttl15 on, readout with ttl8 = ', readout)
-
+        readout1 = int(self.ttl8.sample_get())
+        delay(2*s)
         self.ttl15.off()
+        self.ttl8.sample_input()
+        readout1 = int(self.ttl8.sample_get())
         # delay(5*s)
-        delay(80*ns)
+        # delay(6 * s)
+
+        # print("Reading out ttl12: ", readout1)
+        # print("Reading out ttl15: ", readout2)
+        delay(5 * s)
+
+        self.measurement += 1
+
         # delay(100*ns)
 
-        self.ttl8.sample_input()
-        readout = int(self.ttl8.sample_get())  ## this is 1 when the laser is locked, it is 0 otherwise.
-        delay(1*s)
-        print('ttl15 off, readout with ttl8 = ', readout)
-
-        delay(1*s)
+        # self.ttl8.sample_input()
+        # readout = int(self.ttl8.sample_get())  ## this is 1 when the laser is locked, it is 0 otherwise.
+        # delay(1*s)
+        # print('ttl15 on, readout with ttl8 = ', readout)
 
 
+        # # delay(5*s)
+        # delay(80*ns)
+        # # delay(100*ns)
+        #
+        # self.ttl8.sample_input()
+        #  = int(self.ttl8.sample_get())  ## this is 1 when the laser is locked, it is 0 otherwise.
+        # delay(1*s)
+        # print('ttl15 off, readout with ttl8 = ', readout)
+
+        # delay(1 * s)
 @kernel
 def test_RF_pulse_experiment(self):
     """
@@ -747,11 +815,17 @@ def load_MOT_and_FORT_until_atom(self):
             with parallel:
                 self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                 self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+                self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
+                self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
 
-            SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
-            SPCM1_atom_check = self.ttl_SPCM1_counter.fetch_count()
+            # SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
+            # SPCM1_atom_check = self.ttl_SPCM1_counter.fetch_count()
 
-            AllSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check) / 2)
+            # AllSPCMs_atom_check = int((SPCM0_atom_check + SPCM1_atom_check) / 2)
+            AllSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count() + \
+                                  self.ttl_SPCM1_counter.fetch_count() + \
+                                  self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
+                                  self.ttl_SPCM1_OtherNode_counter.fetch_count())
 
             try_n += 1
 
@@ -964,9 +1038,14 @@ def load_MOT_and_FORT_until_atom_recycle(self):
                 with parallel:
                     self.ttl_SPCM0_counter.gate_rising(atom_check_time)
                     self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
 
-                AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
-
+                # AllSPCMs_atom_check = int((self.ttl_SPCM0_counter.fetch_count() + self.ttl_SPCM1_counter.fetch_count()) / 2)
+                AllSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count() + \
+                                           self.ttl_SPCM1_counter.fetch_count() + \
+                                           self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
+                                           self.ttl_SPCM1_OtherNode_counter.fetch_count())
                 try_n += 1
 
                 ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
@@ -1183,10 +1262,10 @@ def load_until_atom_smooth_FORT_recycle(self):
                     self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
                     self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
 
-                AllSPCMs_atom_check = self.ttl_SPCM0_counter.fetch_count() + \
-                                           self.ttl_SPCM1_counter.fetch_count() + \
-                                           self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
-                                           self.ttl_SPCM1_OtherNode_counter.fetch_count()
+                AllSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count() + \
+                                          self.ttl_SPCM1_counter.fetch_count() + \
+                                          self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
+                                          self.ttl_SPCM1_OtherNode_counter.fetch_count())
 
                 try_n += 1
 
@@ -3769,13 +3848,15 @@ def atom_loading_optimizer_experiment(self):
                 self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
                 self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
 
-            SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
-            SPCM1_atom_check = self.ttl_SPCM1_counter.fetch_count()
-            SPCM0_OtherNode_atom_check = self.ttl_SPCM0_OtherNode_counter.fetch_count()
-            SPCM1_OtherNode_atom_check = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+            # SPCM0_atom_check = self.ttl_SPCM0_counter.fetch_count()
+            # SPCM1_atom_check = self.ttl_SPCM1_counter.fetch_count()
+            # SPCM0_OtherNode_atom_check = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+            # SPCM1_OtherNode_atom_check = self.ttl_SPCM1_OtherNode_counter.fetch_count()
 
-            AllSPCMs_atom_check = SPCM0_atom_check + SPCM1_atom_check + SPCM0_OtherNode_atom_check + SPCM1_OtherNode_atom_check
-
+            AllSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count() + \
+                                      self.ttl_SPCM1_counter.fetch_count() + \
+                                      self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
+                                      self.ttl_SPCM1_OtherNode_counter.fetch_count())
             try_n += 1
 
             if AllSPCMs_atom_check / atom_check_time > self.single_atom_threshold_for_loading:
