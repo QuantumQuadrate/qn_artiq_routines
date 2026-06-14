@@ -167,9 +167,9 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         last_state = False
 
         delay(1 * ms)
-        if self.FORT_modulation_switch_on:
-            self.FORT_mod_switch.on()  # transmit the modulation to the VCA
-            delay(1 * ms)
+        # if self.FORT_modulation_switch_on:
+        #     self.FORT_mod_switch.on()  # transmit the modulation to the VCA
+        #     delay(1 * ms)
 
         print("ready!")
         delay(20 * ms)
@@ -185,9 +185,9 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                 delay(100*ms)
                 if self.FORT_AOM_on:
                     self.dds_FORT.sw.on()
-                if self.FORT_modulation_switch_on:
-                    self.FORT_mod_switch.on()  # transmit the modulation to the VCA
-                    delay(1 * ms)
+                # if self.FORT_modulation_switch_on:
+                #     self.FORT_mod_switch.on()  # transmit the modulation to the VCA
+                #     delay(1 * ms)
 
             else:
                 delay(10*ms)

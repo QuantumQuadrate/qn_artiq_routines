@@ -16,6 +16,9 @@ class AOMsCoils(EnvExperiment):
         self.base.build()
 
         # experiment variables which are specific to this experiment
+        self.setattr_argument("Atom_signal_to_other_node_ON", BooleanValue(default=False), "Two node experiment - networking ttls")
+        self.setattr_argument("Other_node_atom_signal_checker", BooleanValue(default=False), "Two node experiment - networking ttls")
+
         self.setattr_argument("disable_coils", BooleanValue(default=False))
         self.setattr_argument("FORT_AOM_ON", BooleanValue(default=False))
         self.setattr_argument("Cooling_DP_AOM_ON", BooleanValue(default=False))
@@ -71,6 +74,40 @@ class AOMsCoils(EnvExperiment):
         shut off for the feedback phase
         :return:
         """
+
+        delay(1 * ms)
+        if self.Atom_signal_to_other_node_ON == True:
+            if self.which_node == "alice":
+                self.ttl_Node1_atom_output.on()
+                self.print_async("Node1 TTL is ON.")
+            else:
+                self.ttl_Node2_atom_output.on()
+                self.print_async("Node2 TTL is ON.")
+        else:
+            if self.which_node == "alice":
+                self.ttl_Node1_atom_output.off()
+                self.print_async("Node1 TTL is OFF.")
+            else:
+                self.ttl_Node2_atom_output.off()
+                self.print_async("Node2 TTL is OFF.")
+        delay(1 * ms)
+        if self.Other_node_atom_signal_checker == True:
+            if self.which_node == "alice":
+                self.ttl_Node2_atom_input.sample_input()
+                readout = int(self.ttl_Node2_atom_input.sample_get())
+
+                if readout == 1:
+                    self.print_async("Node2 is running.")
+                else:
+                    self.print_async("Node2 is NOT running.")
+            else:
+                self.ttl_Node1_atom_input.sample_input()
+                readout = int(self.ttl_Node1_atom_input.sample_get())
+
+                if readout == 1:
+                    self.print_async("Node1 is running.")
+                else:
+                    self.print_async("Node1 is NOT running.")
 
         delay(1 * ms)
         if self.FORT_AOM_ON == True:
