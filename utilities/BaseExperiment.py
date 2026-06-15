@@ -126,6 +126,8 @@ class BaseExperiment:
         self.experiment.AllSPCMs_RO2 = 0
         self.experiment.AllSPCMs_parity_RO = 0
         self.experiment.atom_loading_time = 0.0
+        self.experiment.atom_loading_time_other_node = 0.0
+
 
         self.experiment.SPCM0_test_RO = 0
         self.experiment.SPCM1_test_RO = 0
@@ -685,6 +687,8 @@ class BaseExperiment:
                 self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_other_node_list = [0.0] * self.experiment.n_measurements
+
 
             except:
                 ### if this fails, your experiment probably didn't need it
@@ -787,6 +791,7 @@ class BaseExperiment:
                 self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_other_node_list = [0.0] * self.experiment.n_measurements
 
             except:
                 ### if this fails, your experiment probably didn't need it
@@ -870,6 +875,7 @@ class BaseExperiment:
                 self.experiment.AllSPCMs_RO1_list = [0] * self.experiment.n_measurements
                 self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
+                self.experiment.atom_loading_time_other_node_list = [0.0] * self.experiment.n_measurements
 
             except:
                 ### if this fails, your experiment probably didn't need it
@@ -970,6 +976,8 @@ class BaseExperiment:
         self.experiment.set_dataset("n_excitation_cycles", [0], broadcast=True)
         self.experiment.set_dataset("Atom_loading_time", [0.0], broadcast=True)
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
+        self.experiment.set_dataset("Atom_loading_time_other_node", [0.0], broadcast=True)
+        self.experiment.set_dataset("time_without_atom_other_node", [0.0], broadcast=True)
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("GRIN1_EXC_monitor", [0.0], broadcast=True)
