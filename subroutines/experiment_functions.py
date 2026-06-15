@@ -1494,7 +1494,7 @@ def load_until_atom_in_both_nodes_together_recycle(self):
     while not other_node_ready:
         self.print_async("--------------------------------")
         self.print_async("Checking the other node every 1s")
-        wait_time = 1*s
+        wait_time = 100*ms
         delay(wait_time)
         if self.which_node == "alice":
             self.ttl_Node2_atom_input.sample_input()
@@ -1522,8 +1522,49 @@ def load_until_atom_in_both_nodes_together_recycle(self):
                 # delay(1 * ms)
                 # delay(wait_time)
 
-    delay(1*s)
+    delay(100 * ms)
     self.print_async("Synchronizing")
+
+    ############################################################
+    # Turn OFF this node's TTL to be ready for synchronization.
+    ############################################################
+    if self.which_node == "alice":
+        self.ttl_Node1_atom_output.off()
+        self.print_async("Node1 ready TTL is OFF after synchronization.")
+    else:
+        self.ttl_Node2_atom_output.off()
+        self.print_async("Node2 ready TTL is OFF after synchronization.")
+
+    delay(10 * us)
+
+    # if self.which_node == "alice":
+    #     at_mu(t0 + 1000)
+    #     self.ttl_Node1_atom_output.pulse(1*us)   ## this is defined as ttl_Node2_atom_output but will not disturb here;
+    #     self.print_async("[Synchronization] Node1 sending TTL to Node2")
+    # else:
+    #     at_mu(t0 + 500)
+    #     t1 = self.ttl_Node1_atom_input.timestamp_mu(2000)
+    #     self.print_async("[Synchronization] Node2 receiving TTL from Node1")
+
+    t1 = -1.0
+    #### setting time cursor
+    t0 = now_mu()
+    #### if self.which_node == "alice":
+    at_mu(t0 + 1000)
+    with parallel:
+        self.ttl_Node1_atom_output.pulse(1*us)   ## this is defined as ttl_Node2_atom_output but will not disturb here;
+        self.print_async("[Synchronization] Node1 sending TTL to Node2")
+    #### if self.which_node == "bob":
+    at_mu(t0 + 500)
+    with parallel:
+        t1 = self.ttl_Node1_atom_input.timestamp_mu(2000)
+        self.print_async("[Synchronization] Node2 receiving TTL from Node1")
+
+    if t1 == -1.0:
+        self.print_async("No timestamp")
+    else:
+        self.print_async("Yes timestamp: ", int((t1-t0)*1000), "us")
+
 
     ############################################################
     # Both nodes are ready.
@@ -1534,17 +1575,6 @@ def load_until_atom_in_both_nodes_together_recycle(self):
     t_after_atom = two_nodes_synchronized
     t_no_atom = two_nodes_synchronized
 
-    ############################################################
-    # Turn OFF this node's TTL after synchronization.
-    ############################################################
-    if self.which_node == "alice":
-        self.ttl_Node1_atom_output.off()
-        self.print_async("Node1 ready TTL is OFF after synchronization.")
-    else:
-        self.ttl_Node2_atom_output.off()
-        self.print_async("Node2 ready TTL is OFF after synchronization.")
-
-    delay(100 * us)
 
     ############################################################
     # Start combined atom loading check.
@@ -1659,7 +1689,7 @@ def load_until_atom_in_both_nodes_together_recycle(self):
         ########################################################
         try_n = 0
 
-    if self.which_node = "alice":
+    if self.which_node == "alice":
         self.zotino0.set_dac([0.0], self.UV_trig_channel)
         delay(100 * us)
 
@@ -1737,7 +1767,7 @@ def load_until_atom_in_both_nodes_together_recycle(self):
 
     delay(10 * ms)
 
-    if self.which_node = "alice":
+    if self.which_node == "alice":
         self.dds_FORT.sw.off()  # FORT OFF
 
 @kernel
