@@ -1489,7 +1489,7 @@ def load_until_atom_in_both_nodes_together_recycle(self):
 
     ############################################################
     # Wait until the other node is also ready.
-    # Check every 1 ms.
+    # Check every 1 s.
     ############################################################
     while not other_node_ready:
         self.print_async("--------------------------------")
@@ -1521,6 +1521,9 @@ def load_until_atom_in_both_nodes_together_recycle(self):
                 other_node_ready = False
                 # delay(1 * ms)
                 # delay(wait_time)
+
+    delay(1*s)
+    self.print_async("Synchronizing")
 
     ############################################################
     # Both nodes are ready.
@@ -1633,9 +1636,6 @@ def load_until_atom_in_both_nodes_together_recycle(self):
             broadcast=True
         )
 
-        ########################################################
-        # Optional feedback.
-        ########################################################
         if self.enable_laser_feedback:
             delay(0.1 * ms)
 
@@ -1659,15 +1659,10 @@ def load_until_atom_in_both_nodes_together_recycle(self):
         ########################################################
         try_n = 0
 
-    ############################################################
-    # Turn off UV trigger.
-    ############################################################
-    self.zotino0.set_dac([0.0], self.UV_trig_channel)
-    delay(100 * us)
+    if self.which_node = "alice":
+        self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        delay(100 * us)
 
-    ############################################################
-    # Set coils to PGC setting.
-    ############################################################
     self.zotino0.set_dac(
         [
             self.AZ_bottom_volts_PGC,
@@ -1741,6 +1736,9 @@ def load_until_atom_in_both_nodes_together_recycle(self):
     self.print_async("Combined two-node atom loading complete.")
 
     delay(10 * ms)
+
+    if self.which_node = "alice":
+        self.dds_FORT.sw.off()  # FORT OFF
 
 @kernel
 def load_until_atom_smooth_FORT_recycle(self):
