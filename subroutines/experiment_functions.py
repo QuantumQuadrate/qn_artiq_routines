@@ -1558,7 +1558,6 @@ def load_until_atom_in_both_nodes_together_recycle(self):
     delay(5*ms)
     #################################################################
 
-
 #     # delay(10 * us)
 #     #
 #     # for n in range(4):
