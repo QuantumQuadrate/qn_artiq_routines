@@ -338,7 +338,9 @@ class ExperimentVariables(EnvExperiment):
 
             # Thresholds and cut-offs
             Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
-            Variable("single_atom_threshold_for_loading", 14000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_threshold_for_loading", 44000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_in_both_nodes_threshold", 20000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_in_both_nodes_threshold_for_loading", 84000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
             Variable("set_point_PD1_AOM_A1", 0.0347, NumberValue, {'type':'float','ndecimals':4}, "Set points"),
