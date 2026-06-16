@@ -1532,6 +1532,7 @@ def load_until_atom_in_both_nodes_together_recycle(self):
     ############################################################
     # Synchronizing with time tag
     ############################################################
+    ##### Syncing by sending a TTL pulse from node1 to node2
     t_node1_ref_0 = -1
     t_node2_ref_0 = -1
 
@@ -1543,16 +1544,16 @@ def load_until_atom_in_both_nodes_together_recycle(self):
         t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(1*ms)
         t_node2_ref_0 = self.ttl_Node1_exc_timing_input.timestamp_mu(t_gate_end)
 
-
     delay(1 * ms)
-    node1_sync_offset_0 = self.core.seconds_to_mu(5*ms) + 200
-    node2_sync_offset_0 = self.core.seconds_to_mu(5*ms)
+    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(5 * ms) + 200
+    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(5 * ms)
 
+    #### Testing the sync by generating a ttl pulse from both nodes to the scope.
     if self.which_node == "alice":
-        at_mu(t_node1_ref_0 + int(node1_sync_offset_0))
+        at_mu(t_node1_ref_1)
         self.ttl_pumping_repump_switch.pulse(5*us)
     else:
-        at_mu(t_node2_ref_0 + int(node2_sync_offset_0))
+        at_mu(t_node2_ref_1)
         self.ttl_pumping_repump_switch.pulse(5*us)
 
     delay(5*ms)
