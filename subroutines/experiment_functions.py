@@ -4569,7 +4569,7 @@ def Two_nodes_atom_loading_2_experiment(self):
 
         delay(self.t_delay_between_shots)
         second_shot(self)
-        #
+
         # if self.which_node == "alice":
         #     ##sequence done;
         #     self.ttl_Node1_atom_output.on()
