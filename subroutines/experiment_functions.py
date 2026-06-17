@@ -152,6 +152,100 @@ def waveplate_rotation_and_atom_loading_2_experiment(self):
 #         delay(1*s)
 
 @kernel
+def two_nodes_synchronization(self):
+    ############################################################
+    # Starting synchronization
+    # Signal to the other node.
+    ############################################################
+    other_node_ready = False
+    readout = 0
+
+    if self.which_node == "alice":
+        self.ttl_Node1_atom_output.on()
+        # self.print_async("Node1 ready TTL is ON.")
+    else:
+        self.ttl_Node2_atom_output.on()
+        # self.print_async("Node2 ready TTL is ON.")
+
+    delay(0.01 * ms)
+
+    ############################################################
+    # Wait until the other node is also ready.
+    # Check every 1 s.
+    ############################################################
+    while not other_node_ready:
+        # self.print_async("--------------------------------")
+        # self.print_async("Checking the other node every ")
+        wait_time = 10*us
+        delay(wait_time)
+        if self.which_node == "alice":
+            self.ttl_Node2_atom_input.sample_input()
+            delay(1 * us)
+            readout = int(self.ttl_Node2_atom_input.sample_get())
+            ## this can be replaced with sample_get_nonrt; but it has core.break_realtime() so needs to be careful
+
+            if readout == 1:
+                other_node_ready = True
+                # self.print_async("Node2 is ready.")
+            else:
+                other_node_ready = False
+                # delay(1 * ms)
+                # delay(wait_time)
+
+        else:
+            self.ttl_Node1_atom_input.sample_input()
+            delay(1 * us)
+            readout = int(self.ttl_Node1_atom_input.sample_get())
+
+            if readout == 1:
+                other_node_ready = True
+                # self.print_async("Node1 is ready.")
+            else:
+                other_node_ready = False
+                # delay(1 * ms)
+                # delay(wait_time)
+
+    delay(0.01 * ms)
+    self.print_async("Synchronizing")
+
+    ############################################################
+    # Synchronizing with time tag
+    ############################################################
+    ##### Syncing by sending a TTL pulse from node1 to node2
+    t_node1_ref_0 = -1
+    t_node2_ref_0 = -1
+
+    if self.which_node == "alice":
+        delay(100*us)
+        t_node1_ref_0 = now_mu()
+        self.ttl_Node1_exc_timing_output.pulse(500*ns)
+    else:
+        t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(10*ms)
+        t_node2_ref_0 = self.ttl_Node1_exc_timing_input.timestamp_mu(t_gate_end)
+
+    delay(1 * ms)
+    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(20 * ms) + 200
+    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(20 * ms)
+
+    if self.which_node == "alice":
+        at_mu(t_node1_ref_1)
+    else:
+        at_mu(t_node2_ref_1)
+
+    ############################################################
+    # Ending synchronization
+    # Signal OFF
+    ############################################################
+    if self.which_node == "alice":
+        self.ttl_Node1_atom_output.off()
+        # self.print_async("Node1 ready TTL is ON.")
+    else:
+        self.ttl_Node2_atom_output.off()
+        # self.print_async("Node2 ready TTL is ON.")
+
+    delay(0.01 * ms)
+
+@kernel
 def test_ttl_pulse_experiment(self):
     """
     testing TTL on scope
@@ -1541,18 +1635,20 @@ def load_until_atom_in_both_nodes_together_recycle(self):
         t_node1_ref_0 = now_mu()
         self.ttl_Node1_exc_timing_output.pulse(500*ns)
     else:
-        t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(5*ms)
+        t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(10*ms)
         t_node2_ref_0 = self.ttl_Node1_exc_timing_input.timestamp_mu(t_gate_end)
 
     delay(1 * ms)
-    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(10 * ms) + 200
-    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(10 * ms)
+    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(20 * ms) + 200
+    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(20 * ms)
 
-    if which_node == "alice":
+    if self.which_node == "alice":
         at_mu(t_node1_ref_1)
     else:
         at_mu(t_node2_ref_1)
 
+
+    #################################################################
     # #### Testing the sync by generating a ttl pulse from both nodes to the scope.
     # self.ttl_pumping_repump_switch.pulse(5 * us)
     # delay(5*ms)
@@ -1732,26 +1828,27 @@ def load_until_atom_in_both_nodes_together_recycle(self):
             self.dds_microwaves.sw.on()
             self.dds_FORT.sw.on()
 
-            ##### Syncing by sending a TTL pulse from node1 to node2
-            t_node1_ref_0 = -1
-            t_node2_ref_0 = -1
-
-            if self.which_node == "alice":
-                delay(100 * us)
-                t_node1_ref_0 = now_mu()
-                self.ttl_Node1_exc_timing_output.pulse(500 * ns)
-            else:
-                t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(5 * ms)
-                t_node2_ref_0 = self.ttl_Node1_exc_timing_input.timestamp_mu(t_gate_end)
-
-            delay(1 * ms)
-            t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(10 * ms) + 200
-            t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(10 * ms)
-
-            if which_node == "alice":
-                at_mu(t_node1_ref_1)
-            else:
-                at_mu(t_node2_ref_1)
+            # ##### Syncing by sending a TTL pulse from node1 to node2
+            # t_node1_ref_0 = -1
+            # t_node2_ref_0 = -1
+            #
+            # if self.which_node == "alice":
+            #     delay(100 * us)
+            #     t_node1_ref_0 = now_mu()
+            #     self.ttl_Node1_exc_timing_output.pulse(500 * ns)
+            # else:
+            #     t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(5 * ms)
+            #     t_node2_ref_0 = self.ttl_Node1_exc_timing_input.timestamp_mu(t_gate_end)
+            #
+            # delay(1 * ms)
+            # t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(10 * ms) + 200
+            # t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(10 * ms)
+            #
+            # if self.which_node == "alice":
+            #     at_mu(t_node1_ref_1)
+            # else:
+            #     at_mu(t_node2_ref_1)
+            # ##### Syncing by sending a TTL pulse from node1 to node2
 
             delay(0.1 * ms)
 
@@ -4019,19 +4116,19 @@ def end_measurement(self):
     # delay(1*ms)
     # measure_FORT_MM_fiber(self)
 
-    if self.which_node == "alice":
-        # delay(1 * ms)
-        # measure_GRIN1(self)
-        # delay(1 * ms)
-        # measure_PUMPING_REPUMP(self)
-        # delay(1 * ms)
-        # measure_Magnetometer(self)
-        # delay(1*ms)
-        # Sampler_test(self)
-        # delay(1*ms)
-        # measure_MOT_end(self)
-        # delay(1*ms)
-        measure_REPUMP(self)
+    # if self.which_node == "alice":
+    #     # delay(1 * ms)
+    #     # measure_GRIN1(self)
+    #     # delay(1 * ms)
+    #     # measure_PUMPING_REPUMP(self)
+    #     # delay(1 * ms)
+    #     # measure_Magnetometer(self)
+    #     # delay(1*ms)
+    #     # Sampler_test(self)
+    #     # delay(1*ms)
+    #     # measure_MOT_end(self)
+    #     # delay(1*ms)
+    #     measure_REPUMP(self)
     # elif self.which_node == "bob":
     #     measure_Magnetometer_Node2(self)
 
@@ -4544,17 +4641,18 @@ def Two_nodes_atom_loading_2_experiment(self):
             t_node1_ref_0 = now_mu()
             self.ttl_Node1_exc_timing_output.pulse(500 * ns)
         else:
-            t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(5 * ms)
+            t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(10 * ms)
             t_node2_ref_0 = self.ttl_Node1_exc_timing_input.timestamp_mu(t_gate_end)
 
         delay(1 * ms)
-        t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(10 * ms) + 200
-        t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(10 * ms)
+        t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(20 * ms) + 200
+        t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(20 * ms)
 
-        if which_node == "alice":
+        if self.which_node == "alice":
             at_mu(t_node1_ref_1)
         else:
             at_mu(t_node2_ref_1)
+        ##### Syncing by sending a TTL pulse from node1 to node2
 
         first_shot(self)
         delay(1 * ms)
@@ -4568,6 +4666,29 @@ def Two_nodes_atom_loading_2_experiment(self):
             self.dds_FORT.sw.on()
 
         delay(self.t_delay_between_shots)
+
+        ##### Syncing by sending a TTL pulse from node1 to node2
+        t_node1_ref_0 = -1
+        t_node2_ref_0 = -1
+
+        if self.which_node == "alice":
+            delay(100 * us)
+            t_node1_ref_0 = now_mu()
+            self.ttl_Node1_exc_timing_output.pulse(500 * ns)
+        else:
+            t_gate_end = self.ttl_Node1_exc_timing_input.gate_rising(10 * ms)
+            t_node2_ref_0 = self.ttl_Node1_exc_timing_input.timestamp_mu(t_gate_end)
+
+        delay(1 * ms)
+        t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(20 * ms) + 200
+        t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(20 * ms)
+
+        if self.which_node == "alice":
+            at_mu(t_node1_ref_1)
+        else:
+            at_mu(t_node2_ref_1)
+        ##### Syncing by sending a TTL pulse from node1 to node2
+
         second_shot(self)
 
         # if self.which_node == "alice":
