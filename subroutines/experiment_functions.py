@@ -1769,7 +1769,7 @@ def load_until_atom_in_both_nodes_together_recycle(self):
             ####################################################
             # Combined two-node atom loading condition.
             ####################################################
-            if AllSPCMs_atom_check / atom_check_time > self.single_atom_in_both_nodes_threshold_for_loading:
+            if AllSPCMs_atom_check / atom_check_time > self.two_atom_threshold_for_loading:
                 delay(100 * us)
                 atom_loaded = True
                 AllSPCMs_atom_check_loaded = AllSPCMs_atom_check
