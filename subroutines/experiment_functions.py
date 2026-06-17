@@ -4453,9 +4453,9 @@ def atom_loading_2_experiment(self):
             load_until_atom_smooth_FORT_recycle(self)
         elif self.which_node == 'bob':
             # load_MOT_and_FORT_until_atom(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
+            load_MOT_and_FORT_until_atom_recycle(self)
             # load_until_atom_smooth_FORT_recycle(self)
-            load_atom_in_both_nodes_recycle(self)
+            # load_atom_in_both_nodes_recycle(self)
 
         # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
