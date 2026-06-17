@@ -159,6 +159,9 @@ def two_nodes_synchronization(self):
     # ############################################################
     other_node_ready = False
     readout = 0
+
+    delay(1*ms)
+
     #
     # if self.which_node == "alice":
     #     self.ttl_Node1_atom_output.on()
@@ -206,7 +209,7 @@ def two_nodes_synchronization(self):
                 # delay(wait_time)
 
     delay(0.01 * ms)
-    self.print_async("Synchronizing")
+    self.print_async("Both nodes are ready for synchronization")
 
     ############################################################
     # Synchronizing with time tag
@@ -244,6 +247,8 @@ def two_nodes_synchronization(self):
     #     # self.print_async("Node2 ready TTL is ON.")
     #
     # delay(0.01 * ms)
+
+
 
 @kernel
 def test_ttl_pulse_experiment(self):
@@ -314,6 +319,7 @@ def test_ttl_pulse_experiment(self):
         # print('ttl15 off, readout with ttl8 = ', readout)
 
         # delay(1 * s)
+
 @kernel
 def test_RF_pulse_experiment(self):
     """
@@ -2028,8 +2034,9 @@ def load_until_atom_in_both_nodes_together_recycle2(self):
     self.dds_FORT.sw.on()
 
     if self.which_node == "alice":
-        delay(1 * ms)
+        # delay(1 * ms)
         self.zotino0.set_dac([3.5], self.UV_trig_channel)
+    delay(1 * ms)
 
     ############################################################
     # This node is now ready for synchronized loading readout.
@@ -2270,6 +2277,7 @@ def load_until_atom_in_both_nodes_together_recycle2(self):
     # # else:
     # #     delay(1*ms)
     # delay(10*ms)
+
 @kernel
 def load_until_atom_smooth_FORT_recycle(self):
     """
