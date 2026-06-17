@@ -159,6 +159,9 @@ def two_nodes_synchronization(self):
     # ############################################################
     other_node_ready = False
     readout = 0
+
+    delay(1 * ms)
+
     #
     # if self.which_node == "alice":
     #     self.ttl_Node1_atom_output.on()
@@ -2028,8 +2031,9 @@ def load_until_atom_in_both_nodes_together_recycle2(self):
     self.dds_FORT.sw.on()
 
     if self.which_node == "alice":
-        delay(1 * ms)
+        # delay(1 * ms)
         self.zotino0.set_dac([3.5], self.UV_trig_channel)
+    delay(1 * ms)
 
     ############################################################
     # This node is now ready for synchronized loading readout.
