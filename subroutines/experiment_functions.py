@@ -479,6 +479,160 @@ def two_nodes_synchronization2_faisal_trial(self) -> TBool:
 #             at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
 #             not_synchronized =  True
 
+# @kernel
+# def two_nodes_synchronization2(self):
+#     t_node1_ref_0 = -1
+#     t_node2_ref_0 = -1
+#
+#     poll_period = 1 * ms
+#     timeout_cycles = 10000  # 10 s if poll_period = 1 ms and timeout_cycles = 10000
+#     ack_delay_mu = self.core.seconds_to_mu(50 * us)
+#     common_delay_mu = self.core.seconds_to_mu(2 * ms)
+#
+#     alice_extra_offset_mu = 200  ### Calibrated this on the scope.
+#
+#     self.core.break_realtime()
+#     delay(100 * us)
+#
+#     self.print_async("******* Syncing the nodes **********")
+#
+#     max_tries = 100
+#     trial = 0
+#     not_synchronized = True
+#     while not_synchronized and trial < max_tries:
+#         self.print_async("trial: ", trial)
+#         trial+=1
+#         if self.which_node == "bob":
+#
+#             #### Open Bob's input gate first.
+#             t_gate_start = now_mu() + self.core.seconds_to_mu(100 * us)
+#             at_mu(t_gate_start)
+#             t_gate_end = self.ttl_node1_input1.gate_rising(10 * s)
+#
+#             ### Now assert READY while the gate is open.
+#             ### This is scheduled after gate opening but before calling timestamp_mu().
+#             at_mu(t_gate_start + self.core.seconds_to_mu(10 * us))
+#             self.ttl_node2_output1.on()
+#
+#             ### Now wait for Alice's reference pulse.
+#             t_node2_ref_0 = self.ttl_node1_input1.timestamp_mu(t_gate_end)
+#
+#             if t_node2_ref_0 < 0:
+#                 self.core.break_realtime()
+#                 self.ttl_node2_output1.off()
+#                 not_synchronized = False
+#                 continue
+#
+#             ### Drop READY after successful sync.
+#             self.core.break_realtime()
+#             self.ttl_node2_output1.off()
+#
+#             ### Put Bob at the common future reference.
+#             at_mu(t_node2_ref_0 + common_delay_mu)
+#             not_synchronized = True
+#             continue
+#
+#         else:
+#             ### Alice polls Bob's READY level.
+#             ready = False
+#             for i in range(timeout_cycles):
+#                 self.ttl_node2_input1.sample_input()
+#                 delay(1 * us)
+#                 if int(self.ttl_node2_input1.sample_get()):
+#                     ready = True
+#                     break
+#                 delay(poll_period)
+#
+#             if not ready:
+#                 self.core.break_realtime()
+#                 not_synchronized = False
+#                 continue
+#
+#             ### Alice sends the reference pulse at a deterministic future time.
+#             t_node1_ref_0 = now_mu() + ack_delay_mu
+#             at_mu(t_node1_ref_0)
+#             self.ttl_node1_output1.pulse(500 * ns)
+#
+#             ### Put Alice at the corresponding future reference.
+#             at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
+#             not_synchronized = True
+@kernel
+def two_nodes_synchronization2_faisal_trial(self) -> TBool:
+    t_node1_ref_0 = np.int64(-1)
+    t_node2_ref_0 = np.int64(-1)
+
+    poll_period = 1 * ms
+    timeout_cycles = 10000     # 10 s if poll_period = 1 ms and timeout_cycles = 10000
+    ack_delay_mu = self.core.seconds_to_mu(50 * us)
+    common_delay_mu = self.core.seconds_to_mu(2 * ms)
+
+    alice_extra_offset_mu = np.int64(200)  ### Calibrated this on the scope.
+
+    self.core.break_realtime()
+    delay(100 * us)
+
+    self.print_async("******* Syncing the nodes **********")
+
+    if self.which_node == "bob":
+
+        #### Open Bob's input gate first.
+        t_gate_start = now_mu() + self.core.seconds_to_mu(100 * us)
+        gate_duration_mu = self.core.seconds_to_mu(10*s)
+        t_gate_end = t_gate_start + gate_duration_mu
+
+
+        at_mu(t_gate_start)
+        with parallel:
+            self.ttl_node1_input1.gate_rising_mu(gate_duration_mu)
+            with sequential:
+                delay(10*us)
+                self.ttl_node2_output1.on()
+
+
+        ### Now wait for Alice's reference pulse.
+        t_node2_ref_0 = self.ttl_node1_input1.timestamp_mu(t_gate_end)
+
+        if t_node2_ref_0 < 0:
+            self.core.break_realtime()
+            self.ttl_node2_output1.off()
+            return False
+
+        ### Drop READY after successful sync.
+        self.core.break_realtime()
+        self.ttl_node2_output1.off()
+
+        ### Put Bob at the common future reference.
+        at_mu(t_node2_ref_0 + common_delay_mu)
+        return True
+
+    else:
+
+        self.ttl_node2_input1.count(now_mu())
+
+        ### Alice polls Bob's READY level.
+        ready = False
+        for i in range(timeout_cycles):
+            self.ttl_node2_input1.sample_input()
+            delay(1 * us)
+            if int(self.ttl_node2_input1.sample_get()):
+                ready = True
+                break
+            delay(poll_period)
+
+        if not ready:
+            self.core.break_realtime()
+            return False
+
+        ### Alice sends the reference pulse at a deterministic future time.
+        t_node1_ref_0 = now_mu() + ack_delay_mu
+        at_mu(t_node1_ref_0)
+        self.ttl_node1_output1.pulse(500 * ns)
+
+        ### Put Alice at the corresponding future reference.
+        at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
+        return True
+
+
 @kernel
 def test_ttl_pulse_experiment(self):
     """
