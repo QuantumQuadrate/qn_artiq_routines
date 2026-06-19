@@ -152,32 +152,38 @@ def waveplate_rotation_and_atom_loading_2_experiment(self):
 
 @kernel
 def two_nodes_synchronization(self):
+    """
+    1. Initial coarse synchronization(Two-way communication)
+    - ttl_node1_output1 and ttl_node2_output1 turned ON
+    - IF both nodes receives this signal, move on to finer synchronization
+    2. Fine synchronization(One-way communication)
+    - ttl_node1_output2 is pulsed @ t_node1_ref_0
+    - node2 receives this siganl and time tags @ t_node2_ref_0
+    3. Sets each node's time cursor to 150us after this.
+    """
     # ############################################################
     # # Starting synchronization
     # # Signal to the other node.
     # ############################################################
     other_node_ready = False
     readout = 0
+    sync_starting_at = now_mu()
 
-    delay(1 * ms)
+    delay(0.01 * ms)
 
-    #
-    # if self.which_node == "alice":
-    #     self.ttl_node1_output1.on()
-    #     # self.print_async("Node1 ready TTL is ON.")
-    # else:
-    #     self.ttl_node2_output1.on()
-    #     # self.print_async("Node2 ready TTL is ON.")
-    #
-    # delay(0.01 * ms)
+    if self.which_node == "alice":
+        self.ttl_node1_output1.on()
+    else:
+        self.ttl_node2_output1.on()
+
+    delay(0.01 * ms)
 
     ############################################################
+    # 1. Initial coarse synchronization
     # Wait until the other node is also ready.
-    # Check every 1 s.
+    # Check every wait_time
     ############################################################
     while not other_node_ready:
-        # self.print_async("--------------------------------")
-        # self.print_async("Checking the other node every ")
         wait_time = 10*us
         delay(wait_time)
         if self.which_node == "alice":
@@ -188,11 +194,8 @@ def two_nodes_synchronization(self):
 
             if readout == 1:
                 other_node_ready = True
-                # self.print_async("Node2 is ready.")
             else:
                 other_node_ready = False
-                # delay(1 * ms)
-                # delay(wait_time)
 
         else:
             self.ttl_node1_input1.sample_input()
@@ -201,38 +204,37 @@ def two_nodes_synchronization(self):
 
             if readout == 1:
                 other_node_ready = True
-                # self.print_async("Node1 is ready.")
             else:
                 other_node_ready = False
-                # delay(1 * ms)
-                # delay(wait_time)
 
     delay(0.01 * ms)
-    self.print_async("Both nodes are ready for synchronization")
 
     ############################################################
+    # 2. Fine synchronization
     # Synchronizing with time tag
     ############################################################
+    #todo: check if these timings can be reduced or needs to be increased
+    #      now it takes 221us for the entire syncrhonization to be done;
     ##### Syncing by sending a TTL pulse from node1 to node2
     t_node1_ref_0 = -1
     t_node2_ref_0 = -1
 
     if self.which_node == "alice":
-        delay(100*us)
+        delay(30*us)
         t_node1_ref_0 = now_mu()
-        self.ttl_node1_output2.pulse(500*ns)
+        self.ttl_node1_output2.pulse(1*us)
     else:
-        t_gate_end = self.ttl_node1_input2.gate_rising(10*ms)
+        t_gate_end = self.ttl_node1_input2.gate_rising(60*us)
         t_node2_ref_0 = self.ttl_node1_input2.timestamp_mu(t_gate_end)
 
-    delay(1 * ms)
-    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(20 * ms) + 200
-    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(20 * ms)
+    delay(10 * us)
+    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(150 * us) + 200
+    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(150 * us)
 
-    # if self.which_node == "alice":
-    #     at_mu(t_node1_ref_1)
-    # else:
-    #     at_mu(t_node2_ref_1)
+    if self.which_node == "alice":
+        at_mu(t_node1_ref_1)
+    else:
+        at_mu(t_node2_ref_1)
 
     ############################################################
     # Ending synchronization
@@ -247,11 +249,8 @@ def two_nodes_synchronization(self):
 
     delay(0.01 * ms)
 
-    if self.which_node == "alice":
-        at_mu(t_node1_ref_1)
-    else:
-        at_mu(t_node2_ref_1)
-
+    # sync_time_took = int((t_node1_ref_1 - sync_starting_at) / 1e3)
+    # self.print_async("sync_time_took :", sync_time_took, " us")
 
 @kernel
 def two_nodes_synchronization2(self) -> TBool:
@@ -324,7 +323,10 @@ def two_nodes_synchronization2(self) -> TBool:
 
 
 @kernel
-def two_nodes_synchronization2_faisal_trial(self) -> TBool:
+def two_nodes_synchronization_trial(self) -> TBool:
+    """
+    Faisal's code based on two_nodes_synchronization2
+    """
     delay(1*ms)
 
     t_node1_ref_0 = np.int64(-1)
@@ -340,237 +342,6 @@ def two_nodes_synchronization2_faisal_trial(self) -> TBool:
     self.core.break_realtime()
 
     delay(100 * us)
-    self.print_async("******* Syncing the nodes **********")
-
-    if self.which_node == "bob":
-
-        #### Open Bob's input gate first.
-        t_gate_start = now_mu() + self.core.seconds_to_mu(100 * us)
-        gate_duration_mu = self.core.seconds_to_mu(10*s)
-        t_gate_end = t_gate_start + gate_duration_mu
-
-
-        at_mu(t_gate_start)
-        with parallel:
-            self.ttl_node1_input1.gate_rising_mu(gate_duration_mu)
-            with sequential:
-                delay(10*us)
-                self.ttl_node2_output1.on()
-
-
-        ### Now wait for Alice's reference pulse.
-        t_node2_ref_0 = self.ttl_node1_input1.timestamp_mu(t_gate_end)
-
-        if t_node2_ref_0 < 0:
-            self.core.break_realtime()
-            self.ttl_node2_output1.off()
-            return False
-
-        ### Drop READY after successful sync.
-        self.core.break_realtime()
-        self.ttl_node2_output1.off()
-
-        ### Put Bob at the common future reference.
-        at_mu(t_node2_ref_0 + common_delay_mu)
-        return True
-
-    else:
-
-        self.ttl_node2_input1.count(now_mu())
-
-        ### Alice polls Bob's READY level.
-        ready = False
-        for i in range(timeout_cycles):
-            self.ttl_node2_input1.sample_input()
-            delay(1 * us)
-            if int(self.ttl_node2_input1.sample_get()):
-                ready = True
-                break
-            delay(poll_period)
-
-        if not ready:
-            self.core.break_realtime()
-            return False
-
-        ### Alice sends the reference pulse at a deterministic future time.
-        t_node1_ref_0 = now_mu() + ack_delay_mu
-        at_mu(t_node1_ref_0)
-        self.ttl_node1_output1.pulse(500 * ns)
-
-        ### Put Alice at the corresponding future reference.
-        at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
-        return True
-
-# @kernel
-# def two_nodes_synchronization2(self):
-#     t_node1_ref_0 = -1
-#     t_node2_ref_0 = -1
-#
-#     poll_period = 1 * ms
-#     timeout_cycles = 10000     # 10 s if poll_period = 1 ms and timeout_cycles = 10000
-#     ack_delay_mu = self.core.seconds_to_mu(50 * us)
-#     common_delay_mu = self.core.seconds_to_mu(2 * ms)
-#
-#     alice_extra_offset_mu = 200  ### Calibrated this on the scope.
-#
-#     self.core.break_realtime()
-#     delay(100 * us)
-#
-#     self.print_async("******* Syncing the nodes **********")
-#
-#     max_tries = 100
-#     trial = 0
-#     not_synchronized = True
-#     while not_synchronized and trial < max_tries:
-#         self.print_async("trial: ", trial)
-#         trial += 1
-#         if self.which_node == "bob":
-#
-#             #### Open Bob's input gate first.
-#             t_gate_start = now_mu() + self.core.seconds_to_mu(100 * us)
-#             at_mu(t_gate_start)
-#             t_gate_end = self.ttl_node1_input1.gate_rising(10 * s)
-#
-#             ### Now assert READY while the gate is open.
-#             ### This is scheduled after gate opening but before calling timestamp_mu().
-#             at_mu(t_gate_start + self.core.seconds_to_mu(10 * us))
-#             self.ttl_node2_output1.on()
-#
-#             ### Now wait for Alice's reference pulse.
-#             t_node2_ref_0 = self.ttl_node1_input1.timestamp_mu(t_gate_end)
-#
-#             if t_node2_ref_0 < 0:
-#                 self.core.break_realtime()
-#                 self.ttl_node2_output1.off()
-#                 not_synchronized = False
-#                 continue
-#
-#             ### Drop READY after successful sync.
-#             self.core.break_realtime()
-#             self.ttl_node2_output1.off()
-#
-#             ### Put Bob at the common future reference.
-#             at_mu(t_node2_ref_0 + common_delay_mu)
-#             not_synchronized = True
-#             continue
-#
-#         else:
-#             ### Alice polls Bob's READY level.
-#             ready = False
-#             for i in range(timeout_cycles):
-#                 self.ttl_node2_input1.sample_input()
-#                 delay(1 * us)
-#                 if int(self.ttl_node2_input1.sample_get()):
-#                     ready = True
-#                     break
-#                 delay(poll_period)
-#
-#             if not ready:
-#                 self.core.break_realtime()
-#                 not_synchronized =  False
-#                 continue
-#
-#             ### Alice sends the reference pulse at a deterministic future time.
-#             t_node1_ref_0 = now_mu() + ack_delay_mu
-#             at_mu(t_node1_ref_0)
-#             self.ttl_node1_output1.pulse(500 * ns)
-#
-#             ### Put Alice at the corresponding future reference.
-#             at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
-#             not_synchronized =  True
-
-# @kernel
-# def two_nodes_synchronization2(self):
-#     t_node1_ref_0 = -1
-#     t_node2_ref_0 = -1
-#
-#     poll_period = 1 * ms
-#     timeout_cycles = 10000  # 10 s if poll_period = 1 ms and timeout_cycles = 10000
-#     ack_delay_mu = self.core.seconds_to_mu(50 * us)
-#     common_delay_mu = self.core.seconds_to_mu(2 * ms)
-#
-#     alice_extra_offset_mu = 200  ### Calibrated this on the scope.
-#
-#     self.core.break_realtime()
-#     delay(100 * us)
-#
-#     self.print_async("******* Syncing the nodes **********")
-#
-#     max_tries = 100
-#     trial = 0
-#     not_synchronized = True
-#     while not_synchronized and trial < max_tries:
-#         self.print_async("trial: ", trial)
-#         trial+=1
-#         if self.which_node == "bob":
-#
-#             #### Open Bob's input gate first.
-#             t_gate_start = now_mu() + self.core.seconds_to_mu(100 * us)
-#             at_mu(t_gate_start)
-#             t_gate_end = self.ttl_node1_input1.gate_rising(10 * s)
-#
-#             ### Now assert READY while the gate is open.
-#             ### This is scheduled after gate opening but before calling timestamp_mu().
-#             at_mu(t_gate_start + self.core.seconds_to_mu(10 * us))
-#             self.ttl_node2_output1.on()
-#
-#             ### Now wait for Alice's reference pulse.
-#             t_node2_ref_0 = self.ttl_node1_input1.timestamp_mu(t_gate_end)
-#
-#             if t_node2_ref_0 < 0:
-#                 self.core.break_realtime()
-#                 self.ttl_node2_output1.off()
-#                 not_synchronized = False
-#                 continue
-#
-#             ### Drop READY after successful sync.
-#             self.core.break_realtime()
-#             self.ttl_node2_output1.off()
-#
-#             ### Put Bob at the common future reference.
-#             at_mu(t_node2_ref_0 + common_delay_mu)
-#             not_synchronized = True
-#             continue
-#
-#         else:
-#             ### Alice polls Bob's READY level.
-#             ready = False
-#             for i in range(timeout_cycles):
-#                 self.ttl_node2_input1.sample_input()
-#                 delay(1 * us)
-#                 if int(self.ttl_node2_input1.sample_get()):
-#                     ready = True
-#                     break
-#                 delay(poll_period)
-#
-#             if not ready:
-#                 self.core.break_realtime()
-#                 not_synchronized = False
-#                 continue
-#
-#             ### Alice sends the reference pulse at a deterministic future time.
-#             t_node1_ref_0 = now_mu() + ack_delay_mu
-#             at_mu(t_node1_ref_0)
-#             self.ttl_node1_output1.pulse(500 * ns)
-#
-#             ### Put Alice at the corresponding future reference.
-#             at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
-#             not_synchronized = True
-@kernel
-def two_nodes_synchronization2_faisal_trial(self) -> TBool:
-    t_node1_ref_0 = np.int64(-1)
-    t_node2_ref_0 = np.int64(-1)
-
-    poll_period = 1 * ms
-    timeout_cycles = 10000     # 10 s if poll_period = 1 ms and timeout_cycles = 10000
-    ack_delay_mu = self.core.seconds_to_mu(50 * us)
-    common_delay_mu = self.core.seconds_to_mu(2 * ms)
-
-    alice_extra_offset_mu = np.int64(200)  ### Calibrated this on the scope.
-
-    self.core.break_realtime()
-    delay(100 * us)
-
     self.print_async("******* Syncing the nodes **********")
 
     if self.which_node == "bob":
@@ -1626,11 +1397,12 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         delay(10 * ms)
 
 @kernel
-def load_atom_in_both_nodes_recycle(self):
+def load_atom_in_both_nodes_individually(self):
     """
-    Eunji - this is assuming that both nodes can try atom loading/readout simultaneously which is not the case;
-    - this maybe useful when we integrate a shutter
-
+    Eunji - this is assuming that both nodes can try atom loading/readout simultaneously without distruption
+    - this maybe useful when we integrate a fast shutter most likeley a MEMS switch.
+    - but we need to think more carefully how much loss it has with coupling/mode matching/pol dependence
+    - if we need to use MEMS switch, it might need to be spliced.
 
     Load/recycle atoms until both nodes have atoms simultaneously.
 
@@ -1879,784 +1651,13 @@ def load_atom_in_both_nodes_recycle(self):
     delay(100 * us)
 
 @kernel
-def load_until_atom_in_both_nodes_together_recycle(self):
+def load_until_atom_in_both_nodes_recycle(self):
     """
     Two-node combined-loading version.
-    First working two atom loading experiment
 
-    todo: This technically does not do recycle - add this later
-
-    New logic:
-        1. Each node prepares MOT + FORT loading condition.
-        2. Once this node reaches the synchronized loading-readout point,
-           it turns ON its node TTL output.
-        3. It waits until the other node TTL input is also ON.
-        4. Once both nodes are ready, record two_nodes_synchronized = now_mu().
-        5. Turn this node TTL output OFF.
-        6. Start checking combined AllSPCMs signal.
-        7. Proceed only when combined AllSPCMs signal is above threshold.
-
-    Important:
-        self.single_atom_threshold_for_loading should now be interpreted as
-        the combined two-node loading threshold.
-    """
-
-    atom_loaded = False
-    other_node_ready = False
-    readout = 0
-
-    ############################################################
-    # Clear this node's synchronization TTL at the beginning.
-    # In this version, TTL means "ready to start synchronized loading readout",
-    # not atom status.
-    ############################################################
-    if self.which_node == "alice":
-        self.ttl_node1_output1.off()
-    else:
-        self.ttl_node2_output1.off()
-
-    delay(100 * ms)
-
-    if self.monitors_for_atom_loading:
-        measure_Magnetometer(self)
-        delay(1 * ms)
-        Sampler_test(self)
-        delay(1 * ms)
-
-    self.zotino0.set_dac(
-        [
-            self.AZ_bottom_volts_MOT,
-            self.AZ_top_volts_MOT,
-            self.AX_volts_MOT,
-            self.AY_volts_MOT,
-        ], channels=self.coil_channels)
-
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-    delay(0.1 * ms)
-
-    self.dds_cooling_DP.sw.on()      # cooling on
-    self.ttl_repump_switch.off()     # MOT RP on
-
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-    delay(0.1 * ms)
-
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-
-    self.dds_FORT.sw.off()
-    delay(1 * ms)
-
-    self.dds_FORT.set(
-        frequency=self.f_FORT,
-        amplitude=self.stabilizer_FORT.amplitude
-    )
-    self.dds_FORT.sw.on()
-
-    if self.which_node == "alice":
-        delay(1 * ms)
-        self.zotino0.set_dac([3.5], self.UV_trig_channel)
-
-    ############################################################
-    # This node is now ready for synchronized loading readout.
-    # Signal to the other node.
-    ############################################################
-    if self.which_node == "alice":
-        self.ttl_node1_output1.on()
-        # self.print_async("Node1 ready TTL is ON.")
-    else:
-        self.ttl_node2_output1.on()
-        # self.print_async("Node2 ready TTL is ON.")
-
-    delay(0.01 * ms)
-
-    ############################################################
-    # Wait until the other node is also ready.
-    # Check every 1 s.
-    ############################################################
-    while not other_node_ready:
-        # self.print_async("--------------------------------")
-        # self.print_async("Checking the other node every ")
-        wait_time = 10*us
-        delay(wait_time)
-        if self.which_node == "alice":
-            self.ttl_node2_input1.sample_input()
-            delay(1 * us)
-            readout = int(self.ttl_node2_input1.sample_get())
-            ## this can be replaced with sample_get_nonrt; but it has core.break_realtime() so needs to be careful
-
-            if readout == 1:
-                other_node_ready = True
-                # self.print_async("Node2 is ready.")
-            else:
-                other_node_ready = False
-                # delay(1 * ms)
-                # delay(wait_time)
-
-        else:
-            self.ttl_node1_input1.sample_input()
-            delay(1 * us)
-            readout = int(self.ttl_node1_input1.sample_get())
-
-            if readout == 1:
-                other_node_ready = True
-                # self.print_async("Node1 is ready.")
-            else:
-                other_node_ready = False
-                # delay(1 * ms)
-                # delay(wait_time)
-
-    delay(0.01 * ms)
-    self.print_async("Synchronizing")
-
-
-    ############################################################
-    # Synchronizing with time tag
-    ############################################################
-    ##### Syncing by sending a TTL pulse from node1 to node2
-    t_node1_ref_0 = -1
-    t_node2_ref_0 = -1
-
-    if self.which_node == "alice":
-        delay(100*us)
-        t_node1_ref_0 = now_mu()
-        self.ttl_node1_output2.pulse(500*ns)
-    else:
-        t_gate_end = self.ttl_node1_input2.gate_rising(10*ms)
-        t_node2_ref_0 = self.ttl_node1_input2.timestamp_mu(t_gate_end)
-
-    delay(1 * ms)
-    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(20 * ms) + 200
-    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(20 * ms)
-
-    if self.which_node == "alice":
-        at_mu(t_node1_ref_1)
-    else:
-        at_mu(t_node2_ref_1)
-
-
-    #################################################################
-    # #### Testing the sync by generating a ttl pulse from both nodes to the scope.
-    # self.ttl_pumping_repump_switch.pulse(5 * us)
-    # delay(5*ms)
-    #################################################################
-
-    # delay(10 * us)
-    #
-    # for n in range(4):
-    #     # self.print_async("pulsing, ", n)
-    #     if self.which_node == "alice":
-    #         self.ttl_node1_output2.pulse(0.1*ms)
-    #     else:
-    #         self.ttl_pumping_repump_switch.pulse(0.1*ms)
-    #
-    #     delay(5*ms)
-
-
-    # ############################################################
-    # # Turn OFF this node's TTL to be ready for synchronization.
-    # ############################################################
-    # if self.which_node == "alice":
-    #     delay(50 * ms)
-    #     self.ttl_node1_output1.off()
-    #     # self.print_async("Node1 ready TTL is OFF after synchronization.")
-    # else:
-    #     delay(50 * ms)
-    #     self.ttl_node2_output1.off()
-    #     # self.print_async("Node2 ready TTL is OFF after synchronization.")
-    #
-    # delay(10 * us)
-
-    # for n in range(4):
-    #     # self.print_async("pulsing, ", n)
-    #     if self.which_node == "alice":
-    #         self.ttl_node1_output2.pulse(0.1*ms)
-    #     else:
-    #         self.ttl_pumping_repump_switch.pulse(0.1*ms)
-    #
-    #     delay(5*ms)
-
-    # #### With wait_time and other delays = 10us, the two nodes reach this point within 10us delay.
-    # #### Checked with pulsing on the scope.
-    # t0 = now_mu()
-    # t1 = -1.0
-    #
-    # if self.which_node == "alice":
-    #     at_mu(t0 + 1000)
-    #     self.ttl_node1_output1.pulse(1 * us)
-    #     self.print_async("[Synchronization] Node1 sent TTL pulse.")
-    #
-    # else:
-    #     at_mu(t0 + 500)
-    #     t_gate_end = self.ttl_node1_input1.gate_rising(2000*ns)
-    #
-    #     t1 = self.ttl_node1_input1.timestamp_mu(t_gate_end)
-    #
-    #     if t1 < 0:
-    #         self.print_async("[Synchronization] Node2 did not catch TTL pulse.")
-    #     else:
-    #         self.print_async("[Synchronization] Node2 caught TTL pulse.")
-    #         # self.print_async("Node2 timestamp relative to local t0: ",
-    #         #                  self.core.mu_to_seconds(t1 - t0) * 1e6,
-    #         #                  " us")
-    #
-    #
-    ############################################################
-    # Both nodes are ready.
-    # This is the synchronized starting point for the loading check.
-    ############################################################
-    two_nodes_synchronized = now_mu()
-    t_before_atom = two_nodes_synchronized
-    t_after_atom = two_nodes_synchronized
-    t_no_atom = two_nodes_synchronized
-
-
-    ############################################################
-    # Start combined atom loading check.
-    ############################################################
-    max_tries = 100
-    atom_check_time = self.t_atom_check_time
-    try_n = 0
-    time_without_atom = 0.0
-
-    AllSPCMs_atom_check_loaded = 0
-    AllSPCMs_atom_check_not_loaded = 0
-
-    ############################################################
-    # Main loading loop.
-    # In this version, AllSPCMs contains fluorescence from both nodes.
-    # Therefore, self.single_atom_threshold_for_loading should be set
-    # to the combined two-atom threshold.
-    ############################################################
-
-    while True:
-        while not atom_loaded and try_n < max_tries:
-            delay(100 * us)
-            with parallel:
-                self.ttl_SPCM0_counter.gate_rising(atom_check_time)
-                self.ttl_SPCM1_counter.gate_rising(atom_check_time)
-                self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
-                self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
-
-            AllSPCMs_atom_check = int(
-                self.ttl_SPCM0_counter.fetch_count()
-                + self.ttl_SPCM1_counter.fetch_count()
-                + self.ttl_SPCM0_OtherNode_counter.fetch_count()
-                + self.ttl_SPCM1_OtherNode_counter.fetch_count()
-            )
-
-            try_n += 1
-
-            ####################################################
-            # Save one unloaded count sample for histogram.
-            ####################################################
-            if try_n == 1:
-                AllSPCMs_atom_check_not_loaded = AllSPCMs_atom_check
-
-            ####################################################
-            # Combined two-node atom loading condition.
-            ####################################################
-            if AllSPCMs_atom_check / atom_check_time > self.two_atom_threshold_for_loading:
-                delay(100 * us)
-                atom_loaded = True
-                AllSPCMs_atom_check_loaded = AllSPCMs_atom_check
-
-        ########################################################
-        # If combined threshold was reached, both nodes are assumed loaded.
-        ########################################################
-        if atom_loaded:
-            self.set_dataset("time_without_atom", 0.0, broadcast=True)
-
-            t_after_atom = now_mu()
-
-            ####################################################
-            # Save histogram samples.
-            ####################################################
-            self.append_to_dataset(
-                "AllSPCMs_atom_check_in_loading",
-                AllSPCMs_atom_check_loaded
-            )
-            self.append_to_dataset(
-                "AllSPCMs_atom_check_in_loading",
-                AllSPCMs_atom_check_not_loaded
-            )
-
-            delay(1 * ms)
-            break
-
-        ########################################################
-        # If max_tries reached and still not loaded,
-        # update time_without_atom.
-        ########################################################
-        delay(0.1 * ms)
-
-        t_no_atom = now_mu()
-        time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
-
-        self.set_dataset(
-            "time_without_atom",
-            time_without_atom,
-            broadcast=True
-        )
-
-        if self.enable_laser_feedback:
-            delay(0.1 * ms)
-
-            self.dds_cooling_DP.set(
-                frequency=self.f_cooling_DP_MOT,
-                amplitude=self.ampl_cooling_DP_MOT
-            )
-            delay(0.1 * ms)
-
-            run_feedback_and_record_FORT_MM_power(self, record_power=False)
-            self.n_feedback_per_iteration += 1
-
-            ### After feedback, turn these back on and sync the timing again:
-            self.dds_microwaves.sw.on()
-            self.dds_FORT.sw.on()
-
-            # ##### Syncing by sending a TTL pulse from node1 to node2
-            # t_node1_ref_0 = -1
-            # t_node2_ref_0 = -1
-            #
-            # if self.which_node == "alice":
-            #     delay(100 * us)
-            #     t_node1_ref_0 = now_mu()
-            #     self.ttl_node1_output2.pulse(500 * ns)
-            # else:
-            #     t_gate_end = self.ttl_node1_input2.gate_rising(5 * ms)
-            #     t_node2_ref_0 = self.ttl_node1_input2.timestamp_mu(t_gate_end)
-            #
-            # delay(1 * ms)
-            # t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(10 * ms) + 200
-            # t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(10 * ms)
-            #
-            # if self.which_node == "alice":
-            #     at_mu(t_node1_ref_1)
-            # else:
-            #     at_mu(t_node2_ref_1)
-            # ##### Syncing by sending a TTL pulse from node1 to node2
-
-            delay(0.1 * ms)
-
-        ########################################################
-        # Retry loading check.
-        ########################################################
-        try_n = 0
-
-    if self.which_node == "alice":
-        self.zotino0.set_dac([0.0], self.UV_trig_channel)
-    delay(100 * us)
-
-    self.zotino0.set_dac(
-        [
-            self.AZ_bottom_volts_PGC,
-            -self.AZ_bottom_volts_PGC,
-            self.AX_volts_PGC,
-            self.AY_volts_PGC,
-        ],
-        channels=self.coil_channels
-    )
-    delay(0.4 * ms)
-
-    ############################################################
-    # Turn off MOT beams.
-    ############################################################
-    self.ttl_repump_switch.on()      # MOT RP off
-    self.dds_cooling_DP.sw.off()     # cooling off
-
-    delay(1 * ms)
-    delay(self.t_MOT_dissipation)
-
-    ############################################################
-    # Lower FORT to science setpoint.
-    ############################################################
-    self.dds_FORT.set(
-        frequency=self.f_FORT,
-        amplitude=self.stabilizer_FORT.amplitudes[1]
-    )
-
-    ############################################################
-    # Optional PGC after loading.
-    ############################################################
-    if self.do_PGC_after_loading:
-
-        self.dds_cooling_DP.set(
-            frequency=self.f_cooling_DP_PGC,
-            amplitude=self.ampl_cooling_DP_PGC
-        )
-
-        if self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-
-        self.ttl_repump_switch.off()     # MOT RP on
-        self.dds_cooling_DP.sw.on()      # cooling on
-
-        delay(10 * us)
-        delay(self.t_PGC_after_loading)
-
-        self.ttl_repump_switch.on()      # MOT RP off
-        self.dds_cooling_DP.sw.off()     # cooling off
-
-    ############################################################
-    # Save atom loading time.
-    # Here this means time from synchronized two-node loading start
-    # until combined two-atom threshold was reached.
-    ############################################################
-    self.SPCM0_FORT_science = 0
-
-    self.atom_loading_time = self.core.mu_to_seconds(
-        t_after_atom - t_before_atom
-    )
-
-    self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
-
-    delay(1 * ms)
-
-    self.append_to_dataset("atom_loading_wall_clock", now_mu())
-
-    self.n_atom_loaded_per_iteration += 1
-
-    self.print_async("Combined two-node atom loading complete.")
-
-    delay(10 * ms)
-
-    # # if self.which_node == "alice":
-    # #     self.dds_FORT.sw.off()  # FORT OFF
-    # #     delay(1*ms)
-    # # else:
-    # #     delay(40*ms)
-    # if self.which_node == "bob":
-    #     self.dds_FORT.sw.off()  # FORT OFF
-    # #     delay(40*ms)
-    # # else:
-    # #     delay(1*ms)
-    # delay(10*ms)
-
-
-@kernel
-def load_until_atom_in_both_nodes_together_recycle_modular(self):
-    """
-    Two-node combined-loading version.
-    First working two atom loading experiment
-
-    todo: This technically does not do recycle - add this later
-
-    New logic:
-        1. Each node prepares MOT + FORT loading condition.
-        2. Once this node reaches the synchronized loading-readout point,
-           it turns ON its node TTL output.
-        3. It waits until the other node TTL input is also ON.
-        4. Once both nodes are ready, record two_nodes_synchronized = now_mu().
-        5. Turn this node TTL output OFF.
-        6. Start checking combined AllSPCMs signal.
-        7. Proceed only when combined AllSPCMs signal is above threshold.
-
-    Important:
-        self.single_atom_threshold_for_loading should now be interpreted as
-        the combined two-node loading threshold.
-    """
-
-    atom_loaded = False
-    other_node_ready = False
-    readout = 0
-
-    ############################################################
-    # Clear this node's synchronization TTL at the beginning.
-    # In this version, TTL means "ready to start synchronized loading readout",
-    # not atom status.
-    ############################################################
-    if self.which_node == "alice":
-        self.ttl_node1_output1.off()
-    else:
-        self.ttl_node2_output1.off()
-
-    delay(100 * ms)
-
-    if self.monitors_for_atom_loading:
-        measure_Magnetometer(self)
-        delay(1 * ms)
-        Sampler_test(self)
-        delay(1 * ms)
-
-    self.zotino0.set_dac(
-        [
-            self.AZ_bottom_volts_MOT,
-            self.AZ_top_volts_MOT,
-            self.AX_volts_MOT,
-            self.AY_volts_MOT,
-        ], channels=self.coil_channels)
-
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-    delay(0.1 * ms)
-
-    self.dds_cooling_DP.sw.on()      # cooling on
-    self.ttl_repump_switch.off()     # MOT RP on
-
-    self.dds_AOM_A1.sw.on()
-    self.dds_AOM_A2.sw.on()
-    self.dds_AOM_A3.sw.on()
-    self.dds_AOM_A4.sw.on()
-    delay(0.1 * ms)
-
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-
-    self.dds_FORT.sw.off()
-    delay(1 * ms)
-
-    self.dds_FORT.set(
-        frequency=self.f_FORT,
-        amplitude=self.stabilizer_FORT.amplitude
-    )
-    self.dds_FORT.sw.on()
-
-    if self.which_node == "alice":
-        delay(1 * ms)
-        self.zotino0.set_dac([3.5], self.UV_trig_channel)
-
-
-    two_nodes_synchronization(self)
-
-    two_nodes_synchronized = now_mu()
-    t_before_atom = two_nodes_synchronized
-    t_after_atom = two_nodes_synchronized
-    t_no_atom = two_nodes_synchronized
-
-
-    ############################################################
-    # Start combined atom loading check.
-    ############################################################
-    max_tries = 100
-    atom_check_time = self.t_atom_check_time
-    try_n = 0
-    time_without_atom = 0.0
-
-    AllSPCMs_atom_check_loaded = 0
-    AllSPCMs_atom_check_not_loaded = 0
-
-    ############################################################
-    # Main loading loop.
-    # In this version, AllSPCMs contains fluorescence from both nodes.
-    # Therefore, self.single_atom_threshold_for_loading should be set
-    # to the combined two-atom threshold.
-    ############################################################
-
-    while True:
-        while not atom_loaded and try_n < max_tries:
-            delay(100 * us)
-            with parallel:
-                self.ttl_SPCM0_counter.gate_rising(atom_check_time)
-                self.ttl_SPCM1_counter.gate_rising(atom_check_time)
-                self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
-                self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
-
-            AllSPCMs_atom_check = int(
-                self.ttl_SPCM0_counter.fetch_count()
-                + self.ttl_SPCM1_counter.fetch_count()
-                + self.ttl_SPCM0_OtherNode_counter.fetch_count()
-                + self.ttl_SPCM1_OtherNode_counter.fetch_count()
-            )
-
-            try_n += 1
-
-            ####################################################
-            # Save one unloaded count sample for histogram.
-            ####################################################
-            if try_n == 1:
-                AllSPCMs_atom_check_not_loaded = AllSPCMs_atom_check
-
-            ####################################################
-            # Combined two-node atom loading condition.
-            ####################################################
-            if AllSPCMs_atom_check / atom_check_time > self.two_atom_threshold_for_loading:
-                delay(100 * us)
-                atom_loaded = True
-                AllSPCMs_atom_check_loaded = AllSPCMs_atom_check
-
-        ########################################################
-        # If combined threshold was reached, both nodes are assumed loaded.
-        ########################################################
-        if atom_loaded:
-            self.set_dataset("time_without_atom", 0.0, broadcast=True)
-
-            t_after_atom = now_mu()
-
-            ####################################################
-            # Save histogram samples.
-            ####################################################
-            self.append_to_dataset(
-                "AllSPCMs_atom_check_in_loading",
-                AllSPCMs_atom_check_loaded
-            )
-            self.append_to_dataset(
-                "AllSPCMs_atom_check_in_loading",
-                AllSPCMs_atom_check_not_loaded
-            )
-
-            delay(1 * ms)
-            break
-
-        ########################################################
-        # If max_tries reached and still not loaded,
-        # update time_without_atom.
-        ########################################################
-        delay(0.1 * ms)
-
-        t_no_atom = now_mu()
-        time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
-
-        self.set_dataset(
-            "time_without_atom",
-            time_without_atom,
-            broadcast=True
-        )
-
-        if self.enable_laser_feedback:
-            delay(0.1 * ms)
-
-            self.dds_cooling_DP.set(
-                frequency=self.f_cooling_DP_MOT,
-                amplitude=self.ampl_cooling_DP_MOT
-            )
-            delay(0.1 * ms)
-
-            run_feedback_and_record_FORT_MM_power(self, record_power=False)
-            self.n_feedback_per_iteration += 1
-
-            ### After feedback, turn these back on and sync the timing again:
-            self.dds_microwaves.sw.on()
-            self.dds_FORT.sw.on()
-
-            # ##### Syncing by sending a TTL pulse from node1 to node2
-            # t_node1_ref_0 = -1
-            # t_node2_ref_0 = -1
-            #
-            # if self.which_node == "alice":
-            #     delay(100 * us)
-            #     t_node1_ref_0 = now_mu()
-            #     self.ttl_node1_output2.pulse(500 * ns)
-            # else:
-            #     t_gate_end = self.ttl_node1_input2.gate_rising(5 * ms)
-            #     t_node2_ref_0 = self.ttl_node1_input2.timestamp_mu(t_gate_end)
-            #
-            # delay(1 * ms)
-            # t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(10 * ms) + 200
-            # t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(10 * ms)
-            #
-            # if self.which_node == "alice":
-            #     at_mu(t_node1_ref_1)
-            # else:
-            #     at_mu(t_node2_ref_1)
-            # ##### Syncing by sending a TTL pulse from node1 to node2
-
-            delay(0.1 * ms)
-
-        ########################################################
-        # Retry loading check.
-        ########################################################
-        try_n = 0
-
-    if self.which_node == "alice":
-        self.zotino0.set_dac([0.0], self.UV_trig_channel)
-    delay(100 * us)
-
-    self.zotino0.set_dac(
-        [
-            self.AZ_bottom_volts_PGC,
-            -self.AZ_bottom_volts_PGC,
-            self.AX_volts_PGC,
-            self.AY_volts_PGC,
-        ],
-        channels=self.coil_channels
-    )
-    delay(0.4 * ms)
-
-    ############################################################
-    # Turn off MOT beams.
-    ############################################################
-    self.ttl_repump_switch.on()      # MOT RP off
-    self.dds_cooling_DP.sw.off()     # cooling off
-
-    delay(1 * ms)
-    delay(self.t_MOT_dissipation)
-
-    ############################################################
-    # Lower FORT to science setpoint.
-    ############################################################
-    self.dds_FORT.set(
-        frequency=self.f_FORT,
-        amplitude=self.stabilizer_FORT.amplitudes[1]
-    )
-
-    ############################################################
-    # Optional PGC after loading.
-    ############################################################
-    if self.do_PGC_after_loading:
-
-        self.dds_cooling_DP.set(
-            frequency=self.f_cooling_DP_PGC,
-            amplitude=self.ampl_cooling_DP_PGC
-        )
-
-        if self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-
-        self.ttl_repump_switch.off()     # MOT RP on
-        self.dds_cooling_DP.sw.on()      # cooling on
-
-        delay(10 * us)
-        delay(self.t_PGC_after_loading)
-
-        self.ttl_repump_switch.on()      # MOT RP off
-        self.dds_cooling_DP.sw.off()     # cooling off
-
-    ############################################################
-    # Save atom loading time.
-    # Here this means time from synchronized two-node loading start
-    # until combined two-atom threshold was reached.
-    ############################################################
-    self.SPCM0_FORT_science = 0
-
-    self.atom_loading_time = self.core.mu_to_seconds(
-        t_after_atom - t_before_atom
-    )
-
-    self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
-
-    delay(1 * ms)
-
-    self.append_to_dataset("atom_loading_wall_clock", now_mu())
-
-    self.n_atom_loaded_per_iteration += 1
-
-    self.print_async("Combined two-node atom loading complete.")
-
-    delay(10 * ms)
-
-    # # if self.which_node == "alice":
-    # #     self.dds_FORT.sw.off()  # FORT OFF
-    # #     delay(1*ms)
-    # # else:
-    # #     delay(40*ms)
-    # if self.which_node == "bob":
-    #     self.dds_FORT.sw.off()  # FORT OFF
-    # #     delay(40*ms)
-    # # else:
-    # #     delay(1*ms)
-    # delay(10*ms)
-
-
-@kernel
-def load_until_atom_in_both_nodes_recycle2(self):
-    """
-    Two-node combined-loading version. in progress ...
-
-    todo: This technically does not do recycle - add this later
+    * based on load_MOT_and_FORT_until_atom_recycle
+    * with synchronization added in the while loop
+    * Checks for atoms in both nodes using two_atom_threshold_in_loading
 
     """
     ### First check if there is already an atom in the FORT based on RO2
@@ -2751,16 +1752,11 @@ def load_until_atom_in_both_nodes_recycle2(self):
 
         shim_tune_runs = 0
 
+        n_synchronization_in_loading = 0
         while True:
-            two_nodes_synchronization2(self)  ### Syncing the two nodes.
-            # two_nodes_synchronization3(self)  ### Syncing the two nodes.
+            two_nodes_synchronization(self)  ### Syncing the two nodes.
 
-            ###########################################################################
-            # sync_success = two_nodes_synchronization2_faisal_trial(self) ### Syncing the two nodes.
-            # if not sync_success:
-            #     self.print_async("Warning: Sync timeout detected! Auto-recovering ...")
-            #     continue
-            ###########################################################################
+            n_synchronization_in_loading += 1
 
             while not atom_loaded and try_n < max_tries:
                 delay(100 * us)  ### Needs a delay of about 100us or maybe less
@@ -2795,6 +1791,8 @@ def load_until_atom_in_both_nodes_recycle2(self):
                 self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_loaded)
                 self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_not_loaded)
                 delay(1 * ms)
+
+                # self.print_async("n_synchronization_in_loading: ", n_synchronization_in_loading)
                 break  ### Exit the outer loop if an atom is loaded
 
             #### time_without_atom shows how long is passed from the previous atom loading. Calculated only when try_n > max_tries
@@ -5340,10 +4338,11 @@ def atom_loading_2_experiment(self):
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
 @kernel
-def Two_nodes_atom_loading_2_experiment(self):
+def Two_nodes_atom_loading_experiment(self):
     """
     Simple atom loading experiment in both nodes
-
+    - checking for atoms in both nodes at the same time
+    - based on atom_loading_2_experiment
     """
 
     self.core.reset()
@@ -5359,149 +4358,24 @@ def Two_nodes_atom_loading_2_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         run_feedback_and_record_FORT_MM_power(self)
 
-    # delay(10*ms)
-    # self.ttl_pumping_repump_switch.off()  ### Todo: remove later
-    # load_until_atom_in_both_nodes_together_recycle(self)
-
     ############################################################
     # Turn OFF this node's TTL to be ready for synchronization.
     ############################################################
     if self.which_node == "alice":
-        # delay(50 * ms)
         self.ttl_node1_output1.off()
-        # self.print_async("Node1 ready TTL is OFF after synchronization.")
     else:
-        # delay(50 * ms)
         self.ttl_node2_output1.off()
-        # self.print_async("Node2 ready TTL is OFF after synchronization.")
     delay(50 * ms)
-
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        load_until_atom_in_both_nodes_together_recycle(self)
-
-        ############################################################
-        # Turn OFF this node's TTL to be ready for synchronization.
-        ############################################################
-        if self.which_node == "alice":
-            self.ttl_node1_output1.off()
-            # self.print_async("Node1 ready TTL is OFF after synchronization.")
-        else:
-            self.ttl_node2_output1.off()
-            # self.print_async("Node2 ready TTL is OFF after synchronization.")
-        delay(1 * ms)
-
-        # ####################################################
-        # ##  Bob: Atom readout and pulse
-        # ##  Alice: Wait until Bob is done and check pulse
-        # ####################################################
-        # if self.which_node == "bob":
-        #     delay(1 * ms)
-        #     first_shot(self)
-        #     delay(1 * ms)
-        #
-        #     if self.t_recooling_after_first_shot > 0:
-        #         recooling_after_first_shot(self)
-        #
-        #     if self.t_FORT_drop > 0:
-        #         self.dds_FORT.sw.off()
-        #         delay(self.t_FORT_drop)
-        #         self.dds_FORT.sw.on()
-        #
-        #     delay(self.t_delay_between_shots)
-        #     second_shot(self)
-        #
-        #     ##sequence done;
-        #     self.ttl_node2_output1.on()
-        #     self.print_async("Node2 Readout Done.")
-        # else:
-        #     other_node_ready = False
-        #     readout = 0
-        #
-        #     ## check until it gets signal from Node2
-        #     while not other_node_ready:
-        #         self.ttl_node2_input1.sample_input()
-        #         delay(1 * us)
-        #         readout = int(self.ttl_node2_input1.sample_get())
-        #
-        #         if readout == 1:
-        #             other_node_ready = True
-        #             self.print_async("Node2 is Done.")
-        #         else:
-        #             other_node_ready = False
-        #             delay(1 * ms)
-        #
-        # ####################################################
-        # ##  Alice: Atom readout and pulse
-        # ##  Bob: Wait until Bob is done and check pulse
-        # ####################################################
-        # if self.which_node == "alice":
-        #     delay(1 * ms)
-        #     first_shot(self)
-        #     delay(1 * ms)
-        #
-        #     if self.t_recooling_after_first_shot > 0:
-        #         recooling_after_first_shot(self)
-        #
-        #     if self.t_FORT_drop > 0:
-        #         self.dds_FORT.sw.off()
-        #         delay(self.t_FORT_drop)
-        #         self.dds_FORT.sw.on()
-        #
-        #     delay(self.t_delay_between_shots)
-        #     second_shot(self)
-        #
-        #     ##sequence done;
-        #     self.ttl_node1_output1.on()
-        #     self.print_async("Node1 Readout Done.")
-        # else:
-        #     other_node_ready = False
-        #     readout = 0
-        #
-        #     ## check until it gets signal from Node1
-        #     while not other_node_ready:
-        #         self.ttl_node1_input1.sample_input()
-        #         delay(1 * us)
-        #         readout = int(self.ttl_node1_input1.sample_get())
-        #
-        #         if readout == 1:
-        #             other_node_ready = True
-        #             self.print_async("Node1 is Done.")
-        #         else:
-        #             other_node_ready = False
-        #             delay(1 * ms)
-
-        ####################################################
-        ##  Alice: Atom readout and pulse
-        ##  Bob: Wait until Bob is done and check pulse
-        ####################################################
+        load_until_atom_in_both_nodes_recycle(self)
 
         delay(1 * ms)
 
-        ##### Syncing by sending a TTL pulse from node1 to node2
-        t_node1_ref_0 = -1
-        t_node2_ref_0 = -1
-
-        if self.which_node == "alice":
-            delay(100 * us)
-            t_node1_ref_0 = now_mu()
-            self.ttl_node1_output2.pulse(500 * ns)
-        else:
-            t_gate_end = self.ttl_node1_input2.gate_rising(10 * ms)
-            t_node2_ref_0 = self.ttl_node1_input2.timestamp_mu(t_gate_end)
-
-        delay(1 * ms)
-        t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(20 * ms) + 200
-        t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(20 * ms)
-
-        if self.which_node == "alice":
-            at_mu(t_node1_ref_1)
-        else:
-            at_mu(t_node2_ref_1)
-        ##### Syncing by sending a TTL pulse from node1 to node2
+        two_nodes_synchronization(self)
 
         first_shot(self)
         delay(1 * ms)
@@ -5516,218 +4390,7 @@ def Two_nodes_atom_loading_2_experiment(self):
 
         delay(self.t_delay_between_shots)
 
-        ##### Syncing by sending a TTL pulse from node1 to node2
-        t_node1_ref_0 = -1
-        t_node2_ref_0 = -1
-
-        if self.which_node == "alice":
-            delay(100 * us)
-            t_node1_ref_0 = now_mu()
-            self.ttl_node1_output2.pulse(500 * ns)
-        else:
-            t_gate_end = self.ttl_node1_input2.gate_rising(10 * ms)
-            t_node2_ref_0 = self.ttl_node1_input2.timestamp_mu(t_gate_end)
-
-        delay(1 * ms)
-        t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(20 * ms) + 200
-        t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(20 * ms)
-
-        if self.which_node == "alice":
-            at_mu(t_node1_ref_1)
-        else:
-            at_mu(t_node2_ref_1)
-        ##### Syncing by sending a TTL pulse from node1 to node2
-
-        second_shot(self)
-
-        # if self.which_node == "alice":
-        #     ##sequence done;
-        #     self.ttl_node1_output1.on()
-        #     self.print_async("Node1 Readout Done.")
-        # else:
-        #     other_node_ready = False
-        #     readout = 0
-        #
-        #     ## check until it gets signal from Node1
-        #     while not other_node_ready:
-        #         self.ttl_node1_input1.sample_input()
-        #         delay(1 * us)
-        #         readout = int(self.ttl_node1_input1.sample_get())
-        #
-        #         if readout == 1:
-        #             other_node_ready = True
-        #             self.print_async("Node1 is Done.")
-        #         else:
-        #             other_node_ready = False
-        #             delay(1 * ms)
-
-        end_measurement(self)
-
-    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
-    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
-
-@kernel
-def Two_nodes_atom_loading_2_modular_experiment(self):
-    """
-    Simple atom loading experiment in both nodes
-
-    """
-
-    self.core.reset()
-    self.require_D1_lock_to_advance = False  # override experiment variable
-
-    self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
-    ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
-    ### in each iteration.
-    self.n_atom_loaded_per_iteration = 0
-
-    if self.enable_laser_feedback:
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    # delay(10*ms)
-    # self.ttl_pumping_repump_switch.off()  ### Todo: remove later
-    # load_until_atom_in_both_nodes_together_recycle(self)
-
-    ############################################################
-    # Turn OFF this node's TTL to be ready for synchronization.
-    ############################################################
-    if self.which_node == "alice":
-        # delay(50 * ms)
-        self.ttl_node1_output1.off()
-        # self.print_async("Node1 ready TTL is OFF after synchronization.")
-    else:
-        # delay(50 * ms)
-        self.ttl_node2_output1.off()
-        # self.print_async("Node2 ready TTL is OFF after synchronization.")
-    delay(50 * ms)
-
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-        delay(10 * ms)
-
-        load_until_atom_in_both_nodes_together_recycle_modular(self)
-
-        ############################################################
-        # Turn OFF this node's TTL to be ready for synchronization.
-        ############################################################
-        if self.which_node == "alice":
-            self.ttl_node1_output1.off()
-            # self.print_async("Node1 ready TTL is OFF after synchronization.")
-        else:
-            self.ttl_node2_output1.off()
-            # self.print_async("Node2 ready TTL is OFF after synchronization.")
-        delay(1 * ms)
-
-        # ####################################################
-        # ##  Bob: Atom readout and pulse
-        # ##  Alice: Wait until Bob is done and check pulse
-        # ####################################################
-        # if self.which_node == "bob":
-        #     delay(1 * ms)
-        #     first_shot(self)
-        #     delay(1 * ms)
-        #
-        #     if self.t_recooling_after_first_shot > 0:
-        #         recooling_after_first_shot(self)
-        #
-        #     if self.t_FORT_drop > 0:
-        #         self.dds_FORT.sw.off()
-        #         delay(self.t_FORT_drop)
-        #         self.dds_FORT.sw.on()
-        #
-        #     delay(self.t_delay_between_shots)
-        #     second_shot(self)
-        #
-        #     ##sequence done;
-        #     self.ttl_node2_output1.on()
-        #     self.print_async("Node2 Readout Done.")
-        # else:
-        #     other_node_ready = False
-        #     readout = 0
-        #
-        #     ## check until it gets signal from Node2
-        #     while not other_node_ready:
-        #         self.ttl_node2_input1.sample_input()
-        #         delay(1 * us)
-        #         readout = int(self.ttl_node2_input1.sample_get())
-        #
-        #         if readout == 1:
-        #             other_node_ready = True
-        #             self.print_async("Node2 is Done.")
-        #         else:
-        #             other_node_ready = False
-        #             delay(1 * ms)
-        #
-        # ####################################################
-        # ##  Alice: Atom readout and pulse
-        # ##  Bob: Wait until Bob is done and check pulse
-        # ####################################################
-        # if self.which_node == "alice":
-        #     delay(1 * ms)
-        #     first_shot(self)
-        #     delay(1 * ms)
-        #
-        #     if self.t_recooling_after_first_shot > 0:
-        #         recooling_after_first_shot(self)
-        #
-        #     if self.t_FORT_drop > 0:
-        #         self.dds_FORT.sw.off()
-        #         delay(self.t_FORT_drop)
-        #         self.dds_FORT.sw.on()
-        #
-        #     delay(self.t_delay_between_shots)
-        #     second_shot(self)
-        #
-        #     ##sequence done;
-        #     self.ttl_node1_output1.on()
-        #     self.print_async("Node1 Readout Done.")
-        # else:
-        #     other_node_ready = False
-        #     readout = 0
-        #
-        #     ## check until it gets signal from Node1
-        #     while not other_node_ready:
-        #         self.ttl_node1_input1.sample_input()
-        #         delay(1 * us)
-        #         readout = int(self.ttl_node1_input1.sample_get())
-        #
-        #         if readout == 1:
-        #             other_node_ready = True
-        #             self.print_async("Node1 is Done.")
-        #         else:
-        #             other_node_ready = False
-        #             delay(1 * ms)
-
-        ####################################################
-        ##  Alice: Atom readout and pulse
-        ##  Bob: Wait until Bob is done and check pulse
-        ####################################################
-
-        delay(1 * ms)
-
-        ##### Syncing by sending a TTL pulse from node1 to node2
         two_nodes_synchronization(self)
-        ##### Syncing by sending a TTL pulse from node1 to node2
-
-        first_shot(self)
-        delay(1 * ms)
-
-        if self.t_recooling_after_first_shot > 0:
-            recooling_after_first_shot(self)
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-        delay(self.t_delay_between_shots)
-
-        ##### Syncing by sending a TTL pulse from node1 to node2
-        two_nodes_synchronization(self)
-        ##### Syncing by sending a TTL pulse from node1 to node2
 
         second_shot(self)
 
@@ -5735,87 +4398,6 @@ def Two_nodes_atom_loading_2_modular_experiment(self):
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
-
-@kernel
-def Two_nodes_atom_loading_3_experiment(self):
-    """
-    Simple atom loading experiment in both nodes
-
-    """
-
-    self.core.reset()
-    self.require_D1_lock_to_advance = False  # override experiment variable
-
-    if self.enable_laser_feedback:
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    ### For testing only. Todo: remove later
-    # delay(10*ms)
-    # self.ttl_pumping_repump_switch.off()
-    # load_until_atom_in_both_nodes_together_recycle(self)
-
-    #### Turn OFF this node's TTL to be ready for synchronization.
-    if self.which_node == "alice":
-        self.ttl_node1_output1.off()
-    else:
-        self.ttl_node2_output1.off()
-    delay(1 * ms)
-
-
-
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-        delay(10 * ms)
-
-        load_until_atom_in_both_nodes_recycle2(self)
-
-        # Turn OFF this node's TTL to be ready for synchronization.
-        if self.which_node == "alice":
-            self.ttl_node1_output1.off()
-        else:
-            self.ttl_node2_output1.off()
-        delay(1 * ms)
-
-
-
-        ################### Syncing by sending a TTL pulse from node1 to node2
-        two_nodes_synchronization2(self) ### Syncing the two nodes.
-        # two_nodes_synchronization3(self)  ### Syncing the two nodes.
-        # two_nodes_synchronization2_faisal_trial(self)
-        ##########################################################
-
-
-
-
-        first_shot(self)
-        delay(1 * ms)
-
-        if self.t_recooling_after_first_shot > 0:
-            recooling_after_first_shot(self)
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-        delay(self.t_delay_between_shots)
-
-
-
-        ################### Syncing by sending a TTL pulse from node1 to node2
-        two_nodes_synchronization2(self)  ### Syncing the two nodes.
-        # two_nodes_synchronization3(self)  ### Syncing the two nodes.
-        # two_nodes_synchronization2_faisal_trial(self)
-        ##########################################################
-
-
-
-        second_shot(self)
-
-        end_measurement(self)
 
 @kernel
 def blowaway_fidelity_measurement_experiment(self):
