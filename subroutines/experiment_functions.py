@@ -924,7 +924,7 @@ def load_MOT_and_FORT(self):
     self.dds_FORT.sw.on()
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
-    delay(1 * ms)
+    delay(0.01 * ms)
 
     # Turn on the MOT coils and cooling light
     self.zotino0.set_dac(
