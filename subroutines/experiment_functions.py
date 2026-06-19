@@ -3121,103 +3121,10 @@ def CW_optical_pumping_node1(self):
     # self.ttl_GRIN1_switch.on()
 
 @kernel
-def optical_pumping_both_sides(self):
+def CW_optical_pumping_node2(self):
     """
-    optical pumping without chopping the FORT
-
-    ** OP AOM is driven with external RF source.
-    ** GRIN1 and GRIN2 AOM is used to turn on/off the OP.
-
-    Note: To avoid conflict with Node1 codes, I left the names of the dds channels that are now
-    used for GRIN1 and GRIN2 dds.
-
-    Name of the dds channels >>>>   what actually does here
-    GRIN1and2_dds            >>>>   GRIN1 dds
-    dds_D1_pumping_DP        >>>>   GRIN2 dds
-
-    Eunji
-    """
-
-    self.dds_cooling_DP.sw.off()  # no MOT cooling light
-    self.ttl_repump_switch.on()   # no MOT RP AOM
-    self.ttl_exc0_switch.on()     # no excitation
-    self.ttl_D1_pumping.on()      # no D1
-
-    ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
-
-    self.dds_AOM_A5.sw.on()
-    self.dds_AOM_A6.sw.on()
-
-    delay(1*ms)
-
-    ### so that D1 can pass
-    self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-    self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_D1_pumping, amplitude=dB_to_V(self.p_GRIN2_D1_pumping))
-
-    self.ttl_D1_pumping.off()  ##turning D1 ON
-    self.GRIN1and2_dds.sw.on()  ## GRIN1 ON
-    self.dds_D1_pumping_DP.sw.on()  ## GRIN2 ON
-
-    delay(1 * ms)
-
-    ### set coils for pumping
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-        channels=self.coil_channels)
-    delay(0.4 * ms)  # coil relaxation time
-
-
-    ### Optical pumping phase ###
-    ## pumping repump ON
-    self.ttl_pumping_repump_switch.off()
-
-
-    ## FORT OFF
-    # self.dds_FORT.sw.off()
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-
-    ## D1 && GRIN1 && GRIN2 ON
-    self.ttl_GRIN1_switch.off()
-    self.ttl_GRIN2_switch.off()
-
-    ## pumping time
-    delay(self.t_pumping)
-
-    ## FORT ON  #todo: do this later or 2 stage PGC??? where you lower the FORT in 2 steps
-    # self.dds_FORT.sw.on()
-    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-
-    ## D1 && GRIN1 && GRIN2 OFF
-    self.ttl_D1_pumping.on()  ##turning D1 OFF
-    self.ttl_GRIN1_switch.on()
-    self.ttl_GRIN2_switch.on()
-
-    # depumping time
-    delay(self.t_depumping)
-
-    ## pumping repump OFF
-    self.ttl_pumping_repump_switch.on()
-    self.dds_AOM_A5.sw.off()
-    self.dds_AOM_A6.sw.off()
-
-
-    delay(100 * us)
-
-    self.GRIN1and2_dds.sw.off()
-    self.dds_D1_pumping_DP.sw.off()
-
-    delay(10 * us)
-
-    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
-    # self.dds_D1_pumping_DP.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
-
-@kernel
-def optical_pumping_GRIN1(self):
-    """
+    *** previously named as "optical_pumping_GRIN1"
+    *** OP with GRIN1
     optical pumping without chopping the FORT - swtching ON/OFF with TTL
 
     ** OP AOM is driven with external RF source.
@@ -3237,36 +3144,27 @@ def optical_pumping_GRIN1(self):
     self.ttl_repump_switch.on()   # no MOT RP AOM
     self.ttl_exc0_switch.on()     # no excitation
     self.ttl_D1_pumping.on()      # no D1
-    delay(100 * us)
+    delay(5 * us)
 
     ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
-    delay(5 * us)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
     delay(5 * us)
+
     self.dds_AOM_A5.sw.on()
     self.dds_AOM_A6.sw.on()
-    delay(10 * us)
 
     ### set coils for pumping
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
         channels=self.coil_channels)
-    delay(0.4 * ms)  # coil relaxation time
+    delay(0.395 * ms)  # coil relaxation time
 
     ### so that D1 can pass
     self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-    delay(10 * us)
     self.GRIN1and2_dds.sw.on()  ## GRIN1 RF ON but not yet activated with external switch
-    delay(10 * us)
+    delay(5 * us)
 
-    # ### Optical pumping phase
-    # ### - probably holding setpoint 0.05 is too leads to atom loss?? I might need a lower science setpoint,,
-    # but there's a limit in that too;
-
-    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2]) # holding setpoint
-    # delay(1 * us)
-    ### addd with parallel
     with parallel:
         self.ttl_pumping_repump_switch.off()  ## pumping repump ON
         self.ttl_D1_pumping.off()  ##turning D1 ON
@@ -3289,10 +3187,9 @@ def optical_pumping_GRIN1(self):
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
     self.GRIN1and2_dds.sw.off()  ## GRIN1 RF OFF
-    delay(10 * us)
+    delay(1 * us)
 
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-    delay(5 * us)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
     delay(5 * us)
 
@@ -5839,7 +5736,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            optical_pumping_GRIN1(self)
+            CW_optical_pumping_node2(self)
             delay(10*us)
 
 
@@ -5979,7 +5876,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            optical_pumping_GRIN1(self)
+            CW_optical_pumping_node2(self)
             delay(1*ms)
 
 
@@ -6128,7 +6025,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            optical_pumping_GRIN1(self)
+            CW_optical_pumping_node2(self)
             delay(10*us)  ## making this 1ms screws up;;; is this related to heating?? -> NO.
 
         ############################
@@ -6278,7 +6175,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            optical_pumping_GRIN1(self)
+            CW_optical_pumping_node2(self)
             delay(10*us)
 
 
@@ -6431,7 +6328,7 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            optical_pumping_GRIN1(self)
+            CW_optical_pumping_node2(self)
             delay(1*ms)
 
 
@@ -6601,7 +6498,7 @@ def microwave_Rabi_2_CW_OP_UW00_RF01_UW00_FORT_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            optical_pumping_GRIN1(self)
+            CW_optical_pumping_node2(self)
             delay(10*us)
 
 
@@ -6748,7 +6645,7 @@ def microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            optical_pumping_GRIN1(self)
+            CW_optical_pumping_node2(self)
             delay(10*us)
 
         ############################
@@ -6909,10 +6806,7 @@ def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            # optical_pumping_both_sides(self)
-            optical_pumping_GRIN1(self)
-            # optical_pumping_both_sides_and_PR_with_on_chip_beams(self)
-            # optical_pumping_both_sides_with_precise_timing(self)
+            CW_optical_pumping_node2(self)
             delay(0.1*ms)
 
         self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
@@ -9574,7 +9468,7 @@ def single_photon_experiment_3_atom_loading_advance_node2(self):
             ### low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
             ############################### optical pumping phase - pumps atoms into F=1,m_F=0
             if self.t_pumping > 0.0:
-                optical_pumping_GRIN1(self)
+                CW_optical_pumping_node2(self)
                 delay(10*us)
 
                 # ############ microwave phase - ONLY USED FOR VERIFYING OP.
@@ -10270,7 +10164,7 @@ def atom_photon_parity_2_node2_experiment(self):
             #     delay(1 * ms)
 
             if self.t_pumping > 0.0:
-                optical_pumping_GRIN1(self)
+                CW_optical_pumping_node2(self)
                 delay(10*us)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
@@ -13214,7 +13108,7 @@ def atom_photon_parity_6_node2_experiment(self):
             #     self.GRIN1and2_dds.sw.on() ### turning back on for excitation after chopped_optical_pumping
 
             if self.t_pumping > 0.0:
-                optical_pumping_GRIN1(self)
+                CW_optical_pumping_node2(self)
 
 
             # ### Changing the bias field.
@@ -13772,50 +13666,6 @@ def Two_node_HOM_1_experiment(self):
         self.append_to_dataset('angle_780_HWP', angle_780_HWP[i])
         self.append_to_dataset('angle_780_QWP', angle_780_QWP[i])
     delay(50 * ms)
-
-@kernel
-def rotator_test_experiment(self):
-    """
-    A simple experiment to test using GVS to control the waveplates. You can scan FORT waveplates and see the effect on MM fiber on scope.
-
-    :param self:
-    :return:
-    """
-
-    self.core.reset()
-
-    if self.enable_laser_feedback:
-        self.laser_stabilizer.run()
-
-    self.dds_FORT.sw.on() ### Tunrning on the FORT to see the effect of waveplate rotation on scope
-    delay(1* ms)
-
-
-    ### GVS - set target_hwp_deg as the scan_variable.
-    move_to_target_deg(self, name="852_HWP", target_deg=self.target_hwp_deg)
-    # wait_move(self, "852_HWP")
-    hwp852_pos = get_rotator_position(self, '852_HWP')
-    delay(1*s)
-    self.print_async('hwp852 at ', hwp852_pos / self.deg_to_pos, ' deg')
-    delay(1*s)
-
-    # record_PDA_power(self)
-
-
-    # move_to_target_deg(self, name="780_HWP", target_deg=10)
-    # hwp780_deg = get_rotator_deg(self, '780_HWP')
-    # delay(1*s)
-    # self.print_async('hwp780 at ', hwp780_deg, ' deg')
-
-
-    # # delay(2*s)
-    # # move_to_target_deg(self, name="780_HWP", target_deg=350)
-    #
-    # go_to_home(self, '780_HWP')
-    #
-    # hwp780_deg = get_rotator_deg(self, '780_HWP')
-    # delay(1*s)
-    # self.print_async('hwp780 at ', hwp780_deg, ' deg')
 
 #
 # ###############################################################################
