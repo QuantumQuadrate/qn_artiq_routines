@@ -515,6 +515,29 @@ def test_Repump_pulse_experiment(self):
 
     self.dds_AOM_A6.sw.off()
 
+
+@kernel
+def test_BA_pulse_experiment(self):
+    self.core.reset()
+
+    delay(100 * ms)
+    record_chopped_blow_away(self)
+    delay(100 * ms)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+        delay(1 * s)
+        self.dds_FORT.sw.on()
+        delay(1*ms)
+
+        chopped_blow_away(self)
+
+        delay(10*ms)
+
+        end_measurement(self)
+        delay(5 * ms)  ### hopefully to avoid underflow.
+
+
 @kernel
 def tune_coil_driver_experiment(self):
     self.core.reset()
@@ -4380,6 +4403,7 @@ def blowaway_fidelity_measurement_experiment(self):
 
         ######################## blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
+            delay(10*ms)
             chopped_blow_away(self)
 
         second_shot(self)
@@ -13451,15 +13475,14 @@ def Two_node_single_photon_experiment(self):
         tStamps_t1 = [0.0]  * (self.max_excitation_cycles * self.n_excitation_attempts)
         SPCM0_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
         SPCM1_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
+        SPCM0_OtherNode_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
+        SPCM1_OtherNode_timestamps = [[-1.0] * max_clicks for _ in range(self.max_excitation_cycles * self.n_excitation_attempts)]
 
         self.core.break_realtime()
         self.ttl_exc0_switch.on()  # turns off the excitation
 
-        if self.which_node == "alice":
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_in_both_nodes_recycle(self)
-        else:
-            delay(100*ms)
+        ### load atoms in both nodes
+        load_until_atom_in_both_nodes_recycle(self)
 
         delay(1 * ms)
 
@@ -13471,7 +13494,7 @@ def Two_node_single_photon_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
-        two_nodes_synchronization(self)
+        # two_nodes_synchronization(self)
 
         ########################################################
         # lower level optical pumping and excitation sequence to optimize for speed
@@ -13479,12 +13502,22 @@ def Two_node_single_photon_experiment(self):
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
+        if self.which_node == "alice":
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            delay(5 * us)
+        else:
+            self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+            delay(5 * us)
+            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+
+        delay(5*us)
 
         self.GRIN1and2_dds.sw.on()
         excitation_cycle = 1 ### just for initialization.
 
         for excitation_cycle in range(self.max_excitation_cycles):
-            self.core.break_realtime()
+            # self.core.break_realtime()  ## Commenting this out to avoid timing error
 
             ### low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
 
@@ -13540,18 +13573,22 @@ def Two_node_single_photon_experiment(self):
                     CW_optical_pumping_node1(self)
                 else:
                     CW_optical_pumping_node2(self)
-
-            two_nodes_synchronization(self)
+                delay(10*us)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
-            delay(10*us)
-
+            # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))  ###doing this outside of the loop
+            # delay(10*us)
 
             self.ttl_exc0_switch.off() # turns on the excitation0 AOM
-            # delay(2 * ms)
+            delay(5 * us)
+
             self.core.break_realtime()
+
+            two_nodes_synchronization(self)
+
+            if self.which_node == "bob":
+                delay_mu(self.t_delay_in_bob_mu)
 
             for excitation_attempt in range(self.n_excitation_attempts):
 
@@ -13571,11 +13608,15 @@ def Two_node_single_photon_experiment(self):
                 ######### time stamping the photons. Counting to be done in analysis.
                 SPCM0_click_counter = 0
                 SPCM1_click_counter = 0
+                SPCM0_OtherNode_click_counter = 0
+                SPCM1_OtherNode_click_counter = 0
 
                 at_mu(t1 + int(self.gate_start_offset_mu))
                 with parallel:
                     t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
                     t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
+                    t_end_SPCM0_OtherNode = self.ttl_SPCM0_OtherNode.gate_rising(self.t_photon_collection_time)
+                    t_end_SPCM1_OtherNode = self.ttl_SPCM1_OtherNode.gate_rising(self.t_photon_collection_time)
 
                 ### timestamping SPCM0 events
                 while SPCM0_click_counter < max_clicks:
@@ -13595,6 +13636,24 @@ def Two_node_single_photon_experiment(self):
                         SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
                     SPCM1_click_counter += 1
 
+                ### timestamping SPCM0_OtherNode events
+                while SPCM0_OtherNode_click_counter < max_clicks:
+                    SPCM0_OtherNode_click_time = self.ttl_SPCM0_OtherNode.timestamp_mu(t_end_SPCM0_OtherNode)
+                    if SPCM0_OtherNode_click_time == -1.0:
+                        break
+                    SPCM0_OtherNode_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                        SPCM0_OtherNode_click_counter] = self.core.mu_to_seconds(SPCM0_OtherNode_click_time)
+                    SPCM0_OtherNode_click_counter += 1
+
+                ### timestamping SPCM1_OtherNode events
+                while SPCM1_OtherNode_click_counter < max_clicks:
+                    SPCM1_OtherNode_click_time = self.ttl_SPCM1_OtherNode.timestamp_mu(t_end_SPCM1_OtherNode)
+                    if SPCM1_OtherNode_click_time == -1.0:
+                        break
+                    SPCM1_OtherNode_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                        SPCM1_OtherNode_click_counter] = self.core.mu_to_seconds(SPCM1_OtherNode_click_time)
+                    SPCM1_OtherNode_click_counter += 1
+
                 # at_mu(t1 + 30000)
                 tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
                 delay(30 * us)  ### 20us is not enough
@@ -13603,6 +13662,7 @@ def Two_node_single_photon_experiment(self):
             self.ttl_exc0_switch.on()  # block Excitation
 
             ############################ atom cooling phase with PGC settings
+            #todo: check Node2 + timing
             if self.t_recooling > 0 and (excitation_cycle + 1) % self.recool_every_n_OP == 0:
                 self.zotino0.set_dac(
                     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
@@ -13638,6 +13698,7 @@ def Two_node_single_photon_experiment(self):
                 self.dds_AOM_A6.sw.off()
                 delay(1 * us)
 
+            two_nodes_synchronization(self)
 
             ############################# readout to see if the atom survived every self.atom_check_every_n
             if (excitation_cycle + 1) % self.atom_check_every_n == 0:
@@ -13667,10 +13728,15 @@ def Two_node_single_photon_experiment(self):
                 with parallel:
                     self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
                     self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_recool_and_shot)
 
-                SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
-                SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                AllSPCMs_RO_atom_check = int(self.ttl_SPCM0_counter.fetch_count() + \
+                                          self.ttl_SPCM1_counter.fetch_count() + \
+                                          self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
+                                          self.ttl_SPCM1_OtherNode_counter.fetch_count())
+
+
                 AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
 
                 ### stopping the excitation cycle after the atom is lost
@@ -13693,9 +13759,13 @@ def Two_node_single_photon_experiment(self):
 
             delay(10 * us)
 
-        # delay(1 * ms)
+        delay(1 * ms)
         self.core.break_realtime()
+
         self.GRIN1and2_dds.sw.off()
+
+        if self.which_node == "bob":
+            self.dds_D1_pumping_DP.sw.off()
 
         delay(0.1 * ms)
 
@@ -13726,6 +13796,8 @@ def Two_node_single_photon_experiment(self):
         for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
             self.append_to_dataset('SPCM0_SinglePhoton_tStamps', SPCM0_timestamps[i])
             self.append_to_dataset('SPCM1_SinglePhoton_tStamps', SPCM1_timestamps[i])
+            self.append_to_dataset('SPCM0_OtherNode_SinglePhoton_tStamps', SPCM0_OtherNode_timestamps[i])
+            self.append_to_dataset('SPCM1_OtherNode_SinglePhoton_tStamps', SPCM1_OtherNode_timestamps[i])
             self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
 
         self.append_to_dataset('n_excitation_cycles', excitation_cycle)

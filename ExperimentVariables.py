@@ -73,6 +73,10 @@ class ExperimentVariables(EnvExperiment):
 
             Variable("record_every_shot", True, BooleanValue, {}, "single photon experiment"),
 
+            # two nodes experiment
+            Variable("t_delay_in_bob_mu", 0, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Two nodes experiment"),
+
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
 
