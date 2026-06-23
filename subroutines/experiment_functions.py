@@ -8369,14 +8369,25 @@ def single_photon_experiment_3_atom_loading_advance(self):
 
                 delay(1 * us)
 
+                # with parallel:
+                #     self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                #     self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                #
+                # SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
+                # SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
+                # AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
+                # AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
+
                 with parallel:
                     self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
                     self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_recool_and_shot)
 
-                SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
-                SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
-                AllSPCMs_RO_atom_check = int((SPCM0_RO_atom_check + SPCM1_RO_atom_check) / 2)
-                AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
+                AllSPCMs_RO_atom_check = int(self.ttl_SPCM0_counter.fetch_count() + \
+                                          self.ttl_SPCM1_counter.fetch_count() + \
+                                          self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
+                                          self.ttl_SPCM1_OtherNode_counter.fetch_count())
 
                 ### stopping the excitation cycle after the atom is lost
                 if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
@@ -13568,6 +13579,7 @@ def Two_node_single_photon_experiment(self):
             #     delay(10 * us)
 
             ############################### CW optical pumping phase - pumps atoms into F=1,m_F=0
+            delay(1*ms)
             if self.t_pumping > 0.0:
                 if self.which_node == "alice":
                     CW_optical_pumping_node1(self)
@@ -13588,81 +13600,85 @@ def Two_node_single_photon_experiment(self):
             two_nodes_synchronization(self)
 
             if self.which_node == "bob":
-                delay_mu(self.t_delay_in_bob_mu)
+                delay_mu(int(self.t_delay_in_bob_mu))
 
-            for excitation_attempt in range(self.n_excitation_attempts):
+            if self.which_node == "alice":
+                for excitation_attempt in range(self.n_excitation_attempts):
 
-                t1 = now_mu()
+                    t1 = now_mu()
 
-                self.dds_FORT.sw.off()  ### turns FORT off
+                    self.dds_FORT.sw.off()  ### turns FORT off
 
-                at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
-                self.dds_FORT.sw.on()  ### turns FORT on
+                    at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
+                    self.dds_FORT.sw.on()  ### turns FORT on
 
-                at_mu(t1 + int(self.t_excitation_offset_mu))
-                self.ttl_GRIN2_switch.off()  # turns on excitation
+                    at_mu(t1 + int(self.t_excitation_offset_mu))
+                    self.ttl_GRIN2_switch.off()  # turns on excitation
 
-                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-                self.ttl_GRIN2_switch.on()  # turns off excitation
+                    at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+                    self.ttl_GRIN2_switch.on()  # turns off excitation
 
-                ######### time stamping the photons. Counting to be done in analysis.
-                SPCM0_click_counter = 0
-                SPCM1_click_counter = 0
-                SPCM0_OtherNode_click_counter = 0
-                SPCM1_OtherNode_click_counter = 0
+                    ######### time stamping the photons. Counting to be done in analysis.
+                    SPCM0_click_counter = 0
+                    SPCM1_click_counter = 0
+                    SPCM0_OtherNode_click_counter = 0
+                    SPCM1_OtherNode_click_counter = 0
 
-                at_mu(t1 + int(self.gate_start_offset_mu))
-                with parallel:
-                    t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
-                    t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
-                    t_end_SPCM0_OtherNode = self.ttl_SPCM0_OtherNode.gate_rising(self.t_photon_collection_time)
-                    t_end_SPCM1_OtherNode = self.ttl_SPCM1_OtherNode.gate_rising(self.t_photon_collection_time)
+                    at_mu(t1 + int(self.gate_start_offset_mu))
+                    with parallel:
+                        t_end_SPCM0 = self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
+                        t_end_SPCM1 = self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
+                        t_end_SPCM0_OtherNode = self.ttl_SPCM0_OtherNode.gate_rising(self.t_photon_collection_time)
+                        t_end_SPCM1_OtherNode = self.ttl_SPCM1_OtherNode.gate_rising(self.t_photon_collection_time)
 
-                ### timestamping SPCM0 events
-                while SPCM0_click_counter < max_clicks:
-                    SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
-                    if SPCM0_click_time == -1.0:
-                        break
-                    SPCM0_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
-                        SPCM0_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
-                    SPCM0_click_counter += 1
+                    ### timestamping SPCM0 events
+                    while SPCM0_click_counter < max_clicks:
+                        SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM0)
+                        if SPCM0_click_time == -1.0:
+                            break
+                        SPCM0_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                            SPCM0_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
+                        SPCM0_click_counter += 1
 
-                ### timestamping SPCM1 events
-                while SPCM1_click_counter < max_clicks:
-                    SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
-                    if SPCM1_click_time == -1.0:
-                        break
-                    SPCM1_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
-                        SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
-                    SPCM1_click_counter += 1
+                    ### timestamping SPCM1 events
+                    while SPCM1_click_counter < max_clicks:
+                        SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM1)
+                        if SPCM1_click_time == -1.0:
+                            break
+                        SPCM1_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                            SPCM1_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
+                        SPCM1_click_counter += 1
 
-                ### timestamping SPCM0_OtherNode events
-                while SPCM0_OtherNode_click_counter < max_clicks:
-                    SPCM0_OtherNode_click_time = self.ttl_SPCM0_OtherNode.timestamp_mu(t_end_SPCM0_OtherNode)
-                    if SPCM0_OtherNode_click_time == -1.0:
-                        break
-                    SPCM0_OtherNode_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
-                        SPCM0_OtherNode_click_counter] = self.core.mu_to_seconds(SPCM0_OtherNode_click_time)
-                    SPCM0_OtherNode_click_counter += 1
+                    ### timestamping SPCM0_OtherNode events
+                    while SPCM0_OtherNode_click_counter < max_clicks:
+                        SPCM0_OtherNode_click_time = self.ttl_SPCM0_OtherNode.timestamp_mu(t_end_SPCM0_OtherNode)
+                        if SPCM0_OtherNode_click_time == -1.0:
+                            break
+                        SPCM0_OtherNode_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                            SPCM0_OtherNode_click_counter] = self.core.mu_to_seconds(SPCM0_OtherNode_click_time)
+                        SPCM0_OtherNode_click_counter += 1
 
-                ### timestamping SPCM1_OtherNode events
-                while SPCM1_OtherNode_click_counter < max_clicks:
-                    SPCM1_OtherNode_click_time = self.ttl_SPCM1_OtherNode.timestamp_mu(t_end_SPCM1_OtherNode)
-                    if SPCM1_OtherNode_click_time == -1.0:
-                        break
-                    SPCM1_OtherNode_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
-                        SPCM1_OtherNode_click_counter] = self.core.mu_to_seconds(SPCM1_OtherNode_click_time)
-                    SPCM1_OtherNode_click_counter += 1
+                    ### timestamping SPCM1_OtherNode events
+                    while SPCM1_OtherNode_click_counter < max_clicks:
+                        SPCM1_OtherNode_click_time = self.ttl_SPCM1_OtherNode.timestamp_mu(t_end_SPCM1_OtherNode)
+                        if SPCM1_OtherNode_click_time == -1.0:
+                            break
+                        SPCM1_OtherNode_timestamps[excitation_cycle * self.n_excitation_attempts + excitation_attempt][
+                            SPCM1_OtherNode_click_counter] = self.core.mu_to_seconds(SPCM1_OtherNode_click_time)
+                        SPCM1_OtherNode_click_counter += 1
 
-                # at_mu(t1 + 30000)
-                tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
-                delay(30 * us)  ### 20us is not enough
+                    # at_mu(t1 + 30000)
+                    tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
+                    delay(30 * us)  ### 20us is not enough
 
-            delay(20 * us)
-            self.ttl_exc0_switch.on()  # block Excitation
+                delay(20 * us)
+                self.ttl_exc0_switch.on()  # block Excitation
 
             ############################ atom cooling phase with PGC settings
             #todo: check Node2 + timing
+            self.core.break_realtime()
+            two_nodes_synchronization(self)
+
             if self.t_recooling > 0 and (excitation_cycle + 1) % self.recool_every_n_OP == 0:
                 self.zotino0.set_dac(
                     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
@@ -13698,6 +13714,7 @@ def Two_node_single_photon_experiment(self):
                 self.dds_AOM_A6.sw.off()
                 delay(1 * us)
 
+            self.core.break_realtime()
             two_nodes_synchronization(self)
 
             ############################# readout to see if the atom survived every self.atom_check_every_n
@@ -13740,7 +13757,7 @@ def Two_node_single_photon_experiment(self):
                 AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
 
                 ### stopping the excitation cycle after the atom is lost
-                if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.two_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     break
 
@@ -13757,6 +13774,8 @@ def Two_node_single_photon_experiment(self):
                 # delay(1 * us)
                 # ##############################
 
+            self.core.break_realtime()
+            two_nodes_synchronization(self)
             delay(10 * us)
 
         delay(1 * ms)
@@ -13794,10 +13813,10 @@ def Two_node_single_photon_experiment(self):
 
         delay(1 * ms)
         for i in range((excitation_cycle + 1)* self.n_excitation_attempts):
-            self.append_to_dataset('SPCM0_SinglePhoton_tStamps', SPCM0_timestamps[i])
-            self.append_to_dataset('SPCM1_SinglePhoton_tStamps', SPCM1_timestamps[i])
-            self.append_to_dataset('SPCM0_OtherNode_SinglePhoton_tStamps', SPCM0_OtherNode_timestamps[i])
-            self.append_to_dataset('SPCM1_OtherNode_SinglePhoton_tStamps', SPCM1_OtherNode_timestamps[i])
+            self.append_to_dataset('SPCM0_Photon_tStamps', SPCM0_timestamps[i])
+            self.append_to_dataset('SPCM1_Photon_tStamps', SPCM1_timestamps[i])
+            self.append_to_dataset('SPCM0_OtherNode_Photon_tStamps', SPCM0_OtherNode_timestamps[i])
+            self.append_to_dataset('SPCM1_OtherNode_Photon_tStamps', SPCM1_OtherNode_timestamps[i])
             self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
 
         self.append_to_dataset('n_excitation_cycles', excitation_cycle)
