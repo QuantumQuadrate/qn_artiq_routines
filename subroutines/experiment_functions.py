@@ -13939,56 +13939,6 @@ def Two_node_single_photon_2_experiment(self):
         excitation_cycle = 1 ### just for initialization.
 
         for excitation_cycle in range(self.max_excitation_cycles):
-            # self.core.break_realtime()  ## Commenting this out to avoid timing error
-
-            ### low level pumping sequnce is more time efficient than the prepackaged chopped_optical_pumping function.
-
-            # ############################### chopped optical pumping phase - pumps atoms into F=1,m_F=0
-            # if self.t_pumping > 0.0:
-            #
-            #     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
-            #     self.ttl_exc0_switch.on()  # turns off the excitation
-            #     self.dds_cooling_DP.sw.off()  # no cooling light
-            #     delay(1 * us)
-            #
-            #     ### set coils for pumping
-            #     self.zotino0.set_dac(
-            #         [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-            #         channels=self.coil_channels)
-            #     delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
-            #
-            #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0)) ### set to 5V for optical pumping
-            #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
-            #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
-            #     delay(1 * us)
-            #
-            #     ### Tunring on pumping RP:
-            #     self.ttl_pumping_repump_switch.off()
-            #     self.dds_AOM_A5.sw.on()
-            #     self.dds_AOM_A6.sw.on()
-            #
-            #     # delay(1 * ms)
-            #
-            #     self.ttl_GRIN1_switch.off() ### was used when D1 was on GRIN1
-            #     delay(10 * us)
-            #
-            #     self.core_dma.playback_handle(op_dma_handle)
-            #     delay(self.t_depumping)
-            #     self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
-            #     self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
-            #
-            #     delay(2 * us)
-            #     self.dds_AOM_A5.sw.off()
-            #     self.dds_AOM_A6.sw.off()
-            #     delay(100 * us)
-            #
-            #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-            #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-            #     # delay(1 * ms)
-            #
-            #     self.ttl_GRIN1_switch.on() ### was used when D1 was on GRIN1
-            #     delay(10 * us)
-
             ############################### CW optical pumping phase - pumps atoms into F=1,m_F=0
             delay(1*ms)
             if self.t_pumping > 0.0:
@@ -14171,19 +14121,6 @@ def Two_node_single_photon_2_experiment(self):
                 if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.two_atom_threshold:
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     break
-
-                # #### these added on 2025-09-09 based on Eunji's comment. I (AkS) did not have these in my photon experiments:
-                # self.dds_cooling_DP.sw.off()
-                # self.ttl_repump_switch.on()
-                # delay(1 * us)
-                # self.dds_AOM_A1.sw.off()
-                # self.dds_AOM_A2.sw.off()
-                # self.dds_AOM_A3.sw.off()
-                # self.dds_AOM_A4.sw.off()
-                # self.dds_AOM_A5.sw.off()
-                # self.dds_AOM_A6.sw.off()
-                # delay(1 * us)
-                # ##############################
 
             self.core.break_realtime()
             two_nodes_synchronization(self)
