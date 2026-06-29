@@ -13903,6 +13903,10 @@ def Two_node_single_photon_2_experiment(self):
         self.core.break_realtime()
         self.ttl_exc0_switch.on()  # turns off the excitation
 
+        two_nodes_synchronization(self)
+
+        ##todo: add synchronization here also??
+        ##      also, add how much time it took for synchronization.
         ### load atoms in both nodes
         load_until_atom_in_both_nodes_recycle(self)
 
@@ -13940,7 +13944,7 @@ def Two_node_single_photon_2_experiment(self):
 
         for excitation_cycle in range(self.max_excitation_cycles):
             ############################### CW optical pumping phase - pumps atoms into F=1,m_F=0
-            delay(1*ms)
+            delay(10*us)
             if self.t_pumping > 0.0:
                 if self.which_node == "alice":
                     CW_optical_pumping_node1(self)
@@ -14169,6 +14173,198 @@ def Two_node_single_photon_2_experiment(self):
         self.append_to_dataset('n_excitation_cycles', excitation_cycle)
 
         # delay(1*ms)
+        self.core.break_realtime()
+
+    # delay(15 * ms)
+    self.core.break_realtime()
+
+@kernel
+def Two_node_single_photon_2_optimization_experiment(self):
+    """
+    **** This is for Hong-Ou_Mandel Experiment
+    **** This is based on Two_node_single_photon_experiment
+
+    **** In HOM Measurement, we want to vary the excitation timing of one node to see
+         see the HOM dip. However while we do that, we might accidentally keep the
+         FORT from the other node on while one node is collecting photons, making
+         false count measurements. Thus, here I added some timing changes in
+         excitation cycle loop.
+
+    ****
+    """
+
+    self.core.reset()
+    delay(1 * ms)
+
+    max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
+    ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
+
+    AllSPCMs_RO_atom_check_array = [0]
+
+    # record_chopped_optical_pumping(self)
+    # delay(100*ms)
+
+    # op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
+
+    if self.enable_laser_feedback:
+        delay(0.1 * ms)  ### necessary to avoid underflow
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        run_feedback_and_record_FORT_MM_power(self)
+
+    self.measurement = 0  # advances in end_measurement
+    self.core.break_realtime()
+
+    t_diff_mu = 0
+    t_gate_mu = 0
+    t_photon_add_mu = 0
+    t_FORT_OFF_mu = 0
+
+    while self.measurement < self.n_measurements:
+        self.core.break_realtime()
+        self.ttl_exc0_switch.on()  # turns off the excitation
+
+        ### load atoms in both nodes
+        load_until_atom_in_both_nodes_recycle(self)
+
+        delay(1 * ms)
+
+        two_nodes_synchronization(self)
+
+        first_shot(self)
+        delay(1 * ms)
+
+        if self.t_recooling_after_first_shot > 0:
+            recooling_after_first_shot(self)
+
+        # two_nodes_synchronization(self)
+
+        ########################################################
+        # lower level optical pumping and excitation sequence to optimize for speed
+        ########################################################
+
+        ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
+        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
+        if self.which_node == "alice":
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            delay(5 * us)
+        else:
+            self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+            delay(5 * us)
+            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+
+        delay(5*us)
+
+        self.GRIN1and2_dds.sw.on()
+        excitation_cycle = 1 ### just for initialization.
+
+        ############################### CW optical pumping phase - pumps atoms into F=1,m_F=0
+        delay(10*us)
+        if self.t_pumping > 0.0:
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
+            delay(10*us)
+
+        ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
+        # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+        # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))  ###doing this outside of the loop
+        # delay(10*us)
+
+        self.ttl_exc0_switch.off() # turns on the excitation0 AOM
+        delay(5 * us)
+
+        self.core.break_realtime()
+
+        two_nodes_synchronization(self)
+
+        for excitation_attempt in range(self.n_excitation_attempts):
+
+            if self.which_node == "bob":
+                delay_mu(int(self.t_delay_in_bob_mu))
+
+            t1 = now_mu()
+
+            self.dds_FORT.sw.off()  ### turns FORT off
+
+            at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
+            self.dds_FORT.sw.on()  ### turns FORT on
+
+            at_mu(t1 + int(self.t_excitation_offset_mu))
+            self.ttl_GRIN2_switch.off()  # turns on excitation
+
+            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+            self.ttl_GRIN2_switch.on()  # turns off excitation
+
+
+            self.core.break_realtime()
+            two_nodes_synchronization(self)
+
+        delay(20 * us)
+        self.ttl_exc0_switch.on()  # block Excitation
+
+        delay(1 * ms)
+        self.core.break_realtime()
+
+        self.GRIN1and2_dds.sw.off()
+
+        if self.which_node == "bob":
+            self.dds_D1_pumping_DP.sw.off()
+
+        delay(0.1 * ms)
+
+        two_nodes_synchronization(self)
+
+        if self.t_microwave_pulse > 0.0:
+            ### Changing the bias field
+            if self.which_node == "alice":
+                self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+                                      self.AX_volts_microwave, self.AY_volts_microwave],
+                                     channels=self.coil_channels)
+            delay(1 * ms)
+
+            # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
+            # delay(0.1 * ms)
+            # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
+
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+
+            FORT_ramp2_smoothstep(self, direction="down")
+            delay(2 * us)
+
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_pulse)
+            self.ttl_microwave_switch.on()
+            delay(2 * us)
+
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            FORT_ramp2_smoothstep(self, direction="up")
+            delay(2 * us)
+
+
+        if self.t_blowaway > 0.0:
+            chopped_blow_away(self)
+
+
+        two_nodes_synchronization(self)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        delay(0.1 * ms)
+
+        end_measurement(self)
+
         self.core.break_realtime()
 
     # delay(15 * ms)
