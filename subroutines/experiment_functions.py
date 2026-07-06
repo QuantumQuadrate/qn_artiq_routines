@@ -167,16 +167,18 @@ def two_nodes_synchronization(self):
     # ############################################################
     other_node_ready = False
     readout = 0
-    sync_starting_at = now_mu()
+    # sync_starting_at = now_mu()
 
-    delay(0.01 * ms)
+    # self.core.break_realtime()
+
+    delay(10 * us)
 
     if self.which_node == "alice":
         self.ttl_node1_output1.on()
     else:
         self.ttl_node2_output1.on()
 
-    delay(0.01 * ms)
+    delay(1 * us)
 
     ############################################################
     # 1. Initial coarse synchronization
@@ -184,7 +186,7 @@ def two_nodes_synchronization(self):
     # Check every wait_time
     ############################################################
     while not other_node_ready:
-        wait_time = 10*us
+        wait_time = 4*us
         delay(wait_time)
         if self.which_node == "alice":
             self.ttl_node2_input1.sample_input()
@@ -207,7 +209,7 @@ def two_nodes_synchronization(self):
             else:
                 other_node_ready = False
 
-    delay(0.01 * ms)
+    delay(10 * us)
 
     ############################################################
     # 2. Fine synchronization
@@ -220,37 +222,36 @@ def two_nodes_synchronization(self):
     t_node2_ref_0 = -1
 
     if self.which_node == "alice":
-        delay(30*us)
+        delay(50*us)
+        # delay(15 * us)
         t_node1_ref_0 = now_mu()
         self.ttl_node1_output2.pulse(1*us)
     else:
-        t_gate_end = self.ttl_node1_input2.gate_rising(60*us)
+        t_gate_end = self.ttl_node1_input2.gate_rising(150*us)
+        # t_gate_end = self.ttl_node1_input2.gate_rising(30 * us)
         t_node2_ref_0 = self.ttl_node1_input2.timestamp_mu(t_gate_end)
 
+        if t_node2_ref_0 == -1:
+            self.print_async("Node2 did not detect pulse from Node1")
+
     delay(10 * us)
-    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(150 * us) + 200
-    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(150 * us)
+    t_node1_ref_1 = t_node1_ref_0 + self.core.seconds_to_mu(200 * us) + 200
+    t_node2_ref_1 = t_node2_ref_0 + self.core.seconds_to_mu(200 * us)
 
     if self.which_node == "alice":
         at_mu(t_node1_ref_1)
+        self.ttl_node1_output1.off()
+        # sync_time_took = int((t_node1_ref_1 - sync_starting_at) / 1e3)
     else:
         at_mu(t_node2_ref_1)
-
-    ############################################################
-    # Ending synchronization
-    # Signal OFF
-    ############################################################
-    if self.which_node == "alice":
-        self.ttl_node1_output1.off()
-        # self.print_async("Node1 ready TTL is ON.")
-    else:
         self.ttl_node2_output1.off()
-        # self.print_async("Node2 ready TTL is ON.")
+        # sync_time_took = int((t_node2_ref_1 - sync_starting_at) / 1e3)
 
-    delay(0.01 * ms)
+    delay(10 * us)
 
     # sync_time_took = int((t_node1_ref_1 - sync_starting_at) / 1e3)
     # self.print_async("sync_time_took :", sync_time_took, " us")
+    # self.append_to_dataset("sync_time_took", sync_time_took)
 
 @kernel
 def two_nodes_synchronization2(self) -> TBool:
@@ -1762,6 +1763,7 @@ def load_until_atom_in_both_nodes_recycle(self):
         delay(1 * ms)
         if self.which_node == "alice":
             self.zotino0.set_dac([3.5], self.UV_trig_channel)
+        delay(1 * ms)
 
         max_tries = 100  ### Maximum number of attempts before running the feedback
         atom_check_time = self.t_atom_check_time
@@ -1854,6 +1856,7 @@ def load_until_atom_in_both_nodes_recycle(self):
 
                 try_n = 0
 
+        delay(1 * ms)
         if self.which_node == "alice":
             self.zotino0.set_dac([0.0], self.UV_trig_channel)
         delay(100 * us)
@@ -2671,6 +2674,110 @@ def second_shot(self):
     #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[0])
     # elif self.which_node == 'bob':
     #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+
+@kernel
+def both_nodes_alternating_RO(self):
+    """
+    Alternating two-node readout.
+
+    Alice windows: even windows
+    Bob windows:   odd windows
+
+    Each node gets:
+        n_chop_per_node windows
+        2 ms counter gate per window
+
+    Timing:
+        Alice window starts at 0 ms
+        Bob window starts 3 ms later
+        Alice next window starts 6 ms later
+    """
+
+    # Set cooling DP AOM to readout settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+
+    # Set FORT AOM to science settings
+    self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
+    self.dds_AOM_A1.sw.on()
+    self.dds_AOM_A2.sw.on()
+    self.dds_AOM_A3.sw.on()
+    self.dds_AOM_A4.sw.on()
+
+    if not self.PGC_and_RO_with_on_chip_beams:
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+
+    delay(0.1 * ms)
+
+    n_chop_per_node = 10
+
+    t_gate = 2.0 * ms
+
+    AllSPCMs_chopped_RO_alice = 0
+    AllSPCMs_chopped_RO_bob = 0
+
+    self.ttl_repump_switch.on()  # turn off MOT RP
+    self.dds_cooling_DP.sw.off()
+
+    # 2*n_chop_per_node because even windows are Alice, odd windows are Bob
+    for i in range(2 * n_chop_per_node):
+
+        alice_window = (i % 2 == 0)
+
+        # Only the active node turns on readout light.
+        if alice_window:
+            if self.which_node == "alice":
+                self.ttl_repump_switch.off()   # turn on MOT RP
+                self.dds_cooling_DP.sw.on()    # turn on cooling/readout
+
+        else:
+            if self.which_node == "bob":
+                self.ttl_repump_switch.off()   # turn on MOT RP
+                self.dds_cooling_DP.sw.on()    # turn on cooling/readout
+
+
+        # waiting for RO beams to turn on
+        delay(0.1 * ms)
+
+        # Open all counters during this readout window
+        with parallel:
+            self.ttl_SPCM0_counter.gate_rising(t_gate)
+            self.ttl_SPCM1_counter.gate_rising(t_gate)
+            self.ttl_SPCM0_OtherNode_counter.gate_rising(t_gate)
+            self.ttl_SPCM1_OtherNode_counter.gate_rising(t_gate)
+
+        delay(0.1 * ms)
+        self.ttl_repump_switch.on()  # turn off MOT RP
+        self.dds_cooling_DP.sw.off()
+
+        SPCM0_chopped_RO = self.ttl_SPCM0_counter.fetch_count()
+        SPCM1_chopped_RO = self.ttl_SPCM1_counter.fetch_count()
+        SPCM0_OtherNode_chopped_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+        SPCM1_OtherNode_chopped_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+
+        window_count = (SPCM0_chopped_RO + SPCM1_chopped_RO
+                        + SPCM0_OtherNode_chopped_RO + SPCM1_OtherNode_chopped_RO)
+
+        if alice_window:
+            AllSPCMs_chopped_RO_alice += window_count
+        else:
+            AllSPCMs_chopped_RO_bob += window_count
+
+        delay(0.4*ms)
+
+
+    delay(1*ms)
+    self.append_to_dataset('AllSPCMs_chopped_RO_alice_current_iteration', AllSPCMs_chopped_RO_alice)
+    self.append_to_dataset('AllSPCMs_chopped_RO_bob_current_iteration', AllSPCMs_chopped_RO_bob)
+    delay(1*ms)
+
+
+    # # Safety: make sure RO beams are off at the end
+    # self.dds_cooling_DP.sw.off()
+    # self.ttl_repump_switch.on()
+
+    # return AllSPCMs_chopped_RO_alice, AllSPCMs_chopped_RO_bob
 
 @kernel
 def test_shot(self):
@@ -4249,6 +4356,10 @@ def atom_loading_2_experiment(self):
             delay(self.t_FORT_drop)
             self.dds_FORT.sw.on()
 
+        # delay(1*ms)
+        # both_nodes_alternating_RO(self)
+        # delay(1 * ms)
+
         delay(self.t_delay_between_shots)
         second_shot(self)
 
@@ -4291,6 +4402,8 @@ def Two_nodes_atom_loading_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
+        # two_nodes_synchronization(self)
+
         load_until_atom_in_both_nodes_recycle(self)
 
         delay(1 * ms)
@@ -4310,6 +4423,11 @@ def Two_nodes_atom_loading_experiment(self):
 
         delay(self.t_delay_between_shots)
 
+        two_nodes_synchronization(self)
+
+        # delay(1*ms)
+        # both_nodes_alternating_RO(self)
+        # delay(1 * ms)
         two_nodes_synchronization(self)
 
         second_shot(self)
@@ -13855,6 +13973,9 @@ def Two_node_single_photon_2_experiment(self):
     self.measurement = 0  # advances in end_measurement
     self.core.break_realtime()
 
+    two_nodes_synchronization(self)
+    delay(10*us)
+
     #### So that the other node is not turning the FORT on while photon collection in one node;
     t_diff_mu = int(self.t_delay_in_bob_mu - 189)
 
@@ -13903,6 +14024,7 @@ def Two_node_single_photon_2_experiment(self):
         self.core.break_realtime()
         self.ttl_exc0_switch.on()  # turns off the excitation
 
+        delay(10*us)
         two_nodes_synchronization(self)
 
         ##todo: add synchronization here also??
@@ -14036,8 +14158,9 @@ def Two_node_single_photon_2_experiment(self):
                 tStamps_t1[excitation_cycle * self.n_excitation_attempts + excitation_attempt] = self.core.mu_to_seconds(t1)
                 delay(30 * us)  ### 20us is not enough
 
-                self.core.break_realtime()
+                # self.core.break_realtime()
                 two_nodes_synchronization(self)
+                delay(10*us)
 
             delay(20 * us)
             self.ttl_exc0_switch.on()  # block Excitation
@@ -14079,8 +14202,9 @@ def Two_node_single_photon_2_experiment(self):
                 self.dds_AOM_A6.sw.off()
                 delay(1 * us)
 
-            self.core.break_realtime()
-            two_nodes_synchronization(self)
+                # self.core.break_realtime()
+                two_nodes_synchronization(self)
+                delay(1*us)
 
             ############################# readout to see if the atom survived every self.atom_check_every_n
             if (excitation_cycle + 1) % self.atom_check_every_n == 0:
@@ -14126,21 +14250,22 @@ def Two_node_single_photon_2_experiment(self):
                     delay(100 * us)  ### Needs a delay of about 100us or maybe less
                     break
 
-            self.core.break_realtime()
-            two_nodes_synchronization(self)
+                # self.core.break_realtime()
+                two_nodes_synchronization(self)
+                delay(1*us)
             delay(10 * us)
 
-        delay(1 * ms)
-        self.core.break_realtime()
+        # delay(1 * ms)
+        # self.core.break_realtime()
 
         self.GRIN1and2_dds.sw.off()
 
         if self.which_node == "bob":
             self.dds_D1_pumping_DP.sw.off()
 
-        delay(0.1 * ms)
+        delay(0.01 * ms)
 
-        two_nodes_synchronization(self)
+        # two_nodes_synchronization(self)
 
         second_shot(self)
 
