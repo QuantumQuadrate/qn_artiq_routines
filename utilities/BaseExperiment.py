@@ -978,6 +978,7 @@ class BaseExperiment:
         self.experiment.set_dataset("time_without_atom", [0.0], broadcast=True)
         self.experiment.set_dataset("Atom_loading_time_other_node", [0.0], broadcast=True)
         self.experiment.set_dataset("time_without_atom_other_node", [0.0], broadcast=True)
+        self.experiment.set_dataset("sync_time_took", [0.0], broadcast=True)
 
         self.experiment.set_dataset("GRIN1_D1_monitor", [0.0], broadcast=True)
         self.experiment.set_dataset("GRIN1_EXC_monitor", [0.0], broadcast=True)
@@ -1130,6 +1131,8 @@ class BaseExperiment:
             self.experiment.ttl_node1_output2.off()
             self.experiment.ttl_node1_output1.off()
 
+            self.experiment.core.break_realtime()
+
             if turn_off_zotinos:
                 self.experiment.zotino0.init()
                 for zot_ch in range(16):
@@ -1149,7 +1152,7 @@ class BaseExperiment:
             delay(100 * ms)
 
             #todo: this is giving me underflow error. now i am setting this within experiment for two node exp.
-            # ### setting the dds for optical pumping
+            ### setting the dds for optical pumping
             self.experiment.dds_D1_pumping_DP.set(frequency=self.experiment.f_D1_pumping_DP,
                                                   amplitude=dB_to_V(self.experiment.p_D1_pumping_DP))
             delay(10 * us)
@@ -1231,6 +1234,7 @@ class BaseExperiment:
                     dds_ch.sw.off()
                     delay(1 * ms)
 
+            # delay(100 * ms)
             self.experiment.core.break_realtime()
 
 
