@@ -11,6 +11,37 @@ import numpy as np
 
 
 class Card_Tests(EnvExperiment):
+
+### Testing TTL timetag:
+    def build(self):
+        self.setattr_device("core")
+        self.setattr_device("ttl0")
+
+    @kernel
+    def run(self):
+        self.core.reset()
+
+        delay(1 * ms)
+        t0 = now_mu()
+
+        t_gate_end = self.ttl0.gate_rising(10 * ms)
+        time_stamp = self.ttl0.timestamp_mu(t_gate_end)
+
+        # delay(1*ms)
+        print((time_stamp-t0)/1e6)
+        delay(20*ms)
+        print((now_mu() - t0)/1e6)
+        delay(20 * ms)
+
+        self.ttl0.sample_input()
+        delay(1 * us)
+        ss = int(self.ttl0.sample_get())
+        print(ss)
+        delay(20*ms)
+
+        print("code done!")
+
+
 # ### Testing TTLs:
 #     def build(self):
 #         self.setattr_device("core")
@@ -139,52 +170,52 @@ class Card_Tests(EnvExperiment):
 #         print("code done!")
 
 
- #### Testing Zotino:
-    def build(self):
-        self.setattr_device("core")
-        self.setattr_device("zotino0")
-
-    @kernel
-    def run(self):
-        self.core.reset()
-        self.core.break_realtime()
-        self.zotino0.init()
-        delay(10 * ms)
-
-        self.zotino0.write_dac(0, 1.0)
-        self.zotino0.write_dac(1, 1.0)
-        self.zotino0.write_dac(2, 1.0)
-        self.zotino0.write_dac(3, 1.0)
-        self.zotino0.write_dac(12, 0.2)
-        self.zotino0.write_dac(13, 0.2)
-        self.zotino0.write_dac(14, 0.2)
-        self.zotino0.write_dac(15, 1.0)
-        self.zotino0.load()
-        delay(1 * ms)
-
-        for i in range(10000):
-            self.zotino0.set_dac([6.0], [0])
-            delay(1 * ms)
-            self.zotino0.set_dac([6.0], [1])
-            delay(1 * ms)
-            self.zotino0.set_dac([1.0], [13])
-            delay(1 * ms)
-            self.zotino0.set_dac([3.23], [14])
-            delay(5*ms)
-            self.zotino0.set_dac([0.0], [0])
-            delay(1 * ms)
-            self.zotino0.set_dac([0.0], [1])
-            delay(1 * ms)
-            self.zotino0.set_dac([0.0], [13])
-            delay(1 * ms)
-            self.zotino0.set_dac([0.0], [14])
-            delay(200*ms)
-
-        # self.zotino0.set_dac([2,2,2,2])
-
-        delay(10 * ms)
-
-        print("code done!")
+ # #### Testing Zotino:
+ #    def build(self):
+ #        self.setattr_device("core")
+ #        self.setattr_device("zotino0")
+ #
+ #    @kernel
+ #    def run(self):
+ #        self.core.reset()
+ #        self.core.break_realtime()
+ #        self.zotino0.init()
+ #        delay(10 * ms)
+ #
+ #        self.zotino0.write_dac(0, 1.0)
+ #        self.zotino0.write_dac(1, 1.0)
+ #        self.zotino0.write_dac(2, 1.0)
+ #        self.zotino0.write_dac(3, 1.0)
+ #        self.zotino0.write_dac(12, 0.2)
+ #        self.zotino0.write_dac(13, 0.2)
+ #        self.zotino0.write_dac(14, 0.2)
+ #        self.zotino0.write_dac(15, 1.0)
+ #        self.zotino0.load()
+ #        delay(1 * ms)
+ #
+ #        for i in range(10000):
+ #            self.zotino0.set_dac([6.0], [0])
+ #            delay(1 * ms)
+ #            self.zotino0.set_dac([6.0], [1])
+ #            delay(1 * ms)
+ #            self.zotino0.set_dac([1.0], [13])
+ #            delay(1 * ms)
+ #            self.zotino0.set_dac([3.23], [14])
+ #            delay(5*ms)
+ #            self.zotino0.set_dac([0.0], [0])
+ #            delay(1 * ms)
+ #            self.zotino0.set_dac([0.0], [1])
+ #            delay(1 * ms)
+ #            self.zotino0.set_dac([0.0], [13])
+ #            delay(1 * ms)
+ #            self.zotino0.set_dac([0.0], [14])
+ #            delay(200*ms)
+ #
+ #        # self.zotino0.set_dac([2,2,2,2])
+ #
+ #        delay(10 * ms)
+ #
+ #        print("code done!")
 
 
 

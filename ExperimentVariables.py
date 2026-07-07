@@ -73,6 +73,10 @@ class ExperimentVariables(EnvExperiment):
 
             Variable("record_every_shot", True, BooleanValue, {}, "single photon experiment"),
 
+            # two nodes experiment
+            Variable("t_delay_in_bob_mu", 0, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1},
+                     "Two nodes experiment"),
+
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
 
@@ -223,7 +227,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_microwave_01_pulse", 60.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
             Variable("t_microwave_11_pulse", 6.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
             Variable("t_microwave_m10_pulse", 6.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
-            Variable("t_microwave_m1m1_pulse", 6.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_microwave_m1m1_pulse", 6.0 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
 
             Variable("t_MW_RF_pulse", 1.0 * ms, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
             Variable("t_MW_00_ramp", 2 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Microwaves"),
@@ -338,7 +342,9 @@ class ExperimentVariables(EnvExperiment):
 
             # Thresholds and cut-offs
             Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
-            Variable("single_atom_threshold_for_loading", 14000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("single_atom_threshold_for_loading", 44000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("two_atom_threshold", 20000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
+            Variable("two_atom_threshold_for_loading", 84000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
 
             # Set points
             Variable("set_point_PD1_AOM_A1", 0.0347, NumberValue, {'type':'float','ndecimals':4}, "Set points"),

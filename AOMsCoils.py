@@ -78,31 +78,31 @@ class AOMsCoils(EnvExperiment):
         delay(1 * ms)
         if self.Atom_signal_to_other_node_ON == True:
             if self.which_node == "alice":
-                self.ttl_Node1_atom_output.on()
+                self.ttl_node1_output1.on()
                 self.print_async("Node1 TTL is ON.")
             else:
-                self.ttl_Node2_atom_output.on()
+                self.ttl_node2_output1.on()
                 self.print_async("Node2 TTL is ON.")
         else:
             if self.which_node == "alice":
-                self.ttl_Node1_atom_output.off()
+                self.ttl_node1_output1.off()
                 self.print_async("Node1 TTL is OFF.")
             else:
-                self.ttl_Node2_atom_output.off()
+                self.ttl_node2_output1.off()
                 self.print_async("Node2 TTL is OFF.")
         delay(1 * ms)
         if self.Other_node_atom_signal_checker == True:
             if self.which_node == "alice":
-                self.ttl_Node2_atom_input.sample_input()
-                readout = int(self.ttl_Node2_atom_input.sample_get())
+                self.ttl_node2_input1.sample_input()
+                readout = int(self.ttl_node2_input1.sample_get())
 
                 if readout == 1:
                     self.print_async("Node2 is running.")
                 else:
                     self.print_async("Node2 is NOT running.")
             else:
-                self.ttl_Node1_atom_input.sample_input()
-                readout = int(self.ttl_Node1_atom_input.sample_get())
+                self.ttl_node1_input1.sample_input()
+                readout = int(self.ttl_node1_input1.sample_get())
 
                 if readout == 1:
                     self.print_async("Node1 is running.")
