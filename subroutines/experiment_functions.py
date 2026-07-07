@@ -4402,7 +4402,7 @@ def Two_nodes_atom_loading_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        # two_nodes_synchronization(self)
+        two_nodes_synchronization(self)
 
         load_until_atom_in_both_nodes_recycle(self)
 
@@ -4423,7 +4423,7 @@ def Two_nodes_atom_loading_experiment(self):
 
         delay(self.t_delay_between_shots)
 
-        two_nodes_synchronization(self)
+        # two_nodes_synchronization(self)
 
         # delay(1*ms)
         # both_nodes_alternating_RO(self)
