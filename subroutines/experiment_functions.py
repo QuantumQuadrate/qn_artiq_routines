@@ -2676,7 +2676,7 @@ def second_shot(self):
     #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
 
 @kernel
-def both_nodes_alternating_RO(self):
+def two_node_alternating_shot(self):
     """
     Alternating two-node readout.
 
@@ -2684,14 +2684,19 @@ def both_nodes_alternating_RO(self):
     Bob windows:   odd windows
 
     Each node gets:
-        n_chop_per_node windows
-        2 ms counter gate per window
+        n_readout_windows_per_node windows
+        1 ms counter gate per window
 
     Timing:
         Alice window starts at 0 ms
-        Bob window starts 3 ms later
-        Alice next window starts 6 ms later
+        Bob window starts 2.3 ms later
+        Alice next window starts 4.6 ms later...
     """
+    ### set the coils to PGC settings
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+        channels=self.coil_channels)
+    delay(1 * ms)  ## coils relaxation time
 
     # Set cooling DP AOM to readout settings
     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
@@ -2707,21 +2712,24 @@ def both_nodes_alternating_RO(self):
     if not self.PGC_and_RO_with_on_chip_beams:
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
+    else:
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
 
     delay(0.1 * ms)
 
-    n_chop_per_node = 10
+    n_readout_windows_per_node = 10
 
-    t_gate = 2.0 * ms
+    t_readout_window = 1.0 * ms
 
-    AllSPCMs_chopped_RO_alice = 0
-    AllSPCMs_chopped_RO_bob = 0
+    AllSPCMs_alternating_RO_alice = 0
+    AllSPCMs_alternating_RO_bob = 0
 
     self.ttl_repump_switch.on()  # turn off MOT RP
     self.dds_cooling_DP.sw.off()
 
-    # 2*n_chop_per_node because even windows are Alice, odd windows are Bob
-    for i in range(2 * n_chop_per_node):
+    # 2*n_readout_windows_per_node because even windows are Alice, odd windows are Bob
+    for i in range(2 * n_readout_windows_per_node):
 
         alice_window = (i % 2 == 0)
 
@@ -2729,55 +2737,40 @@ def both_nodes_alternating_RO(self):
         if alice_window:
             if self.which_node == "alice":
                 self.ttl_repump_switch.off()   # turn on MOT RP
-                self.dds_cooling_DP.sw.on()    # turn on cooling/readout
-
+                self.dds_cooling_DP.sw.on()    # turn on cooling/readout=
         else:
             if self.which_node == "bob":
                 self.ttl_repump_switch.off()   # turn on MOT RP
                 self.dds_cooling_DP.sw.on()    # turn on cooling/readout
-
 
         # waiting for RO beams to turn on
         delay(0.1 * ms)
 
         # Open all counters during this readout window
         with parallel:
-            self.ttl_SPCM0_counter.gate_rising(t_gate)
-            self.ttl_SPCM1_counter.gate_rising(t_gate)
-            self.ttl_SPCM0_OtherNode_counter.gate_rising(t_gate)
-            self.ttl_SPCM1_OtherNode_counter.gate_rising(t_gate)
+            self.ttl_SPCM0_counter.gate_rising(t_readout_window)
+            self.ttl_SPCM1_counter.gate_rising(t_readout_window)
+            self.ttl_SPCM0_OtherNode_counter.gate_rising(t_readout_window)
+            self.ttl_SPCM1_OtherNode_counter.gate_rising(t_readout_window)
 
         delay(0.1 * ms)
         self.ttl_repump_switch.on()  # turn off MOT RP
         self.dds_cooling_DP.sw.off()
 
-        SPCM0_chopped_RO = self.ttl_SPCM0_counter.fetch_count()
-        SPCM1_chopped_RO = self.ttl_SPCM1_counter.fetch_count()
-        SPCM0_OtherNode_chopped_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
-        SPCM1_OtherNode_chopped_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+        self.SPCM0_alternating_RO = self.ttl_SPCM0_counter.fetch_count()
+        self.SPCM1_alternating_RO = self.ttl_SPCM1_counter.fetch_count()
+        self.SPCM0_OtherNode_alternating_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+        self.SPCM1_OtherNode_alternating_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
 
-        window_count = (SPCM0_chopped_RO + SPCM1_chopped_RO
-                        + SPCM0_OtherNode_chopped_RO + SPCM1_OtherNode_chopped_RO)
+        window_count = (self.SPCM0_alternating_RO + self.SPCM1_alternating_RO
+                        + self.SPCM0_OtherNode_alternating_RO + self.SPCM1_OtherNode_alternating_RO)
 
         if alice_window:
-            AllSPCMs_chopped_RO_alice += window_count
+            self.AllSPCMs_alternating_RO_alice += window_count
         else:
-            AllSPCMs_chopped_RO_bob += window_count
+            self.AllSPCMs_alternating_RO_bob += window_count
 
-        delay(0.4*ms)
-
-
-    delay(1*ms)
-    self.append_to_dataset('AllSPCMs_chopped_RO_alice_current_iteration', AllSPCMs_chopped_RO_alice)
-    self.append_to_dataset('AllSPCMs_chopped_RO_bob_current_iteration', AllSPCMs_chopped_RO_bob)
-    delay(1*ms)
-
-
-    # # Safety: make sure RO beams are off at the end
-    # self.dds_cooling_DP.sw.off()
-    # self.ttl_repump_switch.on()
-
-    # return AllSPCMs_chopped_RO_alice, AllSPCMs_chopped_RO_bob
+        delay(0.1*ms)
 
 @kernel
 def test_shot(self):
@@ -2850,8 +2843,7 @@ def atom_parity_shot(self):
     delay(1 * ms)  ## coils relaxation time
 
     ### set the cooling DP AOM to the readout settings
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                            amplitude=self.ampl_cooling_DP_MOT * self.p_cooling_DP_RO)
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
 
     delay(10 * us)
 
@@ -4041,6 +4033,12 @@ def end_measurement(self):
     self.append_to_dataset('AllSPCMs_RO1_current_iteration', self.AllSPCMs_RO1)
     self.append_to_dataset('AllSPCMs_RO2_current_iteration', self.AllSPCMs_RO2)
     delay(1 * ms)
+    ### Alternating RO
+    self.append_to_dataset('AllSPCMs_alternating_RO_alice_current_iteration', self.AllSPCMs_alternating_RO_alice)
+    self.append_to_dataset('AllSPCMs_alternating_RO_bob_current_iteration', self.AllSPCMs_alternating_RO_bob)
+    delay(1*ms)
+
+
     self.SPCM0_RO1_list[self.measurement] = self.SPCM0_RO1
     self.SPCM1_RO1_list[self.measurement] = self.SPCM1_RO1
     self.SPCM0_RO2_list[self.measurement] = self.SPCM0_RO2
@@ -4054,6 +4052,13 @@ def end_measurement(self):
     self.AllSPCMs_RO1_list[self.measurement] = self.AllSPCMs_RO1
     self.AllSPCMs_RO2_list[self.measurement] = self.AllSPCMs_RO2
     self.atom_loading_time_list[self.measurement] = self.atom_loading_time
+
+    delay(1 * ms)
+
+    self.SPCM0_alternating_RO_list[self.measurement] = self.SPCM0_alternating_RO
+    self.SPCM1_alternating_RO_list[self.measurement] = self.SPCM1_alternating_RO
+    self.SPCM0_OtherNode_alternating_RO_list[self.measurement] = self.SPCM0_OtherNode_alternating_RO
+    self.SPCM1_OtherNode_alternating_RO_list[self.measurement] = self.SPCM1_OtherNode_alternating_RO
 
     ### now done at the beginning of the experiment for FORT POL stabilization
     # delay(1*ms)
@@ -4357,7 +4362,7 @@ def atom_loading_2_experiment(self):
             self.dds_FORT.sw.on()
 
         # delay(1*ms)
-        # both_nodes_alternating_RO(self)
+        # two_node_alternating_shot(self)
         # delay(1 * ms)
 
         delay(self.t_delay_between_shots)
@@ -4374,6 +4379,14 @@ def Two_nodes_atom_loading_experiment(self):
     Simple atom loading experiment in both nodes
     - checking for atoms in both nodes at the same time
     - based on atom_loading_2_experiment
+
+    Sequence as of 2026.07.13
+    1. Load atoms in both nodes simultaneously
+    2. First shot
+    3. FORT drop if > 0
+    4. testing individual node shot - Alternating RO
+    5. Second shot
+    6. end_measurement
     """
 
     self.core.reset()
@@ -4423,11 +4436,12 @@ def Two_nodes_atom_loading_experiment(self):
 
         delay(self.t_delay_between_shots)
 
-        # two_nodes_synchronization(self)
+        two_nodes_synchronization(self)
 
-        # delay(1*ms)
-        # both_nodes_alternating_RO(self)
-        # delay(1 * ms)
+        delay(1*ms)
+        two_node_alternating_shot(self)
+        delay(1 * ms)
+
         two_nodes_synchronization(self)
 
         second_shot(self)
@@ -5415,10 +5429,10 @@ def microwave_Rabi_2_experiment(self):
 
     # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-    delay(1 * ms)
-    move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
-    move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
-    delay(10 * ms)
+    # delay(1 * ms)
+    # move_to_target_deg(self, name="780_HWP", target_deg=self.target_780_HWP)
+    # move_to_target_deg(self, name="780_QWP", target_deg=self.target_780_QWP)
+    # delay(10 * ms)
     self.core.reset()
 
     # delay(1 * ms)
