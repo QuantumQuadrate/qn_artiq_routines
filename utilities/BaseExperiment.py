@@ -702,6 +702,8 @@ class BaseExperiment:
                 self.experiment.SPCM0_OtherNode_alternating_RO_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_OtherNode_alternating_RO_list = [0] * self.experiment.n_measurements
 
+                self.experiment.AllSPCMs_alternating_RO_alice_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_alternating_RO_bob_list = [0] * self.experiment.n_measurements
 
             except:
                 ### if this fails, your experiment probably didn't need it
@@ -810,6 +812,9 @@ class BaseExperiment:
                 self.experiment.SPCM1_alternating_RO_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM0_OtherNode_alternating_RO_list = [0] * self.experiment.n_measurements
                 self.experiment.SPCM1_OtherNode_alternating_RO_list = [0] * self.experiment.n_measurements
+
+                self.experiment.AllSPCMs_alternating_RO_alice_list = [0] * self.experiment.n_measurements
+                self.experiment.AllSPCMs_alternating_RO_bob_list = [0] * self.experiment.n_measurements
 
             except:
                 ### if this fails, your experiment probably didn't need it
@@ -970,6 +975,10 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM1_alternating_RO", [0], broadcast=True)
         self.experiment.set_dataset("SPCM0_OtherNode_alternating_RO", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_OtherNode_alternating_RO", [0], broadcast=True)
+
+        self.experiment.set_dataset("AllSPCMs_alternating_RO_alice", [0], broadcast=True)
+        self.experiment.set_dataset("AllSPCMs_alternating_RO_bob", [0], broadcast=True)
+
 
         self.experiment.set_dataset("SPCM0_SinglePhoton", [0], broadcast=True)
         self.experiment.set_dataset("SPCM1_SinglePhoton", [0], broadcast=True)

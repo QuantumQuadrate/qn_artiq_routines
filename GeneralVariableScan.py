@@ -152,6 +152,13 @@ class GeneralVariableScan(EnvExperiment):
         self.SPCM1_OtherNode_RO1 = 0
         self.SPCM1_OtherNode_RO2 = 0
 
+        self.SPCM0_alternating_RO = 0
+        self.SPCM1_alternating_RO = 0
+        self.SPCM0_OtherNode_alternating_RO = 0
+        self.SPCM1_OtherNode_alternating_RO = 0
+        self.AllSPCMs_alternating_RO_alice = 0
+        self.AllSPCMs_alternating_RO_bob = 0
+
         # if there are multiple experiments in the schedule, then there might be something that has updated the datasets
         # e.g., as a result of an optimization scan. We want to make sure that this experiment uses the most up-to-date
         # datasets. However, ARTIQ runs build and prepare while the previous experiment is running, so our base.build

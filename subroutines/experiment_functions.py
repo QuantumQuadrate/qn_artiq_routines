@@ -2722,9 +2722,6 @@ def two_node_alternating_shot(self):
 
     t_readout_window = 1.0 * ms
 
-    AllSPCMs_alternating_RO_alice = 0
-    AllSPCMs_alternating_RO_bob = 0
-
     self.ttl_repump_switch.on()  # turn off MOT RP
     self.dds_cooling_DP.sw.off()
 
@@ -4053,13 +4050,6 @@ def end_measurement(self):
     self.AllSPCMs_RO2_list[self.measurement] = self.AllSPCMs_RO2
     self.atom_loading_time_list[self.measurement] = self.atom_loading_time
 
-    delay(1 * ms)
-
-    self.SPCM0_alternating_RO_list[self.measurement] = self.SPCM0_alternating_RO
-    self.SPCM1_alternating_RO_list[self.measurement] = self.SPCM1_alternating_RO
-    self.SPCM0_OtherNode_alternating_RO_list[self.measurement] = self.SPCM0_OtherNode_alternating_RO
-    self.SPCM1_OtherNode_alternating_RO_list[self.measurement] = self.SPCM1_OtherNode_alternating_RO
-
     ### now done at the beginning of the experiment for FORT POL stabilization
     # delay(1*ms)
     # measure_FORT_MM_fiber(self)
@@ -4080,6 +4070,14 @@ def end_measurement(self):
     # elif self.which_node == "bob":
     #     measure_Magnetometer_Node2(self)
 
+    delay(1*ms)
+
+    self.append_to_dataset('SPCM0_alternating_RO', self.SPCM0_alternating_RO)
+    self.append_to_dataset('SPCM1_alternating_RO', self.SPCM1_alternating_RO)
+    self.append_to_dataset('SPCM0_OtherNode_alternating_RO', self.SPCM0_OtherNode_alternating_RO)
+    self.append_to_dataset('SPCM1_OtherNode_alternating_RO', self.SPCM1_OtherNode_alternating_RO)
+    self.append_to_dataset('AllSPCMs_alternating_RO_alice', self.AllSPCMs_alternating_RO_alice)
+    self.append_to_dataset('AllSPCMs_alternating_RO_bob', self.AllSPCMs_alternating_RO_bob)
     delay(1*ms)
 
     self.measurement += 1
