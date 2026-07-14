@@ -2692,6 +2692,8 @@ def two_node_alternating_shot(self):
         Bob window starts 2.3 ms later
         Alice next window starts 4.6 ms later...
     """
+    self.AllSPCMs_alternating_RO_alice = 0
+    self.AllSPCMs_alternating_RO_bob = 0
     ### set the coils to PGC settings
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
@@ -2758,9 +2760,16 @@ def two_node_alternating_shot(self):
         self.SPCM1_alternating_RO = self.ttl_SPCM1_counter.fetch_count()
         self.SPCM0_OtherNode_alternating_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
         self.SPCM1_OtherNode_alternating_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+        # SPCM0_alternating_RO = self.ttl_SPCM0_counter.fetch_count()
+        # SPCM1_alternating_RO = self.ttl_SPCM1_counter.fetch_count()
+        # SPCM0_OtherNode_alternating_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+        # SPCM1_OtherNode_alternating_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
 
         window_count = (self.SPCM0_alternating_RO + self.SPCM1_alternating_RO
                         + self.SPCM0_OtherNode_alternating_RO + self.SPCM1_OtherNode_alternating_RO)
+        # window_count = (SPCM0_alternating_RO + SPCM1_alternating_RO
+        #                 + SPCM0_OtherNode_alternating_RO + SPCM1_OtherNode_alternating_RO)
+
 
         if alice_window:
             self.AllSPCMs_alternating_RO_alice += window_count
@@ -2768,6 +2777,7 @@ def two_node_alternating_shot(self):
             self.AllSPCMs_alternating_RO_bob += window_count
 
         delay(0.1*ms)
+
 
 @kernel
 def test_shot(self):

@@ -198,6 +198,13 @@ class GeneralVariableScan(EnvExperiment):
         different amount of atom loss.
         :return:
         """
+        self.SPCM0_alternating_RO = 0
+        self.SPCM1_alternating_RO = 0
+        self.SPCM0_OtherNode_alternating_RO = 0
+        self.SPCM1_OtherNode_alternating_RO = 0
+        self.AllSPCMs_alternating_RO_alice = 0
+        self.AllSPCMs_alternating_RO_bob = 0
+
         self.set_dataset("test_dataset", [0], broadcast=True)
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
