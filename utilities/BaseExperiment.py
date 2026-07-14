@@ -128,10 +128,6 @@ class BaseExperiment:
         self.experiment.atom_loading_time = 0.0
         self.experiment.atom_loading_time_other_node = 0.0
 
-        self.experiment.SPCM0_alternating_RO = 0
-        self.experiment.SPCM1_alternating_RO = 0
-        self.experiment.SPCM0_OtherNode_alternating_RO = 0
-        self.experiment.SPCM1_OtherNode_alternating_RO = 0
         self.experiment.AllSPCMs_alternating_RO_alice = 0
         self.experiment.AllSPCMs_alternating_RO_bob = 0
 
@@ -697,14 +693,6 @@ class BaseExperiment:
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_other_node_list = [0.0] * self.experiment.n_measurements
 
-                self.experiment.SPCM0_alternating_RO_list = [0] * self.experiment.n_measurements
-                self.experiment.SPCM1_alternating_RO_list = [0] * self.experiment.n_measurements
-                self.experiment.SPCM0_OtherNode_alternating_RO_list = [0] * self.experiment.n_measurements
-                self.experiment.SPCM1_OtherNode_alternating_RO_list = [0] * self.experiment.n_measurements
-
-                self.experiment.AllSPCMs_alternating_RO_alice_list = [0] * self.experiment.n_measurements
-                self.experiment.AllSPCMs_alternating_RO_bob_list = [0] * self.experiment.n_measurements
-
             except:
                 ### if this fails, your experiment probably didn't need it
                 self.experiment.print_async("experiment does not have variable n_measurements")
@@ -807,14 +795,6 @@ class BaseExperiment:
                 self.experiment.AllSPCMs_RO2_list = [0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_list = [0.0] * self.experiment.n_measurements
                 self.experiment.atom_loading_time_other_node_list = [0.0] * self.experiment.n_measurements
-
-                self.experiment.SPCM0_alternating_RO_list = [0] * self.experiment.n_measurements
-                self.experiment.SPCM1_alternating_RO_list = [0] * self.experiment.n_measurements
-                self.experiment.SPCM0_OtherNode_alternating_RO_list = [0] * self.experiment.n_measurements
-                self.experiment.SPCM1_OtherNode_alternating_RO_list = [0] * self.experiment.n_measurements
-
-                self.experiment.AllSPCMs_alternating_RO_alice_list = [0] * self.experiment.n_measurements
-                self.experiment.AllSPCMs_alternating_RO_bob_list = [0] * self.experiment.n_measurements
 
             except:
                 ### if this fails, your experiment probably didn't need it
@@ -970,11 +950,6 @@ class BaseExperiment:
         self.experiment.set_dataset("photocount_bins", [50], broadcast=True)
         self.experiment.set_dataset("SPCM0_FORT_science", [0.0], broadcast=True)
         self.experiment.set_dataset("FORT_MM_science_volts", [0.0], broadcast=True)
-
-        self.experiment.set_dataset("SPCM0_alternating_RO", [0], broadcast=True)
-        self.experiment.set_dataset("SPCM1_alternating_RO", [0], broadcast=True)
-        self.experiment.set_dataset("SPCM0_OtherNode_alternating_RO", [0], broadcast=True)
-        self.experiment.set_dataset("SPCM1_OtherNode_alternating_RO", [0], broadcast=True)
 
         self.experiment.set_dataset("AllSPCMs_alternating_RO_alice", [0], broadcast=True)
         self.experiment.set_dataset("AllSPCMs_alternating_RO_bob", [0], broadcast=True)

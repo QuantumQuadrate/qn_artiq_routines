@@ -2678,7 +2678,7 @@ def second_shot(self):
 @kernel
 def two_node_alternating_shot(self):
     """
-    Alternating two-node readout.
+    Alternating two-node readout. -Eunji as of 2026.07.14
 
     Alice windows: even windows
     Bob windows:   odd windows
@@ -2691,9 +2691,20 @@ def two_node_alternating_shot(self):
         Alice window starts at 0 ms
         Bob window starts 2.3 ms later
         Alice next window starts 4.6 ms later...
+
+    ** Note that unlike other readout functions, I only save AllSPCM data rather than
+        saving each dataset separately for each SPCM. Note that at some point if you
+        want to implement this, alice and bob should have separate dataset.
+        for example:
+            SPCM0_alternating_RO_alice, SPCM0_alternating_RO_bob,
+            SPCM1_alternating_RO_alice, SPCM1_alternating_RO_bob,
+            SPCM0_OtherNode_alternating_RO_alice, SPCM0_OtherNode_alternating_RO_bob,
+            SPCM1_OtherNode_alternating_RO_alice, SPCM1_OtherNode_alternating_RO_bob,
     """
+
     self.AllSPCMs_alternating_RO_alice = 0
     self.AllSPCMs_alternating_RO_bob = 0
+
     ### set the coils to PGC settings
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
@@ -2756,20 +2767,13 @@ def two_node_alternating_shot(self):
         self.ttl_repump_switch.on()  # turn off MOT RP
         self.dds_cooling_DP.sw.off()
 
-        self.SPCM0_alternating_RO = self.ttl_SPCM0_counter.fetch_count()
-        self.SPCM1_alternating_RO = self.ttl_SPCM1_counter.fetch_count()
-        self.SPCM0_OtherNode_alternating_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
-        self.SPCM1_OtherNode_alternating_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
-        # SPCM0_alternating_RO = self.ttl_SPCM0_counter.fetch_count()
-        # SPCM1_alternating_RO = self.ttl_SPCM1_counter.fetch_count()
-        # SPCM0_OtherNode_alternating_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
-        # SPCM1_OtherNode_alternating_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+        SPCM0_alternating_RO = self.ttl_SPCM0_counter.fetch_count()
+        SPCM1_alternating_RO = self.ttl_SPCM1_counter.fetch_count()
+        SPCM0_OtherNode_alternating_RO = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+        SPCM1_OtherNode_alternating_RO = self.ttl_SPCM1_OtherNode_counter.fetch_count()
 
-        window_count = (self.SPCM0_alternating_RO + self.SPCM1_alternating_RO
-                        + self.SPCM0_OtherNode_alternating_RO + self.SPCM1_OtherNode_alternating_RO)
-        # window_count = (SPCM0_alternating_RO + SPCM1_alternating_RO
-        #                 + SPCM0_OtherNode_alternating_RO + SPCM1_OtherNode_alternating_RO)
-
+        window_count = (SPCM0_alternating_RO + SPCM1_alternating_RO
+                        + SPCM0_OtherNode_alternating_RO + SPCM1_OtherNode_alternating_RO)
 
         if alice_window:
             self.AllSPCMs_alternating_RO_alice += window_count
@@ -4082,10 +4086,6 @@ def end_measurement(self):
 
     delay(1*ms)
 
-    self.append_to_dataset('SPCM0_alternating_RO', self.SPCM0_alternating_RO)
-    self.append_to_dataset('SPCM1_alternating_RO', self.SPCM1_alternating_RO)
-    self.append_to_dataset('SPCM0_OtherNode_alternating_RO', self.SPCM0_OtherNode_alternating_RO)
-    self.append_to_dataset('SPCM1_OtherNode_alternating_RO', self.SPCM1_OtherNode_alternating_RO)
     self.append_to_dataset('AllSPCMs_alternating_RO_alice', self.AllSPCMs_alternating_RO_alice)
     self.append_to_dataset('AllSPCMs_alternating_RO_bob', self.AllSPCMs_alternating_RO_bob)
     delay(1*ms)
