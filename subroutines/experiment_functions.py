@@ -38,7 +38,6 @@ Table of contents:
 ###############################################################################
 
 
-
 @kernel
 def waveplate_rotation_and_atom_loading_2_experiment(self):
     """
