@@ -37,7 +37,6 @@ Table of contents:
 # Consequently, note that the name should not end in "experiment"
 ###############################################################################
 
-
 @kernel
 def waveplate_rotation_and_atom_loading_2_experiment(self):
     """
@@ -322,7 +321,6 @@ def two_nodes_synchronization2(self) -> TBool:
         at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
         return True
 
-
 @kernel
 def two_nodes_synchronization_trial(self) -> TBool:
     """
@@ -403,7 +401,6 @@ def two_nodes_synchronization_trial(self) -> TBool:
         ### Put Alice at the corresponding future reference.
         at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
         return True
-
 
 @kernel
 def test_ttl_pulse_experiment(self):
@@ -516,7 +513,6 @@ def test_Repump_pulse_experiment(self):
 
     self.dds_AOM_A6.sw.off()
 
-
 @kernel
 def test_BA_pulse_experiment(self):
     self.core.reset()
@@ -537,7 +533,6 @@ def test_BA_pulse_experiment(self):
 
         end_measurement(self)
         delay(5 * ms)  ### hopefully to avoid underflow.
-
 
 @kernel
 def tune_coil_driver_experiment(self):
