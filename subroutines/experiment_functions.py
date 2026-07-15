@@ -4084,6 +4084,11 @@ def end_measurement(self):
     # elif self.which_node == "bob":
     #     measure_Magnetometer_Node2(self)
 
+    if self.monitor_magnetometer_in_end_measurement:
+        if self.which_node == "alice":
+            measure_Magnetometer(self)
+        else:
+            measure_Magnetometer_Node2(self)
     delay(1*ms)
 
     self.append_to_dataset('AllSPCMs_alternating_RO_alice', self.AllSPCMs_alternating_RO_alice)

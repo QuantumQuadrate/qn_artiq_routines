@@ -79,6 +79,7 @@ class ExperimentVariables(EnvExperiment):
 
             # debugging
             Variable("dummy_variable", 0.0, NumberValue, {'type': 'float'}, "debugging"),
+            Variable("monitor_magnetometer_in_end_measurement", False, BooleanValue, {}, "debugging"),
 
             # FORT AOM
             Variable("f_FORT", 245.0 * MHz, NumberValue, {'type': 'float', 'unit': 'MHz'}, "FORT AOM"),
