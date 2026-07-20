@@ -1028,6 +1028,10 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_OP_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Zero_X", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Zero_Y", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_TEST_X", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_TEST_Y", [0.0], broadcast=True)
+        self.experiment.set_dataset("Magnetometer_TEST_Z", [0.0], broadcast=True)
+
         self.experiment.set_dataset("Magnetometer_Mag690_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Mag690_Zero_X", [0.0], broadcast=True)
         self.experiment.set_dataset("Magnetometer_Mag690_Zero_Y", [0.0], broadcast=True)
