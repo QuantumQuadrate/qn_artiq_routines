@@ -340,6 +340,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("monitors_for_atom_loading", False, BooleanValue, {}, "Booleans"),
             Variable("PGC_and_RO_with_on_chip_beams", False, BooleanValue, {}, "Booleans"),
             Variable("tune_shims_when_loading_is_bad", True, BooleanValue, {}, "Booleans"),
+            Variable("tune_852_waveplates_to_target_in_experiment", False, BooleanValue, {}, "Booleans"),
 
             # Thresholds and cut-offs
             Variable("single_atom_threshold", 10000.0, NumberValue, {'type': 'float'}, "Thresholds and cut-offs"),
