@@ -1367,7 +1367,8 @@ def load_MOT_and_FORT_until_atom_recycle(self):
 
                 try_n = 0
 
-        self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        if self.which_node == 'alice':
+            self.zotino0.set_dac([0.0], self.UV_trig_channel)
         delay(100*us)
 
         ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
@@ -1395,7 +1396,7 @@ def load_MOT_and_FORT_until_atom_recycle(self):
                 self.dds_AOM_A6.sw.off()
             self.ttl_repump_switch.off()  ### turn on MOT RP
             self.dds_cooling_DP.sw.on()  ### turn on cooling
-            delay(10 * us)
+            # delay(10 * us)
 
             delay(self.t_PGC_after_loading)  ### this is the PGC time
             self.ttl_repump_switch.on()  ### turn off MOT RP
@@ -2470,12 +2471,16 @@ def first_shot(self):
 
     :return:
     """
-    ### set the cooling DP AOM to the readout settings
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO,
-                            amplitude=self.ampl_cooling_DP_RO)
 
     ### set the FORT AOM to the science settings
     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+
+    ### set the cooling DP AOM to the readout settings
+    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+
+    self.ttl_repump_switch.off()  ### turn on MOT RP
+    self.dds_cooling_DP.sw.on()  ### Turn on cooling
+    delay(0.1 * ms)
 
     # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
@@ -2504,9 +2509,9 @@ def first_shot(self):
         delay(10 * us)
 
     else:
-        self.ttl_repump_switch.off()  ### turn on MOT RP
-        self.dds_cooling_DP.sw.on()  ### Turn on cooling
-        delay(0.1 * ms)
+        # self.ttl_repump_switch.off()  ### turn on MOT RP
+        # self.dds_cooling_DP.sw.on()  ### Turn on cooling
+        # delay(0.1 * ms)
         # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
         # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
@@ -4416,6 +4421,14 @@ def atom_loading_2_experiment(self):
     ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
     ### in each iteration.
     self.n_atom_loaded_per_iteration = 0
+
+    if self.tune_852_waveplates_to_target_in_experiment:
+        delay(100 * ms)
+        move_to_target_deg(self, name="852_HWP", target_deg=self.target_852_HWP)
+        move_to_target_deg(self, name="852_QWP", target_deg=self.target_852_QWP)
+        delay(10 * ms)
+
+        self.core.reset()
 
     if self.enable_laser_feedback:
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
@@ -6930,14 +6943,16 @@ def microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment(self):
             delay(5 * us)
 
             with parallel:
-                self.dds_MW_RF.sw.on()  ### turn on RF
                 self.ttl_microwave_switch.off()
+                self.dds_MW_RF.sw.on()  ### turn on RF
+                # self.ttl_microwave_switch.off()
 
             delay(self.t_MW_RF_pulse)
 
             with parallel:
-                self.dds_MW_RF.sw.off()  ### turn off RF
                 self.ttl_microwave_switch.on()
+                self.dds_MW_RF.sw.off()  ### turn off RF
+                # self.ttl_microwave_switch.on()
             delay(5 * us)
 
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
@@ -14040,6 +14055,9 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
 
         delay(1 * ms)
         second_shot(self)
+
+        if self.t_recooling_after_first_shot > 0:
+            recooling_after_first_shot(self)
 
         delay(1 * ms)
 
