@@ -31,6 +31,9 @@ class MonitorMagnetometer(EnvExperiment):
         self.setattr_argument("t_step_ms", NumberValue(10, type='int', scale=1, ndecimals=0, step=1))
         self.setattr_argument("Coils_settings", EnumerationValue(['MOT', 'Optical_pumping', 'Zero_volts', 'None']))
 
+        self.setattr_argument("enable_individual_coil_scan_mode", BooleanValue(default=False), "individual_coil_scan_mode")
+        self.setattr_argument("coil_test_voltage", NumberValue(10, type='int', scale=1, ndecimals=0, step=1))
+
         self.base.set_datasets_from_gui_args()
         print("build - done")
 
@@ -59,77 +62,84 @@ class MonitorMagnetometer(EnvExperiment):
 
         :return:
         """
+        if not self.enable_individual_coil_scan_mode:
+            # measure_Magnetometer(self) ### works, but I want to have more control
+            ### x,y, and z axes are connected to Sampler2 Ch2,3, and 4, respectively.
 
-        # measure_Magnetometer(self) ### works, but I want to have more control
+            self.set_dataset("Magnetometer_X", [0.0], broadcast=True)
+            self.set_dataset("Magnetometer_Y", [0.0], broadcast=True)
+            self.set_dataset("Magnetometer_Z", [0.0], broadcast=True)
 
-        ### x,y, and z axes are connected to Sampler2 Ch2,3, and 4, respectively.
+            self.core.break_realtime()
 
-        self.set_dataset("Magnetometer_X", [0.0], broadcast=True)
-        self.set_dataset("Magnetometer_Y", [0.0], broadcast=True)
-        self.set_dataset("Magnetometer_Z", [0.0], broadcast=True)
-
-        self.core.break_realtime()
-
-        self.zotino0.set_dac(
-            [0.0, 0.0, 0.0, 0.0],
-            channels=self.coil_channels)
-
-        delay(1 * ms)
-        self.dds_FORT.sw.on()
-
-        if self.Coils_settings == "MOT":
-            ### Set the coils to MOT loading setting
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-                channels=self.coil_channels)
-            delay(1 * ms)
-
-        if self.Coils_settings == "Optical_pumping":
-            ### Set the coils to OP values
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-                channels=self.coil_channels)
-            delay(1 * ms)
-
-        if self.Coils_settings == "Zero_volts":
-            ### Turn off all the coils
             self.zotino0.set_dac(
                 [0.0, 0.0, 0.0, 0.0],
                 channels=self.coil_channels)
+
             delay(1 * ms)
+            self.dds_FORT.sw.on()
 
-        if self.Coils_settings == "None":
-            ### Does not change the coils values.
-            pass
-            delay(1 * ms)
+            if self.Coils_settings == "MOT":
+                ### Set the coils to MOT loading setting
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                    channels=self.coil_channels)
+                delay(1 * ms)
 
-        # delay(5 * ms)  ### required to avoid a kick in the first measurement
+            if self.Coils_settings == "Optical_pumping":
+                ### Set the coils to OP values
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                    channels=self.coil_channels)
+                delay(1 * ms)
 
-        for n_measrement in range(self.n_measurements):
-            # if n_measrement % 300 == 0:
-            #     self.print_async("n_measurement: ", n_measrement)
+            if self.Coils_settings == "Zero_volts":
+                ### Turn off all the coils
+                self.zotino0.set_dac(
+                    [0.0, 0.0, 0.0, 0.0],
+                    channels=self.coil_channels)
+                delay(1 * ms)
 
-            if n_measrement % max(1, self.n_measurements// 10) == 0:
-                self.print_async("progress (%): ", (n_measrement / self.n_measurements) * 100)
+            if self.Coils_settings == "None":
+                ### Does not change the coils values.
+                pass
+                delay(1 * ms)
 
-            measurement_buf = np.array([0.0] * 8)
-            MagnetometerX = 0.0
-            MagnetometerY = 0.0
-            MagnetometerZ = 0.0
+            # delay(5 * ms)  ### required to avoid a kick in the first measurement
 
-            for i in range(self.n_average):
-                self.sampler2.sample(measurement_buf)
-                MagnetometerX += measurement_buf[self.Magnetometer_X_ch]
-                MagnetometerY += measurement_buf[self.Magnetometer_Y_ch]
-                MagnetometerZ += measurement_buf[self.Magnetometer_Z_ch]
-                delay(0.1 * ms)
-            MagnetometerX /= self.n_average
-            MagnetometerY /= self.n_average
-            MagnetometerZ /= self.n_average
-            self.append_to_dataset("Magnetometer_X", MagnetometerY * 350) ### 1V corresponds to 350 mG
-            self.append_to_dataset("Magnetometer_Y", MagnetometerX * 350) ### sensor's X axis is coils' Y axis, and vice versa.
-            self.append_to_dataset("Magnetometer_Z", MagnetometerZ * 350)
-            delay(self.t_step_ms * ms)
+            for n_measrement in range(self.n_measurements):
+                # if n_measrement % 300 == 0:
+                #     self.print_async("n_measurement: ", n_measrement)
+
+                if n_measrement % max(1, self.n_measurements// 10) == 0:
+                    self.print_async("progress (%): ", (n_measrement / self.n_measurements) * 100)
+
+                measurement_buf = np.array([0.0] * 8)
+                MagnetometerX = 0.0
+                MagnetometerY = 0.0
+                MagnetometerZ = 0.0
+
+                for i in range(self.n_average):
+                    self.sampler2.sample(measurement_buf)
+                    MagnetometerX += measurement_buf[self.Magnetometer_X_ch]
+                    MagnetometerY += measurement_buf[self.Magnetometer_Y_ch]
+                    MagnetometerZ += measurement_buf[self.Magnetometer_Z_ch]
+                    delay(10 * us)
+                MagnetometerX /= self.n_average
+                MagnetometerY /= self.n_average
+                MagnetometerZ /= self.n_average
+                if self.which_node == 'alice':
+                    self.append_to_dataset("Magnetometer_X", MagnetometerY * 350) ### 1V corresponds to 350 mG
+                    self.append_to_dataset("Magnetometer_Y", MagnetometerX * 350) ### sensor's X axis is coils' Y axis, and vice versa.
+                    self.append_to_dataset("Magnetometer_Z", MagnetometerZ * 350)
+                else:
+                    self.append_to_dataset("Magnetometer_X", MagnetometerY)  ### conversion done in analysis code
+                    self.append_to_dataset("Magnetometer_Y", MagnetometerX)
+                    self.append_to_dataset("Magnetometer_Z", MagnetometerZ)
+                delay(self.t_step_ms * ms)
+
+        else:
+            print("not yet implemented")
 
         ### finally, in case the worker refuses to die
         self.write_results()

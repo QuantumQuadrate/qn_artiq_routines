@@ -250,6 +250,9 @@ class GeneralVariableOptimizer(EnvExperiment):
         self.set_dataset('AllSPCMs_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('AllSPCMs_RO2_current_iteration', [0], broadcast=True)
 
+        self.set_dataset('AllSPCMs_alternating_RO_alice_current_iteration', [0], broadcast=True)
+        self.set_dataset('AllSPCMs_alternating_RO_bob_current_iteration', [0], broadcast=True)
+
     def run(self):
 
         if self.needs_fresh_build:

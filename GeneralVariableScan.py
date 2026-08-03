@@ -191,6 +191,7 @@ class GeneralVariableScan(EnvExperiment):
         different amount of atom loss.
         :return:
         """
+
         self.set_dataset("test_dataset", [0], broadcast=True)
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
@@ -205,8 +206,8 @@ class GeneralVariableScan(EnvExperiment):
         self.set_dataset('AllSPCMs_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('AllSPCMs_RO2_current_iteration', [0], broadcast=True)
 
-        self.set_dataset('AllSPCMs_chopped_RO_alice_current_iteration', [0], broadcast=True)
-        self.set_dataset('AllSPCMs_chopped_RO_bob_current_iteration', [0], broadcast=True)
+        self.set_dataset('AllSPCMs_alternating_RO_alice_current_iteration', [0], broadcast=True)
+        self.set_dataset('AllSPCMs_alternating_RO_bob_current_iteration', [0], broadcast=True)
 
         # these are set here because running BaseExperiment.initialize_hardware resets these to be empty
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)

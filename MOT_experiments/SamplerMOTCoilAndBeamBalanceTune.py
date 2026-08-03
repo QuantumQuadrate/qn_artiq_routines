@@ -121,13 +121,18 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
     @kernel
     def run(self):
+        self.core.reset()
         self.base.initialize_hardware()
+
+        self.core.break_realtime()
 
         # Turn on AOMs to load the MOT.
         self.dds_cooling_DP.sw.on()
         self.dds_AOM_A1.sw.on()
         self.dds_AOM_A2.sw.on()
         self.dds_AOM_A3.sw.on()
+        delay(1*ms)
+
         self.dds_AOM_A4.sw.on()
         self.dds_AOM_A5.sw.on()
         self.dds_AOM_A6.sw.on()
@@ -138,9 +143,11 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
             self.dds_FORT.sw.on()
 
             # wait for AOMs to thermalize
-            delay(3000 * ms)
+            # delay(3000 * ms)
+            delay(1000 * ms)
 
-        delay(1 * ms)
+        # delay(1 * ms)
+        self.core.break_realtime()
 
         # warm up to get make sure we get to the setpoints
         for i in range(10):
@@ -152,6 +159,8 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
         self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
                              channels=self.coil_channels)
+
+        self.core.break_realtime()
 
         saturated_coils = [False] * 4
         control_volts = [0.0] * 4
