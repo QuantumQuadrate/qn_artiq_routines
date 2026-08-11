@@ -122,7 +122,7 @@ class Microwaves_scans(EnvExperiment):
 
             ### experiment function
             if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
+                self.experiment_name = "microwave_Rabi_2_experiment"
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 
@@ -150,7 +150,7 @@ class Microwaves_scans(EnvExperiment):
 
             ### experiment function
             if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
+                self.experiment_name = "microwave_Rabi_2_experiment"
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_Rabi_2_experiment"
 

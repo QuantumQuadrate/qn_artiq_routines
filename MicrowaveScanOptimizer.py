@@ -64,7 +64,7 @@ scan_dict={
         "center": "f_microwaves_00_dds",
 
         "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_experiment",
 
         "fit_model": "resonance_dip",
         "initialise": {
@@ -83,7 +83,7 @@ scan_dict={
         "center": "f_microwaves_01_dds",
 
         "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_experiment",
 
         "fit_model": "resonance_dip",
         "initialise": {
