@@ -136,7 +136,9 @@ scan_dict={
         "experiment_name_bob": "microwave_map01_MWRFm11_experiment",
 
         "fit_model": "resonance_peak",
-        "initialise": {},
+        "initialise": {
+            "sigma": 3e3
+        },
         "health_check_dataset_name": "health_check_uw_freqm11"
     },
 
