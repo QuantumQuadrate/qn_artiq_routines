@@ -178,7 +178,7 @@ class Microwaves_scans(EnvExperiment):
 
             ### experiment function
             if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment"
+                self.experiment_name = "microwave_map01_map11_experiment"
             elif self.which_node == 'alice':
                 self.experiment_name = "microwave_map01_map11_experiment"
 

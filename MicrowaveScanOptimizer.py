@@ -100,7 +100,7 @@ scan_dict={
         "center": "f_microwaves_11_dds",
 
         "experiment_name_alice": "microwave_map01_map11_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment",
+        "experiment_name_bob": "microwave_map01_map11_experiment",
 
         "fit_model": "resonance_peak",
         "initialise": {

@@ -6734,6 +6734,16 @@ def microwave_map01_map11_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs.
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
@@ -6745,7 +6755,10 @@ def microwave_map01_map11_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
@@ -6760,18 +6773,20 @@ def microwave_map01_map11_experiment(self):
         delay(5 * us)
 
         FORT_ramp2_smoothstep(self, direction="down")
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
+        ##### Mapping from |1,0> to |2,1>
         if self.t_microwave_01_pulse > 0.0:
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_01_pulse)
             self.ttl_microwave_switch.on()
             delay(5 * us)
 
-        ############################ microwave phase to transfer population from F=2,mF=1 to F=1,mF=1
         self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
 
+        ##### Mapping from |2,1> to |1,1>
         if self.t_microwave_11_pulse > 0.0:
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_11_pulse)
@@ -6779,6 +6794,7 @@ def microwave_map01_map11_experiment(self):
 
         delay(5 * us)
         FORT_ramp2_smoothstep(self, direction="up")
+        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
