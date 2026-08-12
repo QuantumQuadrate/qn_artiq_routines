@@ -216,8 +216,8 @@ scan_dict={
         "print_statement": "Time_m11_Scan with freq m11",
         "override_items": {},
 
-        "scan_variable1_name": "t_microwave_m11_pulse",
-        "pi_pulse": "t_microwave_m11_pulse",
+        "scan_variable1_name": "t_MW_RF_pulse",
+        "pi_pulse": "t_MW_RF_pulse",
 
         "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
         "experiment_name_bob": "microwave_map01_MWRFm11_experiment",
