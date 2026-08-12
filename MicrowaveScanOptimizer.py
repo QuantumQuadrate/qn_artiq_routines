@@ -47,9 +47,8 @@ fit_model_dict = {
 }
 
 scan_options = [
-    "Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan",
-    "Frequency_m10_Scan", "Frequency_m11_Scan",
-    "Time_00_Scan", "Time_01_Scan", "Time_11_Scan", "Time_m10_Scan",
+    "Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan", "Frequency_m10_Scan", "Frequency_m11_Scan",
+    "Time_00_Scan", "Time_01_Scan", "Time_11_Scan", "Time_m10_Scan", "Time_m11_Scan",
     "Ramsey_00_Scan", "Ramsey_01_Scan", "Ramsey_11_Scan",
 ]
 
@@ -318,6 +317,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
         self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
         self.setattr_argument("Time_11_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
         self.setattr_argument("Time_m10_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
+        self.setattr_argument("Time_m11_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
 
         self.setattr_argument("Ramsey_00_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
         self.setattr_argument("Ramsey_01_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
@@ -1041,6 +1041,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                 "Time_01_Scan": False,
                 "Time_11_Scan": False,
                 "Time_m10_Scan": False,
+                "Time_m11_Scan": False,
                 "Ramsey_00_Scan": False,
                 "Ramsey_01_Scan": False,
                 "Ramsey_11_Scan": False,
