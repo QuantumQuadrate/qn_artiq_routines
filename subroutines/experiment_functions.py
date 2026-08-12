@@ -5036,13 +5036,13 @@ def microwave_Rabi_2_experiment(self):
         ############################
 
         if self.t_microwave_pulse > 0.0:
-            if self.which_node == "alice":
-                #todo: does this really help?
-                ### Changing the bias field
-                self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                                      self.AX_volts_microwave, self.AY_volts_microwave],
-                                     channels=self.coil_channels)
-                delay(1 * ms)
+            # if self.which_node == "alice":
+            #     #todo: does this really help?
+            #     ### Changing the bias field
+            #     self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+            #                           self.AX_volts_microwave, self.AY_volts_microwave],
+            #                          channels=self.coil_channels)
+            #     delay(1 * ms)
 
             #todo: does this really help?
             FORT_ramp2_smoothstep(self, direction="down")
@@ -5157,9 +5157,9 @@ def microwave_Ramsey_00_experiment(self):
         ############################
         # microwave phase
         ############################
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
-        delay(1 * ms)
+        # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+        #                       self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
+        # delay(1 * ms)
 
         FORT_ramp2_smoothstep(self, direction="down")
         delay(2 * us)
@@ -5288,11 +5288,11 @@ def microwave_Ramsey_11_experiment(self):
             CW_optical_pumping_node1(self)
             delay(10 * us)
 
-        ### Changing the bias field
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave],
-                             channels=self.coil_channels)
-        delay(1 * ms)
+        # ### Changing the bias field
+        # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+        #                       self.AX_volts_microwave, self.AY_volts_microwave],
+        #                      channels=self.coil_channels)
+        # delay(1 * ms)
 
         FORT_ramp2_smoothstep(self, direction="down")
         delay(2 * us)
@@ -6624,9 +6624,9 @@ def microwave_freq_scan_experiment(self):
 
 
         ### Change the bias field for microwave pulse
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
-        delay(0.5 * ms)
+        # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+        #                       self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
+        # delay(0.5 * ms)
 
 
         ############################ microwave phase
@@ -6723,7 +6723,6 @@ def microwave_map01_map11_experiment(self):
 
         self.ttl_exc0_switch.on()  # turns off the excitation
 
-        # load_MOT_and_FORT_until_atom(self)
         # load_MOT_and_FORT_until_atom_recycle(self)
         load_until_atom_smooth_FORT_recycle(self)
         delay(10 * us)
@@ -6752,10 +6751,10 @@ def microwave_map01_map11_experiment(self):
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
 
         ### Changing the bias field for microwave
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave],
-                             channels=self.coil_channels)
-        delay(1 * ms)
+        # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+        #                       self.AX_volts_microwave, self.AY_volts_microwave],
+        #                      channels=self.coil_channels)
+        # delay(1 * ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
@@ -6945,10 +6944,10 @@ def microwave_map01_map11_CORPSE_experiment(self):
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
         ### set coils for microwave
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave, self.AX_volts_microwave, self.AY_volts_microwave],
-            channels=self.coil_channels)
-        delay(1 * ms)  # coil relaxation time.
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave, self.AX_volts_microwave, self.AY_volts_microwave],
+        #     channels=self.coil_channels)
+        # delay(1 * ms)  # coil relaxation time.
 
         FORT_ramp2_smoothstep(self, direction="down")
         delay(2 * us)
@@ -7098,11 +7097,11 @@ def microwave_map00_map0m1_experiment(self):
             CW_optical_pumping_node1(self)
             delay(10 * us)
 
-        ### Changing the bias field
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave],
-                             channels=self.coil_channels)
-        delay(1 * ms)
+        # ### Changing the bias field
+        # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+        #                       self.AX_volts_microwave, self.AY_volts_microwave],
+        #                      channels=self.coil_channels)
+        # delay(1 * ms)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -7239,9 +7238,9 @@ def microwave_map01_MWRFm11_experiment(self):
             delay(10 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
-        delay(1 * ms)
+        # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+        #                       self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
+        # delay(1 * ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
@@ -7389,11 +7388,11 @@ def microwave_Ramsey_MWRFm11_experiment(self):
             CW_optical_pumping_node1(self)
             delay(10 * us)
 
-        ### Changing the bias field
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave],
-                             channels=self.coil_channels)
-        delay(1 * ms)
+        # ### Changing the bias field
+        # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+        #                       self.AX_volts_microwave, self.AY_volts_microwave],
+        #                      channels=self.coil_channels)
+        # delay(1 * ms)
 
         FORT_ramp2_smoothstep(self, direction="down")
         delay(2 * us)
@@ -7552,11 +7551,11 @@ def microwave_MW00_RF01_MW00_experiment(self):
             CW_optical_pumping_node1(self)
             delay(10 * us)
 
-        ### Changing the bias field
-        self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                              self.AX_volts_microwave, self.AY_volts_microwave],
-                             channels=self.coil_channels)
-        delay(1 * ms)
+        # ### Changing the bias field
+        # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+        #                       self.AX_volts_microwave, self.AY_volts_microwave],
+        #                      channels=self.coil_channels)
+        # delay(1 * ms)
 
         FORT_ramp2_smoothstep(self, direction="down")
         delay(2 * us)
@@ -10557,11 +10556,11 @@ def atom_photon_parity_4_experiment(self):
                 self.ttl_GRIN1_switch.on()
                 delay(10 * us)
 
-            ### Changing the bias field.
-            self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                                  self.AX_volts_microwave, self.AY_volts_microwave],
-                                 channels=self.coil_channels)
-            delay(1 * ms)
+            # ### Changing the bias field.
+            # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+            #                       self.AX_volts_microwave, self.AY_volts_microwave],
+            #                      channels=self.coil_channels)
+            # delay(1 * ms)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
@@ -11065,11 +11064,11 @@ def atom_photon_parity_5_experiment(self):
                 self.ttl_GRIN1_switch.on()
                 delay(10 * us)
 
-            ### Changing the bias field.
-            self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                                  self.AX_volts_microwave, self.AY_volts_microwave],
-                                 channels=self.coil_channels)
-            delay(1 * ms)
+            # ### Changing the bias field.
+            # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+            #                       self.AX_volts_microwave, self.AY_volts_microwave],
+            #                      channels=self.coil_channels)
+            # delay(1 * ms)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
@@ -11547,11 +11546,11 @@ def atom_photon_parity_6_experiment(self):
                 CW_optical_pumping_node1(self)
                 delay(10 * us)
 
-            ### Changing the bias field.
-            self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                                  self.AX_volts_microwave, self.AY_volts_microwave],
-                                 channels=self.coil_channels)
-            delay(1 * ms)
+            # ### Changing the bias field.
+            # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+            #                       self.AX_volts_microwave, self.AY_volts_microwave],
+            #                      channels=self.coil_channels)
+            # delay(1 * ms)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
@@ -12618,11 +12617,11 @@ def atom_photon_parity_7_experiment(self):
                 CW_optical_pumping_node1(self)
                 delay(10 * us)
 
-            ### Changing the bias field.
-            self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                                  self.AX_volts_microwave, self.AY_volts_microwave],
-                                 channels=self.coil_channels)
-            delay(1 * ms)
+            # ### Changing the bias field.
+            # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+            #                       self.AX_volts_microwave, self.AY_volts_microwave],
+            #                      channels=self.coil_channels)
+            # delay(1 * ms)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             # for excitation_attempt in range(self.n_excitation_attempts):
@@ -12892,11 +12891,11 @@ def atom_photon_parity_8_experiment(self):
         ############################
         delay(10*us)
         if self.t_microwave_pulse > 0.0:
-            ### Changing the bias field
-            self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                                  self.AX_volts_microwave, self.AY_volts_microwave],
-                                 channels=self.coil_channels)
-            delay(1 * ms)
+            # ### Changing the bias field
+            # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+            #                       self.AX_volts_microwave, self.AY_volts_microwave],
+            #                      channels=self.coil_channels)
+            # delay(1 * ms)
 
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             # FORT_ramp2_smoothstep(self, direction="down")
@@ -13065,12 +13064,12 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
                     CW_optical_pumping_node2(self)
                 delay(10 * us)
 
-            if self.which_node == "alice":
-                ### Changing the bias field.
-                self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                                      self.AX_volts_microwave, self.AY_volts_microwave],
-                                     channels=self.coil_channels)
-                delay(1 * ms)
+            # if self.which_node == "alice":
+            #     ### Changing the bias field.
+            #     self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+            #                           self.AX_volts_microwave, self.AY_volts_microwave],
+            #                          channels=self.coil_channels)
+            #     delay(1 * ms)
 
             #
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
@@ -14957,12 +14956,12 @@ def Two_node_single_photon_2_optimization_experiment(self):
         two_nodes_synchronization(self)
 
         if self.t_microwave_pulse > 0.0:
-            ### Changing the bias field
-            if self.which_node == "alice":
-                self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
-                                      self.AX_volts_microwave, self.AY_volts_microwave],
-                                     channels=self.coil_channels)
-            delay(1 * ms)
+            # ### Changing the bias field
+            # if self.which_node == "alice":
+            #     self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
+            #                           self.AX_volts_microwave, self.AY_volts_microwave],
+            #                          channels=self.coil_channels)
+            # delay(1 * ms)
 
             # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
             # delay(0.1 * ms)
