@@ -84,8 +84,8 @@ def waveplate_rotation_and_atom_loading_2_experiment(self):
         # delay(0.1 * ms)
         # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-        # load_until_atom_smooth_FORT_recycle(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
@@ -3622,16 +3622,8 @@ def atom_loading_2_experiment(self):
         # delay(0.1 * ms)
         # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-        if self.which_node == 'alice':
-            # load_MOT_and_FORT(self)
-            # load_MOT_and_FORT_until_atom(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            load_until_atom_smooth_FORT_recycle(self)
-        elif self.which_node == 'bob':
-            # load_MOT_and_FORT_until_atom(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
-            # load_atom_in_both_nodes_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
@@ -3708,14 +3700,8 @@ def blowaway_fidelity_measurement_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        if self.which_node == 'alice':
-            # load_MOT_and_FORT(self)
-            # load_MOT_and_FORT_until_atom(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            load_until_atom_smooth_FORT_recycle(self)
-        else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1 * ms)
 
@@ -4258,7 +4244,6 @@ def beam_balancing_with_atoms_experiment(self):
         # load_MOT_and_FORT_until_atom_recycle(self)
         load_until_atom_smooth_FORT_recycle(self)
 
-
         delay(1 * ms)
 
         first_shot(self)
@@ -4587,13 +4572,8 @@ def microwave_Rabi_2_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        if self.which_node == 'alice':
-            # load_MOT_and_FORT(self)
-            # load_MOT_and_FORT_until_atom(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            load_until_atom_smooth_FORT_recycle(self)
-        else:
-            load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1 * ms)
         first_shot(self)
@@ -4692,8 +4672,7 @@ def microwave_Rabi_2_experiment(self):
 def microwave_Ramsey_00_experiment(self):
     """
     Ramsey experiment with two pi/2 MW pulses with a variable time delay in the middle.
-    This experiment can be used to measure the T2* of the clock qubit.
-
+    This experiment can be used to measure the T2* of the clock or 01 qubit.
     """
 
     self.core.reset()
@@ -7302,7 +7281,8 @@ def single_photon_experiment_3_atom_loading_advance_node2_AllSPCMs(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -7674,11 +7654,7 @@ def single_photon_experiment_3_atom_loading_advance_AllSPCM(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         # delay(1 * ms)
 
-        if self.which_node == "alice":
-            # load_MOT_and_FORT_until_atom(self)
-            load_until_atom_smooth_FORT_recycle(self)
-        else:
-            load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -9436,8 +9412,8 @@ def atom_photon_parity_2_node2_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_MOT_and_FORT_until_atom_recycle(self)
-        # load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -11680,7 +11656,8 @@ def atom_photon_parity_6_node2_AllSPCM_experiment(self):
         self.ttl_microwave_switch.on()  ### close the switch
         delay(10 * ms)
 
-        load_MOT_and_FORT_until_atom_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
         delay(1 * ms)
 
         first_shot(self)
@@ -12499,14 +12476,8 @@ def atom_photon_parity_8_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        if self.which_node == 'alice':
-            # load_MOT_and_FORT(self)
-            # load_MOT_and_FORT_until_atom(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            load_until_atom_smooth_FORT_recycle(self)
-        else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1 * ms)
 
@@ -12689,8 +12660,8 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        # load_until_atom_smooth_FORT_recycle(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1 * ms)
         self.ttl_microwave_switch.on()  ### close the switch
