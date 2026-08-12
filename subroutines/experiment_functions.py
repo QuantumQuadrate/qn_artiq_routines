@@ -1174,485 +1174,6 @@ def load_MOT_and_FORT_until_atom_recycle(self):
         delay(10 * ms)
 
 @kernel
-def load_atom_in_both_nodes_individually(self):
-    """
-    Eunji - this is assuming that both nodes can try atom loading/readout simultaneously without distruption
-    - this maybe useful when we integrate a fast shutter most likeley a MEMS switch.
-    - but we need to think more carefully how much loss it has with coupling/mode matching/pol dependence
-    - if we need to use MEMS switch, it might need to be spliced.
-
-    Load/recycle atoms until both nodes have atoms simultaneously.
-
-    Assumption:
-        This node's TTL output is a live atom-status indicator.
-
-            HIGH = this node currently has an atom
-            LOW  = this node currently does not have an atom
-
-        The other node's TTL input is used to determine whether the other node
-        currently has an atom.
-
-    This function exits only when:
-        this node has atom AND the other node has atom.
-
-    Datasets used:
-        time_without_atom_other_node:
-            Live-updated time since the other node was last seen without atom.
-
-        Atom_loading_time_other_node:
-            Appended once when the other node becomes ready.
-    """
-
-    atom_loaded = False
-    other_node_has_atom = False
-    both_nodes_have_atom = False
-    readout = 0
-
-    ############################################################
-    # Timer for how long the OTHER node has been without atom.
-    ############################################################
-    t_before_other_atom = now_mu()
-    t_after_other_atom = now_mu()
-    t_no_other_atom = now_mu()
-
-    time_without_other_atom = 0.0
-    self.atom_loading_time_other_node = 0.0
-    other_node_loading_time_recorded = False
-    other_node_was_without_atom = False
-
-    delay(100 * us)
-
-    ############################################################
-    # Initial check for THIS node using latest RO2 information.
-    ############################################################
-    if self.measurement > 0:
-        if self.AllSPCMs_RO2 / self.t_SPCM_second_shot > self.single_atom_threshold:
-            atom_loaded = True
-            self.print_async("This node starts with atom.")
-        else:
-            atom_loaded = False
-            self.print_async("This node starts without atom.")
-    else:
-        atom_loaded = False
-        self.print_async("No previous measurement. This node needs loading.")
-
-    ############################################################
-    # Update this node TTL according to the actual initial status.
-    ############################################################
-    if atom_loaded:
-        if self.which_node == "alice":
-            self.ttl_node1_output1.on()
-            self.print_async("Node1 atom TTL is ON.")
-        else:
-            self.ttl_node2_output1.on()
-            self.print_async("Node2 atom TTL is ON.")
-    else:
-        if self.which_node == "alice":
-            self.ttl_node1_output1.off()
-            self.print_async("Node1 atom TTL is OFF.")
-        else:
-            self.ttl_node2_output1.off()
-            self.print_async("Node2 atom TTL is OFF.")
-
-    delay(100 * us)
-
-    ############################################################
-    # Main loop.
-    # Only exits when this node has atom AND other node has atom.
-    ############################################################
-    while not (atom_loaded and both_nodes_have_atom):
-
-        ########################################################
-        # If this node does not have atom, load/reload it.
-        ########################################################
-        if not atom_loaded:
-            self.print_async("Loading atom in this node...")
-
-            load_MOT_and_FORT_until_atom_recycle(self)
-
-            atom_loaded = True
-            self.print_async("Atom loaded in this node.")
-
-            if self.which_node == "alice":
-                self.ttl_node1_output1.on()
-                self.print_async("Node1 atom TTL is ON after loading.")
-            else:
-                self.ttl_node2_output1.on()
-                self.print_async("Node2 atom TTL is ON after loading.")
-
-            delay(100 * us)
-
-        ########################################################
-        # Check whether the OTHER node has atom.
-        ########################################################
-        if self.which_node == "alice":
-            self.ttl_node2_input1.sample_input()
-            delay(1 * us)
-            readout = int(self.ttl_node2_input1.sample_get())
-
-            if readout == 1:
-                other_node_has_atom = True
-                self.print_async("Node2 has atom.")
-            else:
-                other_node_has_atom = False
-                self.print_async("Node2 does NOT have atom.")
-
-        else:
-            self.ttl_node1_input1.sample_input()
-            delay(1 * us)
-            readout = int(self.ttl_node1_input1.sample_get())
-
-            if readout == 1:
-                other_node_has_atom = True
-                self.print_async("Node1 has atom.")
-            else:
-                other_node_has_atom = False
-                self.print_async("Node1 does NOT have atom.")
-
-        ########################################################
-        # Track how long the OTHER node has been without atom.
-        ########################################################
-        if other_node_has_atom:
-            self.set_dataset("time_without_atom_other_node", 0.0, broadcast=True)
-
-            if other_node_was_without_atom and not other_node_loading_time_recorded:
-                t_after_other_atom = now_mu()
-
-                self.atom_loading_time_other_node = self.core.mu_to_seconds(
-                    t_after_other_atom - t_before_other_atom
-                )
-
-                self.append_to_dataset(
-                    "Atom_loading_time_other_node",
-                    self.atom_loading_time_other_node
-                )
-
-                other_node_loading_time_recorded = True
-                other_node_was_without_atom = False
-
-                self.print_async("Other node loading time recorded.")
-
-        else:
-            ####################################################
-            # If this is the first time seeing the other node
-            # without atom, start the timer.
-            ####################################################
-            if not other_node_was_without_atom:
-                t_before_other_atom = now_mu()
-                other_node_was_without_atom = True
-                other_node_loading_time_recorded = False
-
-            delay(0.1 * ms)
-
-            t_no_other_atom = now_mu()
-
-            time_without_other_atom = self.core.mu_to_seconds(
-                t_no_other_atom - t_before_other_atom
-            )
-
-            self.set_dataset(
-                "time_without_atom_other_node",
-                time_without_other_atom,
-                broadcast=True
-            )
-
-        ########################################################
-        # If both nodes have atoms, exit the loop.
-        ########################################################
-        if atom_loaded and other_node_has_atom:
-            both_nodes_have_atom = True
-            self.print_async("Both nodes have atoms. Exiting loading loop.")
-            break
-        else:
-            both_nodes_have_atom = False
-
-        ########################################################
-        # Other node does not have atom yet.
-        # Wait 200 ms, then check whether THIS node still has atom.
-        ########################################################
-        delay(200 * ms)
-
-        ########################################################
-        # Read out this node's current atom using second_shot.
-        ########################################################
-        second_shot(self)
-
-        ########################################################
-        # Check if this node still has atom.
-        ########################################################
-        if self.AllSPCMs_RO2 / self.t_SPCM_second_shot > self.single_atom_threshold:
-            atom_loaded = True
-            self.print_async("This node still has atom while waiting.")
-
-            ####################################################
-            # Keep this node TTL HIGH.
-            ####################################################
-            if self.which_node == "alice":
-                self.ttl_node1_output1.on()
-            else:
-                self.ttl_node2_output1.on()
-
-            ####################################################
-            # Recool after the readout.
-            ####################################################
-            recooling_after_first_shot(self)
-
-        else:
-            atom_loaded = False
-            both_nodes_have_atom = False
-            self.print_async("This node lost atom while waiting.")
-
-            ####################################################
-            # This node no longer has atom, so set TTL LOW.
-            ####################################################
-            if self.which_node == "alice":
-                self.ttl_node1_output1.off()
-                self.print_async("Node1 atom TTL is OFF.")
-            else:
-                self.ttl_node2_output1.off()
-                self.print_async("Node2 atom TTL is OFF.")
-
-            ####################################################
-            # Important:
-            # Do NOT reset time_without_atom_other_node here.
-            # That timer belongs to the other node's atom status,
-            # not this node's atom status.
-            ####################################################
-
-            delay(100 * us)
-
-    ############################################################
-    # Function exits only here, when both nodes have atoms.
-    ############################################################
-    self.print_async("Confirmed: both nodes have atoms.")
-    delay(100 * us)
-
-@kernel
-def load_until_atom_in_both_nodes_recycle(self):
-    """
-    Two-node combined-loading version.
-
-    * based on load_MOT_and_FORT_until_atom_recycle
-    * with synchronization added in the while loop
-    * Checks for atoms in both nodes using two_atom_threshold_in_loading
-
-    """
-    ### First check if there is already an atom in the FORT based on RO2
-    ### This will miss the first measurement of each iteration (except the first iteration)
-    ### and results in the first RO1 to be less than threshold. But it is OK.
-    delay(100 * us)
-    if self.AllSPCMs_RO2/self.t_SPCM_second_shot > self.two_atom_threshold:
-        atom_loaded = True
-
-        # ### Lower the FORT to science setpoint
-        # if self.which_node == 'alice':
-        #     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        # elif self.which_node == 'bob':
-        #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
-
-        ###########  PGC on the trapped atom  #############
-        if self.do_PGC_after_loading:
-            ### Set the coils to PGC setting
-            self.zotino0.set_dac(
-                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-                channels=self.coil_channels)
-            delay(1 * ms)
-            ### set the cooling DP AOM to the PGC settings
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-
-            self.dds_AOM_A1.sw.on()
-            self.dds_AOM_A2.sw.on()
-            self.dds_AOM_A3.sw.on()
-            self.dds_AOM_A4.sw.on()
-            delay(0.1 * ms)
-            if self.PGC_and_RO_with_on_chip_beams:
-                self.dds_AOM_A5.sw.off()
-                self.dds_AOM_A6.sw.off()
-
-            self.dds_cooling_DP.sw.on()  ### turn on cooling
-            self.ttl_repump_switch.off()  ### turn on MOT RP
-            delay(self.t_PGC_after_loading)  ### this is the PGC time
-            self.dds_cooling_DP.sw.off()  ### turn off cooling
-            self.ttl_repump_switch.on()  ### turn off MOT RP
-        ###################################################
-    else:
-        atom_loaded = False
-
-    ### load an atom if atom_loaded = False
-    if not atom_loaded:
-
-        if self.monitors_for_atom_loading:
-            measure_Magnetometer(self)
-            delay(1 * ms)
-            Sampler_test(self)
-            delay(1 * ms)
-            measure_GRIN1(self)
-            delay(1 * ms)
-
-        ### Set the coils to MOT loading setting
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-            channels=self.coil_channels)
-
-        ### set the cooling DP AOM to the MOT settings
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(1 * ms)
-
-        self.dds_cooling_DP.sw.on()  ### turn on cooling
-        self.ttl_repump_switch.off()  ### turn on MOT RP
-        delay(0.1 * ms)
-
-        self.dds_AOM_A1.sw.on()
-        self.dds_AOM_A2.sw.on()
-        self.dds_AOM_A3.sw.on()
-        self.dds_AOM_A4.sw.on()
-        self.dds_AOM_A5.sw.on()
-        self.dds_AOM_A6.sw.on()
-        delay(0.1 * ms)
-
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
-        self.dds_FORT.sw.on()
-
-        delay(1 * ms)
-        if self.which_node == "alice":
-            self.zotino0.set_dac([3.5], self.UV_trig_channel)
-        delay(1 * ms)
-
-        max_tries = 100  ### Maximum number of attempts before running the feedback
-        atom_check_time = self.t_atom_check_time
-        try_n = 0
-        t_before_atom = now_mu()  ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
-        t_after_atom = now_mu()
-        time_without_atom = 0.0
-
-        AllSPCMs_atom_check_loaded = 0  ### for initilization
-        AllSPCMs_atom_check_not_loaded = 0
-
-        shim_tune_runs = 0
-
-        n_synchronization_in_loading = 0
-        while True:
-            two_nodes_synchronization(self)  ### Syncing the two nodes.
-
-            n_synchronization_in_loading += 1
-
-            while not atom_loaded and try_n < max_tries:
-                delay(100 * us)  ### Needs a delay of about 100us or maybe less
-                with parallel:
-                    self.ttl_SPCM0_counter.gate_rising(atom_check_time)
-                    self.ttl_SPCM1_counter.gate_rising(atom_check_time)
-                    self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
-                    self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
-
-                AllSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count() + \
-                                          self.ttl_SPCM1_counter.fetch_count() + \
-                                          self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
-                                          self.ttl_SPCM1_OtherNode_counter.fetch_count())
-
-                try_n += 1
-
-                ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
-                ### would overwhelm the dataset.
-                if try_n == 1:
-                    AllSPCMs_atom_check_not_loaded = AllSPCMs_atom_check
-
-                if AllSPCMs_atom_check / atom_check_time > self.two_atom_threshold_for_loading:
-                    delay(100 * us)  ### Needs a delay of about 100us or maybe less
-                    atom_loaded = True
-                    AllSPCMs_atom_check_loaded = AllSPCMs_atom_check
-
-            if atom_loaded:
-                self.set_dataset("time_without_atom", 0.0, broadcast=True)  ### resetting time_without_atom when we load an atom
-                t_after_atom = now_mu()
-
-                ### just to check the histogram during atom loading to find a good two_atom_threshold_for_loading
-                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_loaded)
-                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_not_loaded)
-                delay(1 * ms)
-
-                # self.print_async("n_synchronization_in_loading: ", n_synchronization_in_loading)
-                break  ### Exit the outer loop if an atom is loaded
-
-            #### time_without_atom shows how long is passed from the previous atom loading. Calculated only when try_n > max_tries
-            delay(0.1 * ms)
-            t_no_atom = now_mu()
-            time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
-            self.set_dataset("time_without_atom", time_without_atom, broadcast=True)
-
-            # ### If max_tries reached and atom loading is too bad, run shim tuning.
-            # t_shim_tune_trigger = 10.0  # seconds
-            # max_shim_tune_runs = 3  # prevents infinite tuning loop
-            #
-            # if self.tune_shims_when_loading_is_bad and (time_without_atom > t_shim_tune_trigger) and (shim_tune_runs < max_shim_tune_runs):
-            #     self.print_async("Atom loading is bad. Tuning X and Y shims.")
-            #     tune_shims_for_atom_loading(self)
-            #     shim_tune_runs += 1
-            #
-            #     ### restart the loading attempt with the (possibly) improved shims
-            #     try_n = 0
-            #     t_before_atom = now_mu()
-            #     delay(0.1 * ms)
-            #     continue
-
-            ### If max_tries reached and still no atom, run feedback
-            if self.enable_laser_feedback:
-                delay(0.1 * ms)  ### necessary to avoid underflow
-                ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-                delay(0.1 * ms)
-                run_feedback_and_record_FORT_MM_power(self, record_power=False)
-                self.n_feedback_per_iteration += 1
-                # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
-                self.dds_microwaves.sw.on()
-                self.dds_FORT.sw.on()
-                delay(0.1 * ms)
-
-                try_n = 0
-
-        delay(1 * ms)
-        if self.which_node == "alice":
-            self.zotino0.set_dac([0.0], self.UV_trig_channel)
-        delay(100 * us)
-
-        ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
-            channels=self.coil_channels)
-        delay(1 * ms)
-
-        self.ttl_repump_switch.on()  ### turn off MOT RP
-        self.dds_cooling_DP.sw.off()  ### turn off cooling
-
-        delay(1 * ms)
-        delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
-
-        ### Lower the FORT to science setpoint
-        FORT_ramp1_smoothstep(self, direction="down")
-
-        ###########  PGC on the trapped atom  #############
-        if self.do_PGC_after_loading:
-            ### set the cooling DP AOM to the PGC settings
-            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
-            self.ttl_repump_switch.off()  ### turn on MOT RP
-            self.dds_cooling_DP.sw.on()  ### turn on cooling
-            # delay(10 * us)
-            if self.PGC_and_RO_with_on_chip_beams:
-                self.dds_AOM_A5.sw.off()
-                self.dds_AOM_A6.sw.off()
-            delay(self.t_PGC_after_loading)  ### this is the PGC time
-            self.ttl_repump_switch.on()  ### turn off MOT RP
-            self.dds_cooling_DP.sw.off()  ### turn off cooling
-        ###################################################
-
-        ### saving the atom loading time for each loaded atom.
-        self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
-        self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
-        delay(1 * ms)
-        self.append_to_dataset("atom_loading_wall_clock", now_mu())  ### just to plot Atom_loading_time vs actual time in analysis
-        self.n_atom_loaded_per_iteration += 1
-        delay(10 * ms)
-
-@kernel
 def load_until_atom_smooth_FORT_recycle(self):
     """
     Based on load_MOT_and_FORT_until_atom_recycle but lowering FORT smoothly to Science set point instead of step function.
@@ -5241,7 +4762,10 @@ def microwave_Ramsey_00_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10 * us)
 
         ############################
@@ -5258,7 +4782,7 @@ def microwave_Ramsey_00_experiment(self):
 
         ### first pi/2 pulse
         self.ttl_microwave_switch.off()
-        delay(self.t_microwave_pulse)
+        delay(self.t_microwave_pulse/2)
         self.ttl_microwave_switch.on()
 
         ################## use only one of the following:
@@ -5276,7 +4800,7 @@ def microwave_Ramsey_00_experiment(self):
 
         ### second pi/2 pulse
         self.ttl_microwave_switch.off()
-        delay(self.t_microwave_pulse)
+        delay(self.t_microwave_pulse/2)
         self.ttl_microwave_switch.on()
 
         delay(2*us)
@@ -5385,7 +4909,10 @@ def microwave_Ramsey_11_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10 * us)
 
         # ### Changing the bias field
@@ -5412,7 +4939,7 @@ def microwave_Ramsey_11_experiment(self):
         delay(5 * us)
         ### first pi/2 pulse
         self.ttl_microwave_switch.off()
-        delay(self.t_microwave_pulse)
+        delay(self.t_microwave_11_pulse/2)
         self.ttl_microwave_switch.on()
 
         ### use only one of the following:
@@ -5430,7 +4957,7 @@ def microwave_Ramsey_11_experiment(self):
 
         ### second pi/2 pulse
         self.ttl_microwave_switch.off()
-        delay(self.t_microwave_pulse)
+        delay(self.t_microwave_11_pulse/2)
         self.ttl_microwave_switch.on()
 
         delay(2*us)
@@ -5458,184 +4985,957 @@ def microwave_Ramsey_11_experiment(self):
     delay(1*ms)
     self.dds_microwaves.sw.off()
 
+# @kernel
+# def microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment(self):
+#     """
+#     Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
+#
+#     This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
+#     microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
+#     - microwave Rabi oscillations to test the optical pumping fidelity
+#     - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
+#     transitions |F=1,m>->|F=2,m'>)
+#     - depumping measurements (by using a non-zero depump time)
+#
+#     self is the experiment instance to which ExperimentVariables are bound
+#     """
+#
+#     self.core.reset()
+#
+#     # self.SPCM0_RO1 = 0
+#     # self.SPCM0_RO2 = 0
+#     # self.SPCM1_RO1 = 0
+#     # self.SPCM1_RO2 = 0
+#
+#     # if self.t_pumping > 0.0:
+#     #     record_chopped_optical_pumping(self)
+#     #     delay(100*ms)
+#     delay(10 * ms)
+#
+#     if self.t_blowaway > 0.0:
+#         record_chopped_blow_away(self)
+#         delay(100*ms)
+#
+#
+#     if self.enable_laser_feedback:
+#         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+#         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+#         delay(0.1 * ms)
+#         run_feedback_and_record_FORT_MM_power(self)
+#
+#     # delay(1 * ms)
+#     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+#     # delay(1 * ms)
+#     # self.dds_microwaves.sw.on()
+#     delay(1 * ms)
+#
+#     self.measurement = 0
+#     while self.measurement < self.n_measurements:
+#
+#         delay(10*ms)
+#
+#         # load_MOT_and_FORT_until_atom(self)
+#         if self.which_node == 'alice':
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#         else:
+#             # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#             # load_until_atom_smooth_FORT_recycle(self)
+#             # load_MOT_and_FORT_until_atom(self)
+#             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
+#
+#         delay(1 * ms)
+#
+#         first_shot(self)   # starts with FORT science setpoint;
+#         delay (1 * ms)
+#
+#         if self.t_recooling_after_first_shot > 0:
+#             recooling_after_first_shot(self)
+#
+#         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         delay(0.1 * ms)
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         delay(0.1 * ms)
+#         if not self.PGC_and_RO_with_on_chip_beams:
+#             self.dds_AOM_A5.sw.off()
+#             self.dds_AOM_A6.sw.off()
+#
+#
+#         ############################
+#         # optical pumping phase - pumps atoms into F=1,m_F=0
+#         ############################
+#         if self.t_pumping > 0.0:
+#             CW_optical_pumping_node2(self)
+#             delay(1*ms)
+#
+#
+#         ############################
+#         # microwave phase
+#         ############################
+#         delay(2 * us)
+#         if self.t_microwave_pulse > 0.0:
+#
+#             ### lower the FORT power
+#             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+#             # FORT_ramp2_smoothstep(self, direction="down")
+#
+#             self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
+#             delay(2*us)
+#
+#             self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
+#             delay(self.t_microwave_pulse/2)
+#
+#             self.dds_microwaves.sw.off()
+#             delay(self.t_delay_between_shots)
+#
+#             self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
+#             delay(self.t_microwave_pulse/2)
+#
+#             self.dds_microwaves.sw.off()
+#             self.ttl_microwave_switch.on()
+#
+#             delay(0.5*us)
+#
+#             ## FORT ON
+#             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+#             # FORT_ramp2_smoothstep(self, direction="up")
+#
+#             delay(0.1 * ms)
+#
+#         ############################
+#         # blow-away phase - push out atoms in F=2 only
+#         ############################
+#
+#         if self.t_blowaway > 0.0:
+#             chopped_blow_away(self)
+#
+#
+#         if self.t_FORT_drop > 0:
+#             self.dds_FORT.sw.off()
+#             delay(self.t_FORT_drop)
+#             self.dds_FORT.sw.on()
+#
+#
+#         second_shot(self)
+#
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         self.dds_AOM_A5.sw.off()
+#         self.dds_AOM_A6.sw.off()
+#
+#         end_measurement(self)
+#         delay(5 * ms) ### hopefully to avoid underflow.
+#
+#     delay(10*ms)
+#     self.dds_FORT.sw.off()
+#     delay(1*ms)
+#     self.dds_microwaves.sw.off()
+#
+# @kernel
+# def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
+#     """
+#     Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
+#
+#     This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
+#     microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
+#     - microwave Rabi oscillations to test the optical pumping fidelity
+#     - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
+#     transitions |F=1,m>->|F=2,m'>)
+#     - depumping measurements (by using a non-zero depump time)
+#
+#     self is the experiment instance to which ExperimentVariables are bound
+#     """
+#
+#     self.core.reset()
+#
+#     # self.SPCM0_RO1 = 0
+#     # self.SPCM0_RO2 = 0
+#     # self.SPCM1_RO1 = 0
+#     # self.SPCM1_RO2 = 0
+#
+#     # if self.t_pumping > 0.0:
+#     #     record_chopped_optical_pumping(self)
+#     #     delay(100*ms)
+#     delay(10 * ms)
+#
+#     if self.t_blowaway > 0.0:
+#         record_chopped_blow_away(self)
+#         delay(100*ms)
+#
+#     self.core.break_realtime()
+#
+#     if self.enable_laser_feedback:
+#         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+#         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+#         delay(0.1 * ms)
+#         run_feedback_and_record_FORT_MM_power(self)
+#
+#     # delay(1 * ms)
+#     self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
+#     delay(1 * ms)
+#     self.dds_microwaves.sw.on()
+#     delay(1 * ms)
+#
+#     self.measurement = 0
+#     while self.measurement < self.n_measurements:
+#
+#         delay(10*ms)
+#
+#         # load_MOT_and_FORT_until_atom(self)
+#         if self.which_node == 'alice':
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#         else:
+#             # load_until_atom_smooth_FORT_recycle(self)
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
+#
+#         delay(1 * ms)
+#         first_shot(self)   # starts with FORT science setpoint;
+#         delay (1 * ms)
+#
+#         if self.t_recooling_after_first_shot > 0:
+#             recooling_after_first_shot(self)
+#
+#         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         delay(0.1 * ms)
+#         if not self.PGC_and_RO_with_on_chip_beams:
+#             self.dds_AOM_A5.sw.off()
+#             self.dds_AOM_A6.sw.off()
+#
+#
+#         ############################
+#         # optical pumping phase - pumps atoms into F=1,m_F=0
+#         ############################
+#         if self.t_pumping > 0.0:
+#             CW_optical_pumping_node2(self)
+#             delay(10*us)  ## making this 1ms screws up;;; is this related to heating?? -> NO.
+#
+#         ############################
+#         # microwave phase
+#         ############################
+#         ### If I don't set the MW dds here again, MW doesn't work.
+#         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
+#         delay(5 * us)
+#
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+#         # FORT_ramp2_smoothstep(self, direction="down")
+#         delay(2 * us)
+#
+#         ##### Mapping from |1,0> to |2,1>
+#         if self.t_microwave_01_pulse > 0.0:
+#             self.ttl_microwave_switch.off()
+#             delay(self.t_microwave_01_pulse)
+#             self.ttl_microwave_switch.on()
+#             delay(0.5 * us)
+#
+#         self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
+#         delay(5 * us)
+#
+#         ##### Mapping from |2,1> to |1,1>
+#         if self.t_microwave_11_pulse > 0.0:
+#             self.ttl_microwave_switch.off()
+#             delay(self.t_microwave_11_pulse)
+#             self.ttl_microwave_switch.on()
+#             delay(0.5 * us)
+#
+#         ## FORT ON
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+#         # FORT_ramp2_smoothstep(self, direction="up")
+#         delay(10 * us)
+#
+#         ############################
+#         # blow-away phase - push out atoms in F=2 only
+#         ############################
+#
+#         if self.t_blowaway > 0.0:
+#             chopped_blow_away(self)
+#
+#         if self.t_FORT_drop > 0:
+#             self.dds_FORT.sw.off()
+#             delay(self.t_FORT_drop)
+#             self.dds_FORT.sw.on()
+#
+#
+#         second_shot(self)
+#
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         self.dds_AOM_A5.sw.off()
+#         self.dds_AOM_A6.sw.off()
+#
+#         end_measurement(self)
+#         delay(5 * ms) ### hopefully to avoid underflow.
+#
+#     delay(10*ms)
+#     self.dds_FORT.sw.off()
+#     delay(1*ms)
+#     self.dds_microwaves.sw.off()
+#
+# @kernel
+# def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
+#     """
+#     Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
+#
+#     This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
+#     microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
+#     - microwave Rabi oscillations to test the optical pumping fidelity
+#     - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
+#     transitions |F=1,m>->|F=2,m'>)
+#     - depumping measurements (by using a non-zero depump time)
+#
+#     self is the experiment instance to which ExperimentVariables are bound
+#     """
+#
+#     self.core.reset()
+#
+#     # self.SPCM0_RO1 = 0
+#     # self.SPCM0_RO2 = 0
+#     # self.SPCM1_RO1 = 0
+#     # self.SPCM1_RO2 = 0
+#
+#     # if self.t_pumping > 0.0:
+#     #     record_chopped_optical_pumping(self)
+#     #     delay(100*ms)
+#     delay(10 * ms)
+#
+#     if self.t_blowaway > 0.0:
+#         record_chopped_blow_away(self)
+#         delay(100*ms)
+#
+#
+#     if self.enable_laser_feedback:
+#         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+#         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+#         delay(0.1 * ms)
+#         run_feedback_and_record_FORT_MM_power(self)
+#
+#     # delay(1 * ms)
+#     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+#     delay(1 * ms)
+#     self.dds_microwaves.sw.on()
+#     delay(1 * ms)
+#
+#     self.measurement = 0
+#     while self.measurement < self.n_measurements:
+#
+#         delay(10*ms)
+#
+#         # load_MOT_and_FORT_until_atom(self)
+#         if self.which_node == 'alice':
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#         else:
+#             # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
+#             # load_MOT_and_FORT_until_atom_recycle(self)
+#             # load_until_atom_smooth_FORT_recycle(self)
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
+#
+#         delay(1 * ms)
+#
+#         first_shot(self)   # starts with FORT science setpoint;
+#         delay (1 * ms)
+#
+#         if self.t_recooling_after_first_shot > 0:
+#             recooling_after_first_shot(self)
+#
+#         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         delay(0.1 * ms)
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         delay(0.1 * ms)
+#         if not self.PGC_and_RO_with_on_chip_beams:
+#             self.dds_AOM_A5.sw.off()
+#             self.dds_AOM_A6.sw.off()
+#
+#
+#         ############################
+#         # optical pumping phase - pumps atoms into F=1,m_F=0
+#         ############################
+#         if self.t_pumping > 0.0:
+#             CW_optical_pumping_node2(self)
+#             delay(10*us)
+#
+#
+#         ############################
+#         # microwave phase
+#         ############################
+#         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
+#         delay(5 * us)
+#
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+#         # FORT_ramp2_smoothstep(self, direction="down")
+#         delay(2 * us)
+#
+#         ##### Mapping from |1,0> to |2,1>
+#         if self.t_microwave_00_pulse > 0.0:
+#             self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
+#             delay(self.t_microwave_00_pulse)
+#             self.ttl_microwave_switch.on()
+#             delay(0.5 * us)
+#
+#         self.dds_microwaves.set(frequency=self.f_microwaves_m10_dds, amplitude=dB_to_V(self.p_microwaves))
+#         delay(5*us)
+#
+#         ##### Mapping from |2,1> to |1,1>
+#         if self.t_microwave_m10_pulse > 0.0:
+#             self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
+#             delay(self.t_microwave_m10_pulse)
+#             self.ttl_microwave_switch.on()
+#             delay(0.5 * us)
+#
+#         ## FORT ON
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+#         # FORT_ramp2_smoothstep(self, direction="up")
+#         delay(10 * us)
+#
+#
+#         ############################
+#         # blow-away phase - push out atoms in F=2 only
+#         ############################
+#
+#         if self.t_blowaway > 0.0:
+#             chopped_blow_away(self)
+#
+#
+#         if self.t_FORT_drop > 0:
+#             self.dds_FORT.sw.off()
+#             delay(self.t_FORT_drop)
+#             self.dds_FORT.sw.on()
+#
+#
+#         second_shot(self)
+#
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         self.dds_AOM_A5.sw.off()
+#         self.dds_AOM_A6.sw.off()
+#
+#         end_measurement(self)
+#         delay(5 * ms) ### hopefully to avoid underflow.
+#
+#     delay(10*ms)
+#     self.dds_FORT.sw.off()
+#     delay(1*ms)
+#     self.dds_microwaves.sw.off()
+#
+# @kernel
+# def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
+#     """
+#     Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
+#
+#     This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
+#     microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
+#     - microwave Rabi oscillations to test the optical pumping fidelity
+#     - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
+#     transitions |F=1,m>->|F=2,m'>)
+#     - depumping measurements (by using a non-zero depump time)
+#
+#     self is the experiment instance to which ExperimentVariables are bound
+#     """
+#
+#     self.core.reset()
+#
+#     # self.SPCM0_RO1 = 0
+#     # self.SPCM0_RO2 = 0
+#     # self.SPCM1_RO1 = 0
+#     # self.SPCM1_RO2 = 0
+#
+#     # if self.t_pumping > 0.0:
+#     #     record_chopped_optical_pumping(self)
+#     #     delay(100*ms)
+#     delay(10 * ms)
+#
+#     if self.t_blowaway > 0.0:
+#         record_chopped_blow_away(self)
+#         delay(100*ms)
+#
+#
+#     if self.enable_laser_feedback:
+#         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+#         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+#         delay(0.1 * ms)
+#         run_feedback_and_record_FORT_MM_power(self)
+#
+#     # delay(1 * ms)
+#     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+#     # delay(1 * ms)
+#     # self.dds_microwaves.sw.on()
+#     delay(1 * ms)
+#
+#     self.measurement = 0
+#     while self.measurement < self.n_measurements:
+#
+#         delay(10*ms)
+#
+#         # load_MOT_and_FORT_until_atom(self)
+#         if self.which_node == 'alice':
+#             # load_MOT_and_FORT_until_atom_recycle(self)
+#             load_until_atom_smooth_FORT_recycle(self)
+#         else:
+#             # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
+#             # load_MOT_and_FORT_until_atom_recycle(self)
+#             # load_until_atom_smooth_FORT_recycle(self)
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
+#
+#         delay(1 * ms)
+#
+#         first_shot(self)   # starts with FORT science setpoint;
+#         delay (1 * ms)
+#
+#         if self.t_recooling_after_first_shot > 0:
+#             recooling_after_first_shot(self)
+#
+#         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         delay(0.1 * ms)
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         delay(0.1 * ms)
+#         if not self.PGC_and_RO_with_on_chip_beams:
+#             self.dds_AOM_A5.sw.off()
+#             self.dds_AOM_A6.sw.off()
+#
+#
+#         ############################
+#         # optical pumping phase - pumps atoms into F=1,m_F=0
+#         ############################
+#         if self.t_pumping > 0.0:
+#             CW_optical_pumping_node2(self)
+#             delay(1*ms)
+#
+#
+#         ############################
+#         # microwave phase
+#         ############################
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+#         # FORT_ramp2_smoothstep(self, direction="down")
+#
+#         # self.ttl_microwave_switch.off()  # todo: do this in the beginning and the end
+#         # delay(2 * us)
+#
+#         ##### Mapping from |1,0> to |2,1>
+#         if self.t_microwave_01_pulse > 0.0:
+#             self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
+#             delay(2 * us)
+#
+#             self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
+#             self.dds_microwaves.sw.on()
+#
+#             delay(self.t_microwave_01_pulse)
+#
+#             self.dds_microwaves.sw.off()
+#             self.ttl_microwave_switch.on()
+#             delay(0.5 * us)
+#
+#
+#         # delay(5*us)
+#
+#         ##### Mapping from |2,1> to |1,1>
+#         if self.t_microwave_11_pulse > 0.0:
+#             self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
+#             delay(2 * us)
+#
+#             self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
+#             self.dds_microwaves.sw.on()
+#             delay(self.t_microwave_11_pulse/2)
+#
+#             self.dds_microwaves.sw.off()
+#             delay(self.t_delay_between_shots)
+#
+#             self.dds_microwaves.sw.on()
+#             delay(self.t_microwave_11_pulse/2)
+#
+#             self.dds_microwaves.sw.off()
+#             self.ttl_microwave_switch.on()
+#             delay(0.5 * us)
+#
+#         ## FORT ON
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+#         # FORT_ramp2_smoothstep(self, direction="up")
+#
+#         delay(0.1 * ms)
+#
+#
+#
+#         ############################
+#         # blow-away phase - push out atoms in F=2 only
+#         ############################
+#
+#         if self.t_blowaway > 0.0:
+#             chopped_blow_away(self)
+#
+#
+#         if self.t_FORT_drop > 0:
+#             self.dds_FORT.sw.off()
+#             delay(self.t_FORT_drop)
+#             self.dds_FORT.sw.on()
+#
+#
+#         second_shot(self)
+#
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         self.dds_AOM_A5.sw.off()
+#         self.dds_AOM_A6.sw.off()
+#
+#         end_measurement(self)
+#         delay(5 * ms) ### hopefully to avoid underflow.
+#
+#     delay(10*ms)
+#     self.dds_FORT.sw.off()
+#     delay(1*ms)
+#     self.dds_microwaves.sw.off()
+#
+# @kernel
+# def microwave_Rabi_2_CW_OP_UW00_RF01_UW00_FORT_experiment(self):
+#     """
+#     Purpose: to find the RF resonance freq and time
+#
+#     Experiment sequence:
+#     i) atom loading
+#     ii) CW OP
+#     iii) MW 00 pi pulse
+#     iv) RF pulse
+#     v) MW 00 pi pulse
+#     """
+#
+#     self.core.reset()
+#     #
+#     # self.SPCM0_RO1 = 0
+#     # self.SPCM0_RO2 = 0
+#     # self.SPCM1_RO1 = 0
+#     # self.SPCM1_RO2 = 0
+#
+#     # if self.t_pumping > 0.0:
+#     #     record_chopped_optical_pumping(self)
+#     #     delay(100*ms)
+#     delay(10 * ms)
+#
+#     if self.t_blowaway > 0.0:
+#         record_chopped_blow_away(self)
+#         delay(100*ms)
+#
+#
+#     if self.enable_laser_feedback:
+#         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+#         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+#         delay(0.1 * ms)
+#         run_feedback_and_record_FORT_MM_power(self)
+#
+#     # delay(1 * ms)
+#     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+#     delay(1 * ms)
+#     self.dds_microwaves.sw.on()
+#     delay(1 * ms)
+#
+#     self.measurement = 0
+#     while self.measurement < self.n_measurements:
+#
+#         delay(10*ms)
+#
+#         # load_MOT_and_FORT_until_atom(self)
+#         if self.which_node == 'alice':
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#         else:
+#             # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
+#             # load_MOT_and_FORT_until_atom_recycle(self)
+#             # load_until_atom_smooth_FORT_recycle(self)
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
+#
+#         delay(1 * ms)
+#
+#         first_shot(self)   # starts with FORT science setpoint;
+#         delay (1 * ms)
+#
+#         if self.t_recooling_after_first_shot > 0:
+#             recooling_after_first_shot(self)
+#
+#         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         delay(0.1 * ms)
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         delay(0.1 * ms)
+#         if not self.PGC_and_RO_with_on_chip_beams:
+#             self.dds_AOM_A5.sw.off()
+#             self.dds_AOM_A6.sw.off()
+#
+#
+#         ############################
+#         # optical pumping phase - pumps atoms into F=1,m_F=0
+#         ############################
+#         if self.t_pumping > 0.0:
+#             CW_optical_pumping_node2(self)
+#             delay(10*us)
+#
+#
+#         ############################
+#         # microwave phase
+#         ############################
+#         delay(2 * us)
+#
+#         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
+#         self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
+#         delay(5 * us)
+#         self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
+#         delay(5 * us)
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+#         # FORT_ramp2_smoothstep(self, direction="down")
+#         delay(2 * us)
+#
+#         if self.t_microwave_00_pulse > 0.0:
+#             self.ttl_microwave_switch.off()
+#             delay(self.t_microwave_00_pulse)
+#             self.ttl_microwave_switch.on()
+#             delay(5 * us)
+#
+#         ############################ RF phase to transfer population from F=2,mF=0 to F=2,mF=1
+#         if self.t_MW_RF_pulse>0.0:
+#             self.dds_MW_RF.sw.on()  ### turn on RF
+#             delay(self.t_MW_RF_pulse)
+#             self.dds_MW_RF.sw.off()  ### turn off RF
+#             delay(5 * us)
+#
+#         ############################ microwave phase to transfer population from F=2,mF=0 to F=1,mF=0
+#         if self.t_microwave_00_pulse > 0.0:
+#             self.ttl_microwave_switch.off()
+#             delay(self.t_microwave_00_pulse)
+#             self.ttl_microwave_switch.on()
+#             delay(5 * us)
+#
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+#         delay(10*us)
+#         # FORT_ramp2_smoothstep(self, direction="up")
+#
+#         ############################
+#         # blow-away phase - push out atoms in F=2 only
+#         ############################
+#
+#         if self.t_blowaway > 0.0:
+#             chopped_blow_away(self)
+#
+#
+#         if self.t_FORT_drop > 0:
+#             self.dds_FORT.sw.off()
+#             delay(self.t_FORT_drop)
+#             self.dds_FORT.sw.on()
+#
+#
+#         second_shot(self)
+#
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         self.dds_AOM_A5.sw.off()
+#         self.dds_AOM_A6.sw.off()
+#
+#         end_measurement(self)
+#         delay(5 * ms) ### hopefully to avoid underflow.
+#
+#     delay(10*ms)
+#     self.dds_FORT.sw.off()
+#     delay(1*ms)
+#     self.dds_microwaves.sw.off()
+#
+# @kernel
+# def microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment(self):
+#     """
+#     """
+#
+#     self.core.reset()
+#
+#     # self.SPCM0_RO1 = 0
+#     # self.SPCM0_RO2 = 0
+#     # self.SPCM1_RO1 = 0
+#     # self.SPCM1_RO2 = 0
+#
+#     # if self.t_pumping > 0.0:
+#     #     record_chopped_optical_pumping(self)
+#     #     delay(100*ms)
+#     delay(10 * ms)
+#
+#     if self.t_blowaway > 0.0:
+#         record_chopped_blow_away(self)
+#         delay(100*ms)
+#
+#
+#     if self.enable_laser_feedback:
+#         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+#         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+#         delay(0.1 * ms)
+#         run_feedback_and_record_FORT_MM_power(self)
+#
+#     # delay(1 * ms)
+#     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
+#     delay(1 * ms)
+#     self.dds_microwaves.sw.on()
+#     delay(1 * ms)
+#
+#     self.measurement = 0
+#     while self.measurement < self.n_measurements:
+#
+#         delay(10*ms)
+#
+#         # load_MOT_and_FORT_until_atom(self)
+#         if self.which_node == 'alice':
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#         else:
+#             # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
+#             # load_MOT_and_FORT_until_atom_recycle(self)
+#             # load_until_atom_smooth_FORT_recycle(self)
+#             load_MOT_and_FORT_until_atom_recycle(self)
+#             # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
+#
+#         delay(1 * ms)
+#
+#         first_shot(self)   # starts with FORT science setpoint;
+#         delay (1 * ms)
+#
+#         if self.t_recooling_after_first_shot > 0:
+#             recooling_after_first_shot(self)
+#
+#         ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         delay(0.1 * ms)
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         delay(0.1 * ms)
+#         if not self.PGC_and_RO_with_on_chip_beams:
+#             self.dds_AOM_A5.sw.off()
+#             self.dds_AOM_A6.sw.off()
+#
+#
+#         ############################
+#         # optical pumping phase - pumps atoms into F=1,m_F=0
+#         ############################
+#         if self.t_pumping > 0.0:
+#             CW_optical_pumping_node2(self)
+#             delay(10*us)
+#
+#         ############################
+#         # microwave phase
+#         ############################
+#
+#         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
+#         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
+#         delay(5 * us)
+#         # self.dds_MW_RF.set(frequency=self.f_MW_RF_dds + self.f_microwaves_detuning, amplitude=dB_to_V(self.p_MW_RF_dds))
+#         self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
+#         delay(5 * us)
+#
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+#         # FORT_ramp2_smoothstep(self, direction="down")
+#         delay(2 * us)
+#
+#         ############################ MW phase to transfer population from F=1,mF=0 to F=2,mF=1
+#         if self.t_microwave_01_pulse > 0.0:
+#             self.ttl_microwave_switch.off()
+#             delay(self.t_microwave_01_pulse)
+#             self.ttl_microwave_switch.on()
+#             delay(5 * us)
+#
+#         ############################ MW+RF phase to transfer population from F=2,mF=1 to F=1,mF=-1
+#         if self.t_MW_RF_pulse>0.0:
+#             # self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds - self.f_microwaves_detuning,
+#             #                         amplitude=dB_to_V(self.p_microwaves))
+#             self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
+#             delay(5 * us)
+#
+#             with parallel:
+#                 self.ttl_microwave_switch.off()
+#                 self.dds_MW_RF.sw.on()  ### turn on RF
+#                 # self.ttl_microwave_switch.off()
+#
+#             delay(self.t_MW_RF_pulse)
+#
+#             with parallel:
+#                 self.ttl_microwave_switch.on()
+#                 self.dds_MW_RF.sw.off()  ### turn off RF
+#                 # self.ttl_microwave_switch.on()
+#             delay(5 * us)
+#
+#         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+#         delay(10*us)
+#         # FORT_ramp2_smoothstep(self, direction="up")
+#
+#         ############################
+#         # blow-away phase - push out atoms in F=2 only
+#         ############################
+#
+#         if self.t_blowaway > 0.0:
+#             chopped_blow_away(self)
+#
+#
+#         if self.t_FORT_drop > 0:
+#             self.dds_FORT.sw.off()
+#             delay(self.t_FORT_drop)
+#             self.dds_FORT.sw.on()
+#
+#
+#         second_shot(self)
+#
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         self.dds_AOM_A5.sw.off()
+#         self.dds_AOM_A6.sw.off()
+#
+#         end_measurement(self)
+#         delay(5 * ms) ### hopefully to avoid underflow.
+#
+#     delay(10*ms)
+#     self.dds_FORT.sw.off()
+#     delay(1*ms)
+#     self.dds_microwaves.sw.off()
+
 @kernel
-def microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment(self):
+def microwave_Rabi_2_and_EXC_experiment(self):
     """
-    Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
+    Microwave and optical pumping and Excitation experiment
 
-    This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
-    microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
-    - microwave Rabi oscillations to test the optical pumping fidelity
-    - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
-    transitions |F=1,m>->|F=2,m'>)
-    - depumping measurements (by using a non-zero depump time)
+    Sequence:
+        OP => EXC (~n attempts) => MW00 => BA
 
-    self is the experiment instance to which ExperimentVariables are bound
+    This experiment is used to characterize the excitation efficiency and optimize the power/pulse.
+
     """
 
     self.core.reset()
 
-    # self.SPCM0_RO1 = 0
-    # self.SPCM0_RO2 = 0
-    # self.SPCM1_RO1 = 0
-    # self.SPCM1_RO2 = 0
-
-    # if self.t_pumping > 0.0:
-    #     record_chopped_optical_pumping(self)
-    #     delay(100*ms)
-    delay(10 * ms)
-
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
-
-
-    if self.enable_laser_feedback:
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    # delay(1 * ms)
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    # delay(1 * ms)
-    # self.dds_microwaves.sw.on()
-    delay(1 * ms)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        delay(10*ms)
-
-        # load_MOT_and_FORT_until_atom(self)
-        if self.which_node == 'alice':
-            load_MOT_and_FORT_until_atom_recycle(self)
-        else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
-            # load_MOT_and_FORT_until_atom(self)
-            # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
-
-        delay(1 * ms)
-
-        first_shot(self)   # starts with FORT science setpoint;
-        delay (1 * ms)
-
-        if self.t_recooling_after_first_shot > 0:
-            recooling_after_first_shot(self)
-
-        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        delay(0.1 * ms)
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        delay(0.1 * ms)
-        if not self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-
-
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-        if self.t_pumping > 0.0:
-            CW_optical_pumping_node2(self)
-            delay(1*ms)
-
-
-        ############################
-        # microwave phase
-        ############################
-        delay(2 * us)
-        if self.t_microwave_pulse > 0.0:
-
-            ### lower the FORT power
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-            # FORT_ramp2_smoothstep(self, direction="down")
-
-            self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
-            delay(2*us)
-
-            self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
-            delay(self.t_microwave_pulse/2)
-
-            self.dds_microwaves.sw.off()
-            delay(self.t_delay_between_shots)
-
-            self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
-            delay(self.t_microwave_pulse/2)
-
-            self.dds_microwaves.sw.off()
-            self.ttl_microwave_switch.on()
-
-            delay(0.5*us)
-
-            ## FORT ON
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            # FORT_ramp2_smoothstep(self, direction="up")
-
-            delay(0.1 * ms)
-
-        ############################
-        # blow-away phase - push out atoms in F=2 only
-        ############################
-
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-
-        second_shot(self)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-        delay(5 * ms) ### hopefully to avoid underflow.
-
-    delay(10*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.dds_microwaves.sw.off()
-
-@kernel
-def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
-    """
-    Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
-
-    This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
-    microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
-    - microwave Rabi oscillations to test the optical pumping fidelity
-    - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
-    transitions |F=1,m>->|F=2,m'>)
-    - depumping measurements (by using a non-zero depump time)
-
-    self is the experiment instance to which ExperimentVariables are bound
-    """
-
-    self.core.reset()
-
-    # self.SPCM0_RO1 = 0
-    # self.SPCM0_RO2 = 0
-    # self.SPCM1_RO1 = 0
-    # self.SPCM1_RO2 = 0
-
-    # if self.t_pumping > 0.0:
-    #     record_chopped_optical_pumping(self)
-    #     delay(100*ms)
-    delay(10 * ms)
+    self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
+    ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
+    ### in each iteration.
+    self.n_atom_loaded_per_iteration = 0
 
     if self.t_blowaway > 0.0:
         record_chopped_blow_away(self)
@@ -5651,152 +5951,6 @@ def microwave_Rabi_2_CW_OP_UW_FORT_11_experiment(self):
         run_feedback_and_record_FORT_MM_power(self)
 
     # delay(1 * ms)
-    self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(1 * ms)
-    self.dds_microwaves.sw.on()
-    delay(1 * ms)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        delay(10*ms)
-
-        # load_MOT_and_FORT_until_atom(self)
-        if self.which_node == 'alice':
-            load_MOT_and_FORT_until_atom_recycle(self)
-        else:
-            # load_until_atom_smooth_FORT_recycle(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
-
-        delay(1 * ms)
-        first_shot(self)   # starts with FORT science setpoint;
-        delay (1 * ms)
-
-        if self.t_recooling_after_first_shot > 0:
-            recooling_after_first_shot(self)
-
-        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        delay(0.1 * ms)
-        if not self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-
-
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-        if self.t_pumping > 0.0:
-            CW_optical_pumping_node2(self)
-            delay(10*us)  ## making this 1ms screws up;;; is this related to heating?? -> NO.
-
-        ############################
-        # microwave phase
-        ############################
-        ### If I don't set the MW dds here again, MW doesn't work.
-        self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(5 * us)
-
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-        # FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
-
-        ##### Mapping from |1,0> to |2,1>
-        if self.t_microwave_01_pulse > 0.0:
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_01_pulse)
-            self.ttl_microwave_switch.on()
-            delay(0.5 * us)
-
-        self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(5 * us)
-
-        ##### Mapping from |2,1> to |1,1>
-        if self.t_microwave_11_pulse > 0.0:
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_11_pulse)
-            self.ttl_microwave_switch.on()
-            delay(0.5 * us)
-
-        ## FORT ON
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        # FORT_ramp2_smoothstep(self, direction="up")
-        delay(10 * us)
-
-        ############################
-        # blow-away phase - push out atoms in F=2 only
-        ############################
-
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-
-        second_shot(self)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-        delay(5 * ms) ### hopefully to avoid underflow.
-
-    delay(10*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.dds_microwaves.sw.off()
-
-@kernel
-def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
-    """
-    Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
-
-    This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
-    microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
-    - microwave Rabi oscillations to test the optical pumping fidelity
-    - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
-    transitions |F=1,m>->|F=2,m'>)
-    - depumping measurements (by using a non-zero depump time)
-
-    self is the experiment instance to which ExperimentVariables are bound
-    """
-
-    self.core.reset()
-
-    # self.SPCM0_RO1 = 0
-    # self.SPCM0_RO2 = 0
-    # self.SPCM1_RO1 = 0
-    # self.SPCM1_RO2 = 0
-
-    # if self.t_pumping > 0.0:
-    #     record_chopped_optical_pumping(self)
-    #     delay(100*ms)
-    delay(10 * ms)
-
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
-
-
-    if self.enable_laser_feedback:
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    # delay(1 * ms)
     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
     delay(1 * ms)
     self.dds_microwaves.sw.on()
@@ -5805,22 +5959,11 @@ def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        delay(10*ms)
-
-        # load_MOT_and_FORT_until_atom(self)
-        if self.which_node == 'alice':
-            load_MOT_and_FORT_until_atom_recycle(self)
-        else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
+        load_until_atom_smooth_FORT_recycle(self)
+        # load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1 * ms)
-
         first_shot(self)   # starts with FORT science setpoint;
-        delay (1 * ms)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
@@ -5836,787 +5979,78 @@ def microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment(self):
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
 
+        self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
+
+        if self.which_node == "alice":
+            # self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            delay(5 * us)
+            self.GRIN1and2_dds.sw.on()
+        else:
+            self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+            delay(5 * us)
+            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            delay(5 * us)
+            self.GRIN1and2_dds.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            delay(5 * us)
+            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            delay(5 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            CW_optical_pumping_node2(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10*us)
 
+        for excitation_attempt in range(self.n_excitation_attempts):  ##### testing with multiple excitations
 
-        ############################
-        # microwave phase
-        ############################
-        self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(5 * us)
+            slack = now_mu() - self.core.get_rtio_counter_mu()
+            if slack < 1e5:
+                # self.print_async("slack added in measurement:", self.measurement)
+                self.core.break_realtime()
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-        # FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
-
-        ##### Mapping from |1,0> to |2,1>
-        if self.t_microwave_00_pulse > 0.0:
-            self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
-            delay(self.t_microwave_00_pulse)
-            self.ttl_microwave_switch.on()
-            delay(0.5 * us)
-
-        self.dds_microwaves.set(frequency=self.f_microwaves_m10_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(5*us)
-
-        ##### Mapping from |2,1> to |1,1>
-        if self.t_microwave_m10_pulse > 0.0:
-            self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
-            delay(self.t_microwave_m10_pulse)
-            self.ttl_microwave_switch.on()
-            delay(0.5 * us)
-
-        ## FORT ON
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        # FORT_ramp2_smoothstep(self, direction="up")
-        delay(10 * us)
-
-
-        ############################
-        # blow-away phase - push out atoms in F=2 only
-        ############################
-
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-
-        second_shot(self)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-        delay(5 * ms) ### hopefully to avoid underflow.
-
-    delay(10*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.dds_microwaves.sw.off()
-
-@kernel
-def microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment(self):
-    """
-    Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
-
-    This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
-    microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
-    - microwave Rabi oscillations to test the optical pumping fidelity
-    - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
-    transitions |F=1,m>->|F=2,m'>)
-    - depumping measurements (by using a non-zero depump time)
-
-    self is the experiment instance to which ExperimentVariables are bound
-    """
-
-    self.core.reset()
-
-    # self.SPCM0_RO1 = 0
-    # self.SPCM0_RO2 = 0
-    # self.SPCM1_RO1 = 0
-    # self.SPCM1_RO2 = 0
-
-    # if self.t_pumping > 0.0:
-    #     record_chopped_optical_pumping(self)
-    #     delay(100*ms)
-    delay(10 * ms)
-
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
-
-
-    if self.enable_laser_feedback:
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    # delay(1 * ms)
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    # delay(1 * ms)
-    # self.dds_microwaves.sw.on()
-    delay(1 * ms)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        delay(10*ms)
-
-        # load_MOT_and_FORT_until_atom(self)
-        if self.which_node == 'alice':
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            load_until_atom_smooth_FORT_recycle(self)
-        else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
-
-        delay(1 * ms)
-
-        first_shot(self)   # starts with FORT science setpoint;
-        delay (1 * ms)
-
-        if self.t_recooling_after_first_shot > 0:
-            recooling_after_first_shot(self)
-
-        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        delay(0.1 * ms)
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        delay(0.1 * ms)
-        if not self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-
-
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-        if self.t_pumping > 0.0:
-            CW_optical_pumping_node2(self)
-            delay(1*ms)
-
-
-        ############################
-        # microwave phase
-        ############################
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-        # FORT_ramp2_smoothstep(self, direction="down")
-
-        # self.ttl_microwave_switch.off()  # todo: do this in the beginning and the end
-        # delay(2 * us)
-
-        ##### Mapping from |1,0> to |2,1>
-        if self.t_microwave_01_pulse > 0.0:
-            self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
-            delay(2 * us)
-
-            self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-            self.dds_microwaves.sw.on()
-
-            delay(self.t_microwave_01_pulse)
-
-            self.dds_microwaves.sw.off()
-            self.ttl_microwave_switch.on()
-            delay(0.5 * us)
-
-
-        # delay(5*us)
-
-        ##### Mapping from |2,1> to |1,1>
-        if self.t_microwave_11_pulse > 0.0:
-            self.ttl_microwave_switch.off()  ## switching on with external RF switch creates a lag.
-            delay(2 * us)
-
-            self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
-            self.dds_microwaves.sw.on()
-            delay(self.t_microwave_11_pulse/2)
-
-            self.dds_microwaves.sw.off()
-            delay(self.t_delay_between_shots)
-
-            self.dds_microwaves.sw.on()
-            delay(self.t_microwave_11_pulse/2)
-
-            self.dds_microwaves.sw.off()
-            self.ttl_microwave_switch.on()
-            delay(0.5 * us)
-
-        ## FORT ON
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        # FORT_ramp2_smoothstep(self, direction="up")
-
-        delay(0.1 * ms)
-
-
-
-        ############################
-        # blow-away phase - push out atoms in F=2 only
-        ############################
-
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-
-        second_shot(self)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-        delay(5 * ms) ### hopefully to avoid underflow.
-
-    delay(10*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.dds_microwaves.sw.off()
-
-@kernel
-def microwave_Rabi_2_CW_OP_UW00_RF01_UW00_FORT_experiment(self):
-    """
-    Purpose: to find the RF resonance freq and time
-
-    Experiment sequence:
-    i) atom loading
-    ii) CW OP
-    iii) MW 00 pi pulse
-    iv) RF pulse
-    v) MW 00 pi pulse
-    """
-
-    self.core.reset()
-    #
-    # self.SPCM0_RO1 = 0
-    # self.SPCM0_RO2 = 0
-    # self.SPCM1_RO1 = 0
-    # self.SPCM1_RO2 = 0
-
-    # if self.t_pumping > 0.0:
-    #     record_chopped_optical_pumping(self)
-    #     delay(100*ms)
-    delay(10 * ms)
-
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
-
-
-    if self.enable_laser_feedback:
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    # delay(1 * ms)
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(1 * ms)
-    self.dds_microwaves.sw.on()
-    delay(1 * ms)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        delay(10*ms)
-
-        # load_MOT_and_FORT_until_atom(self)
-        if self.which_node == 'alice':
-            load_MOT_and_FORT_until_atom_recycle(self)
-        else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
-
-        delay(1 * ms)
-
-        first_shot(self)   # starts with FORT science setpoint;
-        delay (1 * ms)
-
-        if self.t_recooling_after_first_shot > 0:
-            recooling_after_first_shot(self)
-
-        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        delay(0.1 * ms)
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        delay(0.1 * ms)
-        if not self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-
-
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-        if self.t_pumping > 0.0:
-            CW_optical_pumping_node2(self)
-            delay(10*us)
-
-
-        ############################
-        # microwave phase
-        ############################
-        delay(2 * us)
-
-        ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
-        self.dds_microwaves.set(frequency=self.f_microwaves_00_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(5 * us)
-        self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
-        delay(5 * us)
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-        # FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
-
-        if self.t_microwave_00_pulse > 0.0:
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_00_pulse)
-            self.ttl_microwave_switch.on()
+            self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
             delay(5 * us)
 
-        ############################ RF phase to transfer population from F=2,mF=0 to F=2,mF=1
-        if self.t_MW_RF_pulse>0.0:
-            self.dds_MW_RF.sw.on()  ### turn on RF
-            delay(self.t_MW_RF_pulse)
-            self.dds_MW_RF.sw.off()  ### turn off RF
-            delay(5 * us)
+            t1 = now_mu()
+            self.dds_FORT.sw.off()  ### turns FORT off
 
-        ############################ microwave phase to transfer population from F=2,mF=0 to F=1,mF=0
-        if self.t_microwave_00_pulse > 0.0:
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_00_pulse)
-            self.ttl_microwave_switch.on()
-            delay(5 * us)
+            at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
+            self.dds_FORT.sw.on()  ### turns FORT on 50ns after photon collection ended
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        delay(10*us)
-        # FORT_ramp2_smoothstep(self, direction="up")
+            at_mu(t1 + int(self.t_excitation_offset_mu))
+            self.ttl_GRIN2_switch.off()  # turns on excitation after t_excitation_offset_mu
 
-        ############################
-        # blow-away phase - push out atoms in F=2 only
-        ############################
+            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+            self.ttl_GRIN2_switch.on()  # turns off excitation
 
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-
-        second_shot(self)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-        delay(5 * ms) ### hopefully to avoid underflow.
-
-    delay(10*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.dds_microwaves.sw.off()
-
-@kernel
-def microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment(self):
-    """
-    """
-
-    self.core.reset()
-
-    # self.SPCM0_RO1 = 0
-    # self.SPCM0_RO2 = 0
-    # self.SPCM1_RO1 = 0
-    # self.SPCM1_RO2 = 0
-
-    # if self.t_pumping > 0.0:
-    #     record_chopped_optical_pumping(self)
-    #     delay(100*ms)
-    delay(10 * ms)
-
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
-
-
-    if self.enable_laser_feedback:
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    # delay(1 * ms)
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(1 * ms)
-    self.dds_microwaves.sw.on()
-    delay(1 * ms)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        delay(10*ms)
-
-        # load_MOT_and_FORT_until_atom(self)
-        if self.which_node == 'alice':
-            load_MOT_and_FORT_until_atom_recycle(self)
-        else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            # load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
-
-        delay(1 * ms)
-
-        first_shot(self)   # starts with FORT science setpoint;
-        delay (1 * ms)
-
-        if self.t_recooling_after_first_shot > 0:
-            recooling_after_first_shot(self)
-
-        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        delay(0.1 * ms)
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        delay(0.1 * ms)
-        if not self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-
-
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-        if self.t_pumping > 0.0:
-            CW_optical_pumping_node2(self)
-            delay(10*us)
-
-        ############################
-        # microwave phase
-        ############################
-
-        ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
-        self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(5 * us)
-        # self.dds_MW_RF.set(frequency=self.f_MW_RF_dds + self.f_microwaves_detuning, amplitude=dB_to_V(self.p_MW_RF_dds))
-        self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
-        delay(5 * us)
-
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-        # FORT_ramp2_smoothstep(self, direction="down")
-        delay(2 * us)
-
-        ############################ MW phase to transfer population from F=1,mF=0 to F=2,mF=1
-        if self.t_microwave_01_pulse > 0.0:
-            self.ttl_microwave_switch.off()
-            delay(self.t_microwave_01_pulse)
-            self.ttl_microwave_switch.on()
-            delay(5 * us)
-
-        ############################ MW+RF phase to transfer population from F=2,mF=1 to F=1,mF=-1
-        if self.t_MW_RF_pulse>0.0:
-            # self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds - self.f_microwaves_detuning,
-            #                         amplitude=dB_to_V(self.p_microwaves))
-            self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
-            delay(5 * us)
-
-            with parallel:
-                self.ttl_microwave_switch.off()
-                self.dds_MW_RF.sw.on()  ### turn on RF
-                # self.ttl_microwave_switch.off()
-
-            delay(self.t_MW_RF_pulse)
-
-            with parallel:
-                self.ttl_microwave_switch.on()
-                self.dds_MW_RF.sw.off()  ### turn off RF
-                # self.ttl_microwave_switch.on()
-            delay(5 * us)
-
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        delay(10*us)
-        # FORT_ramp2_smoothstep(self, direction="up")
-
-        ############################
-        # blow-away phase - push out atoms in F=2 only
-        ############################
-
-        if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
-
-        second_shot(self)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        self.dds_AOM_A6.sw.off()
-
-        end_measurement(self)
-        delay(5 * ms) ### hopefully to avoid underflow.
-
-    delay(10*ms)
-    self.dds_FORT.sw.off()
-    delay(1*ms)
-    self.dds_microwaves.sw.off()
-
-@kernel
-def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
-    """
-    Microwave and optical pumping experiment based on load_MOT_and_FORT_until_atom_and_recycle(self).
-
-    This experiment is used for any experiment which involves optical pumping and a microwave rotations with a constant
-    microwave amplitude over a specified (possibly zero) duration. For example, this can be used for
-    - microwave Rabi oscillations to test the optical pumping fidelity
-    - microwave spectroscopy (useful for zeroing the magnetic field by finding the resonances for different ground state
-    transitions |F=1,m>->|F=2,m'>)
-    - depumping measurements (by using a non-zero depump time)
-
-    self is the experiment instance to which ExperimentVariables are bound
-    """
-
-    self.core.reset()
-
-    # self.SPCM0_RO1 = 0
-    # self.SPCM0_RO2 = 0
-    # self.SPCM1_RO1 = 0
-    # self.SPCM1_RO2 = 0
-
-    # if self.t_pumping > 0.0:
-    #     record_chopped_optical_pumping(self)
-    #     delay(100*ms)
-    delay(10 * ms)
-
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
-
-
-    if self.enable_laser_feedback:
-        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
-        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-        delay(0.1 * ms)
-        run_feedback_and_record_FORT_MM_power(self)
-
-    # delay(1 * ms)
-    self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(1 * ms)
-    self.dds_microwaves.sw.on()
-    delay(1 * ms)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-
-        delay(10*ms)
-        # load_MOT_and_FORT_until_atom(self)
-        if self.which_node == 'alice':
-            load_MOT_and_FORT_until_atom_recycle(self)
-        else:
-            # load_MOT_and_FORT_until_atom_recycle_node2_temporary(self)
-            load_MOT_and_FORT_until_atom_recycle(self)
-            # load_until_atom_smooth_FORT_recycle(self)
-            # load_MOT_and_FORT_until_atom(self)
-            # FORT is set to science setpoint at PGC phase in "load_MOT_and_FORT_until_atom_recycle"
-
-        delay(1 * ms)
-
-        first_shot(self)   # starts with FORT science setpoint;
-        delay (1 * ms)
-
-        if self.t_recooling_after_first_shot > 0:
-            recooling_after_first_shot(self)
-
-        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        delay(0.1 * ms)
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        delay(0.1 * ms)
-        if not self.PGC_and_RO_with_on_chip_beams:
-            self.dds_AOM_A5.sw.off()
-            self.dds_AOM_A6.sw.off()
-
-
-        ############################
-        # optical pumping phase - pumps atoms into F=1,m_F=0
-        ############################
-        if self.t_pumping > 0.0:
-            CW_optical_pumping_node2(self)
-            delay(0.1*ms)
-
-        self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
-        delay(1 * ms)
-        self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
-        delay(1 * ms)
-
-        if self.t_excitation_pulse > 0:
-            self.ttl_exc0_switch.off()  # EXC0 AOM ON
-            delay(10 * us)
-
-            # for excitation_attempt in range(self.n_excitation_attempts):
-                # #######testing without fine tuning
-                # t1 = now_mu()
-                # self.dds_FORT.sw.off()  ### turns FORT off
-                #
-                # at_mu(t1 + 250)
-                # # turning on excitation DDS and switch
-                # self.ttl_GRIN2_switch.off()      # GRIN2 AOM ON
-                #
-                # at_mu(t1 + 250 + int(self.t_excitation_pulse/ns))
-                # self.ttl_GRIN2_switch.on()  # GRIN2 AOM OFF
-                # self.dds_FORT.sw.on()  ### turns FORT ON
-                #
-
-            #### old method used in Node2
-            # for excitation_attempt in range(self.n_excitation_attempts):    ##### testing with multiple excitations
-            #     ####### testing with fine tuning FORT ON/OFF timing
-            #     # FORT_offset = 145 ## (with Lasercomponents SPCMs that had timing difference)
-            #     # FORT_offset = 90  ## as of 2026/03/08 Excelitas SPCMs
-            #     FORT_offset = 280   ## as of 2026/05/27 same Excelitas SPCMs; drifted.. why!
-            #
-            #     t1 = now_mu()
-            #     at_mu(t1 + int(self.t_excitation_offset_mu))
-            #     self.ttl_GRIN2_switch.off()  # turns on excitation
-            #
-            #     at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-            #     self.ttl_GRIN2_switch.on()  # turns off excitation
-            #
-            #     at_mu(t1 + int(
-            #         self.t_excitation_offset_mu) + FORT_offset - 100)  # turn off the FORT 100ns earlier than EXC pulse
-            #     self.dds_FORT.sw.off()  ### turns FORT off
-            #
-            #     at_mu(t1 + int(self.t_excitation_offset_mu) + FORT_offset + int(self.t_photon_collection_time / ns))
-            #     self.dds_FORT.sw.on()  ### turns FORT on
-
-            for excitation_attempt in range(self.n_excitation_attempts):  ##### testing with multiple excitations
-                t1 = now_mu()
-                self.dds_FORT.sw.off()  ### turns FORT off
-
-                at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
-                self.dds_FORT.sw.on()  ### turns FORT on 50ns after photon collection ended
-
-                at_mu(t1 + int(self.t_excitation_offset_mu))
-                self.ttl_GRIN2_switch.off()  # turns on excitation after t_excitation_offset_mu
-
-                at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
-                self.ttl_GRIN2_switch.on()  # turns off excitation
-
-            # self.dds_D1_pumping_DP.sw.off()
-            self.ttl_exc0_switch.on()  # EXC0 AOM OFF
-
-
-        ############################
-        # microwave phase
-        ############################
-        ## old method
-        # delay(2 * us)
-        # if self.t_microwave_pulse > 0.0:
-        #     # ### Changing the bias field for testing.
-        #     # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,self.AX_volts_microwave, self.AY_volts_microwave],
-        #     #                      channels=self.coil_channels)
-        #     # delay(0.5*ms)
-        #     self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
-        #     delay(1*us)
-        #     t1 = now_mu()
-        #     self.dds_microwaves.sw.on()
-        #
-        #     at_mu(t1+int(self.t_microwave_pulse/ns))
-        #     self.dds_microwaves.sw.off()
-        #     self.ttl_microwave_switch.on()
-        #
-        #     delay(0.1 * ms)
+            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns) + 1000)
+            self.ttl_exc0_switch.on()  # turns off the excitation0 AOM
 
         if self.t_microwave_pulse > 0.0:
-
-            #### old method used in NODE2
-            ### lower the FORT power
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-            # FORT_ramp2_smoothstep(self, direction="down")
-            self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
+            FORT_ramp2_smoothstep(self, direction="down")
+            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             delay(2*us)
 
-            self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
+            self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
-
-            self.dds_microwaves.sw.off()
             self.ttl_microwave_switch.on()
+            delay(2*us)
 
-            delay(0.5*us)
-
-            ## FORT ON
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            # FORT_ramp2_smoothstep(self, direction="up")
-            delay(0.1 * ms)
-
-            #     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
-            #     delay(5*us)
-            #     self.dds_microwaves.sw.on()
-            #     delay(5*us)
-            # ### lower the FORT power
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-            # # FORT_ramp2_smoothstep(self, direction="down")
-            # self.ttl_microwave_switch.off()   #todo: switching on with external RF switch creates a lag.
-            # delay(2*us)
-            #
-            # self.dds_microwaves.sw.on()  # at least starts after 1us since FORT drop
-            # self.ttl_microwave_switch.off()
-            # delay(self.t_microwave_pulse)
-            # self.ttl_microwave_switch.on()
-            #
-            # delay(0.5*us)
-            #
-            # ## FORT ON
+            FORT_ramp2_smoothstep(self, direction="up")
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            # # FORT_ramp2_smoothstep(self, direction="up")
-            # delay(0.1 * ms)
+            delay(2*s)
 
 
         ############################
         # blow-away phase - push out atoms in F=2 only
         ############################
-
         if self.t_blowaway > 0.0:
             chopped_blow_away(self)
-
-
-        if self.t_FORT_drop > 0:
-            self.dds_FORT.sw.off()
-            delay(self.t_FORT_drop)
-            self.dds_FORT.sw.on()
-
 
         second_shot(self)
 
@@ -6634,6 +6068,9 @@ def microwave_Rabi_2_CW_OP_and_EXC_experiment(self):
     self.dds_FORT.sw.off()
     delay(1*ms)
     self.dds_microwaves.sw.off()
+
+    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
 @kernel
 def microwave_freq_scan_experiment(self):
@@ -7397,7 +6834,10 @@ def microwave_map01_MWRFm11_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
@@ -7432,6 +6872,7 @@ def microwave_map01_MWRFm11_experiment(self):
             with parallel:
                 self.ttl_microwave_switch.on() ### turn off MW
                 self.dds_MW_RF.sw.off()  ### turn off RF
+
         delay(10*us)
         FORT_ramp2_smoothstep(self, direction="up")
 
@@ -7558,7 +6999,10 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10 * us)
 
         # ### Changing the bias field
@@ -7591,7 +7035,7 @@ def microwave_Ramsey_MWRFm11_experiment(self):
                 self.ttl_microwave_switch.off() ### turn on MW
                 self.dds_MW_RF.sw.on()  ### turn on RF
 
-            delay(self.t_MW_RF_pulse)
+            delay(self.t_MW_RF_pulse/2)
 
             with parallel:
                 self.ttl_microwave_switch.on() ### turn off MW
@@ -7606,7 +7050,7 @@ def microwave_Ramsey_MWRFm11_experiment(self):
                 self.ttl_microwave_switch.off()  ### turn on MW
                 self.dds_MW_RF.sw.on()  ### turn on RF
 
-            delay(self.t_MW_RF_pulse)
+            delay(self.t_MW_RF_pulse/2)
 
             with parallel:
                 self.ttl_microwave_switch.on()  ### turn off MW
@@ -7644,7 +7088,7 @@ def microwave_Ramsey_MWRFm11_experiment(self):
     self.dds_microwaves.sw.off()
 
 @kernel
-def microwave_MW00_RF01_MW00_experiment(self):
+def microwave_map00_RF01_map00_experiment(self):
     """
     This experiment tries to find the RF transition rate and frequency around 2MHz.
 
@@ -7704,7 +7148,6 @@ def microwave_MW00_RF01_MW00_experiment(self):
         delay(10 * us)
 
         first_shot(self)
-
         delay(1 * ms)
 
         if self.t_recooling_after_first_shot > 0:
@@ -7731,7 +7174,10 @@ def microwave_MW00_RF01_MW00_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10 * us)
 
         # ### Changing the bias field
@@ -8721,7 +8167,10 @@ def single_photon_experiment_3_atom_heat_test(self):
             ### with cw pumping:
             if self.t_pumping > 0.0:
                 delay(2 * us)
-                CW_optical_pumping_node1(self)
+                if self.which_node == "alice":
+                    CW_optical_pumping_node1(self)
+                else:
+                    CW_optical_pumping_node2(self)
                 delay(2 * us)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
@@ -11758,7 +11207,10 @@ def atom_photon_parity_6_experiment(self):
             ### Akbar 2026-03-26
             if self.t_pumping > 0.0:
                 delay(10 * us)
-                CW_optical_pumping_node1(self)
+                if self.which_node == "alice":
+                    CW_optical_pumping_node1(self)
+                else:
+                    CW_optical_pumping_node2(self)
                 delay(10 * us)
 
             # ### Changing the bias field.
@@ -12829,7 +12281,10 @@ def atom_photon_parity_7_experiment(self):
             ### Akbar 2026-03-26
             if self.t_pumping > 0.0:
                 delay(10 * us)
-                CW_optical_pumping_node1(self)
+                if self.which_node == "alice":
+                    CW_optical_pumping_node1(self)
+                else:
+                    CW_optical_pumping_node2(self)
                 delay(10 * us)
 
             # ### Changing the bias field.
@@ -13075,7 +12530,10 @@ def atom_photon_parity_8_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay (10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10*us)
 
         ############################
@@ -14101,6 +13559,485 @@ def two_nodes_synchronization_trial(self) -> TBool:
         ### Put Alice at the corresponding future reference.
         at_mu(t_node1_ref_0 + common_delay_mu + alice_extra_offset_mu)
         return True
+
+@kernel
+def load_atom_in_both_nodes_individually(self):
+    """
+    Eunji - this is assuming that both nodes can try atom loading/readout simultaneously without distruption
+    - this maybe useful when we integrate a fast shutter most likeley a MEMS switch.
+    - but we need to think more carefully how much loss it has with coupling/mode matching/pol dependence
+    - if we need to use MEMS switch, it might need to be spliced.
+
+    Load/recycle atoms until both nodes have atoms simultaneously.
+
+    Assumption:
+        This node's TTL output is a live atom-status indicator.
+
+            HIGH = this node currently has an atom
+            LOW  = this node currently does not have an atom
+
+        The other node's TTL input is used to determine whether the other node
+        currently has an atom.
+
+    This function exits only when:
+        this node has atom AND the other node has atom.
+
+    Datasets used:
+        time_without_atom_other_node:
+            Live-updated time since the other node was last seen without atom.
+
+        Atom_loading_time_other_node:
+            Appended once when the other node becomes ready.
+    """
+
+    atom_loaded = False
+    other_node_has_atom = False
+    both_nodes_have_atom = False
+    readout = 0
+
+    ############################################################
+    # Timer for how long the OTHER node has been without atom.
+    ############################################################
+    t_before_other_atom = now_mu()
+    t_after_other_atom = now_mu()
+    t_no_other_atom = now_mu()
+
+    time_without_other_atom = 0.0
+    self.atom_loading_time_other_node = 0.0
+    other_node_loading_time_recorded = False
+    other_node_was_without_atom = False
+
+    delay(100 * us)
+
+    ############################################################
+    # Initial check for THIS node using latest RO2 information.
+    ############################################################
+    if self.measurement > 0:
+        if self.AllSPCMs_RO2 / self.t_SPCM_second_shot > self.single_atom_threshold:
+            atom_loaded = True
+            self.print_async("This node starts with atom.")
+        else:
+            atom_loaded = False
+            self.print_async("This node starts without atom.")
+    else:
+        atom_loaded = False
+        self.print_async("No previous measurement. This node needs loading.")
+
+    ############################################################
+    # Update this node TTL according to the actual initial status.
+    ############################################################
+    if atom_loaded:
+        if self.which_node == "alice":
+            self.ttl_node1_output1.on()
+            self.print_async("Node1 atom TTL is ON.")
+        else:
+            self.ttl_node2_output1.on()
+            self.print_async("Node2 atom TTL is ON.")
+    else:
+        if self.which_node == "alice":
+            self.ttl_node1_output1.off()
+            self.print_async("Node1 atom TTL is OFF.")
+        else:
+            self.ttl_node2_output1.off()
+            self.print_async("Node2 atom TTL is OFF.")
+
+    delay(100 * us)
+
+    ############################################################
+    # Main loop.
+    # Only exits when this node has atom AND other node has atom.
+    ############################################################
+    while not (atom_loaded and both_nodes_have_atom):
+
+        ########################################################
+        # If this node does not have atom, load/reload it.
+        ########################################################
+        if not atom_loaded:
+            self.print_async("Loading atom in this node...")
+
+            load_MOT_and_FORT_until_atom_recycle(self)
+
+            atom_loaded = True
+            self.print_async("Atom loaded in this node.")
+
+            if self.which_node == "alice":
+                self.ttl_node1_output1.on()
+                self.print_async("Node1 atom TTL is ON after loading.")
+            else:
+                self.ttl_node2_output1.on()
+                self.print_async("Node2 atom TTL is ON after loading.")
+
+            delay(100 * us)
+
+        ########################################################
+        # Check whether the OTHER node has atom.
+        ########################################################
+        if self.which_node == "alice":
+            self.ttl_node2_input1.sample_input()
+            delay(1 * us)
+            readout = int(self.ttl_node2_input1.sample_get())
+
+            if readout == 1:
+                other_node_has_atom = True
+                self.print_async("Node2 has atom.")
+            else:
+                other_node_has_atom = False
+                self.print_async("Node2 does NOT have atom.")
+
+        else:
+            self.ttl_node1_input1.sample_input()
+            delay(1 * us)
+            readout = int(self.ttl_node1_input1.sample_get())
+
+            if readout == 1:
+                other_node_has_atom = True
+                self.print_async("Node1 has atom.")
+            else:
+                other_node_has_atom = False
+                self.print_async("Node1 does NOT have atom.")
+
+        ########################################################
+        # Track how long the OTHER node has been without atom.
+        ########################################################
+        if other_node_has_atom:
+            self.set_dataset("time_without_atom_other_node", 0.0, broadcast=True)
+
+            if other_node_was_without_atom and not other_node_loading_time_recorded:
+                t_after_other_atom = now_mu()
+
+                self.atom_loading_time_other_node = self.core.mu_to_seconds(
+                    t_after_other_atom - t_before_other_atom
+                )
+
+                self.append_to_dataset(
+                    "Atom_loading_time_other_node",
+                    self.atom_loading_time_other_node
+                )
+
+                other_node_loading_time_recorded = True
+                other_node_was_without_atom = False
+
+                self.print_async("Other node loading time recorded.")
+
+        else:
+            ####################################################
+            # If this is the first time seeing the other node
+            # without atom, start the timer.
+            ####################################################
+            if not other_node_was_without_atom:
+                t_before_other_atom = now_mu()
+                other_node_was_without_atom = True
+                other_node_loading_time_recorded = False
+
+            delay(0.1 * ms)
+
+            t_no_other_atom = now_mu()
+
+            time_without_other_atom = self.core.mu_to_seconds(
+                t_no_other_atom - t_before_other_atom
+            )
+
+            self.set_dataset(
+                "time_without_atom_other_node",
+                time_without_other_atom,
+                broadcast=True
+            )
+
+        ########################################################
+        # If both nodes have atoms, exit the loop.
+        ########################################################
+        if atom_loaded and other_node_has_atom:
+            both_nodes_have_atom = True
+            self.print_async("Both nodes have atoms. Exiting loading loop.")
+            break
+        else:
+            both_nodes_have_atom = False
+
+        ########################################################
+        # Other node does not have atom yet.
+        # Wait 200 ms, then check whether THIS node still has atom.
+        ########################################################
+        delay(200 * ms)
+
+        ########################################################
+        # Read out this node's current atom using second_shot.
+        ########################################################
+        second_shot(self)
+
+        ########################################################
+        # Check if this node still has atom.
+        ########################################################
+        if self.AllSPCMs_RO2 / self.t_SPCM_second_shot > self.single_atom_threshold:
+            atom_loaded = True
+            self.print_async("This node still has atom while waiting.")
+
+            ####################################################
+            # Keep this node TTL HIGH.
+            ####################################################
+            if self.which_node == "alice":
+                self.ttl_node1_output1.on()
+            else:
+                self.ttl_node2_output1.on()
+
+            ####################################################
+            # Recool after the readout.
+            ####################################################
+            recooling_after_first_shot(self)
+
+        else:
+            atom_loaded = False
+            both_nodes_have_atom = False
+            self.print_async("This node lost atom while waiting.")
+
+            ####################################################
+            # This node no longer has atom, so set TTL LOW.
+            ####################################################
+            if self.which_node == "alice":
+                self.ttl_node1_output1.off()
+                self.print_async("Node1 atom TTL is OFF.")
+            else:
+                self.ttl_node2_output1.off()
+                self.print_async("Node2 atom TTL is OFF.")
+
+            ####################################################
+            # Important:
+            # Do NOT reset time_without_atom_other_node here.
+            # That timer belongs to the other node's atom status,
+            # not this node's atom status.
+            ####################################################
+
+            delay(100 * us)
+
+    ############################################################
+    # Function exits only here, when both nodes have atoms.
+    ############################################################
+    self.print_async("Confirmed: both nodes have atoms.")
+    delay(100 * us)
+
+@kernel
+def load_until_atom_in_both_nodes_recycle(self):
+    """
+    Two-node combined-loading version.
+
+    * based on load_MOT_and_FORT_until_atom_recycle
+    * with synchronization added in the while loop
+    * Checks for atoms in both nodes using two_atom_threshold_in_loading
+
+    """
+    ### First check if there is already an atom in the FORT based on RO2
+    ### This will miss the first measurement of each iteration (except the first iteration)
+    ### and results in the first RO1 to be less than threshold. But it is OK.
+    delay(100 * us)
+    if self.AllSPCMs_RO2/self.t_SPCM_second_shot > self.two_atom_threshold:
+        atom_loaded = True
+
+        # ### Lower the FORT to science setpoint
+        # if self.which_node == 'alice':
+        #     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # elif self.which_node == 'bob':
+        #     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude * self.p_FORT_RO)
+
+        ###########  PGC on the trapped atom  #############
+        if self.do_PGC_after_loading:
+            ### Set the coils to PGC setting
+            self.zotino0.set_dac(
+                [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                channels=self.coil_channels)
+            delay(1 * ms)
+            ### set the cooling DP AOM to the PGC settings
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A4.sw.on()
+            delay(0.1 * ms)
+            if self.PGC_and_RO_with_on_chip_beams:
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+
+            self.dds_cooling_DP.sw.on()  ### turn on cooling
+            self.ttl_repump_switch.off()  ### turn on MOT RP
+            delay(self.t_PGC_after_loading)  ### this is the PGC time
+            self.dds_cooling_DP.sw.off()  ### turn off cooling
+            self.ttl_repump_switch.on()  ### turn off MOT RP
+        ###################################################
+    else:
+        atom_loaded = False
+
+    ### load an atom if atom_loaded = False
+    if not atom_loaded:
+
+        if self.monitors_for_atom_loading:
+            measure_Magnetometer(self)
+            delay(1 * ms)
+            Sampler_test(self)
+            delay(1 * ms)
+            measure_GRIN1(self)
+            delay(1 * ms)
+
+        ### Set the coils to MOT loading setting
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+            channels=self.coil_channels)
+
+        ### set the cooling DP AOM to the MOT settings
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(1 * ms)
+
+        self.dds_cooling_DP.sw.on()  ### turn on cooling
+        self.ttl_repump_switch.off()  ### turn on MOT RP
+        delay(0.1 * ms)
+
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+        delay(0.1 * ms)
+
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude)
+        self.dds_FORT.sw.on()
+
+        delay(1 * ms)
+        if self.which_node == "alice":
+            self.zotino0.set_dac([3.5], self.UV_trig_channel)
+        delay(1 * ms)
+
+        max_tries = 100  ### Maximum number of attempts before running the feedback
+        atom_check_time = self.t_atom_check_time
+        try_n = 0
+        t_before_atom = now_mu()  ### is used to calculate the loading time of atoms by atom_loading_time = t_after_atom - t_before_atom
+        t_after_atom = now_mu()
+        time_without_atom = 0.0
+
+        AllSPCMs_atom_check_loaded = 0  ### for initilization
+        AllSPCMs_atom_check_not_loaded = 0
+
+        shim_tune_runs = 0
+
+        n_synchronization_in_loading = 0
+        while True:
+            two_nodes_synchronization(self)  ### Syncing the two nodes.
+
+            n_synchronization_in_loading += 1
+
+            while not atom_loaded and try_n < max_tries:
+                delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM1_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(atom_check_time)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(atom_check_time)
+
+                AllSPCMs_atom_check = int(self.ttl_SPCM0_counter.fetch_count() + \
+                                          self.ttl_SPCM1_counter.fetch_count() + \
+                                          self.ttl_SPCM0_OtherNode_counter.fetch_count() + \
+                                          self.ttl_SPCM1_OtherNode_counter.fetch_count())
+
+                try_n += 1
+
+                ### To save only one photon counts of unloaded case for each loaded atom. Otherwise, the unloaded counts
+                ### would overwhelm the dataset.
+                if try_n == 1:
+                    AllSPCMs_atom_check_not_loaded = AllSPCMs_atom_check
+
+                if AllSPCMs_atom_check / atom_check_time > self.two_atom_threshold_for_loading:
+                    delay(100 * us)  ### Needs a delay of about 100us or maybe less
+                    atom_loaded = True
+                    AllSPCMs_atom_check_loaded = AllSPCMs_atom_check
+
+            if atom_loaded:
+                self.set_dataset("time_without_atom", 0.0, broadcast=True)  ### resetting time_without_atom when we load an atom
+                t_after_atom = now_mu()
+
+                ### just to check the histogram during atom loading to find a good two_atom_threshold_for_loading
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_loaded)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_not_loaded)
+                delay(1 * ms)
+
+                # self.print_async("n_synchronization_in_loading: ", n_synchronization_in_loading)
+                break  ### Exit the outer loop if an atom is loaded
+
+            #### time_without_atom shows how long is passed from the previous atom loading. Calculated only when try_n > max_tries
+            delay(0.1 * ms)
+            t_no_atom = now_mu()
+            time_without_atom = self.core.mu_to_seconds(t_no_atom - t_before_atom)
+            self.set_dataset("time_without_atom", time_without_atom, broadcast=True)
+
+            # ### If max_tries reached and atom loading is too bad, run shim tuning.
+            # t_shim_tune_trigger = 10.0  # seconds
+            # max_shim_tune_runs = 3  # prevents infinite tuning loop
+            #
+            # if self.tune_shims_when_loading_is_bad and (time_without_atom > t_shim_tune_trigger) and (shim_tune_runs < max_shim_tune_runs):
+            #     self.print_async("Atom loading is bad. Tuning X and Y shims.")
+            #     tune_shims_for_atom_loading(self)
+            #     shim_tune_runs += 1
+            #
+            #     ### restart the loading attempt with the (possibly) improved shims
+            #     try_n = 0
+            #     t_before_atom = now_mu()
+            #     delay(0.1 * ms)
+            #     continue
+
+            ### If max_tries reached and still no atom, run feedback
+            if self.enable_laser_feedback:
+                delay(0.1 * ms)  ### necessary to avoid underflow
+                ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+                delay(0.1 * ms)
+                run_feedback_and_record_FORT_MM_power(self, record_power=False)
+                self.n_feedback_per_iteration += 1
+                # bug -- microwave dds and FORT are off after AOM feedback; not clear why yet. for now, just turn them back on
+                self.dds_microwaves.sw.on()
+                self.dds_FORT.sw.on()
+                delay(0.1 * ms)
+
+                try_n = 0
+
+        delay(1 * ms)
+        if self.which_node == "alice":
+            self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        delay(100 * us)
+
+        ### Set the coils to PGC setting even when we don't want PGC. Effectively, this is turning off coils.
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+            channels=self.coil_channels)
+        delay(1 * ms)
+
+        self.ttl_repump_switch.on()  ### turn off MOT RP
+        self.dds_cooling_DP.sw.off()  ### turn off cooling
+
+        delay(1 * ms)
+        delay(self.t_MOT_dissipation)  # should wait several ms for the MOT to dissipate
+
+        ### Lower the FORT to science setpoint
+        FORT_ramp1_smoothstep(self, direction="down")
+
+        ###########  PGC on the trapped atom  #############
+        if self.do_PGC_after_loading:
+            ### set the cooling DP AOM to the PGC settings
+            self.dds_cooling_DP.set(frequency=self.f_cooling_DP_PGC, amplitude=self.ampl_cooling_DP_PGC)
+            self.ttl_repump_switch.off()  ### turn on MOT RP
+            self.dds_cooling_DP.sw.on()  ### turn on cooling
+            # delay(10 * us)
+            if self.PGC_and_RO_with_on_chip_beams:
+                self.dds_AOM_A5.sw.off()
+                self.dds_AOM_A6.sw.off()
+            delay(self.t_PGC_after_loading)  ### this is the PGC time
+            self.ttl_repump_switch.on()  ### turn off MOT RP
+            self.dds_cooling_DP.sw.off()  ### turn off cooling
+        ###################################################
+
+        ### saving the atom loading time for each loaded atom.
+        self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
+        self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
+        delay(1 * ms)
+        self.append_to_dataset("atom_loading_wall_clock", now_mu())  ### just to plot Atom_loading_time vs actual time in analysis
+        self.n_atom_loaded_per_iteration += 1
+        delay(10 * ms)
 
 @kernel
 def two_node_alternating_shot(self):
