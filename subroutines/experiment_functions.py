@@ -98,6 +98,16 @@ def waveplate_rotation_and_atom_loading_2_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         # ##### adding a dummy chopped RO to test if lose atoms due to chopping
         # chopped_RO(self)
         # delay(100*us)
@@ -4021,6 +4031,16 @@ def atom_loading_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
@@ -4103,6 +4123,16 @@ def atom_loading_2_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
@@ -4172,6 +4202,16 @@ def blowaway_fidelity_measurement_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         # ############################### pump into F=1
         # ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
@@ -4368,6 +4408,16 @@ def atom_loading_optimizer_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         if self.AllSPCMs_RO1 / self.t_SPCM_first_shot > self.single_atom_threshold:
             delay(100 * us)  ### Needs a delay of about 100us or maybe less
             atom_loaded = True
@@ -4457,6 +4507,16 @@ def atom_loading_for_optimization_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         # ###########  PGC on the trapped atom to optimize coils and cooling_DP_PGC, for example #############
         # ### Set the coils to PGC_optimization setting:
@@ -4586,6 +4646,16 @@ def atom_loading_for_PGC_optimization_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         ###########  PGC on the trapped atom to optimize coils and cooling_DP_PGC, for example #############
         ### Set the coils to PGC_optimization setting:
         self.zotino0.set_dac(
@@ -4674,6 +4744,16 @@ def beam_balancing_with_atoms_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         # ############################# optical pumping phase - pumps atoms into F=1,m_F=0
         # ### With chopped pumping:
@@ -5140,6 +5220,16 @@ def microwave_Ramsey_00_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
@@ -5276,6 +5366,16 @@ def microwave_Ramsey_11_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         ############################ optical pumping phase - pumps atoms into F=1,m_F=0
         # if self.t_pumping > 0.0:
@@ -6589,6 +6689,16 @@ def microwave_freq_scan_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         ### Turn on the bias field for OP
         self.zotino0.set_dac([self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP,
                               self.AX_volts_OP, self.AY_volts_OP], channels=self.coil_channels)
@@ -6903,6 +7013,17 @@ def microwave_map01_map11_CORPSE_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         ############################
         ### optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
@@ -6910,7 +7031,10 @@ def microwave_map01_map11_CORPSE_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10 * us)
 
         # if self.t_pumping > 0.0:
@@ -7096,6 +7220,16 @@ def microwave_map00_map0m1_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         FORT_ramp2_smoothstep(self, direction="down")
         delay(2 * us)
 
@@ -7110,7 +7244,10 @@ def microwave_map00_map0m1_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            CW_optical_pumping_node1(self)
+            if self.which_node == "alice":
+                CW_optical_pumping_node1(self)
+            else:
+                CW_optical_pumping_node2(self)
             delay(10 * us)
 
         # ### Changing the bias field
@@ -7238,6 +7375,16 @@ def microwave_map01_MWRFm11_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7389,6 +7536,16 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -7552,6 +7709,16 @@ def microwave_MW00_RF01_MW00_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
@@ -8479,6 +8646,16 @@ def single_photon_experiment_3_atom_heat_test(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
         ########################################################
         # lower level optical pumping and excitation sequence to optimize for speed
         ########################################################
@@ -8742,6 +8919,17 @@ def single_photon_experiment_4_atom_loading_advance(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         self.ttl_GRIN2_switch.on()  # turns off excitation
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
@@ -9092,6 +9280,17 @@ def single_photon_experiment_5_atom_loading_advance_AllSPCM(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         self.ttl_GRIN2_switch.on()  # turns off excitation
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
@@ -12863,6 +13062,16 @@ def atom_photon_parity_8_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay (10 * us)
@@ -14056,6 +14265,16 @@ def Two_nodes_atom_loading_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         if self.t_FORT_drop > 0:
             self.dds_FORT.sw.off()
             delay(self.t_FORT_drop)
@@ -14141,6 +14360,16 @@ def Two_node_single_photon_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         # two_nodes_synchronization(self)
 
@@ -14570,6 +14799,16 @@ def Two_node_single_photon_2_experiment(self):
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
 
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
         # two_nodes_synchronization(self)
 
         ########################################################
@@ -14890,6 +15129,16 @@ def Two_node_single_photon_2_optimization_experiment(self):
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
 
         # two_nodes_synchronization(self)
 
