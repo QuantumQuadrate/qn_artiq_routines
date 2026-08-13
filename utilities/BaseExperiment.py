@@ -973,11 +973,11 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_OtherNode_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
         self.experiment.set_dataset("SPCM1_OtherNode_SinglePhoton_tStamps", [[0.0,0.0]], broadcast=True)
 
-        ### Added from 2026-06-09 for two-node experiments
-        self.experiment.set_dataset("SPCM0_Photon_tStamps", [[0.0,0.0]], broadcast=True)
-        self.experiment.set_dataset("SPCM1_Photon_tStamps", [[0.0,0.0]], broadcast=True)
-        self.experiment.set_dataset("SPCM0_OtherNode_Photon_tStamps", [[0.0,0.0]], broadcast=True)
-        self.experiment.set_dataset("SPCM1_OtherNode_Photon_tStamps", [[0.0,0.0]], broadcast=True)
+        ### Used in single photon experiments with reduced array size
+        self.experiment.set_dataset("SPCM0_SinglePhoton_reduced_tStamps", [0.0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_SinglePhoton_reduced_tStamps", [0.0], broadcast=True)
+        self.experiment.set_dataset("SPCM0_OtherNode_SinglePhoton_reduced_tStamps", [0.0], broadcast=True)
+        self.experiment.set_dataset("SPCM1_OtherNode_SinglePhoton_reduced_tStamps", [0.0], broadcast=True)
 
         self.experiment.set_dataset("AllSPCMs_RO_atom_check", [0], broadcast=True)
         self.experiment.set_dataset("AllSPCMs_atom_check_in_loading", [0], broadcast=True)
