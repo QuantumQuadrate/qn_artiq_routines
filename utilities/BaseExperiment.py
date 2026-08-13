@@ -979,6 +979,8 @@ class BaseExperiment:
         self.experiment.set_dataset("SPCM0_OtherNode_SinglePhoton_reduced_tStamps", [0.0], broadcast=True)
         self.experiment.set_dataset("SPCM1_OtherNode_SinglePhoton_reduced_tStamps", [0.0], broadcast=True)
 
+        self.experiment.set_dataset('n_photon_events', [0], broadcast=True)
+
         self.experiment.set_dataset("AllSPCMs_RO_atom_check", [0], broadcast=True)
         self.experiment.set_dataset("AllSPCMs_atom_check_in_loading", [0], broadcast=True)
 

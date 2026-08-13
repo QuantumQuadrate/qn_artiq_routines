@@ -2424,9 +2424,6 @@ def CW_optical_pumping_node1(self):
     - Includes turning on or off some AOMs, or setting their powers, setting the coils, etc.
     - D1 is on GRIN1
     - I am bypassing GRIN1 AOM to increase the D1 power at the atom to speed up O.P.
-
-    Akbar 2026-03-27
-
     """
 
     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
@@ -2621,7 +2618,7 @@ def record_CW_optical_pumping_node2(self):
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 @kernel
-def record_DMA_recooling(self):
+def record_recooling(self):
     with self.core_dma.record("recooling"):
 
         ### Set PGC coil voltages using forward scheduling
@@ -4710,12 +4707,9 @@ def microwave_Rabi_2_experiment(self):
     #     delay(100 * ms)
 
     record_chopped_blow_away(self)
-
     record_CW_optical_pumping_node2(self)
-    # delay(100*ms)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -8558,11 +8552,13 @@ def single_photon_experiment_7_atom_loading_advance_AllSPCM(self):
     self.core.reset()
     delay(1 * ms)
 
+    #### recording DMA
     record_CW_optical_pumping_node2(self)
-    record_DMA_recooling(self)
+    record_recooling(self)
 
+    #### getting DMA handles
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
-    recooling_handle = self.core_dma.get_handle("recooling")
+    recooling_dma_handle = self.core_dma.get_handle("recooling")
 
     delay(1 * ms)
     self.core.break_realtime()
@@ -8652,17 +8648,6 @@ def single_photon_experiment_7_atom_loading_advance_AllSPCM(self):
                 # delay(10 * us)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
-            # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-
-            # ### Changing the bias field to test the effect of Zeeman shift on the photons
-            # self.zotino0.set_dac(
-            #     [self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave, self.AX_volts_microwave, self.AY_volts_microwave],
-            #     channels=self.coil_channels)
-
-
-            # delay(2 * ms)
-            # self.core.break_realtime()
-
             for excitation_attempt in range(self.n_excitation_attempts):
                 slack = now_mu() - self.core.get_rtio_counter_mu()
                 if slack < 1e5:
@@ -8718,17 +8703,16 @@ def single_photon_experiment_7_atom_loading_advance_AllSPCM(self):
                         tStamps_t1[Any_SPCM_click_counter] = self.core.mu_to_seconds(t1)
                         Any_SPCM_click_counter += 1
 
-                delay(30 * us)  ### 20us is not enough
+                delay(10 * us)  ### 20us is not enough
 
-            # delay(20 * us)
-            # self.ttl_exc0_switch.on()  # block Excitation
+            cycle_number = excitation_cycle + 1
 
             ############################ atom cooling phase with PGC settings
-            if self.t_recooling > 0 and (excitation_cycle + 1) % self.recool_every_n_OP == 0:
-                self.core_dma.playback_handle(recooling_handle)
+            if self.t_recooling > 0 and cycle_number % self.recool_every_n_OP == 0:
+                self.core_dma.playback_handle(recooling_dma_handle)
 
             ############################# readout to see if the atom survived every self.atom_check_every_n
-            if (excitation_cycle + 1) % self.atom_check_every_n == 0:
+            if cycle_number % self.atom_check_every_n == 0:
                 self.zotino0.set_dac(
                     [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
                     channels=self.coil_channels)
@@ -8819,6 +8803,9 @@ def single_photon_experiment_7_atom_loading_advance_AllSPCM(self):
             self.append_to_dataset('SPCM1_OtherNode_SinglePhoton_reduced_tStamps', SPCM1_OtherNode_timestamps[i])
             self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
             i += 1
+
+        ### Number of compact timestamp rows saved during this measurement
+        self.append_to_dataset('n_photon_events', Any_SPCM_click_counter)
 
         self.append_to_dataset('n_excitation_cycles', excitation_cycle)
 
