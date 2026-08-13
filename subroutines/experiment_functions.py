@@ -274,9 +274,9 @@ def test_Repump_pulse_experiment(self):
 def test_BA_pulse_experiment(self):
     self.core.reset()
 
-    delay(100 * ms)
     record_chopped_blow_away(self)
-    delay(100 * ms)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     self.measurement = 0
     while self.measurement < self.n_measurements:
@@ -284,7 +284,7 @@ def test_BA_pulse_experiment(self):
         self.dds_FORT.sw.on()
         delay(1*ms)
 
-        chopped_blow_away(self)
+        self.core_dma.playback_handle(ba_dma_handle)
 
         delay(10*ms)
 
@@ -2093,111 +2093,111 @@ def recooling_after_first_shot(self):
     self.dds_AOM_A1.sw.on()
     self.dds_AOM_A3.sw.on()
 
+# @kernel
+# def record_chopped_blow_away(self):
+#     """
+#
+#     :param self:
+#     :return:
+#     """
+#
+#     # todo: change OP -> BA
+#
+#     n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
+#     # self.print_async("blowaway cycles:", n_chop_cycles)
+#
+#     assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
+#
+#     BA_pulse = self.t_BA_chop_period * 0.35
+#     FORT_pulse = self.t_BA_chop_period - BA_pulse
+#
+#
+#     self.core.reset()
+#
+#     with self.core_dma.record("chopped_blow_away"):
+#
+#         start = now_mu()
+#         period_mu = self.core.seconds_to_mu(self.t_BA_chop_period)
+#         BA_pulse_length_mu = self.core.seconds_to_mu(BA_pulse)
+#         BA_on_mu = self.core.seconds_to_mu(FORT_pulse)
+#         FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
+#         FORT_on_mu = self.core.seconds_to_mu(BA_pulse)
+#
+#         self.dds_FORT.sw.off()
+#         delay_mu(BA_pulse_length_mu)
+#
+#         if not self.blowaway_light_off:
+#             self.dds_cooling_DP.sw.on()
+#         else:
+#             self.dds_cooling_DP.sw.off()
+#
+#         for i in range(n_chop_cycles):
+#             at_mu(start+i*period_mu+FORT_on_mu)
+#             self.dds_FORT.sw.on()
+#             delay_mu(FORT_pulse_length_mu)
+#             self.dds_FORT.sw.off()
+#             at_mu(start+i*period_mu+BA_on_mu)
+#             # self.dds_cooling_DP.sw.on() # the cooling AOM seems incredibly slow so I'm just leaving it on the whole time
+#             delay_mu(BA_pulse_length_mu)
+#             # self.dds_cooling_DP.sw.off()
+#         self.dds_FORT.sw.on()
+#
+# @kernel
+# def chopped_blow_away(self):
+#
+#     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+#     delay(1 * ms)
+#     self.ttl_repump_switch.on()  # turns off the RP AOM
+#
+#     delay(0.1 * ms)
+#
+#     # set coils for blowaway
+#     self.zotino0.set_dac(
+#         [self.AZ_bottom_volts_blowaway, -self.AZ_bottom_volts_blowaway,
+#          self.AX_volts_blowaway, self.AY_volts_blowaway],
+#         channels=self.coil_channels)
+#     delay(1 * ms)
+#
+#     with sequential:
+#
+#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_blowaway, amplitude=self.ampl_cooling_DP_MOT)
+#
+#         self.dds_AOM_A1.sw.off()
+#         self.dds_AOM_A2.sw.off()
+#         self.dds_AOM_A3.sw.off()
+#         self.dds_AOM_A4.sw.off()
+#         self.dds_AOM_A5.sw.off()
+#         delay(0.1 * ms)
+#
+#         if self.blowaway_light_off:
+#             self.dds_cooling_DP.sw.off()
+#             self.dds_AOM_A6.sw.off()
+#         else:
+#             # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
+#             # always give the same optical power
+#             self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-7.0))
+#             delay(5*us)
+#             self.dds_AOM_A6.sw.on()
+#             self.dds_cooling_DP.sw.on()
+#
+#     self.core_dma.playback_handle(ba_dma_handle)
+#
+#
+#     self.dds_cooling_DP.sw.off() ### Turns off cooling DP
+#     self.ttl_repump_switch.on() ### turns off MOT RP
+#     self.dds_AOM_A6.sw.off() ### turns off fiber AOM6
+#
+#     delay(0.1 * ms)
+#
+#     ### reset AOM RF powers
+#     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
+#
+#     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+#
+#     delay(0.1*ms)
+
 @kernel
 def record_chopped_blow_away(self):
-    """
-
-    :param self:
-    :return:
-    """
-
-    # todo: change OP -> BA
-
-    n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
-    # self.print_async("blowaway cycles:", n_chop_cycles)
-
-    assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
-
-    BA_pulse = self.t_BA_chop_period * 0.35
-    FORT_pulse = self.t_BA_chop_period - BA_pulse
-
-
-    self.core.reset()
-
-    with self.core_dma.record("chopped_blow_away"):
-
-        start = now_mu()
-        period_mu = self.core.seconds_to_mu(self.t_BA_chop_period)
-        BA_pulse_length_mu = self.core.seconds_to_mu(BA_pulse)
-        BA_on_mu = self.core.seconds_to_mu(FORT_pulse)
-        FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
-        FORT_on_mu = self.core.seconds_to_mu(BA_pulse)
-
-        self.dds_FORT.sw.off()
-        delay_mu(BA_pulse_length_mu)
-
-        if not self.blowaway_light_off:
-            self.dds_cooling_DP.sw.on()
-        else:
-            self.dds_cooling_DP.sw.off()
-
-        for i in range(n_chop_cycles):
-            at_mu(start+i*period_mu+FORT_on_mu)
-            self.dds_FORT.sw.on()
-            delay_mu(FORT_pulse_length_mu)
-            self.dds_FORT.sw.off()
-            at_mu(start+i*period_mu+BA_on_mu)
-            # self.dds_cooling_DP.sw.on() # the cooling AOM seems incredibly slow so I'm just leaving it on the whole time
-            delay_mu(BA_pulse_length_mu)
-            # self.dds_cooling_DP.sw.off()
-        self.dds_FORT.sw.on()
-
-@kernel
-def chopped_blow_away(self):
-
-    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    delay(1 * ms)
-    self.ttl_repump_switch.on()  # turns off the RP AOM
-
-    delay(0.1 * ms)
-
-    # set coils for blowaway
-    self.zotino0.set_dac(
-        [self.AZ_bottom_volts_blowaway, -self.AZ_bottom_volts_blowaway,
-         self.AX_volts_blowaway, self.AY_volts_blowaway],
-        channels=self.coil_channels)
-    delay(1 * ms)
-
-    with sequential:
-
-        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_blowaway, amplitude=self.ampl_cooling_DP_MOT)
-
-        self.dds_AOM_A1.sw.off()
-        self.dds_AOM_A2.sw.off()
-        self.dds_AOM_A3.sw.off()
-        self.dds_AOM_A4.sw.off()
-        self.dds_AOM_A5.sw.off()
-        delay(0.1 * ms)
-
-        if self.blowaway_light_off:
-            self.dds_cooling_DP.sw.off()
-            self.dds_AOM_A6.sw.off()
-        else:
-            # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
-            # always give the same optical power
-            self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-7.0))
-            delay(5*us)
-            self.dds_AOM_A6.sw.on()
-            self.dds_cooling_DP.sw.on()
-
-    self.core_dma.playback_handle(ba_dma_handle)
-
-
-    self.dds_cooling_DP.sw.off() ### Turns off cooling DP
-    self.ttl_repump_switch.on() ### turns off MOT RP
-    self.dds_AOM_A6.sw.off() ### turns off fiber AOM6
-
-    delay(0.1 * ms)
-
-    ### reset AOM RF powers
-    self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
-
-    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
-    delay(0.1*ms)
-
-@kernel
-def record_chopped_blow_away_2(self):
     """Record the chopped blow-away sequence as DMA."""
 
     n_chop_cycles = int(self.t_blowaway / self.t_BA_chop_period + 0.5)
@@ -2207,7 +2207,7 @@ def record_chopped_blow_away_2(self):
     period_mu = self.core.seconds_to_mu(self.t_BA_chop_period)
     BA_pulse_length_mu = self.core.seconds_to_mu(BA_pulse)
 
-    with self.core_dma.record("chopped_blow_away_2"):
+    with self.core_dma.record("chopped_blow_away"):
 
         self.ttl_repump_switch.on()  ### Repump AOM OFF
 
@@ -2259,14 +2259,6 @@ def record_chopped_blow_away_2(self):
         ### Restore normal RF settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-
-
-@kernel
-def chopped_blow_away_2(self):
-
-    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away_2")
-    delay(1 * ms)
-
 
 @kernel
 def record_chopped_optical_pumping(self):
@@ -3859,9 +3851,9 @@ def blowaway_fidelity_measurement_experiment(self):
     ### in each iteration.
     self.n_atom_loaded_per_iteration = 0
 
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100 * ms)
+    record_chopped_blow_away(self)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
@@ -3930,8 +3922,7 @@ def blowaway_fidelity_measurement_experiment(self):
 
         ######################## blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            delay(10*ms)
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         second_shot(self)
 
@@ -4401,10 +4392,9 @@ def beam_balancing_with_atoms_experiment(self):
         record_chopped_optical_pumping(self)
         delay(100 * ms)
 
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100 * ms)
+    record_chopped_blow_away(self)
 
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
 
     if self.enable_laser_feedback:
@@ -4719,12 +4709,12 @@ def microwave_Rabi_2_experiment(self):
     #     record_chopped_optical_pumping(self)
     #     delay(100 * ms)
 
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        # delay(100 * ms)
+    record_chopped_blow_away(self)
 
     record_CW_optical_pumping_node2(self)
     # delay(100*ms)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
@@ -4831,7 +4821,7 @@ def microwave_Rabi_2_experiment(self):
             self.dds_FORT.sw.on()
 
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         second_shot(self)
 
@@ -4872,10 +4862,9 @@ def microwave_Ramsey_00_experiment(self):
         record_chopped_optical_pumping(self)
         delay(100*ms)
 
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
+    record_chopped_blow_away(self)
 
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     if self.enable_laser_feedback:
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -4977,7 +4966,7 @@ def microwave_Ramsey_00_experiment(self):
         ############################
 
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         second_shot(self)
 
@@ -5013,9 +5002,9 @@ def microwave_Ramsey_11_experiment(self):
 
     self.core.reset()
 
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
+    record_chopped_blow_away(self)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     if self.enable_laser_feedback:
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -5121,7 +5110,7 @@ def microwave_Ramsey_11_experiment(self):
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         second_shot(self)
 
@@ -5159,12 +5148,8 @@ def microwave_Rabi_2_and_EXC_experiment(self):
     ### in each iteration.
     self.n_atom_loaded_per_iteration = 0
 
-    # if self.t_blowaway > 0.0:
-    #     # record_chopped_blow_away(self)
-    #     record_chopped_blow_away_2(self)
-    #     # delay(100*ms)
-    record_chopped_blow_away_2(self)
-    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away_2")
+    record_chopped_blow_away(self)
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     self.core.break_realtime()
 
@@ -5269,11 +5254,12 @@ def microwave_Rabi_2_and_EXC_experiment(self):
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
             delay(2 * us)
 
-        self.core.break_realtime()        ############################
+        self.core.break_realtime()
+
+        ############################
         # blow-away phase - push out atoms in F=2 only
         ############################
         if self.t_blowaway > 0.0:
-            # chopped_blow_away(self)
             self.core_dma.playback_handle(ba_dma_handle)
 
         second_shot(self)
@@ -5324,10 +5310,9 @@ def microwave_freq_scan_experiment(self):
     # self.SPCM1_RO1 = 0
     # self.SPCM1_RO2 = 0
 
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100*ms)
+    record_chopped_blow_away(self)
 
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     if self.enable_laser_feedback:
         ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
@@ -5413,7 +5398,7 @@ def microwave_freq_scan_experiment(self):
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         delay(0.1 * ms)
 
@@ -5471,8 +5456,8 @@ def microwave_map01_map11_experiment(self):
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
 
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     # record_chopped_optical_pumping(self)
     # delay(100 * ms)
 
@@ -5569,7 +5554,7 @@ def microwave_map01_map11_experiment(self):
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         delay(0.1 * ms)
 
@@ -5642,10 +5627,9 @@ def microwave_map01_map11_CORPSE_experiment(self):
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
-
     # record_chopped_optical_pumping(self)
     # delay(100 * ms)
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -5791,7 +5775,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         delay(0.1 * ms)
 
@@ -5846,7 +5830,8 @@ def microwave_map00_map0m1_experiment(self):
     self.n_atom_loaded_per_iteration = 0
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     #
     # record_chopped_optical_pumping(self)
     # delay(100 * ms)
@@ -5942,7 +5927,7 @@ def microwave_map00_map0m1_experiment(self):
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         delay(0.1 * ms)
 
@@ -5998,7 +5983,8 @@ def microwave_map01_MWRFm11_experiment(self):
     self.n_atom_loaded_per_iteration = 0
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -6102,7 +6088,7 @@ def microwave_map01_MWRFm11_experiment(self):
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         delay(0.1 * ms)
 
@@ -6164,8 +6150,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
 
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     # record_chopped_optical_pumping(self)
     # delay(100 * ms)
 
@@ -6285,7 +6271,7 @@ def microwave_Ramsey_MWRFm11_experiment(self):
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         delay(0.1 * ms)
 
@@ -6344,8 +6330,8 @@ def microwave_map00_RF01_map00_experiment(self):
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
 
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     # record_chopped_optical_pumping(self)
     # delay(100 * ms)
 
@@ -6444,7 +6430,7 @@ def microwave_map00_RF01_map00_experiment(self):
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         delay(0.1 * ms)
 
@@ -6588,7 +6574,7 @@ def single_photon_experiment_3_atom_loading_advance_node2_AllSPCMs(self):
                 #     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
                 # ############ blow-away phase - push out atoms in F=2 only
                 # if self.t_blowaway > 0.0 and self.verify_OP_in_photon_experiment:
-                #     chopped_blow_away(self)
+                #     self.core_dma.playback_handle(ba_dma_handle)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
@@ -7271,9 +7257,8 @@ def single_photon_experiment_3_atom_heat_test(self):
     # delay(100 * ms)
     #
     # if self.verify_OP_in_photon_experiment:
-    #     if self.t_blowaway > 0.0:
-    #         record_chopped_blow_away(self)
-    #         delay(100 * ms)
+    #     record_chopped_blow_away(self)
+    #     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     #
     #     self.dds_microwaves.set(frequency=self.f_microwaves_dds, amplitude=dB_to_V(self.p_microwaves))
     #     delay(10 * ms)
@@ -9036,7 +9021,7 @@ def atom_photon_parity_2_experiment(self):
 
                     ############################ blow-away phase - push out atoms in F=2 only
                     delay(200 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(20 * us)
                     atom_parity_shot(self)
@@ -9389,7 +9374,7 @@ def atom_photon_parity_3_experiment(self):
                 if SPCM0_SinglePhoton>0 or SPCM1_SinglePhoton>0:
                     ############################ blow-away phase - push out atoms in F=2 only
                     delay(20 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(20 * us)
                     atom_parity_shot(self)
@@ -9565,7 +9550,6 @@ def atom_photon_parity_4_experiment(self):
     delay(200*ms)
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
 
     self.dds_microwaves.set_phase_mode(PHASE_MODE_ABSOLUTE)
     self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
@@ -9577,6 +9561,8 @@ def atom_photon_parity_4_experiment(self):
     self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
     self.dds_MW_RF.sw.off()
     delay(1 * ms)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
     delay(10 * ms)
@@ -9798,7 +9784,7 @@ def atom_photon_parity_4_experiment(self):
                     FORT_ramp2_smoothstep(self, direction="up")
 
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -9880,7 +9866,7 @@ def atom_photon_parity_4_experiment(self):
                     ############################ blow-away phase - push out atoms in F=2 only
                     FORT_ramp2_smoothstep(self, direction="up")
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -10068,7 +10054,6 @@ def atom_photon_parity_5_experiment(self):
     delay(100 * ms)
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
 
     op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
     delay(10 * ms)
@@ -10306,7 +10291,7 @@ def atom_photon_parity_5_experiment(self):
                     FORT_ramp2_smoothstep(self, direction="up")
 
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -10376,7 +10361,7 @@ def atom_photon_parity_5_experiment(self):
                     ############################ blow-away phase - push out atoms in F=2 only
                     FORT_ramp2_smoothstep(self, direction="up")
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -10538,7 +10523,6 @@ def atom_photon_parity_6_experiment(self):
     # delay(100 * ms)
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
 
     # op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
     # delay(10 * ms)
@@ -10800,7 +10784,7 @@ def atom_photon_parity_6_experiment(self):
                     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     ################################### atom cooling phase with PGC settings
                     if self.t_recooling > 0:
@@ -10911,7 +10895,7 @@ def atom_photon_parity_6_experiment(self):
                     # FORT_ramp2_smoothstep(self, direction="up")
                     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     ################################### atom cooling phase with PGC settings
                     if self.t_recooling > 0:
@@ -11111,8 +11095,7 @@ def atom_photon_parity_6_node2_AllSPCM_experiment(self):
     self.core.reset()
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
-
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     # ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     # delay(10 * ms)
 
@@ -11327,7 +11310,7 @@ def atom_photon_parity_6_node2_AllSPCM_experiment(self):
                     self.ttl_microwave_switch.on()  ### turn off MW
 
                     delay(100 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -11382,7 +11365,7 @@ def atom_photon_parity_6_node2_AllSPCM_experiment(self):
                     self.ttl_microwave_switch.on()  ### turn off MW
 
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -11439,7 +11422,7 @@ def atom_photon_parity_6_node2_AllSPCM_experiment(self):
                     self.ttl_microwave_switch.on()  ### turn off MW
 
                     delay(100 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -11499,7 +11482,7 @@ def atom_photon_parity_6_node2_AllSPCM_experiment(self):
                     self.ttl_microwave_switch.on()  ### turn off MW
 
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -11675,7 +11658,6 @@ def atom_photon_parity_7_experiment(self):
     self.core.reset()
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     delay(10 * ms)
@@ -11819,7 +11801,7 @@ def atom_photon_parity_7_experiment(self):
             self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
             delay(10 * us)
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
             delay(10 * us)
             atom_parity_shot(self)
@@ -11943,9 +11925,9 @@ def atom_photon_parity_8_experiment(self):
     ### in each iteration.
     self.n_atom_loaded_per_iteration = 0
 
-    if self.t_blowaway > 0.0:
-        record_chopped_blow_away(self)
-        delay(100 * ms)
+    record_chopped_blow_away(self)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
 
     self.core.break_realtime()
 
@@ -12066,7 +12048,7 @@ def atom_photon_parity_8_experiment(self):
             delay(10 * us)
 
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
+            self.core_dma.playback_handle(ba_dma_handle)
 
         second_shot(self)
 
@@ -12118,7 +12100,6 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
     self.core.reset()
 
     record_chopped_blow_away(self)
-    delay(100 * ms)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
     delay(10 * ms)
@@ -12306,7 +12287,7 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
                     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -12358,7 +12339,7 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
                     # FORT_ramp2_smoothstep(self, direction="up")
                     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -12411,7 +12392,7 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
                     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -12463,7 +12444,7 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
                     # FORT_ramp2_smoothstep(self, direction="up")
                     self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
                     delay(10 * us)
-                    chopped_blow_away(self)
+                    self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(10 * us)
                     atom_parity_shot(self)
@@ -14658,8 +14639,7 @@ def Two_node_single_photon_2_optimization_experiment(self):
 
 
         if self.t_blowaway > 0.0:
-            chopped_blow_away(self)
-
+            self.core_dma.playback_handle(ba_dma_handle)
 
         two_nodes_synchronization(self)
 
