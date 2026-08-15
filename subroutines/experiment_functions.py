@@ -4692,7 +4692,7 @@ def microwave_Rabi_2_experiment(self):
                 self.core_dma.playback_handle(CW_OP_node2_handle)
             # delay(10*us)
 
-        # delay(self.dummy_variable)  # varying time between coil ~ actual MW pulse
+        delay(self.dummy_variable)  # varying time between coil ~ actual MW pulse
 
 
         ############################
