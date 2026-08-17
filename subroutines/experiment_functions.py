@@ -2136,7 +2136,7 @@ def record_chopped_blow_away(self):
 
         ### Restore normal RF settings
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
-        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+        # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 @kernel
 def record_chopped_optical_pumping(self):
@@ -2490,9 +2490,9 @@ def record_CW_optical_pumping_node2(self):
             self.dds_AOM_A6.sw.off()
             self.GRIN1and2_dds.sw.off()
 
-        ### Restore feedback amplitudes while RF switches are off
-        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
-        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+        # ### Restore feedback amplitudes while RF switches are off
+        # self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        # self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
 @kernel
 def record_recooling(self):
@@ -4763,6 +4763,11 @@ def microwave_Rabi_2_experiment(self):
 
         if self.t_blowaway > 0.0:
             self.core_dma.playback_handle(ba_dma_handle)
+
+        delay(5*us)
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
         second_shot(self)
 
@@ -8728,6 +8733,11 @@ def single_photon_experiment_7_atom_loading_advance_AllSPCM(self):
         self.dds_D1_pumping_DP.sw.off()
         delay(0.1 * ms)
 
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+        delay(5 * us)
+
         second_shot(self)
 
         self.dds_AOM_A1.sw.off()
@@ -8976,6 +8986,11 @@ def single_photon_experiment_8_atom_loading_advance_AllSPCM(self):
                 ##############################
 
             delay(5 * us)
+
+        delay(5*us)
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
         self.core.break_realtime()
 
@@ -12936,6 +12951,12 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
 
             delay(20 * us)
             excitation_cycle += 1
+
+
+        delay(5*us)
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
         delay(1 * ms)
         second_shot(self)
