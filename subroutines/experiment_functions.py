@@ -4870,7 +4870,8 @@ def microwave_Ramsey_00_experiment(self):
         #                       self.AX_volts_microwave, self.AY_volts_microwave], channels=self.coil_channels)
         # delay(1 * ms)
 
-        FORT_ramp2_smoothstep(self, direction="down")
+        # FORT_ramp2_smoothstep(self, direction="down")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
         # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
@@ -4899,8 +4900,8 @@ def microwave_Ramsey_00_experiment(self):
         self.ttl_microwave_switch.on()
 
         delay(2*us)
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        FORT_ramp2_smoothstep(self, direction="up")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # FORT_ramp2_smoothstep(self, direction="up")
 
         ############################
         # blow-away phase - push out atoms in F=2 only
@@ -5006,7 +5007,8 @@ def microwave_Ramsey_11_experiment(self):
         #                      channels=self.coil_channels)
         # delay(1 * ms)
 
-        FORT_ramp2_smoothstep(self, direction="down")
+        # FORT_ramp2_smoothstep(self, direction="down")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
         ############################ microwave 1: transfer mF=0 to mF'=1
@@ -5046,8 +5048,8 @@ def microwave_Ramsey_11_experiment(self):
         self.ttl_microwave_switch.on()
 
         delay(2*us)
-        FORT_ramp2_smoothstep(self, direction="up")
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # FORT_ramp2_smoothstep(self, direction="up")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -5182,8 +5184,8 @@ def microwave_Rabi_2_and_EXC_experiment(self):
 
         self.core.break_realtime()
         if self.t_microwave_pulse > 0.0:
-            FORT_ramp2_smoothstep(self, direction="down")
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+            # FORT_ramp2_smoothstep(self, direction="down")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             delay(2 * us)
 
             self.ttl_microwave_switch.off()
@@ -5191,8 +5193,8 @@ def microwave_Rabi_2_and_EXC_experiment(self):
             self.ttl_microwave_switch.on()
             delay(2 * us)
 
-            FORT_ramp2_smoothstep(self, direction="up")
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            # FORT_ramp2_smoothstep(self, direction="up")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
             delay(2 * us)
 
         self.core.break_realtime()
@@ -5328,13 +5330,15 @@ def microwave_freq_scan_experiment(self):
 
         ############################ microwave phase
         if self.t_microwave_pulse > 0.0:
-            FORT_ramp2_smoothstep(self, direction="down")
+            # FORT_ramp2_smoothstep(self, direction="down")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             delay(5 * us)
             self.ttl_microwave_switch.off()
             delay(self.t_microwave_pulse)
             self.ttl_microwave_switch.on()
             delay(10 * us)
-            FORT_ramp2_smoothstep(self, direction="up")
+            # FORT_ramp2_smoothstep(self, direction="up")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
 
         ############################ blow-away phase - push out atoms in F=2 only
@@ -5469,8 +5473,8 @@ def microwave_map01_map11_experiment(self):
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
 
-        FORT_ramp2_smoothstep(self, direction="down")
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+        # FORT_ramp2_smoothstep(self, direction="down")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
         ##### Mapping from |1,0> to |2,1>
@@ -5490,8 +5494,8 @@ def microwave_map01_map11_experiment(self):
             self.ttl_microwave_switch.on()
 
         delay(5 * us)
-        FORT_ramp2_smoothstep(self, direction="up")
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # FORT_ramp2_smoothstep(self, direction="up")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -5675,7 +5679,8 @@ def microwave_map01_map11_CORPSE_experiment(self):
         #     channels=self.coil_channels)
         # delay(1 * ms)  # coil relaxation time.
 
-        FORT_ramp2_smoothstep(self, direction="down")
+        # FORT_ramp2_smoothstep(self, direction="down")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
         phi = 0.0
@@ -5711,8 +5716,8 @@ def microwave_map01_map11_CORPSE_experiment(self):
             self.ttl_microwave_switch.on()
 
         delay(10 * us)
-        FORT_ramp2_smoothstep(self, direction="up")
-
+        # FORT_ramp2_smoothstep(self, direction="up")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -5817,7 +5822,8 @@ def microwave_map00_map0m1_experiment(self):
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
 
-        FORT_ramp2_smoothstep(self, direction="down")
+        # FORT_ramp2_smoothstep(self, direction="down")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
         ############################
@@ -5864,7 +5870,8 @@ def microwave_map00_map0m1_experiment(self):
             self.ttl_microwave_switch.on()
 
         delay(5 * us)
-        FORT_ramp2_smoothstep(self, direction="up")
+        # FORT_ramp2_smoothstep(self, direction="up")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -5999,7 +6006,8 @@ def microwave_map01_MWRFm11_experiment(self):
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
 
-        FORT_ramp2_smoothstep(self, direction="down")
+        # FORT_ramp2_smoothstep(self, direction="down")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
         if self.t_microwave_01_pulse > 0.0:
@@ -6025,7 +6033,8 @@ def microwave_map01_MWRFm11_experiment(self):
                 self.dds_MW_RF.sw.off()  ### turn off RF
 
         delay(10*us)
-        FORT_ramp2_smoothstep(self, direction="up")
+        # FORT_ramp2_smoothstep(self, direction="up")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -6162,7 +6171,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         #                      channels=self.coil_channels)
         # delay(1 * ms)
 
-        FORT_ramp2_smoothstep(self, direction="down")
+        # FORT_ramp2_smoothstep(self, direction="down")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
@@ -6207,8 +6217,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
                 self.ttl_microwave_switch.on()  ### turn off MW
                 self.dds_MW_RF.sw.off()  ### turn off RF
 
-        FORT_ramp2_smoothstep(self, direction="up")
-
+        # FORT_ramp2_smoothstep(self, direction="up")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
@@ -6337,7 +6347,8 @@ def microwave_map00_RF01_map00_experiment(self):
         #                      channels=self.coil_channels)
         # delay(1 * ms)
 
-        FORT_ramp2_smoothstep(self, direction="down")
+        # FORT_ramp2_smoothstep(self, direction="down")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=0
@@ -6365,8 +6376,8 @@ def microwave_map00_RF01_map00_experiment(self):
             self.ttl_microwave_switch.on()
             delay(5 * us)
 
-        # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        FORT_ramp2_smoothstep(self, direction="up")
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        # FORT_ramp2_smoothstep(self, direction="up")
 
 
         ############################ blow-away phase - push out atoms in F=2 only
@@ -9880,8 +9891,8 @@ def atom_photon_parity_4_experiment(self):
             self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
 
             self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
-            FORT_ramp2_smoothstep(self, direction="down")
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            # FORT_ramp2_smoothstep(self, direction="down")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             delay(10*us)
 
             for excitation_attempt in range(self.n_excitation_attempts):
@@ -10084,7 +10095,8 @@ def atom_photon_parity_4_experiment(self):
                 break
 
             delay(20*us)
-            FORT_ramp2_smoothstep(self, direction="up")
+            # FORT_ramp2_smoothstep(self, direction="up")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
             ####################################### atom check
             self.zotino0.set_dac(
@@ -10387,8 +10399,8 @@ def atom_photon_parity_5_experiment(self):
             self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
 
             self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
-            FORT_ramp2_smoothstep(self, direction="down")
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
+            # FORT_ramp2_smoothstep(self, direction="down")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             delay(10 * us)
 
             for excitation_attempt in range(self.n_excitation_attempts):
@@ -10568,7 +10580,8 @@ def atom_photon_parity_5_experiment(self):
                 break
 
             delay(20 * us)
-            FORT_ramp2_smoothstep(self, direction="up")
+            # FORT_ramp2_smoothstep(self, direction="up")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
             ####################################### atom check
             self.zotino0.set_dac(
@@ -15082,7 +15095,8 @@ def Two_node_single_photon_2_optimization_experiment(self):
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.p_FORT_holding * self.stabilizer_FORT.amplitudes[1])
             # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
 
-            FORT_ramp2_smoothstep(self, direction="down")
+            # FORT_ramp2_smoothstep(self, direction="down")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
             delay(2 * us)
 
             self.ttl_microwave_switch.off()
@@ -15090,8 +15104,8 @@ def Two_node_single_photon_2_optimization_experiment(self):
             self.ttl_microwave_switch.on()
             delay(2 * us)
 
-            # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-            FORT_ramp2_smoothstep(self, direction="up")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            # FORT_ramp2_smoothstep(self, direction="up")
             delay(2 * us)
 
 
