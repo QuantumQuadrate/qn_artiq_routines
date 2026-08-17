@@ -1971,109 +1971,6 @@ def recooling_after_first_shot(self):
     # self.dds_AOM_A1.sw.on()
     # self.dds_AOM_A3.sw.on()
 
-# @kernel
-# def record_chopped_blow_away(self):
-#     """
-#
-#     :param self:
-#     :return:
-#     """
-#
-#     # todo: change OP -> BA
-#
-#     n_chop_cycles = int(self.t_blowaway/self.t_BA_chop_period + 0.5)
-#     # self.print_async("blowaway cycles:", n_chop_cycles)
-#
-#     assert n_chop_cycles >= 1, "t_blowaway should be > t_BA_chop_period"
-#
-#     BA_pulse = self.t_BA_chop_period * 0.35
-#     FORT_pulse = self.t_BA_chop_period - BA_pulse
-#
-#
-#     self.core.reset()
-#
-#     with self.core_dma.record("chopped_blow_away"):
-#
-#         start = now_mu()
-#         period_mu = self.core.seconds_to_mu(self.t_BA_chop_period)
-#         BA_pulse_length_mu = self.core.seconds_to_mu(BA_pulse)
-#         BA_on_mu = self.core.seconds_to_mu(FORT_pulse)
-#         FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
-#         FORT_on_mu = self.core.seconds_to_mu(BA_pulse)
-#
-#         self.dds_FORT.sw.off()
-#         delay_mu(BA_pulse_length_mu)
-#
-#         if not self.blowaway_light_off:
-#             self.dds_cooling_DP.sw.on()
-#         else:
-#             self.dds_cooling_DP.sw.off()
-#
-#         for i in range(n_chop_cycles):
-#             at_mu(start+i*period_mu+FORT_on_mu)
-#             self.dds_FORT.sw.on()
-#             delay_mu(FORT_pulse_length_mu)
-#             self.dds_FORT.sw.off()
-#             at_mu(start+i*period_mu+BA_on_mu)
-#             # self.dds_cooling_DP.sw.on() # the cooling AOM seems incredibly slow so I'm just leaving it on the whole time
-#             delay_mu(BA_pulse_length_mu)
-#             # self.dds_cooling_DP.sw.off()
-#         self.dds_FORT.sw.on()
-#
-# @kernel
-# def chopped_blow_away(self):
-#
-#     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-#     delay(1 * ms)
-#     self.ttl_repump_switch.on()  # turns off the RP AOM
-#
-#     delay(0.1 * ms)
-#
-#     # set coils for blowaway
-#     self.zotino0.set_dac(
-#         [self.AZ_bottom_volts_blowaway, -self.AZ_bottom_volts_blowaway,
-#          self.AX_volts_blowaway, self.AY_volts_blowaway],
-#         channels=self.coil_channels)
-#     delay(1 * ms)
-#
-#     with sequential:
-#
-#         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_blowaway, amplitude=self.ampl_cooling_DP_MOT)
-#
-#         self.dds_AOM_A1.sw.off()
-#         self.dds_AOM_A2.sw.off()
-#         self.dds_AOM_A3.sw.off()
-#         self.dds_AOM_A4.sw.off()
-#         self.dds_AOM_A5.sw.off()
-#         delay(0.1 * ms)
-#
-#         if self.blowaway_light_off:
-#             self.dds_cooling_DP.sw.off()
-#             self.dds_AOM_A6.sw.off()
-#         else:
-#             # just turn the AOM up all the way. as long as we're 'saturating' the blowaway, it's okay if this doesn't
-#             # always give the same optical power
-#             self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-7.0))
-#             delay(5*us)
-#             self.dds_AOM_A6.sw.on()
-#             self.dds_cooling_DP.sw.on()
-#
-#     self.core_dma.playback_handle(ba_dma_handle)
-#
-#
-#     self.dds_cooling_DP.sw.off() ### Turns off cooling DP
-#     self.ttl_repump_switch.on() ### turns off MOT RP
-#     self.dds_AOM_A6.sw.off() ### turns off fiber AOM6
-#
-#     delay(0.1 * ms)
-#
-#     ### reset AOM RF powers
-#     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_MOT)
-#
-#     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
-#
-#     delay(0.1*ms)
-
 @kernel
 def record_chopped_blow_away(self):
     """Record the chopped blow-away sequence as DMA."""
@@ -4724,7 +4621,6 @@ def microwave_Rabi_2_experiment(self):
                 self.core_dma.playback_handle(CW_OP_node2_handle)
             # delay(10*us)
 
-        # delay(self.dummy_variable)  # varying time between coil ~ actual MW pulse
         ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correclty
         delay(1*ms)
         # delay(1.02*ms)
@@ -5405,12 +5301,6 @@ def microwave_map01_map11_experiment(self):
     max_clicks = 2  ### maximum number of clicks that will be time tagged in each gate window.
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
-    record_chopped_blow_away(self)
-
-    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    # record_chopped_optical_pumping(self)
-    # delay(100 * ms)
-
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
         ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -5418,6 +5308,14 @@ def microwave_map01_map11_experiment(self):
         self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
         delay(0.1 * ms)
         run_feedback_and_record_FORT_MM_power(self)
+
+    delay(1 * ms)
+
+    record_chopped_blow_away(self)
+    record_CW_optical_pumping_node2(self)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     delay(1 * ms)
 
@@ -5464,8 +5362,9 @@ def microwave_map01_map11_experiment(self):
             if self.which_node == "alice":
                 CW_optical_pumping_node1(self)
             else:
-                CW_optical_pumping_node2(self)
-            delay(10 * us)
+                # CW_optical_pumping_node2(self)
+                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # delay(10 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
 
@@ -5473,7 +5372,9 @@ def microwave_map01_map11_experiment(self):
         # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
         #                       self.AX_volts_microwave, self.AY_volts_microwave],
         #                      channels=self.coil_channels)
-        # delay(1 * ms)
+
+        ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correclty
+        delay(1 * ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
@@ -5506,6 +5407,10 @@ def microwave_map01_map11_experiment(self):
         if self.t_blowaway > 0.0:
             self.core_dma.playback_handle(ba_dma_handle)
 
+        delay(5*us)
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
         delay(0.1 * ms)
 
         second_shot(self)
@@ -12785,14 +12690,6 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
     self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
     self.dds_MW_RF.sw.off()
     delay(1 * ms)
-
-    # if self.enable_laser_feedback:
-    #     delay(0.1 * ms)
-    #     ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_RO setting during feedback.
-    #     self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
-    #     delay(0.1 * ms)
-    #     run_feedback_and_record_FORT_MM_power(self)
-    #     self.dds_microwaves.sw.on()
 
     self.measurement = 0  # advances in end_measurement
 
