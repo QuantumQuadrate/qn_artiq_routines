@@ -2364,6 +2364,7 @@ def record_CW_optical_pumping_node2(self):
         ### Configure GRIN1 DDS
         self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
         self.GRIN1and2_dds.sw.on()
+        delay(2*us)
 
         ### Optical pumping
         with parallel:
@@ -2482,22 +2483,22 @@ def record_parity_mapping(self):
 
         if self.t_MW_RF_pulse > 0:
             at_mu(t_mapping + 500 + int(self.t_microwave_11_pulse / ns))
-            with parallel:
-                self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
-                self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
+            self.dds_microwaves.set(frequency=self.f_microwaves_m11_dds, amplitude=dB_to_V(self.p_microwaves))
+            self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds), phase=0.0)
 
-            at_mu(t_mapping + 1500 + int(self.t_microwave_11_pulse / ns))
+            # at_mu(t_mapping + 1500 + int(self.t_microwave_11_pulse / ns)
+            delay(2 * us)
             with parallel:
                 self.ttl_microwave_switch.off()
                 self.dds_MW_RF.sw.on()
-
-            at_mu(t_mapping + 1500 + int(self.t_microwave_11_pulse / ns) + int(self.t_MW_RF_pulse / ns))
+            delay(self.t_MW_RF_pulse)
+            # at_mu(t_mapping + 1500 + int(self.t_microwave_11_pulse / ns) + int(self.t_MW_RF_pulse / ns))
             with parallel:
                 self.ttl_microwave_switch.on()
                 self.dds_MW_RF.sw.off()
 
-            at_mu(t_mapping + 1700 + int(self.t_microwave_11_pulse / ns) + int(self.t_MW_RF_pulse / ns))
-            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+        delay(2*us)
+        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
 
 @kernel
 def measure_FORT_MM_fiber(self):
@@ -4622,8 +4623,9 @@ def microwave_Rabi_2_experiment(self):
             # delay(10*us)
 
         ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correclty
-        delay(1*ms)
+        # delay(1*ms)
         # delay(1.02*ms)
+        delay(20*us)
 
         ############################
         # microwave phase
@@ -5373,8 +5375,9 @@ def microwave_map01_map11_experiment(self):
         #                       self.AX_volts_microwave, self.AY_volts_microwave],
         #                      channels=self.coil_channels)
 
-        ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correclty
-        delay(1 * ms)
+        # ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correclty
+        # delay(1 * ms)
+        delay(2*us)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
@@ -12664,6 +12667,18 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
         run_feedback_and_record_FORT_MM_power(self)
         self.dds_microwaves.sw.on()
 
+    self.core.reset()
+    self.dds_microwaves.set_phase_mode(PHASE_MODE_CONTINUOUS)
+    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(1 * ms)
+    self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+    self.ttl_microwave_switch.on()  ### close the switch
+
+    self.dds_MW_RF.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
+    self.dds_MW_RF.sw.off()
+    delay(1 * ms)
+
     #### recording DMA
     record_chopped_blow_away(self)
     record_CW_optical_pumping_node2(self)
@@ -12678,18 +12693,6 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
     excitation_dma_handle = self.core_dma.get_handle("excitation_and_photon_collection")
     parity_mapping_dma_handle = self.core_dma.get_handle("parity_mapping")
     delay(10 * ms)
-
-    self.core.reset()
-    self.dds_microwaves.set_phase_mode(PHASE_MODE_CONTINUOUS)
-    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
-    delay(1 * ms)
-    self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
-    self.ttl_microwave_switch.on()  ### close the switch
-
-    self.dds_MW_RF.set_phase_mode(PHASE_MODE_ABSOLUTE)
-    self.dds_MW_RF.set(frequency=self.f_MW_RF_dds, amplitude=dB_to_V(self.p_MW_RF_dds))
-    self.dds_MW_RF.sw.off()
-    delay(1 * ms)
 
     self.measurement = 0  # advances in end_measurement
 
@@ -12784,10 +12787,10 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
             for excitation_attempt in range(self.n_excitation_attempts):
                 # self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
 
-                slack = now_mu() - self.core.get_rtio_counter_mu()
-                if slack < 1e5:
-                    # self.print_async("slack added in measurement:", self.measurement)
-                    self.core.break_realtime()
+                # slack = now_mu() - self.core.get_rtio_counter_mu()
+                # if slack < 1e5:
+                #     # self.print_async("slack added in measurement:", self.measurement)
+                #     self.core.break_realtime()
 
                 self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
                 delay(5 * us)
@@ -12827,10 +12830,10 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
                     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
                     ##todo: I am setting FORT drop in dma because FORT power barely drifts.
 
-                    delay(10 * us)
+                    delay(5 * us)
                     self.core_dma.playback_handle(ba_dma_handle)
 
-                    delay(100 * us)
+                    delay(5 * us)
                     atom_parity_shot(self)
 
                     delay(10 * ms)
