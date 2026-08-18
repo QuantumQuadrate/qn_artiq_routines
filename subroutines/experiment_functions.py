@@ -12830,13 +12830,16 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
                     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
                     ##todo: I am setting FORT drop in dma because FORT power barely drifts.
 
+                    self.core.break_realtime()
+
                     delay(5 * us)
                     self.core_dma.playback_handle(ba_dma_handle)
 
                     delay(5 * us)
                     atom_parity_shot(self)
 
-                    delay(10 * ms)
+                    self.core.break_realtime()
+                    delay(1 * ms)
                     AllSPCMs_parity_RO[self.measurement] = self.AllSPCMs_parity_RO
                     SPCM0_SinglePhoton[self.measurement] = 1.0 if detector == 0 else 0.0
                     SPCM1_SinglePhoton[self.measurement] = 1.0 if detector == 1 else 0.0
