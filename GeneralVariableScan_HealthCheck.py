@@ -62,6 +62,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
         self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
         self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
+        self.setattr_argument("Frequency_m11_Scan", BooleanValue(default=False), "Health Check - Select to include in health check")
 
 
         # the number of measurements to be made for a certain setting of the
@@ -576,10 +577,12 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 "Frequency_01_Scan": False,
                 "Frequency_11_Scan": False,
                 "Frequency_m10_Scan": False,
+                "Frequency_m11_Scan": False,
                 "Time_00_Scan": False,
                 "Time_01_Scan": False,
                 "Time_11_Scan": False,
                 "Time_m10_Scan": False,
+                "Time_m11_Scan": False,
                 "Ramsey_00_Scan": False,
                 "Ramsey_01_Scan": False,
                 "Ramsey_11_Scan": False,
@@ -665,6 +668,7 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
                 'Frequency_01_Scan': False,
                 'Frequency_11_Scan': False,
                 'Frequency_m10_Scan': False,
+                'Frequency_m11_Scan': False,
 
                 # measurement settings
                 'n_measurements': 100,

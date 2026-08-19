@@ -121,10 +121,7 @@ class Microwaves_scans(EnvExperiment):
                                             self.freq_scan_step_size_kHz * kHz)
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_Rabi_2_experiment"
+            self.experiment_name = "microwave_Rabi_2_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_dip"
@@ -149,10 +146,7 @@ class Microwaves_scans(EnvExperiment):
                                             self.freq_scan_step_size_kHz * kHz)
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_Rabi_2_experiment"
+            self.experiment_name = "microwave_Rabi_2_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_dip"
@@ -177,10 +171,7 @@ class Microwaves_scans(EnvExperiment):
                                             self.freq_scan_step_size_kHz * kHz)
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_map01_map11_experiment"
+            self.experiment_name = "microwave_map01_map11_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_peak"
@@ -205,10 +196,7 @@ class Microwaves_scans(EnvExperiment):
                                             self.freq_scan_step_size_kHz * kHz)
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_map00_map0m1_experiment"
+            self.experiment_name = "microwave_map00_map0m1_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_peak"
@@ -231,10 +219,7 @@ class Microwaves_scans(EnvExperiment):
                                             self.freq_scan_step_size_kHz * kHz)
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_map01_MWRFm11_experiment"
+            self.experiment_name = "microwave_map01_MWRFm11_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "resonance_peak"
@@ -256,10 +241,7 @@ class Microwaves_scans(EnvExperiment):
                                              self.time_scan_step_size_us * us))
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_Rabi_2_experiment"
+            self.experiment_name = "microwave_Rabi_2_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop"
@@ -281,10 +263,7 @@ class Microwaves_scans(EnvExperiment):
                                              self.time_scan_step_size_us * us))
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_Rabi_2_experiment"
+            self.experiment_name = "microwave_Rabi_2_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop"
@@ -306,10 +285,7 @@ class Microwaves_scans(EnvExperiment):
                                              self.time_scan_step_size_us * us))
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_map01_map11_experiment"
+            self.experiment_name = "microwave_map01_map11_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop_reversed"
@@ -331,10 +307,7 @@ class Microwaves_scans(EnvExperiment):
                                              self.time_scan_step_size_us * us))
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_map00_map0m1_experiment"
+            self.experiment_name = "microwave_map00_map0m1_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop_reversed"
@@ -356,10 +329,7 @@ class Microwaves_scans(EnvExperiment):
                                              self.time_scan_step_size_us * us))
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_map01_MWRFm11_experiment"
+            self.experiment_name = "microwave_map01_MWRFm11_experiment"
 
             ### fitting model and initial fit parameters
             fit_model = "rabi_flop_reversed"
@@ -380,10 +350,7 @@ class Microwaves_scans(EnvExperiment):
                                              self.time_scan_step_size_us * us))
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_Rabi_2_experiment"
+            self.experiment_name = "microwave_Rabi_2_experiment"
 
             ###todo:  fitting not ready for Ramsey yet
             self.enable_fitting = False
@@ -401,10 +368,7 @@ class Microwaves_scans(EnvExperiment):
                                              self.time_scan_step_size_us * us))
 
             ### experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = "microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment"
-            elif self.which_node == 'alice':
-                self.experiment_name = "microwave_Rabi_2_experiment"
+            self.experiment_name = "microwave_Rabi_2_experiment"
 
             ###todo:  fitting not ready for Ramsey yet
             self.enable_fitting = False

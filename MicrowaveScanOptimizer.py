@@ -47,9 +47,8 @@ fit_model_dict = {
 }
 
 scan_options = [
-    "Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan",
-    "Frequency_m10_Scan", "Frequency_m11_Scan",
-    "Time_00_Scan", "Time_01_Scan", "Time_11_Scan", "Time_m10_Scan",
+    "Frequency_00_Scan", "Frequency_01_Scan", "Frequency_11_Scan", "Frequency_m10_Scan", "Frequency_m11_Scan",
+    "Time_00_Scan", "Time_01_Scan", "Time_11_Scan", "Time_m10_Scan", "Time_m11_Scan",
     "Ramsey_00_Scan", "Ramsey_01_Scan", "Ramsey_11_Scan",
 ]
 
@@ -64,7 +63,7 @@ scan_dict={
         "center": "f_microwaves_00_dds",
 
         "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_experiment",
 
         "fit_model": "resonance_dip",
         "initialise": {
@@ -83,7 +82,7 @@ scan_dict={
         "center": "f_microwaves_01_dds",
 
         "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_experiment",
 
         "fit_model": "resonance_dip",
         "initialise": {
@@ -100,7 +99,7 @@ scan_dict={
         "center": "f_microwaves_11_dds",
 
         "experiment_name_alice": "microwave_map01_map11_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment",
+        "experiment_name_bob": "microwave_map01_map11_experiment",
 
         "fit_model": "resonance_peak",
         "initialise": {
@@ -117,7 +116,7 @@ scan_dict={
         "center": "f_microwaves_m10_dds",
 
         "experiment_name_alice": "microwave_map00_map0m1_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment",
+        "experiment_name_bob": "microwave_map00_map0m1_experiment",
 
         "fit_model": "resonance_peak",
         "initialise": {},
@@ -134,28 +133,12 @@ scan_dict={
         "center": "f_microwaves_m11_dds",
 
         "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment",
+        "experiment_name_bob": "microwave_map01_MWRFm11_experiment",
 
         "fit_model": "resonance_peak",
-        "initialise": {},
-        "health_check_dataset_name": "health_check_uw_freqm11"
-    },
-
-    ### Frequency_m11_Scan and Frequency_MW_RF_Scan share health_check_dataset
-    "Frequency_MW_RF_Scan": {
-        "print_statement": "Frequency_MW_RF_Scan with pi pulse",
-        "override_items": {
-            "f_microwaves_m11_dds": "f_microwaves_m11_dds"
+        "initialise": {
+            "sigma": 3e3
         },
-
-        "scan_variable1_name": "t_MW_RF_pulse",
-        "center": "t_MW_RF_pulse",
-
-        "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment",
-
-        "fit_model": "resonance_peak",
-        "initialise": {},
         "health_check_dataset_name": "health_check_uw_freqm11"
     },
 
@@ -170,7 +153,7 @@ scan_dict={
         "pi_pulse": "t_microwave_00_pulse",
 
         "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_experiment",
 
         "fit_model": "rabi_flop",
         "initialise": {},
@@ -188,7 +171,7 @@ scan_dict={
         "pi_pulse": "t_microwave_01_pulse",
 
         "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_experiment",
+        "experiment_name_bob": "microwave_Rabi_2_experiment",
 
         "fit_model": "rabi_flop",
         "initialise": {},
@@ -204,7 +187,7 @@ scan_dict={
         "pi_pulse": "t_microwave_11_pulse",
 
         "experiment_name_alice": "microwave_map01_map11_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_11_experiment",
+        "experiment_name_bob": "microwave_map01_map11_experiment",
 
         "fit_model": "rabi_flop_reversed",
         "initialise": {},
@@ -220,7 +203,7 @@ scan_dict={
         "pi_pulse": "t_microwave_m10_pulse",
 
         "experiment_name_alice": "microwave_map00_map0m1_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_m10_experiment",
+        "experiment_name_bob": "microwave_map00_map0m1_experiment",
 
         "fit_model": "rabi_flop_reversed",
         "initialise": {},
@@ -233,11 +216,11 @@ scan_dict={
         "print_statement": "Time_m11_Scan with freq m11",
         "override_items": {},
 
-        "scan_variable1_name": "t_microwave_m11_pulse",
-        "pi_pulse": "t_microwave_m11_pulse",
+        "scan_variable1_name": "t_MW_RF_pulse",
+        "pi_pulse": "t_MW_RF_pulse",
 
         "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW01_UWRFm11_FORT_experiment",
+        "experiment_name_bob": "microwave_map01_MWRFm11_experiment",
 
         "fit_model": "rabi_flop_reversed",
         "initialise": {},
@@ -254,8 +237,8 @@ scan_dict={
 
         "scan_variable1_name": "t_delay_between_shots",
 
-        "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment",
+        "experiment_name_alice": "microwave_Ramsey_00_experiment",
+        "experiment_name_bob": "microwave_Ramsey_00_experiment",
 
         ###todo:  fitting not ready for Ramsey yet
         "fit_model": "rabi_flop",
@@ -272,8 +255,8 @@ scan_dict={
 
         "scan_variable1_name": "t_delay_between_shots",
 
-        "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_Ramsey_experiment",
+        "experiment_name_alice": "microwave_Ramsey_00_experiment",
+        "experiment_name_bob": "microwave_Ramsey_00_experiment",
 
         ###todo:  fitting not ready for Ramsey yet
         "fit_model": "rabi_flop",
@@ -288,8 +271,8 @@ scan_dict={
 
         "scan_variable1_name": "t_delay_between_shots",
 
-        "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_CW_OP_UW_FORT_11_Ramsey_experiment",
+        "experiment_name_alice": "microwave_Ramsey_11_experiment",
+        "experiment_name_bob": "microwave_Ramsey_11_experiment",
 
         ###todo:  fitting not ready for Ramsey yet
         "fit_model": "rabi_flop",
@@ -330,11 +313,13 @@ class MicrowaveScanOptimizer(EnvExperiment):
         self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Microwave Scans - Select one of the following")
         self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Microwave Scans - Select one of the following")
         self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Microwave Scans - Select one of the following")
+        self.setattr_argument("Frequency_m11_Scan", BooleanValue(default=False),"Microwave Scans - Select one of the following")
 
         self.setattr_argument("Time_00_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
         self.setattr_argument("Time_01_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
         self.setattr_argument("Time_11_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
         self.setattr_argument("Time_m10_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
+        self.setattr_argument("Time_m11_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
 
         self.setattr_argument("Ramsey_00_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
         self.setattr_argument("Ramsey_01_Scan", BooleanValue(default=False), "Microwave Scans - Select one of the following")
@@ -1053,10 +1038,12 @@ class MicrowaveScanOptimizer(EnvExperiment):
                 "Frequency_01_Scan": False,
                 "Frequency_11_Scan": False,
                 "Frequency_m10_Scan": False,
+                "Frequency_m11_Scan": False,
                 "Time_00_Scan": False,
                 "Time_01_Scan": False,
                 "Time_11_Scan": False,
                 "Time_m10_Scan": False,
+                "Time_m11_Scan": False,
                 "Ramsey_00_Scan": False,
                 "Ramsey_01_Scan": False,
                 "Ramsey_11_Scan": False,
