@@ -2207,10 +2207,10 @@ def CW_optical_pumping_node1(self):
     delay(5 * us)
 
     ### Turning on fiber AOMs for delivery of the pumping repump
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-5.0))
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-5.0))
+    # self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-5.0))
+    # self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-5.0))
+    # self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-5.0))
+    # self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-5.0))
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
 
@@ -2247,10 +2247,10 @@ def CW_optical_pumping_node1(self):
 
     delay(1 * us)
 
-    self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
-    self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
-    self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
-    self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
+    # self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
+    # self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
+    # self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
+    # self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
@@ -2332,6 +2332,56 @@ def CW_optical_pumping_node2(self):
     delay(5 * us)
 
 @kernel
+def record_CW_optical_pumping_node1(self):
+    with self.core_dma.record("CW_optical_pumping_node1"):
+        ### Turn off unused light
+        with parallel:
+            self.ttl_repump_switch.on()
+            self.ttl_exc0_switch.on()
+            self.dds_cooling_DP.sw.off()
+
+        ### Configure pumping-repump delivery AOMs
+        ### These must remain sequential if they share the same Urukul SPI bus
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+
+        with parallel:
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+
+        ### Program the coil voltages forward in time
+        self.zotino0.write_dac(self.coil_channels[0], self.AZ_bottom_volts_OP)
+        self.zotino0.write_dac(self.coil_channels[1], -self.AZ_bottom_volts_OP)
+        self.zotino0.write_dac(self.coil_channels[2], self.AX_volts_OP)
+        self.zotino0.write_dac(self.coil_channels[3], self.AY_volts_OP)
+        delay(1.5 * us)
+        self.zotino0.load()
+
+        ### Physical coil-relaxation time
+        delay(0.4 * ms)
+
+        ### Optical pumping
+        with parallel:
+            self.ttl_pumping_repump_switch.off()
+            self.dds_D1_pumping_DP.sw.on()
+
+        delay(self.t_pumping)
+
+        self.dds_D1_pumping_DP.sw.off()
+
+        delay(self.t_depumping)
+
+        ### Turn off all pumping RF/light paths
+        with parallel:
+            self.ttl_pumping_repump_switch.on()
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
+@kernel
 def record_CW_optical_pumping_node2(self):
     with self.core_dma.record("CW_optical_pumping_node2"):
         ### Turn off unused light
@@ -2391,6 +2441,7 @@ def record_CW_optical_pumping_node2(self):
         ### Restore feedback amplitudes while RF switches are off
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+        delay(1.7 * us)  ### to match the timing with node1
 
 @kernel
 def record_recooling(self):
@@ -4553,10 +4604,19 @@ def microwave_Rabi_2_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
+
+    # node1_epoch, node1_duration_mu, node1_ptr = CW_OP_node1_handle
+    # node2_epoch, node2_duration_mu, node2_ptr = CW_OP_node2_handle
+    #
+    # self.print_async("Node 1 DMA duration:", node1_duration_mu, "mu")
+    # self.print_async("Node 2 DMA duration:", node2_duration_mu, "mu")
+    # self.print_async("Node 2 minus Node 1:", node2_duration_mu - node1_duration_mu, "mu")
 
     self.core.break_realtime()
 
@@ -4612,7 +4672,8 @@ def microwave_Rabi_2_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
@@ -4712,9 +4773,11 @@ def microwave_Ramsey_00_experiment(self):
         delay(1*ms)
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -4763,7 +4826,8 @@ def microwave_Ramsey_00_experiment(self):
         if self.t_pumping > 0.0:
             delay(10 * us)
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
@@ -4863,9 +4927,11 @@ def microwave_Ramsey_11_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -4911,7 +4977,8 @@ def microwave_Ramsey_11_experiment(self):
         if self.t_pumping > 0.0:
             delay(10 * us)
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
@@ -5018,9 +5085,11 @@ def microwave_Rabi_2_and_EXC_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -5074,11 +5143,12 @@ def microwave_Rabi_2_and_EXC_experiment(self):
         ############################
         if self.t_pumping > 0.0:
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
-                delay(10*us)
+            delay(10*us)
 
         for excitation_attempt in range(self.n_excitation_attempts):  ##### testing with multiple excitations
 
@@ -5334,9 +5404,11 @@ def microwave_map01_map11_experiment(self):
     delay(1 * ms)
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     delay(1 * ms)
@@ -5381,11 +5453,12 @@ def microwave_map01_map11_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
-                delay(5.5 * us) ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correctly
+            delay(5.5 * us) ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correctly
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
 
@@ -5507,9 +5580,13 @@ def microwave_map01_map11_CORPSE_experiment(self):
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
+    record_CW_optical_pumping_node2(self)
     # record_chopped_optical_pumping(self)
     # delay(100 * ms)
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
+    CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     if self.enable_laser_feedback:
         delay(0.1 * ms)  ### necessary to avoid underflow
@@ -5557,9 +5634,11 @@ def microwave_map01_map11_CORPSE_experiment(self):
         if self.t_pumping > 0.0:
             delay(10 * us)
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
-                CW_optical_pumping_node2(self)
+                # CW_optical_pumping_node2(self)
+                self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10 * us)
 
         # if self.t_pumping > 0.0:
@@ -5723,9 +5802,11 @@ def microwave_map00_map0m1_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -5774,7 +5855,8 @@ def microwave_map00_map0m1_experiment(self):
         if self.t_pumping > 0.0:
             # delay(10 * us)
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
@@ -5880,9 +5962,11 @@ def microwave_map01_MWRFm11_experiment(self):
 
     delay(1 * ms)
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     delay(1 * ms)
@@ -5937,11 +6021,12 @@ def microwave_map01_MWRFm11_experiment(self):
         if self.t_pumping > 0.0:
             delay(10 * us)
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
-                delay(10 * us)
+            delay(10 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
         # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
@@ -6062,9 +6147,11 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -6116,7 +6203,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         if self.t_pumping > 0.0:
             delay(10 * us)
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
@@ -6248,9 +6336,11 @@ def microwave_map00_RF01_map00_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -6298,7 +6388,8 @@ def microwave_map00_RF01_map00_experiment(self):
         if self.t_pumping > 0.0:
             delay(10 * us)
             if self.which_node == "alice":
-                CW_optical_pumping_node1(self)
+                # CW_optical_pumping_node1(self)
+                self.core_dma.playback_handle(CW_OP_node1_handle)
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
