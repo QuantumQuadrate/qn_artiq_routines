@@ -175,16 +175,26 @@ def tune_coil_driver_experiment(self):
     delay(1 * s)
     ### set coils for pumping
     for i in range(100000):
-        ### Set the coils to MOT loading setting
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
-            channels=self.coil_channels)
+        # ### Set the coils to MOT loading setting
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+        #     channels=self.coil_channels)
 
-        delay(4*ms)
+        # self.zotino0.set_dac([0.0, 0.0, 0.0, 3.0], channels=self.coil_channels)
+
         self.zotino0.set_dac(
             [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
             channels=self.coil_channels)
-        delay(4 * ms)  # coil relaxation time
+
+        delay(10 * ms)
+
+        # self.zotino0.set_dac([0.0, 0.0, 0.0, 0.0], channels=self.coil_channels)
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+            channels=self.coil_channels)
+
+        delay(10 * ms)  # coil relaxation time
+
 
 @kernel
 def test_excitation_rise_time_experiment(self):
@@ -4679,7 +4689,8 @@ def microwave_Rabi_2_experiment(self):
                 self.core_dma.playback_handle(CW_OP_node2_handle)
 
         ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correclty
-        delay(10*us)
+        # delay(10*us)
+        delay(self.dummy_variable)
 
         ############################
         # microwave phase
@@ -8843,11 +8854,13 @@ def single_photon_experiment_8_atom_loading_advance_AllSPCM(self):
     delay(1 * ms)
 
     #### recording DMA
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
     record_recooling(self)
     record_excitation_and_photon_collection(self)
 
     #### getting DMA handles
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
     recooling_dma_handle = self.core_dma.get_handle("recooling")
     excitation_dma_handle = self.core_dma.get_handle("excitation_and_photon_collection")
@@ -8931,9 +8944,8 @@ def single_photon_experiment_8_atom_loading_advance_AllSPCM(self):
             if self.t_pumping > 0.0:
                 # delay(10 * us)
                 if self.which_node == "alice":
-                    delay(10 * us)
-                    CW_optical_pumping_node1(self)
-                    delay(10 * us)
+                    # CW_optical_pumping_node1(self)
+                    self.core_dma.playback_handle(CW_OP_node1_handle)
                 else:
                     self.core_dma.playback_handle(CW_OP_node2_handle)
 
@@ -12823,6 +12835,7 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
 
     #### recording DMA
     record_chopped_blow_away(self)
+    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
     # record_recooling(self)
     record_excitation_and_photon_collection(self)
@@ -12830,6 +12843,7 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
 
     #### getting DMA handles
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
     # recooling_dma_handle = self.core_dma.get_handle("recooling")
     excitation_dma_handle = self.core_dma.get_handle("excitation_and_photon_collection")
@@ -12908,12 +12922,12 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
             if self.t_pumping > 0.0:
                 # delay(10 * us)
                 if self.which_node == "alice":
-                    CW_optical_pumping_node1(self)
-                    delay(10 * us)
+                    # CW_optical_pumping_node1(self)
+                    self.core_dma.playback_handle(CW_OP_node1_handle)
                 else:
                     # CW_optical_pumping_node2(self)
                     self.core_dma.playback_handle(CW_OP_node2_handle)
-            t_after_OP_dma = now_mu()
+            # t_after_OP_dma = now_mu()
 
             # if self.which_node == "alice":
             #     ### Changing the bias field.
