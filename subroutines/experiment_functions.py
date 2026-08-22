@@ -38,6 +38,49 @@ Table of contents:
 ###############################################################################
 
 @kernel
+def wait_for_ac_trigger(self, phase_delay_mu: TInt64) -> TInt64:
+    """
+    Wait for a 60 Hz zero-crossing rising edge and return a future
+    RTIO timestamp having the requested phase delay.
+
+    * ttl_node1_input2 is temporarily being used for AC trigger input
+
+    ### add this line where you want to trigger to AC line
+        ### 60Hz triggering
+        phase_delay_mu = self.core.seconds_to_mu(self.dummy_variable)
+        t_sequence_mu = wait_for_ac_trigger(self, phase_delay_mu)
+        at_mu(t_sequence_mu)
+    """
+
+    T60_mu = self.core.seconds_to_mu(1.0 / 60.0) ##16.6ms
+    margin_mu = self.core.seconds_to_mu(500 * us)
+
+    self.core.break_realtime()
+
+    t0 = np.int64(-1)
+
+    # Use a gate shorter than one 60 Hz period, so that at most
+    # one rising edge can be recorded in each gate.
+    while t0 < 0:
+        gate_end_mu = self.ttl_node1_input2.gate_rising(10 * ms)
+        t0 = self.ttl_node1_input2.timestamp_mu(gate_end_mu)
+
+        if t0 < 0:
+            # The edge occurred outside this 10 ms window.
+            # Restore RTIO slack and open another gate.
+            self.core.break_realtime()
+
+    # Use the next equivalent AC cycle, not the detected edge itself.
+    t_start_mu = t0 + T60_mu + phase_delay_mu
+
+    # Safety check: guarantee that the event remains sufficiently
+    # far ahead of the hardware RTIO counter.
+    while t_start_mu <= self.core.get_rtio_counter_mu() + margin_mu:
+        t_start_mu += T60_mu
+
+    return t_start_mu
+
+@kernel
 def test_ttl_pulse_experiment(self):
     """
     testing TTL on scope
@@ -4695,6 +4738,11 @@ def microwave_Rabi_2_experiment(self):
         #     # delay(1 * ms)
         #     self.core.break_realtime()
 
+        # ### 60Hz triggering
+        # phase_delay_mu = self.core.seconds_to_mu(self.dummy_variable)
+        # t_sequence_mu = wait_for_ac_trigger(self, phase_delay_mu)
+        # at_mu(t_sequence_mu)
+
         ### with cw pumping:
         if self.t_pumping > 0.0:
             if self.which_node == "alice":
@@ -4705,8 +4753,9 @@ def microwave_Rabi_2_experiment(self):
                 self.core_dma.playback_handle(CW_OP_node2_handle)
 
         ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correclty
-        # delay(10*us)
-        delay(self.dummy_variable)
+        delay(10*us)
+        # delay(self.dummy_variable)
+        # delay(2*ms)
 
         ############################
         # microwave phase
@@ -5440,6 +5489,10 @@ def microwave_map01_map11_experiment(self):
 
     delay(1 * ms)
 
+    self.core.break_realtime()
+
+    self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(1 * ms)
     self.dds_microwaves.sw.on()  ### turns on the DDS not the switches.
 
     self.measurement = 0  # advances in end_measurement
@@ -5477,6 +5530,11 @@ def microwave_map01_map11_experiment(self):
         #     chopped_optical_pumping(self)
         #     delay(1 * ms)
 
+        # ### 60Hz triggering
+        # phase_delay_mu = self.core.seconds_to_mu(self.dummy_variable)
+        # t_sequence_mu = wait_for_ac_trigger(self, phase_delay_mu)
+        # at_mu(t_sequence_mu)
+
         ### with cw pumping:
         if self.t_pumping > 0.0:
             if self.which_node == "alice":
@@ -5485,7 +5543,7 @@ def microwave_map01_map11_experiment(self):
             else:
                 # CW_optical_pumping_node2(self)
                 self.core_dma.playback_handle(CW_OP_node2_handle)
-            delay(5.5 * us) ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correctly
+            # delay(5.5 * us) ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correctly
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
 
@@ -5493,6 +5551,8 @@ def microwave_map01_map11_experiment(self):
         # self.zotino0.set_dac([self.AZ_bottom_volts_microwave, -self.AZ_bottom_volts_microwave,
         #                       self.AX_volts_microwave, self.AY_volts_microwave],
         #                      channels=self.coil_channels)
+
+        # delay(2*ms)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_01_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(2 * us)
@@ -5512,7 +5572,7 @@ def microwave_map01_map11_experiment(self):
         delay(2*us)
 
         self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
-        delay(2 * us)
+        delay(5 * us)
 
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
         delay(2 * us)
@@ -5528,6 +5588,7 @@ def microwave_map01_map11_experiment(self):
         self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
         delay(2 * us)
 
+        self.core.break_realtime()
         ############################ blow-away phase - push out atoms in F=2 only
         if self.t_blowaway > 0.0:
             self.core_dma.playback_handle(ba_dma_handle)
