@@ -2510,6 +2510,69 @@ def record_CW_optical_pumping_node2(self):
         ### Restore feedback amplitudes while RF switches are off
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+        # delay(1.7 * us)  ### to match the timing with node1
+
+@kernel
+def record_CW_optical_pumping_node2_without_coil(self):
+    with self.core_dma.record("CW_optical_pumping_node2_without_coil"):
+        ### Turn off unused light
+        with parallel:
+            self.dds_cooling_DP.sw.off()
+            self.ttl_repump_switch.on()
+            self.ttl_exc0_switch.on()
+            self.ttl_D1_pumping.on()
+
+        ### Configure pumping-repump delivery AOMs
+        ### These must remain sequential if they share the same Urukul SPI bus
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+
+        with parallel:
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+
+        # ### Program the coil voltages forward in time
+        # self.zotino0.write_dac(self.coil_channels[0], self.AZ_bottom_volts_OP)
+        # self.zotino0.write_dac(self.coil_channels[1], -self.AZ_bottom_volts_OP)
+        # self.zotino0.write_dac(self.coil_channels[2], self.AX_volts_OP)
+        # self.zotino0.write_dac(self.coil_channels[3], self.AY_volts_OP)
+        # delay(1.5 * us)
+        # self.zotino0.load()
+        #
+        # ### Physical coil-relaxation time
+        # delay(0.395 * ms)
+        # # delay(self.dummy_variable)
+
+        ### Configure GRIN1 DDS
+        self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+        self.GRIN1and2_dds.sw.on()
+        delay(2*us)
+
+        ### Optical pumping
+        with parallel:
+            self.ttl_pumping_repump_switch.off()
+            self.ttl_D1_pumping.off()
+            self.ttl_GRIN1_switch.off()
+
+        delay(self.t_pumping)
+
+        ### Turn off D1 pumping light
+        with parallel:
+            self.ttl_D1_pumping.on()
+            self.ttl_GRIN1_switch.on()
+
+        delay(self.t_depumping)
+
+        ### Turn off all pumping RF/light paths
+        with parallel:
+            self.ttl_pumping_repump_switch.on()
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+            self.GRIN1and2_dds.sw.off()
+
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
         delay(1.7 * us)  ### to match the timing with node1
 
 @kernel
@@ -9178,6 +9241,303 @@ def single_photon_experiment_8_atom_loading_advance_AllSPCM(self):
     # delay(15 * ms)
     self.core.break_realtime()
 
+@kernel
+def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
+    """
+    This is similar to single_photon_experiment_8_atom_loading_advance
+    with "record_CW_optical_pumping_node2_without_coil"
+
+    - record_CW_optical_pumping_node2_without_coil
+    - waiting "0.4ms" for OP coil to relax at the beginning of excitation cycles and after atom check
+    - inside fast cycles, use 0.4ms relaxation time as before.
+    - short_timestamps_length increased to int(self.max_excitation_cycles * 0.5)
+    - Drain all additional edges, including when the timestamp buffer is already full
+    """
+
+    self.core.reset()
+    delay(1 * ms)
+
+    #### recording DMA
+    record_CW_optical_pumping_node1(self)
+    # record_CW_optical_pumping_node2(self)
+    record_CW_optical_pumping_node2_without_coil(self)
+    record_recooling(self)
+    record_excitation_and_photon_collection(self)
+
+    #### getting DMA handles
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
+    # CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
+    CW_OP_node2_without_coil_handle = self.core_dma.get_handle("CW_optical_pumping_node2_without_coil")
+    recooling_dma_handle = self.core_dma.get_handle("recooling")
+    excitation_dma_handle = self.core_dma.get_handle("excitation_and_photon_collection")
+
+    delay(1 * ms)
+    self.core.break_realtime()
+    AllSPCMs_RO_atom_check_array = [0]
+
+    ### short_timestamps_length is a fraction of the max_excitation_cycles. A photon is registered only in 5% of the
+    ### excitation cycles. So no need to keep a large array. For assurance, we can use an array 10% of the max_excitation_cycles.
+    # short_timestamps_length = int(self.max_excitation_cycles * 0.1)
+    short_timestamps_length = int(self.max_excitation_cycles * 0.5)
+
+    if self.enable_laser_feedback:
+        delay(0.1 * ms)  ### necessary to avoid underflow
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        run_feedback_and_record_FORT_MM_power(self)
+
+    self.measurement = 0  # advances in end_measurement
+    delay(100*ms)
+
+    while self.measurement < self.n_measurements:
+        Any_SPCM_click_counter = 0
+
+        AllSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        tStamps_t1 = [0.0]  * short_timestamps_length
+        SPCM0_timestamps = [-1.0]  * short_timestamps_length
+        SPCM1_timestamps = [-1.0]  * short_timestamps_length
+        SPCM0_OtherNode_timestamps = [-1.0]  * short_timestamps_length
+        SPCM1_OtherNode_timestamps = [-1.0]  * short_timestamps_length
+
+        self.core.break_realtime()
+        self.ttl_exc0_switch.on()  # turns off the excitation
+        # delay(1 * ms)
+
+        # load_MOT_and_FORT_until_atom(self)
+        load_until_atom_smooth_FORT_recycle(self)
+        # delay(1 * ms)
+
+        first_shot(self)
+        delay(1 * ms)
+
+        if self.t_recooling_after_first_shot > 0:
+            recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(5 * us)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
+        self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
+
+        if self.which_node == "alice":
+            # self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            delay(5 * us)
+            self.GRIN1and2_dds.sw.on()
+        else:
+            self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+            delay(5 * us)
+            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            delay(5 * us)
+            self.GRIN1and2_dds.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            delay(5 * us)
+            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            delay(5 * us)
+
+        excitation_cycle = 1 ### just for initialization.
+
+        ### set coils for pumping
+        self.zotino0.set_dac(
+            [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+            channels=self.coil_channels)
+        # delay(5 * ms)
+        delay(0.4 * ms)
+
+        for excitation_cycle in range(self.max_excitation_cycles):
+            self.core.break_realtime()
+
+            ############################### CW optical pumping phase - pumps atoms into F=1,m_F=0
+            if self.t_pumping > 0.0:
+                # delay(10 * us)
+                if self.which_node == "alice":
+                    # CW_optical_pumping_node1(self)
+                    self.core_dma.playback_handle(CW_OP_node1_handle)
+                else:
+                    self.core_dma.playback_handle(CW_OP_node2_without_coil_handle)
+
+            ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
+            for excitation_attempt in range(self.n_excitation_attempts):
+                slack = now_mu() - self.core.get_rtio_counter_mu()
+                if slack < 1e5:
+                    # self.print_async("slack added in measurement:", self.measurement)
+                    self.core.break_realtime()
+
+                dma_start_mu = now_mu()
+                self.core_dma.playback_handle(excitation_dma_handle)
+
+                t1 = dma_start_mu + self.core.seconds_to_mu(5 * us)
+                t_end_SPCM = t1 + int(self.gate_start_offset_mu) + self.core.seconds_to_mu(self.t_photon_collection_time)
+
+                SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM)
+                SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM)
+                SPCM0_OtherNode_click_time = self.ttl_SPCM0_OtherNode.timestamp_mu(t_end_SPCM)
+                SPCM1_OtherNode_click_time = self.ttl_SPCM1_OtherNode.timestamp_mu(t_end_SPCM)
+
+                if SPCM0_click_time > 0.0 or SPCM1_click_time > 0.0 or  SPCM0_OtherNode_click_time > 0.0 or SPCM1_OtherNode_click_time > 0.0:
+                    if Any_SPCM_click_counter < short_timestamps_length:
+                        if SPCM0_click_time > 0.0:
+                            SPCM0_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(SPCM0_click_time)
+
+                        if SPCM1_click_time > 0.0:
+                            SPCM1_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(SPCM1_click_time)
+
+                        if SPCM0_OtherNode_click_time > 0.0:
+                            SPCM0_OtherNode_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(SPCM0_OtherNode_click_time)
+
+                        if SPCM1_OtherNode_click_time > 0.0:
+                            SPCM1_OtherNode_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(SPCM1_OtherNode_click_time)
+
+                        tStamps_t1[Any_SPCM_click_counter] = self.core.mu_to_seconds(t1)
+                        Any_SPCM_click_counter += 1
+
+                    ### Drain all additional edges, including when the timestamp buffer is already full
+                    if SPCM0_click_time > 0: self.ttl_SPCM0.count(t_end_SPCM)
+                    if SPCM1_click_time > 0: self.ttl_SPCM1.count(t_end_SPCM)
+                    if SPCM0_OtherNode_click_time > 0: self.ttl_SPCM0_OtherNode.count(t_end_SPCM)
+                    if SPCM1_OtherNode_click_time > 0: self.ttl_SPCM1_OtherNode.count(t_end_SPCM)
+
+                delay(5 * us)
+
+            ############################ atom cooling phase with PGC settings
+            if self.t_recooling > 0  and (excitation_cycle + 1) % self.recool_every_n_OP == 0:
+                self.core_dma.playback_handle(recooling_dma_handle)
+                delay(5*us)
+
+                # if not (excitation_cycle + 1) % self.atom_check_every_n == 0:
+                ## set coils for pumping
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                    channels=self.coil_channels)
+                delay(0.4*ms)
+
+            ############################# readout to see if the atom survived every self.atom_check_every_n
+            if (excitation_cycle + 1) % self.atom_check_every_n == 0:
+                delay(5*us)
+
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                    channels=self.coil_channels)
+                delay(0.4 * ms)
+
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+
+                ### todo: this is inside recooling block. I am recooling every cycle so do not have set coils here
+
+                self.dds_cooling_DP.sw.on()
+                self.ttl_repump_switch.off()
+                delay(1 * us)
+
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.sw.on()
+                    self.dds_AOM_A6.sw.on()
+
+                delay(1 * us)
+
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_recool_and_shot)
+
+                SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
+                SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
+                SPCM0_OtherNode_RO_atom_check = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+                SPCM1_OtherNode_RO_atom_check = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+
+                AllSPCMs_RO_atom_check = int(SPCM0_RO_atom_check + SPCM1_RO_atom_check + SPCM0_OtherNode_RO_atom_check + SPCM1_OtherNode_RO_atom_check)
+                AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
+
+                ### stopping the excitation cycle after the atom is lost
+                if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                    delay(100 * us)
+                    break
+
+                delay(10 * us)
+                self.dds_cooling_DP.sw.off()
+                self.ttl_repump_switch.on()
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                delay(1 * us)
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.sw.off()
+                    self.dds_AOM_A6.sw.off()
+                delay(1 * us)
+                ##############################
+
+                ### set coils for pumping
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                    channels=self.coil_channels)
+                # delay(5*ms)
+                delay(0.4 * ms)
+
+            delay(5 * us)
+
+        delay(5*us)
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
+        self.core.break_realtime()
+
+        self.GRIN1and2_dds.sw.off()
+        self.dds_D1_pumping_DP.sw.off()
+        delay(0.1 * ms)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        delay(0.1 * ms)
+
+        end_measurement(self)
+
+        # delay(5 * ms)
+        self.core.break_realtime()
+
+        ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
+        ### the atom is lost. +1 is because python sttops the loop one count earlier.
+        for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+            self.append_to_dataset('AllSPCMs_RO_atom_check', val)
+
+        i = 0
+        while i < len(tStamps_t1) and tStamps_t1[i] > 0.0:
+            self.append_to_dataset('SPCM0_SinglePhoton_reduced_tStamps', SPCM0_timestamps[i])
+            self.append_to_dataset('SPCM1_SinglePhoton_reduced_tStamps', SPCM1_timestamps[i])
+            self.append_to_dataset('SPCM0_OtherNode_SinglePhoton_reduced_tStamps', SPCM0_OtherNode_timestamps[i])
+            self.append_to_dataset('SPCM1_OtherNode_SinglePhoton_reduced_tStamps', SPCM1_OtherNode_timestamps[i])
+            self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
+            i += 1
+
+        ### Number of compact timestamp rows saved during this measurement
+        self.append_to_dataset('n_photon_events', Any_SPCM_click_counter)
+
+        self.append_to_dataset('n_excitation_cycles', excitation_cycle)
+
+        # delay(1*ms)
+        self.core.break_realtime()
+
+    # delay(15 * ms)
+    self.core.break_realtime()
 
 @kernel
 def atom_photon_parity_2_experiment(self):
@@ -13052,6 +13412,10 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
                 elif SPCM0_click_time < 0 and SPCM1_click_time < 0 and SPCM0_OtherNode_click_time < 0 and SPCM1_OtherNode_click_time > 0:
                     detector, mapping_click_time = 3, SPCM1_OtherNode_click_time
 
+                ###todo: somehow there are some early counts detected. if this can be sorted out, can resolve underflow caused by this?
+                ### probably no! early counts happen in single photon experiments but not here. because after this sequence,
+                ### the left over counts will be collected in atom_parity_shot???
+
                 if detector >= 0:
                     at_mu(mapping_click_time + self.t_start_MW_mapping_mu)
                     # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
@@ -13072,6 +13436,13 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
 
                     delay(5 * us)
                     atom_parity_shot(self)
+
+                    #todo: test if this reduces the mapping time & underflow errors
+                    ### Drain additional timestamp events from the previous photon gate
+                    if SPCM0_click_time > 0: self.ttl_SPCM0.count(t_end_SPCM)
+                    if SPCM1_click_time > 0: self.ttl_SPCM1.count(t_end_SPCM)
+                    if SPCM0_OtherNode_click_time > 0: self.ttl_SPCM0_OtherNode.count(t_end_SPCM)
+                    if SPCM1_OtherNode_click_time > 0: self.ttl_SPCM1_OtherNode.count(t_end_SPCM)
 
                     self.core.break_realtime()
                     delay(1 * ms)
