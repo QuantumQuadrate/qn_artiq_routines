@@ -2,6 +2,9 @@
 
 from artiq.experiment import kernel, delay, ms, us
 
+from ExperimentVariables_Node1 import NODE1_VARIABLES
+from ExperimentVariables_Node2 import NODE2_VARIABLES
+from ExperimentVariables_master_satellite import MASTER_SATELLITE_VARIABLES
 from utilities.DeviceAliases_master_satellite import (
     DeviceAliasesMasterSatellite,
 )
@@ -104,6 +107,51 @@ class BaseExperimentMasterSatellite:
         "ttl_SPCM1_OtherNode": "SPCM_V2",
     }
 
+    SINGLE_NODE_WIRING_METADATA = {
+        "Node1": {
+            "coil_names": ["AZ bottom", "AZ top", "AX", "AY"],
+            "AZ_bottom_Zotino_channel": 0,
+            "AZ_top_Zotino_channel": 1,
+            "AX_Zotino_channel": 13,
+            "AY_Zotino_channel": 14,
+            "coil_channels": [0, 1, 13, 14],
+            "UV_trig_channel": [8],
+            "Osc_trig_channel": [10],
+            "FORT_MM_sampler_ch": 7,
+            "GRIN1_sampler_ch": 4,
+            "Magnetometer_X_ch": 1,
+            "Magnetometer_Y_ch": 2,
+            "Magnetometer_Z_ch": 3,
+        },
+        "Node2": {
+            "coil_names": ["AZ bottom", "AZ top", "AX", "AY"],
+            "AZ_bottom_Zotino_channel": 0,
+            "AZ_top_Zotino_channel": 1,
+            "AX_Zotino_channel": 2,
+            "AY_Zotino_channel": 3,
+            "coil_channels": [0, 1, 2, 3],
+            "UV_trig_channel": [8],
+            "Osc_trig_channel": [10],
+            "FORT_MM_sampler_ch": 7,
+            "GRIN1_sampler_ch": 4,
+            "Magnetometer_X_ch": 1,
+            "Magnetometer_Y_ch": 2,
+            "Magnetometer_Z_ch": 3,
+        },
+    }
+
+    MAGNETOMETER_RESULT_DATASETS = (
+        "Magnetometer_Zero_X",
+        "Magnetometer_Zero_Y",
+        "Magnetometer_Zero_Z",
+        "Magnetometer_OP_X",
+        "Magnetometer_OP_Y",
+        "Magnetometer_OP_Z",
+        "Magnetometer_MOT_X",
+        "Magnetometer_MOT_Y",
+        "Magnetometer_MOT_Z",
+    )
+
     def __init__(
         self,
         experiment,
@@ -144,6 +192,22 @@ class BaseExperimentMasterSatellite:
 
         self.node_resolvers = {}
         self.shared_spcm_resolver = None
+        self.compatibility_variable_map = {}
+        self.global_variable_names = frozenset(
+            variable.name for variable in MASTER_SATELLITE_VARIABLES
+        )
+        self.node_variable_names = {
+            node: frozenset(
+                variable.name
+                for variable in self._node_variable_definitions(node)
+            )
+            for node in self.VALID_NODES
+        }
+        self.unsuffixed_node_variable_names = frozenset(
+            variable.name[:-len(f"_{node}")]
+            for node in self.VALID_NODES
+            for variable in self._node_variable_definitions(node)
+        )
         self._built = False
         self._prepared = False
 
@@ -192,6 +256,8 @@ class BaseExperimentMasterSatellite:
         if self._built:
             raise RuntimeError("BaseExperimentMasterSatellite.build() called twice.")
 
+        self._load_experiment_variables()
+
         for device_name in ("core", "core_dma", "scheduler"):
             self.experiment.setattr_device(device_name)
 
@@ -210,7 +276,271 @@ class BaseExperimentMasterSatellite:
 
         self._bind_shared_spcms()
         self._publish_resolver_attributes()
+        self._install_single_node_wiring_metadata()
         self._built = True
+
+    def _install_single_node_wiring_metadata(self):
+        """Expose fixed legacy wiring metadata for the selected node."""
+        if self.experiment_mode != "single_node":
+            return
+
+        for name, value in self.SINGLE_NODE_WIRING_METADATA[
+            self.which_node
+        ].items():
+            # Copy lists so experiment code cannot mutate the class constant.
+            setattr(
+                self.experiment,
+                name,
+                list(value) if isinstance(value, list) else value,
+            )
+
+        self.experiment.measurements_progress = "measurements_progress"
+
+    def initialize_result_datasets(self):
+        """Create the minimal transient single-node magnetometer results."""
+        if self.experiment_mode != "single_node":
+            return
+        self.reset_result_state_for_scan_point()
+
+    def resolve_result_dataset_name(self, name):
+        """Resolve hard-coded legacy result names for the selected node."""
+        if (
+            self.experiment_mode == "single_node"
+            and name in self.MAGNETOMETER_RESULT_DATASETS
+        ):
+            return f"{name}_{self.which_node}"
+        return name
+
+    def reset_result_state_for_scan_point(self):
+        """Clear transient magnetometer results for one scan point.
+
+        This method deliberately does not read ExperimentVariables, touch the
+        core, bind devices, or reset any variable-dependent cached state.
+        """
+        if self.experiment_mode != "single_node":
+            return
+
+        self.experiment.set_dataset(
+            self.experiment.measurements_progress,
+            0.0,
+            broadcast=True,
+            persist=False,
+        )
+        for legacy_dataset_name in self.MAGNETOMETER_RESULT_DATASETS:
+            dataset_name = self.resolve_result_dataset_name(
+                legacy_dataset_name
+            )
+            self.experiment.set_dataset(
+                dataset_name,
+                [0.0],
+                broadcast=True,
+                persist=False,
+            )
+
+    @staticmethod
+    def _node_variable_definitions(node):
+        return {
+            "Node1": NODE1_VARIABLES,
+            "Node2": NODE2_VARIABLES,
+        }[node]
+
+    def _load_experiment_variables(self):
+        """Load authoritative datasets without creating or modifying them."""
+        missing_by_owner = {}
+
+        for node in self.active_nodes:
+            missing = self._load_variable_definitions(
+                self._node_variable_definitions(node)
+            )
+            if missing:
+                missing_by_owner[f"ExperimentVariables_{node}.py"] = missing
+
+        missing_globals = self._load_variable_definitions(
+            MASTER_SATELLITE_VARIABLES
+        )
+        if missing_globals:
+            missing_by_owner[
+                "ExperimentVariables_master_satellite.py"
+            ] = missing_globals
+
+        if missing_by_owner:
+            self._raise_missing_datasets(missing_by_owner)
+
+        if self.experiment_mode == "single_node":
+            suffix = f"_{self.which_node}"
+            self.compatibility_variable_map = {
+                variable.name[:-len(suffix)]: variable.name
+                for variable in self._node_variable_definitions(
+                    self.which_node
+                )
+            }
+            self.refresh_compatibility_variables()
+
+    def _load_variable_definitions(self, definitions):
+        missing = []
+        for variable in definitions:
+            try:
+                value = self.experiment.get_dataset(variable.name)
+            except KeyError:
+                missing.append(variable.name)
+                continue
+            setattr(self.experiment, variable.name, value)
+        return missing
+
+    def refresh_compatibility_variables(self):
+        """Refresh single-node legacy attributes from authoritative values.
+
+        This method only copies in-memory experiment attributes. It never
+        reads, creates, or writes persistent datasets.
+        """
+        if self.experiment_mode != "single_node":
+            return
+
+        for compatibility_name, authoritative_name in (
+            self.compatibility_variable_map.items()
+        ):
+            try:
+                value = getattr(self.experiment, authoritative_name)
+            except AttributeError as error:
+                raise RuntimeError(
+                    "Missing authoritative master-satellite experiment "
+                    f"attribute {authoritative_name!r}."
+                ) from error
+            setattr(self.experiment, compatibility_name, value)
+
+    def resolve_experiment_variable_target(self, name):
+        """Resolve a GVS-facing name to its authoritative attribute name."""
+        if not isinstance(name, str) or not name:
+            raise ValueError(
+                "Experiment-variable target name must be a non-empty string."
+            )
+
+        if name in self.global_variable_names:
+            return name
+
+        if self.experiment_mode == "single_node":
+            selected_names = self.node_variable_names[self.which_node]
+            if name in selected_names:
+                return name
+
+            other_node = "Node2" if self.which_node == "Node1" else "Node1"
+            if name in self.node_variable_names[other_node]:
+                raise ValueError(
+                    f"Experiment-variable target {name!r} belongs to "
+                    f"{other_node}, but single_node mode selected "
+                    f"{self.which_node}."
+                )
+
+            try:
+                return self.compatibility_variable_map[name]
+            except KeyError:
+                raise ValueError(
+                    f"Unknown experiment-variable target {name!r} for "
+                    f"single_node {self.which_node}."
+                ) from None
+
+        for node in self.VALID_NODES:
+            if name in self.node_variable_names[node]:
+                return name
+
+        if name in self.unsuffixed_node_variable_names:
+            raise ValueError(
+                f"Ambiguous node-specific experiment-variable target "
+                f"{name!r} in two_nodes mode; use {name + '_Node1'!r} or "
+                f"{name + '_Node2'!r}."
+            )
+
+        raise ValueError(
+            f"Unknown experiment-variable target {name!r} in two_nodes mode."
+        )
+
+    def refresh_variable_dependent_state(self):
+        """Refresh cached DDS defaults from current authoritative attributes."""
+        if not self._prepared:
+            raise RuntimeError(
+                "prepare() must be called before refreshing variable-dependent "
+                "state."
+            )
+
+        for node in self.active_nodes:
+            resolver = self.node_resolvers[node]
+            frequencies = []
+            powers = []
+            for binding in resolver.dds_bindings:
+                frequency_name = binding["frequency_attribute"]
+                power_name = binding["power_attribute"]
+                try:
+                    frequencies.append(
+                        getattr(self.experiment, frequency_name)
+                    )
+                    powers.append(getattr(self.experiment, power_name))
+                except AttributeError as error:
+                    raise RuntimeError(
+                        f"Missing authoritative DDS variable while refreshing "
+                        f"{node} alias {binding['logical_alias']!r}: {error}"
+                    ) from error
+
+            resolver.dds_frequencies[:] = frequencies
+            resolver.dds_powers[:] = powers
+
+    def reload_experiment_variables(self):
+        """Reload active authoritative/global datasets without side effects."""
+        if not self._built or not self._prepared:
+            raise RuntimeError(
+                "build() and prepare() must complete before reloading "
+                "master-satellite experiment variables."
+            )
+
+        values = {}
+        missing_by_owner = {}
+        for node in self.active_nodes:
+            node_values, missing = self._read_variable_definitions(
+                self._node_variable_definitions(node)
+            )
+            values.update(node_values)
+            if missing:
+                missing_by_owner[f"ExperimentVariables_{node}.py"] = missing
+
+        global_values, missing_globals = self._read_variable_definitions(
+            MASTER_SATELLITE_VARIABLES
+        )
+        values.update(global_values)
+        if missing_globals:
+            missing_by_owner[
+                "ExperimentVariables_master_satellite.py"
+            ] = missing_globals
+
+        if missing_by_owner:
+            self._raise_missing_datasets(missing_by_owner)
+
+        for name, value in values.items():
+            setattr(self.experiment, name, value)
+
+        self.refresh_compatibility_variables()
+        self.refresh_variable_dependent_state()
+
+    def _read_variable_definitions(self, definitions):
+        values = {}
+        missing = []
+        for variable in definitions:
+            try:
+                values[variable.name] = self.experiment.get_dataset(
+                    variable.name
+                )
+            except KeyError:
+                missing.append(variable.name)
+        return values, missing
+
+    @staticmethod
+    def _raise_missing_datasets(missing_by_owner):
+        details = []
+        for owner, names in missing_by_owner.items():
+            details.append(f"{owner}: {', '.join(names)}")
+        raise RuntimeError(
+            "Missing required master-satellite persistent datasets. "
+            "Run the indicated ExperimentVariables initializer(s): "
+            + "; ".join(details)
+        )
 
     def _bind_node_physical_devices(self, node, resolver):
         groups = (
@@ -346,7 +676,7 @@ class BaseExperimentMasterSatellite:
 
         for node in self.active_nodes:
             resolver = self.node_resolvers[node]
-            self._publish_compatibility_default_attributes(node, resolver)
+            self.refresh_compatibility_variables()
             for logical_alias in self.DDS_ALIASES:
                 resolver.bind_dds(
                     logical_alias,
@@ -366,30 +696,6 @@ class BaseExperimentMasterSatellite:
             setattr(self.experiment, all_dds_attribute, list(resolver.dds_list))
 
         self._prepared = True
-
-    def _publish_compatibility_default_attributes(self, node, resolver):
-        if self.experiment_mode != "single_node":
-            return
-
-        default_names = set()
-        for defaults in resolver.dds_defaults.values():
-            default_names.add(defaults["frequency"])
-            default_names.add(defaults["power"])
-
-        for compatibility_name in default_names:
-            authoritative_name = self._default_attribute_name(
-                node, compatibility_name
-            )
-            try:
-                authoritative_value = getattr(
-                    self.experiment, authoritative_name
-                )
-            except AttributeError as error:
-                raise RuntimeError(
-                    f"Missing authoritative master-satellite variable "
-                    f"{authoritative_name!r} for {node}."
-                ) from error
-            setattr(self.experiment, compatibility_name, authoritative_value)
 
     @kernel
     def _wait_for_satellite(self):

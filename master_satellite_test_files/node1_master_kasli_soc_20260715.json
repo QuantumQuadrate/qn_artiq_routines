@@ -1,0 +1,61 @@
+{
+    "target": "kasli_soc",
+    "variant": "drtio_master",
+    "hw_rev": "v1.0",
+    "base": "master",
+    "core_addr": "192.168.1.75",
+    "rtio_frequency":125e6,
+    "peripherals": [
+        {
+            "type": "dio",
+            "ports": [0],
+            "bank_direction_low": "input",
+            "bank_direction_high": "output",
+            "edge_counter":true
+        },
+        {
+            "type": "dio",
+            "ports": [1],
+            "bank_direction_low": "input",
+            "bank_direction_high": "output",
+            "edge_counter":true
+        },
+        {
+            "type": "sampler",
+            "ports": [2]
+        },
+        {
+            "type": "sampler",
+            "ports": [3]
+        },
+        {
+            "type": "sampler",
+            "ports": [4]
+        },
+        {
+            "type": "zotino",
+            "ports": [5]
+        },
+        {
+            "type": "urukul",
+            "dds": "ad9910",
+            "ports": [6, 7],
+            "synchronization":true,
+            "clk_sel": 2
+        },
+        {
+            "type": "urukul",
+            "dds": "ad9910",
+            "ports": [8, 9],
+            "synchronization":true,
+            "clk_sel": 2
+        },
+        {
+            "type": "urukul",
+            "dds": "ad9910",
+            "ports": [10, 11],
+            "synchronization":true,
+            "clk_sel": 2
+        }
+    ]
+}
