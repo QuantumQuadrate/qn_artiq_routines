@@ -83,17 +83,10 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
             else self.DEFAULT_MODE
         )
 
-        try:
-            persistent_n_measurements = self.get_dataset("n_measurements")
-        except KeyError:
-            # GUI metadata must remain examinable before the global initializer
-            # has been run. Runtime Base configuration still fails clearly if
-            # the required persistent dataset is missing.
-            persistent_n_measurements = 100
         self.setattr_argument(
             "n_measurements",
             NumberValue(
-                persistent_n_measurements,
+                100,
                 ndecimals=0,
                 step=1,
                 type="int",

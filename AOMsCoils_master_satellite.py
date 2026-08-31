@@ -57,9 +57,9 @@ class AOMsCoils_master_satellite(EnvExperiment):
     def build(self):
         # Both nodes must remain accessible even in node1/node2 selections so
         # that the unselected node can be actively forced to a safe state.
-        self.base = BaseExperimentMasterSatellite(
-            experiment=self, experiment_mode="two_nodes"
-        )
+        # Execution configuration is deferred so repository examination does
+        # not require persistent calibration datasets to exist.
+        self.base = BaseExperimentMasterSatellite(experiment=self)
         self.base.build()
 
         self.setattr_argument(
@@ -90,13 +90,13 @@ class AOMsCoils_master_satellite(EnvExperiment):
                 self.setattr_argument(
                     f"{coil_name}_voltage_{node}",
                     NumberValue(
-                        getattr(self, f"{coil_name}_volts_MOT_{node}"),
+                        0.0,
                         unit="V",
                         min=-10.0,
                         max=10.0,
                         ndecimals=3,
                     ),
-                    f"{node} run-local coil voltages",
+                    f"{node} run-local coil voltages (safe 0 V default)",
                 )
 
             self.setattr_argument(
@@ -117,12 +117,17 @@ class AOMsCoils_master_satellite(EnvExperiment):
         )
 
     def prepare(self):
-        self.base.prepare()
         if self.which_node not in self.VALID_NODE_SELECTIONS:
             raise ValueError(
                 f"Unsupported which_node {self.which_node!r}; expected "
                 "'node1', 'node2', or 'two_nodes'."
             )
+
+        # This utility always needs both nodes physically available even when
+        # one node is selected, because the other node is actively forced OFF.
+        # Strict authoritative dataset loading happens here, before hardware.
+        self.base.configure_execution("two_nodes")
+        self.base.prepare()
 
         self.node1_active = self.which_node in ("node1", "two_nodes")
         self.node2_active = self.which_node in ("node2", "two_nodes")

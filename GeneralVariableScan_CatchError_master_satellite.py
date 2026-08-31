@@ -7,12 +7,12 @@ from artiq.experiment import BooleanValue, NumberValue
 from artiq.coredevice.exceptions import RTIOUnderflow
 
 from GeneralVariableScan_master_satellite import (
-    GeneralVariableScanMasterSatellite,
+    GeneralVariableScanMasterSatellite as _GeneralVariableScanMasterSatellite,
 )
 
 
 class GeneralVariableScan_CatchError_master_satellite(
-    GeneralVariableScanMasterSatellite
+    _GeneralVariableScanMasterSatellite
 ):
     """GeneralVariableScan_CatchError_master_satellite
 

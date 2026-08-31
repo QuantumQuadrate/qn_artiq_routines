@@ -2,6 +2,7 @@ import sys
 import types
 import unittest
 import json
+import importlib
 from pathlib import Path
 
 
@@ -204,14 +205,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
     def _make_repository_examination_experiment(experiment_class):
         experiment_instance = experiment_class()
         experiment_instance.dataset_reads = []
-        experiment_instance.datasets = {
-            variable.name: variable.value
-            for variable in (
-                NODE1_VARIABLES
-                + NODE2_VARIABLES
-                + MASTER_SATELLITE_VARIABLES
-            )
-        }
+        experiment_instance.datasets = {}
         with Path(
             "utilities/config/master_satellite/device_aliases.json"
         ).open() as config_file:
@@ -259,7 +253,59 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         )
         scan.build()
         self.assertFalse(scan.base._execution_configured)
-        self.assertEqual(scan.dataset_reads, ["n_measurements"])
+        self.assertEqual(scan.dataset_reads, [])
+
+        manual = self._make_repository_examination_experiment(
+            AOMsCoils_master_satellite
+        )
+        manual.build()
+        self.assertFalse(manual.base._execution_configured)
+        self.assertEqual(manual.dataset_reads, [])
+
+    def test_empty_examination_does_not_weaken_runtime_dataset_validation(self):
+        for experiment_class, configure in (
+            (
+                GeneralVariableScanMasterSatellite,
+                lambda instance: (
+                    setattr(instance, "experiment_mode", "single_node"),
+                    setattr(instance, "selected_node", "Node1"),
+                ),
+            ),
+            (
+                AOMsCoils_master_satellite,
+                lambda instance: setattr(instance, "which_node", "node1"),
+            ),
+        ):
+            with self.subTest(experiment=experiment_class.__name__):
+                instance = self._make_repository_examination_experiment(
+                    experiment_class
+                )
+                instance.build()
+                configure(instance)
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "Missing required master-satellite persistent datasets",
+                ):
+                    instance.prepare()
+
+    def test_catch_error_module_exposes_only_its_own_public_gvs_class(self):
+        main_module = importlib.import_module(
+            "GeneralVariableScan_master_satellite"
+        )
+        catch_module = importlib.import_module(
+            "GeneralVariableScan_CatchError_master_satellite"
+        )
+        self.assertIs(
+            main_module.GeneralVariableScanMasterSatellite,
+            GeneralVariableScanMasterSatellite,
+        )
+        self.assertFalse(
+            hasattr(catch_module, "GeneralVariableScanMasterSatellite")
+        )
+        self.assertIs(
+            catch_module.GeneralVariableScan_CatchError_master_satellite,
+            GeneralVariableScan_CatchError_master_satellite,
+        )
 
     def test_single_node_registry_uses_current_functions_and_exclusions(self):
         # Other hardware-free test modules may narrow the wildcard-exported
