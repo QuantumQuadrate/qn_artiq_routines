@@ -57,6 +57,7 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
 
     VALID_MODES = ("single_node", "two_nodes")
     VALID_NODES = ("Node1", "Node2")
+    DEFAULT_MODE = "single_node"
     LEGACY_NODE_NAMES = {"Node1": "alice", "Node2": "bob"}
 
     def build(self):
@@ -67,19 +68,28 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
             "selected_node", EnumerationValue(self.VALID_NODES)
         )
 
-        selected_node = (
-            self.selected_node
-            if self.experiment_mode == "single_node"
-            else None
-        )
-        self.base = BaseExperimentMasterSatellite(
-            experiment=self,
-            experiment_mode=self.experiment_mode,
-            which_node=selected_node,
-        )
+        # Repository examination intentionally supplies None for argument
+        # values. Bind the suffixed two-node device superset now; real mode
+        # validation, variable loading, and compatibility presentation happen
+        # in prepare() after submitted values are available.
+        self.base = BaseExperimentMasterSatellite(experiment=self)
         self.base.build()
 
-        persistent_n_measurements = self.n_measurements
+        # Argument metadata needs a stable repository-examination default,
+        # but this value is never treated as the submitted runtime mode.
+        metadata_mode = (
+            self.experiment_mode
+            if self.experiment_mode in self.VALID_MODES
+            else self.DEFAULT_MODE
+        )
+
+        try:
+            persistent_n_measurements = self.get_dataset("n_measurements")
+        except KeyError:
+            # GUI metadata must remain examinable before the global initializer
+            # has been run. Runtime Base configuration still fails clearly if
+            # the required persistent dataset is missing.
+            persistent_n_measurements = 100
         self.setattr_argument(
             "n_measurements",
             NumberValue(
@@ -92,7 +102,7 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
         self.setattr_argument(
             "scan_variable1_name",
             StringValue(
-                "f_FORT" if self.experiment_mode == "single_node"
+                "f_FORT" if metadata_mode == "single_node"
                 else "f_FORT_Node1"
             ),
         )
@@ -100,7 +110,7 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
             "scan_sequence1",
             StringValue(
                 "np.array([self.f_FORT])"
-                if self.experiment_mode == "single_node"
+                if metadata_mode == "single_node"
                 else "np.array([self.f_FORT_Node1])"
             ),
         )
@@ -117,8 +127,18 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
             "Control experiment",
         )
 
-        self.experiment_function_registry = self._active_function_registry()
-        function_names = sorted(self.experiment_function_registry)
+        single_registry = build_single_node_function_registry()
+        two_node_registry = build_two_node_function_registry()
+        duplicate_names = set(single_registry) & set(two_node_registry)
+        if duplicate_names:
+            raise RuntimeError(
+                "Experiment function names occur in both master-satellite "
+                f"registries: {', '.join(sorted(duplicate_names))}."
+            )
+        # Explorer metadata cannot change its enumeration after experiment_mode
+        # is selected, so expose the union and enforce mode membership in
+        # prepare() using the active registry.
+        function_names = sorted({**single_registry, **two_node_registry})
         if not function_names:
             raise RuntimeError(
                 f"No experiment functions are available for "
@@ -127,8 +147,6 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
         self.setattr_argument(
             "experiment_function", EnumerationValue(function_names)
         )
-
-        self._publish_legacy_node_compatibility()
 
     def _active_function_registry(self):
         if self.experiment_mode == "single_node":
@@ -172,6 +190,16 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
             ) from error
 
     def prepare(self):
+        selected_node = (
+            self.selected_node
+            if self.experiment_mode == "single_node"
+            else None
+        )
+        self.base.configure_execution(
+            self.experiment_mode, which_node=selected_node
+        )
+        self.experiment_function_registry = self._active_function_registry()
+        self._publish_legacy_node_compatibility()
         self.base.prepare()
 
         self.scan_variable1 = self.base.resolve_experiment_variable_target(

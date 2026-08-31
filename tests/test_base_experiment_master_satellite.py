@@ -128,6 +128,49 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         base.prepare()
         return experiment, base
 
+    def test_deferred_build_binds_superset_then_loads_only_selected_node(self):
+        experiment = FakeExperiment()
+        base = BaseExperimentMasterSatellite(experiment)
+        base.build()
+
+        self.assertFalse(base._execution_configured)
+        self.assertEqual(experiment.dataset_reads, [])
+        self.assertEqual(experiment.sampler0_Node1.name, "sampler0")
+        self.assertEqual(experiment.sampler0_Node2.name, "sampler3")
+
+        base.configure_execution("single_node", "Node2")
+        self.assertTrue(base._execution_configured)
+        self.assertEqual(base.active_nodes, ("Node2",))
+        self.assertEqual(base._cplds_node1, [])
+        self.assertEqual(base._samplers_node1, [])
+        self.assertEqual(base._zotinos_node1, [])
+        self.assertEqual(base._ttl_outputs_node1, [])
+        self.assertEqual(experiment.sampler0.name, "sampler3")
+        self.assertEqual(experiment.f_FORT, experiment.f_FORT_Node2)
+        self.assertFalse(hasattr(experiment, "f_FORT_Node1"))
+        self.assertEqual(
+            set(experiment.dataset_reads),
+            {
+                variable.name
+                for variable in NODE2_VARIABLES + MASTER_SATELLITE_VARIABLES
+            },
+        )
+        base.prepare()
+        self.assertEqual(experiment.dds_FORT.name, "urukul4_ch3")
+
+    def test_deferred_configuration_retains_strict_runtime_validation(self):
+        for mode, node, message in (
+            (None, None, "Unsupported master-satellite experiment_mode"),
+            ("invalid", None, "Unsupported master-satellite experiment_mode"),
+            ("single_node", None, "requires which_node"),
+            ("single_node", "invalid", "requires which_node"),
+            ("two_nodes", "Node1", "must be omitted"),
+        ):
+            with self.subTest(mode=mode, node=node):
+                base = BaseExperimentMasterSatellite(FakeExperiment())
+                with self.assertRaisesRegex(ValueError, message):
+                    base.configure_execution(mode, node)
+
     def test_single_node1_bindings(self):
         experiment, base = self.build_and_prepare("single_node", "Node1")
         self.assertEqual(experiment.dds_FORT.name, "urukul0_ch0")

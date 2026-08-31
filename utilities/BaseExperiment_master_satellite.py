@@ -155,38 +155,28 @@ class BaseExperimentMasterSatellite:
     def __init__(
         self,
         experiment,
-        experiment_mode,
+        experiment_mode=None,
         which_node=None,
         satellite_wait_attempts=100,
         satellite_ready_poll_interval=100 * ms,
     ):
-        if experiment_mode not in self.VALID_MODES:
+        self.experiment = experiment
+        self.experiment_mode = None
+        self.which_node = None
+        self.active_nodes = self.VALID_NODES
+        self.node2_active = True
+        self._execution_configured = False
+        if experiment_mode is not None:
+            self._set_execution_configuration(experiment_mode, which_node)
+        elif which_node is not None:
             raise ValueError(
-                f"Unsupported master-satellite experiment_mode "
-                f"{experiment_mode!r}; expected 'single_node' or 'two_nodes'."
+                "which_node cannot be supplied before experiment_mode is "
+                "configured."
             )
-        if experiment_mode == "single_node":
-            if which_node not in self.VALID_NODES:
-                raise ValueError(
-                    f"single_node mode requires which_node 'Node1' or "
-                    f"'Node2', got {which_node!r}."
-                )
-            active_nodes = (which_node,)
-        else:
-            if which_node is not None:
-                raise ValueError(
-                    "which_node must be omitted in two_nodes mode."
-                )
-            active_nodes = self.VALID_NODES
 
         if satellite_wait_attempts < 1:
             raise ValueError("satellite_wait_attempts must be positive.")
 
-        self.experiment = experiment
-        self.experiment_mode = experiment_mode
-        self.which_node = which_node
-        self.active_nodes = active_nodes
-        self.node2_active = "Node2" in active_nodes
         self.satellite_wait_attempts = int(satellite_wait_attempts)
         self.satellite_ready_poll_interval = satellite_ready_poll_interval
 
@@ -233,6 +223,82 @@ class BaseExperimentMasterSatellite:
         self._ttl_safe_off_node2 = []
         self._spcm_inputs = []
 
+    def _set_execution_configuration(self, experiment_mode, which_node):
+        if experiment_mode not in self.VALID_MODES:
+            raise ValueError(
+                f"Unsupported master-satellite experiment_mode "
+                f"{experiment_mode!r}; expected 'single_node' or 'two_nodes'."
+            )
+        if experiment_mode == "single_node":
+            if which_node not in self.VALID_NODES:
+                raise ValueError(
+                    f"single_node mode requires which_node 'Node1' or "
+                    f"'Node2', got {which_node!r}."
+                )
+            active_nodes = (which_node,)
+        else:
+            if which_node is not None:
+                raise ValueError(
+                    "which_node must be omitted in two_nodes mode."
+                )
+            active_nodes = self.VALID_NODES
+
+        self.experiment_mode = experiment_mode
+        self.which_node = which_node
+        self.active_nodes = active_nodes
+        self.node2_active = "Node2" in active_nodes
+        self._execution_configured = True
+
+    def configure_execution(self, experiment_mode, which_node=None):
+        """Apply real submitted mode arguments after repository examination.
+
+        An unconfigured Base binds a suffixed Node1/Node2 device superset in
+        ``build()``.  This method then loads only the execution-relevant
+        authoritative variables and publishes mode-specific presentation.
+        """
+        if self._prepared:
+            raise RuntimeError("Cannot configure execution after prepare().")
+        if self._execution_configured:
+            if (
+                self.experiment_mode != experiment_mode
+                or self.which_node != which_node
+            ):
+                raise RuntimeError(
+                    "Base execution mode is already configured as "
+                    f"{self.experiment_mode!r}/{self.which_node!r}."
+                )
+            return
+
+        self._set_execution_configuration(experiment_mode, which_node)
+        if not self._built:
+            return
+
+        self._load_experiment_variables()
+        if self.experiment_mode == "single_node":
+            other_node = (
+                "Node2" if self.which_node == "Node1" else "Node1"
+            )
+            self._deactivate_node_hardware_groups(other_node)
+            self._publish_single_node_physical_presentations()
+            self._bind_node_ttl_aliases(self.which_node)
+            self._publish_shared_spcm_compatibility()
+        self._publish_resolver_attributes()
+        self._install_single_node_wiring_metadata()
+
+    def _deactivate_node_hardware_groups(self, node):
+        """Keep bound devices registered but exclude a node from lifecycle."""
+        suffix = node.lower()
+        for storage_name in (
+            "_cplds",
+            "_samplers",
+            "_zotinos",
+            "_ttl_inputs",
+            "_ttl_outputs",
+            "_ttl_safe_on",
+            "_ttl_safe_off",
+        ):
+            setattr(self, f"{storage_name}_{suffix}", [])
+
     def _presentation_name(self, base_name, node):
         if self.experiment_mode == "single_node":
             return base_name
@@ -256,12 +322,16 @@ class BaseExperimentMasterSatellite:
         if self._built:
             raise RuntimeError("BaseExperimentMasterSatellite.build() called twice.")
 
-        self._load_experiment_variables()
+        if self._execution_configured:
+            self._load_experiment_variables()
 
         for device_name in ("core", "core_dma", "scheduler"):
             self.experiment.setattr_device(device_name)
 
-        for node in self.active_nodes:
+        nodes_to_bind = (
+            self.active_nodes if self._execution_configured else self.VALID_NODES
+        )
+        for node in nodes_to_bind:
             resolver = self._make_resolver(node)
             self.node_resolvers[node] = resolver
             self._bind_node_physical_devices(node, resolver)
@@ -278,6 +348,22 @@ class BaseExperimentMasterSatellite:
         self._publish_resolver_attributes()
         self._install_single_node_wiring_metadata()
         self._built = True
+
+    def _publish_single_node_physical_presentations(self):
+        """Project the selected suffixed device superset to legacy names."""
+        node = self.which_node
+        for standalone_name in (
+            self.CPLDS
+            + self.SAMPLERS
+            + self.ZOTINOS
+            + self.TTLS
+            + self.EDGE_COUNTERS
+        ):
+            setattr(
+                self.experiment,
+                standalone_name,
+                getattr(self.experiment, f"{standalone_name}_{node}"),
+            )
 
     def _install_single_node_wiring_metadata(self):
         """Expose fixed legacy wiring metadata for the selected node."""
@@ -630,19 +716,23 @@ class BaseExperimentMasterSatellite:
             self._spcm_inputs.append(ttl_device)
 
         if self.experiment_mode == "single_node":
-            for legacy_name, canonical_name in self.LEGACY_SPCM_ALIASES.items():
-                setattr(
-                    self.experiment,
-                    legacy_name,
-                    getattr(self.experiment, canonical_name),
-                )
-                setattr(
-                    self.experiment,
-                    f"{legacy_name}_counter",
-                    getattr(self.experiment, f"{canonical_name}_counter"),
-                )
+            self._publish_shared_spcm_compatibility()
 
-        if self.experiment_mode == "single_node" and self.which_node == "Node2":
+    def _publish_shared_spcm_compatibility(self):
+        """Publish fixed legacy SPCM aliases after mode configuration."""
+        for legacy_name, canonical_name in self.LEGACY_SPCM_ALIASES.items():
+            setattr(
+                self.experiment,
+                legacy_name,
+                getattr(self.experiment, canonical_name),
+            )
+            setattr(
+                self.experiment,
+                f"{legacy_name}_counter",
+                getattr(self.experiment, f"{canonical_name}_counter"),
+            )
+
+        if self.which_node == "Node2":
             # setattr_device("ttl0"), etc. necessarily creates the low-level
             # master attribute while canonical SPCMs are captured. Restore the
             # ordinary Node2 raw-TTL presentation afterward; the canonical and
@@ -671,6 +761,11 @@ class BaseExperimentMasterSatellite:
         """Bind DDS aliases after suffixed authoritative variables exist."""
         if not self._built:
             raise RuntimeError("build() must be called before prepare().")
+        if not self._execution_configured:
+            raise RuntimeError(
+                "configure_execution() must be called with submitted mode "
+                "arguments before prepare()."
+            )
         if self._prepared:
             raise RuntimeError("BaseExperimentMasterSatellite.prepare() called twice.")
 

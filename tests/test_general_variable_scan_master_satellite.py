@@ -1,6 +1,8 @@
 import sys
 import types
 import unittest
+import json
+from pathlib import Path
 
 
 def _identity_decorator(function=None, **kwargs):
@@ -114,6 +116,19 @@ from subroutines.experiment_functions_master_satellite import (  # noqa: E402
     MASTER_SATELLITE_SANITY_ATTRIBUTES,
     master_satellite_namespace_sanity_experiment,
 )
+from AOMsCoils_master_satellite import AOMsCoils_master_satellite  # noqa: E402
+from ExperimentVariables_Node1 import (  # noqa: E402
+    ExperimentVariablesNode1,
+    NODE1_VARIABLES,
+)
+from ExperimentVariables_Node2 import (  # noqa: E402
+    ExperimentVariablesNode2,
+    NODE2_VARIABLES,
+)
+from ExperimentVariables_master_satellite import (  # noqa: E402
+    ExperimentVariablesMasterSatellite,
+    MASTER_SATELLITE_VARIABLES,
+)
 
 
 class FakeBase:
@@ -185,6 +200,67 @@ class FakeBase:
 
 
 class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
+    @staticmethod
+    def _make_repository_examination_experiment(experiment_class):
+        experiment_instance = experiment_class()
+        experiment_instance.dataset_reads = []
+        experiment_instance.datasets = {
+            variable.name: variable.value
+            for variable in (
+                NODE1_VARIABLES
+                + NODE2_VARIABLES
+                + MASTER_SATELLITE_VARIABLES
+            )
+        }
+        with Path(
+            "utilities/config/master_satellite/device_aliases.json"
+        ).open() as config_file:
+            mapping = json.load(config_file)
+        devices = {"core": object(), "core_dma": object(), "scheduler": object()}
+        for node_mapping in mapping.values():
+            for unified_name in node_mapping.values():
+                devices.setdefault(unified_name, object())
+
+        def get_dataset(name):
+            experiment_instance.dataset_reads.append(name)
+            if name not in experiment_instance.datasets:
+                raise KeyError(name)
+            return experiment_instance.datasets[name]
+
+        experiment_instance.get_dataset = get_dataset
+        experiment_instance.setattr_device = lambda name: setattr(
+            experiment_instance, name, devices[name]
+        )
+        # This is the repository examiner behavior that triggered the bug:
+        # argument metadata is registered, but submitted values are all None.
+        experiment_instance.setattr_argument = lambda name, *args, **kwargs: setattr(
+            experiment_instance, name, None
+        )
+        return experiment_instance
+
+    def test_all_public_master_satellite_experiments_build_with_none_arguments(self):
+        public_experiments = (
+            ExperimentVariablesNode1,
+            ExperimentVariablesNode2,
+            ExperimentVariablesMasterSatellite,
+            GeneralVariableScanMasterSatellite,
+            GeneralVariableScan_CatchError_master_satellite,
+            AOMsCoils_master_satellite,
+        )
+        for experiment_class in public_experiments:
+            with self.subTest(experiment=experiment_class.__name__):
+                instance = self._make_repository_examination_experiment(
+                    experiment_class
+                )
+                instance.build()
+
+        scan = self._make_repository_examination_experiment(
+            GeneralVariableScanMasterSatellite
+        )
+        scan.build()
+        self.assertFalse(scan.base._execution_configured)
+        self.assertEqual(scan.dataset_reads, ["n_measurements"])
+
     def test_single_node_registry_uses_current_functions_and_exclusions(self):
         # Other hardware-free test modules may narrow the wildcard-exported
         # names on the shared ARTIQ stub during unittest discovery.
