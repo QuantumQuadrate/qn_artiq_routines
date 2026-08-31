@@ -27,11 +27,9 @@ Standalone                         Master-satellite
 GeneralVariableScan.py             GeneralVariableScan_master_satellite_mixin.py
 ExperimentVariables.py             GeneralVariableScan_master_satellite_single_node.py
 BaseExperiment.py                  GeneralVariableScan_master_satellite_two_nodes.py
-DeviceAliases.py                   GeneralVariableScan_CatchError_master_satellite_single_node.py
-experiment_functions.py            GeneralVariableScan_CatchError_master_satellite_two_nodes.py
-AOMsCoils.py                       ExperimentVariables_Node1.py
-                                   ExperimentVariables_Node2.py
-                                   ExperimentVariables_master_satellite.py
+DeviceAliases.py                   ExperimentVariables_Node1.py
+experiment_functions.py            ExperimentVariables_Node2.py
+AOMsCoils.py                       ExperimentVariables_master_satellite.py
                                    BaseExperiment_master_satellite.py
                                    DeviceAliases_master_satellite.py
                                    experiment_functions_two_nodes.py
@@ -41,8 +39,10 @@ AOMsCoils.py                       ExperimentVariables_Node1.py
 ```
 
 `_mixin` files hold only private shared implementations and are not Explorer
-experiments. Execution mode is fixed per public GVS/CatchError file;
-`selected_node` is the single-node submitted argument.
+experiments. Execution mode is fixed per public GVS file; `selected_node` is
+the single-node submitted argument. Both standalone and master-satellite GVS
+carry optional per-point underflow retry behind `enable_Catch_UnderFlow`
+(off by default).
 
 Standalone node selections remain only `alice` and `bob`. The deleted legacy
 `which_node == "two_nodes"` mode was not DRTIO and must never return. The
@@ -119,7 +119,8 @@ Implemented and hardware-free tested:
 - Node1/Node2/global ExperimentVariables;
 - authoritative variable loading, projection, reload, and cache refresh;
 - mode-specific GVS registries and scan resolution;
-- per-mode master-satellite CatchError GVS variants;
+- optional built-in underflow retry (`enable_Catch_UnderFlow`) in both GVS
+  modes;
 - run-local GUI-argument precedence over persistent datasets
   (`n_measurements`);
 - native namespace sanity function;

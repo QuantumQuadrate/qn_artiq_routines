@@ -71,8 +71,6 @@ in the "Catch Underflow" GUI group take effect only when it is enabled).
 GeneralVariableScan_master_satellite_mixin.py
 GeneralVariableScan_master_satellite_single_node.py
 GeneralVariableScan_master_satellite_two_nodes.py
-GeneralVariableScan_CatchError_master_satellite_single_node.py
-GeneralVariableScan_CatchError_master_satellite_two_nodes.py
 AOMsCoils_master_satellite_mixin.py
 AOMsCoils_master_satellite_Node1.py
 AOMsCoils_master_satellite_Node2.py
@@ -97,11 +95,9 @@ Execution mode is fixed per public experiment file:
 
 ```text
 single_node  GeneralVariableScan_master_satellite_single_node
-             GeneralVariableScan_CatchError_master_satellite_single_node
              selected_node = Node1 or Node2 (submitted argument)
 
 two_nodes    GeneralVariableScan_master_satellite_two_nodes
-             GeneralVariableScan_CatchError_master_satellite_two_nodes
 ```
 
 The mode is a class constant; `selected_node` is an execution argument, not a
@@ -381,11 +377,11 @@ Do not migrate runtime/results such as `fit_parameter_*`,
 
 The shared implementation lives in
 `GeneralVariableScan_master_satellite_mixin.py`
-(`_GeneralVariableScanMasterSatelliteMixin` and `_CatchUnderflowRetryMixin`).
-The four public experiments fix their mode as a class constant and expose only
-that mode's function registry: the single-node files discover reusable legacy
-functions from `subroutines/experiment_functions.py`; the two-node files use
-only `subroutines/experiment_functions_two_nodes.py`.
+(`_GeneralVariableScanMasterSatelliteMixin`). The two public experiments fix
+their mode as a class constant and expose only that mode's function registry:
+the single-node file discovers reusable legacy functions from
+`subroutines/experiment_functions.py`; the two-node file uses only
+`subroutines/experiment_functions_two_nodes.py`.
 
 Single-node discovery accepts locally defined functions satisfying
 `inspect.isfunction`, matching module ownership, and containing
@@ -429,13 +425,14 @@ before `configure_execution()` loads datasets and re-asserts it afterward,
 and the queued-run reload restores it again. Persistent calibration is never
 changed.
 
-The CatchError experiments exist per mode
-(`GeneralVariableScan_CatchError_master_satellite_single_node`,
-`GeneralVariableScan_CatchError_master_satellite_two_nodes`) and share
-`_CatchUnderflowRetryMixin`, which wraps one scan point in bounded retries
-with host backoff. Only `RTIOUnderflow` is caught, and a retried point re-runs
-the full scan-point flow, including hardware initialization and its core
-reset. DRTIO, SPI, resolution, and all other non-underflow failures propagate.
+Underflow retry is built into the mixin behind the optional
+`enable_Catch_UnderFlow` argument (off by default), mirroring the standalone
+`GeneralVariableScan.py`. When enabled, one scan point is wrapped in bounded
+retries with host backoff using the "Catch Underflow" GUI values. Only
+`RTIOUnderflow` is caught, and a retried point re-runs the full scan-point
+flow, including hardware initialization and its core reset. DRTIO, SPI,
+resolution, and all other non-underflow failures always propagate; with the
+argument off, the point executes with no exception handling at all.
 
 ## 16. Experiment functions
 
@@ -690,8 +687,6 @@ ExperimentVariables_Node2
 ExperimentVariables_master_satellite
 GeneralVariableScan_master_satellite_single_node
 GeneralVariableScan_master_satellite_two_nodes
-GeneralVariableScan_CatchError_master_satellite_single_node
-GeneralVariableScan_CatchError_master_satellite_two_nodes
 AOMsCoils_master_satellite_Node1
 AOMsCoils_master_satellite_Node2
 ```
@@ -705,10 +700,10 @@ namespace sanity function remains a GVS callable, not an Explorer experiment.
 
 Commits `a3eb7fe` and `f06f9be` implemented these lifecycle/discovery fixes;
 `025c027` split GVS by execution mode, and `a7d8dff` split manual control by
-node. The combined hardware-free suite passes 57 tests, including every public
+node. The combined hardware-free suite passes 58 tests, including every public
 build with `None` arguments and empty dataset storage, strict runtime
 missing-dataset failures, submitted-GUI `n_measurements` precedence, and
-CatchError retry behavior.
+optional underflow-retry behavior.
 
 Implemented and hardware-free tested on branch
 `20260826_master_satellite_codex`:
@@ -720,7 +715,8 @@ Implemented and hardware-free tested on branch
 - Node1/Node2/global variables;
 - authoritative loading/projection/reload/target/cache APIs;
 - mode-specific registries and native namespace sanity;
-- mode-split GVS files and per-mode CatchError variants;
+- mode-split GVS files with built-in optional underflow retry
+  (`enable_Catch_UnderFlow`);
 - run-local GUI-argument precedence over persistent datasets
   (`n_measurements`);
 - selected-node magnetometer wiring and suffixed results;

@@ -111,6 +111,28 @@ class _GeneralVariableScanMasterSatelliteMixin:
         self.setattr_argument(
             "override_ExperimentVariables", StringValue("{}")
         )
+        # Optional per-point RTIOUnderflow retry. The three retry values
+        # below take effect only when enable_Catch_UnderFlow is True.
+        self.setattr_argument(
+            "enable_Catch_UnderFlow",
+            BooleanValue(False),
+            "Catch Underflow",
+        )
+        self.setattr_argument(
+            "underflow_max_retries",
+            NumberValue(10, ndecimals=0, step=1, type="int"),
+            "Catch Underflow",
+        )
+        self.setattr_argument(
+            "underflow_backoff_ms",
+            NumberValue(200.0, step=0.5),
+            "Catch Underflow",
+        )
+        self.setattr_argument(
+            "skip_only_that_iteration_if_exhausted",
+            BooleanValue(True),
+            "Catch Underflow",
+        )
         self.setattr_argument(
             "control_experiment",
             BooleanValue(False),
@@ -303,57 +325,13 @@ class _GeneralVariableScanMasterSatelliteMixin:
         self._apply_run_wide_overrides()
         self.base.initialize_result_datasets()
 
-    def _run_scan_point(self, variable1_value, variable2_value, iteration):
+    def _execute_scan_point(self, variable1_value, variable2_value, iteration):
         """Execute one scan point without rebuilding or preparing devices."""
         self._apply_scan_point(variable1_value, variable2_value)
         self.initialize_hardware()
         self.base.reset_result_state_for_scan_point()
         self.set_dataset("iteration", iteration, broadcast=True)
         self._selected_experiment_function(self)
-
-    def run(self):
-        self._initialize_run_state()
-
-        iteration = 0
-        self.set_dataset("iteration", iteration, broadcast=True)
-        for variable1_value in self.scan_sequence1:
-            for variable2_value in self.scan_sequence2:
-                self._run_scan_point(
-                    variable1_value, variable2_value, iteration
-                )
-                iteration += 1
-
-        print(
-            "**************** General Variable Scan master-satellite DONE "
-            "****************"
-        )
-
-
-class _CatchUnderflowRetryMixin:
-    """Bounded per-point underflow retry for the CatchError GVS files.
-
-    This mixin deliberately does not inherit EnvExperiment, so ARTIQ Explorer
-    cannot expose it as a dashboard experiment.  Only RTIOUnderflow is caught;
-    DRTIO/link, SPI, resolution, and all other failures propagate so they are
-    not hidden during master-satellite validation.
-    """
-
-    def _build_catch_underflow_arguments(self):
-        self.setattr_argument(
-            "underflow_max_retries",
-            NumberValue(10, ndecimals=0, step=1, type="int"),
-            "Catch Underflow",
-        )
-        self.setattr_argument(
-            "underflow_backoff_ms",
-            NumberValue(200.0, step=0.5),
-            "Catch Underflow",
-        )
-        self.setattr_argument(
-            "skip_only_that_iteration_if_exhausted",
-            BooleanValue(True),
-            "Catch Underflow",
-        )
 
     def _report_underflow(self, message):
         logging.warning(message)
@@ -364,11 +342,24 @@ class _CatchUnderflowRetryMixin:
         time.sleep(max(0.0, float(self.underflow_backoff_ms)) / 1000.0)
 
     def _run_scan_point(self, variable1_value, variable2_value, iteration):
-        """Retry only this scan point on RTIOUnderflow; propagate the rest."""
+        """Run one scan point, retrying only on RTIOUnderflow when enabled.
+
+        With enable_Catch_UnderFlow off (the default) the point executes
+        directly and any failure propagates unchanged. When it is on, only
+        RTIOUnderflow is caught; a retried point repeats the full scan-point
+        flow, including hardware initialization and its core reset. DRTIO,
+        SPI, resolution, and all other failures always propagate.
+        """
+        if not self.enable_Catch_UnderFlow:
+            self._execute_scan_point(
+                variable1_value, variable2_value, iteration
+            )
+            return
+
         retries = 0
         while True:
             try:
-                super()._run_scan_point(
+                self._execute_scan_point(
                     variable1_value, variable2_value, iteration
                 )
                 return
@@ -389,3 +380,20 @@ class _CatchUnderflowRetryMixin:
                         raise
                     return
                 self._underflow_backoff()
+
+    def run(self):
+        self._initialize_run_state()
+
+        iteration = 0
+        self.set_dataset("iteration", iteration, broadcast=True)
+        for variable1_value in self.scan_sequence1:
+            for variable2_value in self.scan_sequence2:
+                self._run_scan_point(
+                    variable1_value, variable2_value, iteration
+                )
+                iteration += 1
+
+        print(
+            "**************** General Variable Scan master-satellite DONE "
+            "****************"
+        )

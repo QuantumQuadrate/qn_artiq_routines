@@ -104,7 +104,6 @@ sys.modules.setdefault("pyvisa", types.ModuleType("pyvisa"))
 
 
 from GeneralVariableScan_master_satellite_mixin import (  # noqa: E402
-    _CatchUnderflowRetryMixin,
     _GeneralVariableScanMasterSatelliteMixin,
     HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS,
     build_experiment_function_registry,
@@ -116,12 +115,6 @@ from GeneralVariableScan_master_satellite_single_node import (  # noqa: E402
 )
 from GeneralVariableScan_master_satellite_two_nodes import (  # noqa: E402
     GeneralVariableScan_master_satellite_two_nodes,
-)
-from GeneralVariableScan_CatchError_master_satellite_single_node import (  # noqa: E402
-    GeneralVariableScan_CatchError_master_satellite_single_node,
-)
-from GeneralVariableScan_CatchError_master_satellite_two_nodes import (  # noqa: E402
-    GeneralVariableScan_CatchError_master_satellite_two_nodes,
 )
 from subroutines.experiment_functions_two_nodes import (  # noqa: E402
     MASTER_SATELLITE_SANITY_ATTRIBUTES,
@@ -254,8 +247,6 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             ExperimentVariablesMasterSatellite,
             GeneralVariableScan_master_satellite_single_node,
             GeneralVariableScan_master_satellite_two_nodes,
-            GeneralVariableScan_CatchError_master_satellite_single_node,
-            GeneralVariableScan_CatchError_master_satellite_two_nodes,
             AOMsCoils_master_satellite_Node1,
             AOMsCoils_master_satellite_Node2,
         )
@@ -293,16 +284,6 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 lambda instance: None,
             ),
             (
-                GeneralVariableScan_CatchError_master_satellite_single_node,
-                lambda instance: (
-                    setattr(instance, "selected_node", "Node2"),
-                ),
-            ),
-            (
-                GeneralVariableScan_CatchError_master_satellite_two_nodes,
-                lambda instance: None,
-            ),
-            (
                 AOMsCoils_master_satellite_Node1,
                 lambda instance: None,
             ),
@@ -333,15 +314,6 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             "two_nodes",
         )
         self.assertFalse(hasattr(_GeneralVariableScanMasterSatelliteMixin, "build"))
-        self.assertEqual(
-            GeneralVariableScan_CatchError_master_satellite_single_node.EXPERIMENT_MODE,
-            "single_node",
-        )
-        self.assertEqual(
-            GeneralVariableScan_CatchError_master_satellite_two_nodes.EXPERIMENT_MODE,
-            "two_nodes",
-        )
-        self.assertFalse(hasattr(_CatchUnderflowRetryMixin, "build"))
 
         single_registry = (
             GeneralVariableScan_master_satellite_single_node()
@@ -369,12 +341,6 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             "GeneralVariableScan_master_satellite_two_nodes.py": {
                 "GeneralVariableScan_master_satellite_two_nodes"
             },
-            "GeneralVariableScan_CatchError_master_satellite_single_node.py": {
-                "GeneralVariableScan_CatchError_master_satellite_single_node"
-            },
-            "GeneralVariableScan_CatchError_master_satellite_two_nodes.py": {
-                "GeneralVariableScan_CatchError_master_satellite_two_nodes"
-            },
         }
         for filename, expected_classes in expected.items():
             tree = ast.parse(Path(filename).read_text())
@@ -393,6 +359,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         for retired_filename in (
             "GeneralVariableScan_master_satellite.py",
             "GeneralVariableScan_CatchError_master_satellite.py",
+            "GeneralVariableScan_CatchError_master_satellite_single_node.py",
+            "GeneralVariableScan_CatchError_master_satellite_two_nodes.py",
             "AOMsCoils_master_satellite.py",
             "subroutines/experiment_functions_master_satellite.py",
         ):
@@ -548,6 +516,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         scan.f_FORT = 240.0
         scan.n_measurements = 12
         scan.execution_n_measurements = 12
+        scan.enable_Catch_UnderFlow = False
         scan.base = FakeBase("single_node", "Node2")
         scan.base.experiment = scan
         scan.needs_experiment_variable_reload = True
@@ -631,6 +600,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         scan.scan_variable2 = None
         scan.scan_sequence1 = [1.0, 2.0]
         scan.scan_sequence2 = [0.0]
+        scan.enable_Catch_UnderFlow = True
         scan.underflow_max_retries = 3
         scan.underflow_backoff_ms = 0.0
         scan.skip_only_that_iteration_if_exhausted = False
@@ -643,10 +613,25 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         )
         return scan
 
+    def test_disabled_catch_underflow_propagates_immediately(self):
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_master_satellite_single_node
+        )
+        scan.enable_Catch_UnderFlow = False
+
+        def selected_function(experiment):
+            experiment.attempts.append(experiment.f_FORT_Node2)
+            raise RTIOUnderflow("unmanaged")
+
+        scan._selected_experiment_function = selected_function
+        with self.assertRaises(RTIOUnderflow):
+            scan.run()
+        self.assertEqual(scan.attempts, [1.0])
+
     def test_catch_error_retries_only_failed_scan_point(self):
         for scan_class in (
-            GeneralVariableScan_CatchError_master_satellite_single_node,
-            GeneralVariableScan_CatchError_master_satellite_two_nodes,
+            GeneralVariableScan_master_satellite_single_node,
+            GeneralVariableScan_master_satellite_two_nodes,
         ):
             with self.subTest(experiment=scan_class.__name__):
                 scan = self._make_catch_error_scan(scan_class)
@@ -676,7 +661,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
 
     def test_catch_error_does_not_hide_non_underflow_errors(self):
         scan = self._make_catch_error_scan(
-            GeneralVariableScan_CatchError_master_satellite_single_node
+            GeneralVariableScan_master_satellite_single_node
         )
         scan.skip_only_that_iteration_if_exhausted = True
 
@@ -694,7 +679,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 raise RTIOUnderflow("persistent")
 
         scan = self._make_catch_error_scan(
-            GeneralVariableScan_CatchError_master_satellite_single_node
+            GeneralVariableScan_master_satellite_single_node
         )
         scan.underflow_max_retries = 2
         scan.skip_only_that_iteration_if_exhausted = True
@@ -703,7 +688,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(scan.attempts, [1.0, 1.0, 2.0])
 
         scan = self._make_catch_error_scan(
-            GeneralVariableScan_CatchError_master_satellite_single_node
+            GeneralVariableScan_master_satellite_single_node
         )
         scan.underflow_max_retries = 2
         scan.skip_only_that_iteration_if_exhausted = False
