@@ -785,13 +785,17 @@ class BaseExperimentMasterSatellite:
         for i in range(len(devices)):
             self.experiment.core.break_realtime()
             devices[i].init()
+            if turn_off_outputs:
+                # Establish the safe switch state before changing attenuation
+                # or profile data.  This is important for deterministic manual
+                # hardware bring-up after a previous experiment left an output
+                # enabled.
+                devices[i].sw.off()
             devices[i].set_att(0.0)
             amplitude = (2 * 50 * 10 ** (powers[i] / 10 - 3)) ** 0.5
             devices[i].set(
                 frequency=frequencies[i], amplitude=amplitude
             )
-            if turn_off_outputs:
-                devices[i].sw.off()
             delay(1 * ms)
 
     @kernel
