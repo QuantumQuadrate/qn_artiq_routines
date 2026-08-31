@@ -126,16 +126,16 @@ from AOMsCoils_master_satellite_Node1 import (  # noqa: E402
 from AOMsCoils_master_satellite_Node2 import (  # noqa: E402
     AOMsCoils_master_satellite_Node2,
 )
-from ExperimentVariables_Node1 import (  # noqa: E402
-    ExperimentVariablesNode1,
+from ExperimentVariables_master_satellite_Node1 import (  # noqa: E402
+    ExperimentVariablesMasterSatelliteNode1,
     NODE1_VARIABLES,
 )
-from ExperimentVariables_Node2 import (  # noqa: E402
-    ExperimentVariablesNode2,
+from ExperimentVariables_master_satellite_Node2 import (  # noqa: E402
+    ExperimentVariablesMasterSatelliteNode2,
     NODE2_VARIABLES,
 )
-from ExperimentVariables_master_satellite import (  # noqa: E402
-    ExperimentVariablesMasterSatellite,
+from ExperimentVariables_master_satellite_global import (  # noqa: E402
+    ExperimentVariablesMasterSatelliteGlobal,
     MASTER_SATELLITE_VARIABLES,
 )
 
@@ -242,9 +242,9 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
 
     def test_all_public_master_satellite_experiments_build_with_none_arguments(self):
         public_experiments = (
-            ExperimentVariablesNode1,
-            ExperimentVariablesNode2,
-            ExperimentVariablesMasterSatellite,
+            ExperimentVariablesMasterSatelliteNode1,
+            ExperimentVariablesMasterSatelliteNode2,
+            ExperimentVariablesMasterSatelliteGlobal,
             GeneralVariableScan_master_satellite_single_node,
             GeneralVariableScan_master_satellite_two_nodes,
             AOMsCoils_master_satellite_Node1,

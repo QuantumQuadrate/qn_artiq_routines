@@ -74,9 +74,9 @@ GeneralVariableScan_master_satellite_two_nodes.py
 AOMsCoils_master_satellite_mixin.py
 AOMsCoils_master_satellite_Node1.py
 AOMsCoils_master_satellite_Node2.py
-ExperimentVariables_Node1.py
-ExperimentVariables_Node2.py
-ExperimentVariables_master_satellite.py
+ExperimentVariables_master_satellite_Node1.py
+ExperimentVariables_master_satellite_Node2.py
+ExperimentVariables_master_satellite_global.py
 utilities/BaseExperiment_master_satellite.py
 utilities/DeviceAliases_master_satellite.py
 subroutines/experiment_functions_two_nodes.py
@@ -340,9 +340,9 @@ These are fixed wiring facts, not ExperimentVariables or scan-dependent state.
 Ownership:
 
 ```text
-ExperimentVariables_Node1.py             owns *_Node1
-ExperimentVariables_Node2.py             owns *_Node2
-ExperimentVariables_master_satellite.py  owns globals only
+ExperimentVariables_master_satellite_Node1.py    owns *_Node1
+ExperimentVariables_master_satellite_Node2.py    owns *_Node2
+ExperimentVariables_master_satellite_global.py   owns globals only
 ```
 
 The global file must not initialize node files. Fresh database workflow is
@@ -682,9 +682,9 @@ ARTIQ uses the first line of each public `EnvExperiment` class docstring as the
 Explorer label. The expected labels are:
 
 ```text
-ExperimentVariables_Node1
-ExperimentVariables_Node2
-ExperimentVariables_master_satellite
+ExperimentVariables_master_satellite_Node1
+ExperimentVariables_master_satellite_Node2
+ExperimentVariables_master_satellite_global
 GeneralVariableScan_master_satellite_single_node
 GeneralVariableScan_master_satellite_two_nodes
 AOMsCoils_master_satellite_Node1

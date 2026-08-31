@@ -94,10 +94,10 @@ existing_exports.update(
 experiment_module.__all__ = sorted(existing_exports)
 
 
-node1_module = importlib.import_module("ExperimentVariables_Node1")
-node2_module = importlib.import_module("ExperimentVariables_Node2")
+node1_module = importlib.import_module("ExperimentVariables_master_satellite_Node1")
+node2_module = importlib.import_module("ExperimentVariables_master_satellite_Node2")
 global_module = importlib.import_module(
-    "ExperimentVariables_master_satellite"
+    "ExperimentVariables_master_satellite_global"
 )
 
 
@@ -121,7 +121,7 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
 
     def test_fresh_node1_initialization_is_suffixed(self):
         experiment = self.initialize(
-            node1_module.ExperimentVariablesNode1
+            node1_module.ExperimentVariablesMasterSatelliteNode1
         )
         self.assertEqual(experiment.datasets["f_FORT_Node1"], 245e6)
         self.assertEqual(
@@ -137,7 +137,7 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
 
     def test_fresh_node2_initialization_is_suffixed(self):
         experiment = self.initialize(
-            node2_module.ExperimentVariablesNode2
+            node2_module.ExperimentVariablesMasterSatelliteNode2
         )
         self.assertEqual(experiment.datasets["f_FORT_Node2"], 240e6)
         self.assertEqual(
@@ -153,14 +153,14 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
 
     def test_existing_persistent_value_is_used_instead_of_default(self):
         experiment = self.initialize(
-            node1_module.ExperimentVariablesNode1,
+            node1_module.ExperimentVariablesMasterSatelliteNode1,
             {"f_FORT_Node1": 251e6},
         )
         self.assertEqual(experiment.f_FORT_Node1, 251e6)
         self.assertEqual(experiment.datasets["f_FORT_Node1"], 251e6)
 
         globals_experiment = self.initialize(
-            global_module.ExperimentVariablesMasterSatellite,
+            global_module.ExperimentVariablesMasterSatelliteGlobal,
             {"t_delay_in_bob_mu": 211},
         )
         self.assertEqual(globals_experiment.t_delay_in_bob_mu, 211)
@@ -169,8 +169,8 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         )
 
     def test_node_values_are_independent(self):
-        node1 = self.initialize(node1_module.ExperimentVariablesNode1)
-        node2 = self.initialize(node2_module.ExperimentVariablesNode2)
+        node1 = self.initialize(node1_module.ExperimentVariablesMasterSatelliteNode1)
+        node2 = self.initialize(node2_module.ExperimentVariablesMasterSatelliteNode2)
         self.assertNotEqual(
             node1.datasets["p_FORT_loading_Node1"],
             node2.datasets["p_FORT_loading_Node2"],
@@ -182,7 +182,7 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
 
     def test_global_initialization_has_no_node_side_effect(self):
         experiment = self.initialize(
-            global_module.ExperimentVariablesMasterSatellite
+            global_module.ExperimentVariablesMasterSatelliteGlobal
         )
         self.assertEqual(
             experiment.datasets,
@@ -200,8 +200,8 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         )
 
     def test_node_initializers_create_no_unsuffixed_calibrations(self):
-        node1 = self.initialize(node1_module.ExperimentVariablesNode1)
-        node2 = self.initialize(node2_module.ExperimentVariablesNode2)
+        node1 = self.initialize(node1_module.ExperimentVariablesMasterSatelliteNode1)
+        node2 = self.initialize(node2_module.ExperimentVariablesMasterSatelliteNode2)
         forbidden = {
             "f_FORT",
             "p_FORT_loading",

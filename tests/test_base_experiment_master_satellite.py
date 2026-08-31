@@ -27,9 +27,9 @@ if "artiq.experiment" not in sys.modules:
 from utilities.BaseExperiment_master_satellite import (  # noqa: E402
     BaseExperimentMasterSatellite,
 )
-from ExperimentVariables_Node1 import NODE1_VARIABLES  # noqa: E402
-from ExperimentVariables_Node2 import NODE2_VARIABLES  # noqa: E402
-from ExperimentVariables_master_satellite import (  # noqa: E402
+from ExperimentVariables_master_satellite_Node1 import NODE1_VARIABLES  # noqa: E402
+from ExperimentVariables_master_satellite_Node2 import NODE2_VARIABLES  # noqa: E402
+from ExperimentVariables_master_satellite_global import (  # noqa: E402
     MASTER_SATELLITE_VARIABLES,
 )
 
@@ -353,7 +353,7 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             RuntimeError,
-            r"ExperimentVariables_Node2\.py: f_FORT_Node2",
+            r"ExperimentVariables_master_satellite_Node2\.py: f_FORT_Node2",
         ):
             base.build()
 
@@ -464,7 +464,7 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             RuntimeError,
-            r"ExperimentVariables_Node2\.py: f_FORT_Node2",
+            r"ExperimentVariables_master_satellite_Node2\.py: f_FORT_Node2",
         ):
             base.reload_experiment_variables()
 

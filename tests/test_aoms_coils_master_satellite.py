@@ -34,9 +34,9 @@ from AOMsCoils_master_satellite_Node1 import (  # noqa: E402
 from AOMsCoils_master_satellite_Node2 import (  # noqa: E402
     AOMsCoils_master_satellite_Node2,
 )
-from ExperimentVariables_Node1 import NODE1_VARIABLES  # noqa: E402
-from ExperimentVariables_Node2 import NODE2_VARIABLES  # noqa: E402
-from ExperimentVariables_master_satellite import MASTER_SATELLITE_VARIABLES  # noqa: E402
+from ExperimentVariables_master_satellite_Node1 import NODE1_VARIABLES  # noqa: E402
+from ExperimentVariables_master_satellite_Node2 import NODE2_VARIABLES  # noqa: E402
+from ExperimentVariables_master_satellite_global import MASTER_SATELLITE_VARIABLES  # noqa: E402
 
 
 class FakeDevice:

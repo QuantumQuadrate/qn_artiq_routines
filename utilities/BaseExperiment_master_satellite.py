@@ -2,9 +2,11 @@
 
 from artiq.experiment import kernel, delay, ms, us
 
-from ExperimentVariables_Node1 import NODE1_VARIABLES
-from ExperimentVariables_Node2 import NODE2_VARIABLES
-from ExperimentVariables_master_satellite import MASTER_SATELLITE_VARIABLES
+from ExperimentVariables_master_satellite_Node1 import NODE1_VARIABLES
+from ExperimentVariables_master_satellite_Node2 import NODE2_VARIABLES
+from ExperimentVariables_master_satellite_global import (
+    MASTER_SATELLITE_VARIABLES,
+)
 from utilities.DeviceAliases_master_satellite import (
     DeviceAliasesMasterSatellite,
 )
@@ -439,14 +441,16 @@ class BaseExperimentMasterSatellite:
                 self._node_variable_definitions(node)
             )
             if missing:
-                missing_by_owner[f"ExperimentVariables_{node}.py"] = missing
+                missing_by_owner[
+                    f"ExperimentVariables_master_satellite_{node}.py"
+                ] = missing
 
         missing_globals = self._load_variable_definitions(
             MASTER_SATELLITE_VARIABLES
         )
         if missing_globals:
             missing_by_owner[
-                "ExperimentVariables_master_satellite.py"
+                "ExperimentVariables_master_satellite_global.py"
             ] = missing_globals
 
         if missing_by_owner:
@@ -585,7 +589,9 @@ class BaseExperimentMasterSatellite:
             )
             values.update(node_values)
             if missing:
-                missing_by_owner[f"ExperimentVariables_{node}.py"] = missing
+                missing_by_owner[
+                    f"ExperimentVariables_master_satellite_{node}.py"
+                ] = missing
 
         global_values, missing_globals = self._read_variable_definitions(
             MASTER_SATELLITE_VARIABLES
@@ -593,7 +599,7 @@ class BaseExperimentMasterSatellite:
         values.update(global_values)
         if missing_globals:
             missing_by_owner[
-                "ExperimentVariables_master_satellite.py"
+                "ExperimentVariables_master_satellite_global.py"
             ] = missing_globals
 
         if missing_by_owner:

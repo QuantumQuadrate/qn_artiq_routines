@@ -27,9 +27,9 @@ Standalone                         Master-satellite
 GeneralVariableScan.py             GeneralVariableScan_master_satellite_mixin.py
 ExperimentVariables.py             GeneralVariableScan_master_satellite_single_node.py
 BaseExperiment.py                  GeneralVariableScan_master_satellite_two_nodes.py
-DeviceAliases.py                   ExperimentVariables_Node1.py
-experiment_functions.py            ExperimentVariables_Node2.py
-AOMsCoils.py                       ExperimentVariables_master_satellite.py
+DeviceAliases.py                   ExperimentVariables_master_satellite_Node1.py
+experiment_functions.py            ExperimentVariables_master_satellite_Node2.py
+AOMsCoils.py                       ExperimentVariables_master_satellite_global.py
                                    BaseExperiment_master_satellite.py
                                    DeviceAliases_master_satellite.py
                                    experiment_functions_two_nodes.py

@@ -224,8 +224,8 @@ NODE1_VARIABLES = (
 )
 
 
-class ExperimentVariablesNode1(EnvExperiment):
-    """ExperimentVariables_Node1
+class ExperimentVariablesMasterSatelliteNode1(EnvExperiment):
+    """ExperimentVariables_master_satellite_Node1
 
     Initialize or intentionally update persistent variables for Node1.
     """

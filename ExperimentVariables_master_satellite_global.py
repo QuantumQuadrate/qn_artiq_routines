@@ -31,8 +31,8 @@ MASTER_SATELLITE_VARIABLES = (
 )
 
 
-class ExperimentVariablesMasterSatellite(EnvExperiment):
-    """ExperimentVariables_master_satellite
+class ExperimentVariablesMasterSatelliteGlobal(EnvExperiment):
+    """ExperimentVariables_master_satellite_global
 
     Initialize or intentionally update shared master-satellite variables.
     """
