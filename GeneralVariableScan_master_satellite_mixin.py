@@ -1,12 +1,18 @@
-"""General variable scanning for the master-satellite execution stack."""
+"""Shared scan implementation (mixins) for the master-satellite GVS files.
+
+This module holds no public EnvExperiment class and is not an ARTIQ Explorer
+experiment; the runnable experiments live in the mode-named GVS files.
+"""
 
 import inspect
 import logging
+import time
 
 import numpy as np
 from numpy import array
 
 from artiq.experiment import *
+from artiq.coredevice.exceptions import RTIOUnderflow
 
 from utilities.BaseExperiment_master_satellite import (
     BaseExperimentMasterSatellite,
@@ -50,7 +56,7 @@ def build_two_node_function_registry():
 
 
 class _GeneralVariableScanMasterSatelliteMixin:
-    """Shared implementation for the two public master-satellite GVS files.
+    """Shared implementation for the public master-satellite GVS files.
 
     This mixin deliberately does not inherit EnvExperiment, so ARTIQ Explorer
     cannot expose this common implementation as a third dashboard experiment.
@@ -161,6 +167,11 @@ class _GeneralVariableScanMasterSatelliteMixin:
             ) from error
 
     def prepare(self):
+        # n_measurements is a run-local GUI value sharing its name with a
+        # persistent global dataset. Capture the submitted value before
+        # configure_execution loads that dataset over the same attribute,
+        # and re-assert it so the submitted value wins for this run.
+        self.execution_n_measurements = self.n_measurements
         selected_node = (
             self.selected_node
             if self.EXPERIMENT_MODE == "single_node"
@@ -169,6 +180,7 @@ class _GeneralVariableScanMasterSatelliteMixin:
         self.base.configure_execution(
             self.EXPERIMENT_MODE, which_node=selected_node
         )
+        self.n_measurements = self.execution_n_measurements
         self._publish_legacy_node_compatibility()
         self.base.prepare()
 
@@ -224,7 +236,6 @@ class _GeneralVariableScanMasterSatelliteMixin:
                 self.experiment_name,
             )
         )
-        self.execution_n_measurements = self.n_measurements
         self._initialize_legacy_result_attributes()
         self.needs_experiment_variable_reload = (
             self._has_earlier_queued_experiment()
@@ -316,3 +327,65 @@ class _GeneralVariableScanMasterSatelliteMixin:
             "**************** General Variable Scan master-satellite DONE "
             "****************"
         )
+
+
+class _CatchUnderflowRetryMixin:
+    """Bounded per-point underflow retry for the CatchError GVS files.
+
+    This mixin deliberately does not inherit EnvExperiment, so ARTIQ Explorer
+    cannot expose it as a dashboard experiment.  Only RTIOUnderflow is caught;
+    DRTIO/link, SPI, resolution, and all other failures propagate so they are
+    not hidden during master-satellite validation.
+    """
+
+    def _build_catch_underflow_arguments(self):
+        self.setattr_argument(
+            "underflow_max_retries",
+            NumberValue(10, ndecimals=0, step=1, type="int"),
+            "Catch Underflow",
+        )
+        self.setattr_argument(
+            "underflow_backoff_ms",
+            NumberValue(200.0, step=0.5),
+            "Catch Underflow",
+        )
+        self.setattr_argument(
+            "skip_only_that_iteration_if_exhausted",
+            BooleanValue(True),
+            "Catch Underflow",
+        )
+
+    def _report_underflow(self, message):
+        logging.warning(message)
+        print(message)
+
+    def _underflow_backoff(self):
+        """Pause on the host; the retried point resets the core via Base."""
+        time.sleep(max(0.0, float(self.underflow_backoff_ms)) / 1000.0)
+
+    def _run_scan_point(self, variable1_value, variable2_value, iteration):
+        """Retry only this scan point on RTIOUnderflow; propagate the rest."""
+        retries = 0
+        while True:
+            try:
+                super()._run_scan_point(
+                    variable1_value, variable2_value, iteration
+                )
+                return
+            except RTIOUnderflow as error:
+                retries += 1
+                maximum_retries = int(self.underflow_max_retries)
+                self._report_underflow(
+                    f"RTIO underflow at iteration {iteration}, "
+                    f"retry {retries}/{maximum_retries}: {error}"
+                )
+                if retries >= maximum_retries:
+                    message = (
+                        f"RTIO underflow at iteration {iteration} exceeded "
+                        f"max retries ({maximum_retries})."
+                    )
+                    self._report_underflow(message)
+                    if not self.skip_only_that_iteration_if_exhausted:
+                        raise
+                    return
+                self._underflow_backoff()

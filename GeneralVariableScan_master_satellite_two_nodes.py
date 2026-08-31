@@ -2,7 +2,7 @@
 
 from artiq.experiment import EnvExperiment
 
-from GeneralVariableScan_master_satellite import (
+from GeneralVariableScan_master_satellite_mixin import (
     _GeneralVariableScanMasterSatelliteMixin,
 )
 

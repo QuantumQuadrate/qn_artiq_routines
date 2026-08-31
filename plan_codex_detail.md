@@ -65,33 +65,45 @@ DRTIO, and must not return.
 ### 4.2 New master-satellite stack
 
 ```text
-GeneralVariableScan_master_satellite.py
-GeneralVariableScan_CatchError_master_satellite.py
-AOMsCoils_master_satellite.py
+GeneralVariableScan_master_satellite_mixin.py
+GeneralVariableScan_master_satellite_single_node.py
+GeneralVariableScan_master_satellite_two_nodes.py
+GeneralVariableScan_CatchError_master_satellite_single_node.py
+GeneralVariableScan_CatchError_master_satellite_two_nodes.py
+AOMsCoils_master_satellite_mixin.py
+AOMsCoils_master_satellite_Node1.py
+AOMsCoils_master_satellite_Node2.py
 ExperimentVariables_Node1.py
 ExperimentVariables_Node2.py
 ExperimentVariables_master_satellite.py
 utilities/BaseExperiment_master_satellite.py
 utilities/DeviceAliases_master_satellite.py
-subroutines/experiment_functions_master_satellite.py
+subroutines/experiment_functions_two_nodes.py
 utilities/config/master_satellite/device_aliases.json
 ```
+
+The `_mixin` files hold only private shared implementations, define no public
+EnvExperiment class, and never appear in ARTIQ Explorer. Every public
+experiment is one class in one file whose name matches its Explorer label.
 
 Do not create dependencies from the old stack onto the new one.
 
 ## 5. Execution identity and naming
 
-The new GVS owns:
+Execution mode is fixed per public experiment file:
 
 ```text
-experiment_mode = single_node
-selected_node = Node1 or Node2
+single_node  GeneralVariableScan_master_satellite_single_node
+             GeneralVariableScan_CatchError_master_satellite_single_node
+             selected_node = Node1 or Node2 (submitted argument)
 
-experiment_mode = two_nodes
+two_nodes    GeneralVariableScan_master_satellite_two_nodes
+             GeneralVariableScan_CatchError_master_satellite_two_nodes
 ```
 
-These are execution arguments, not calibration datasets. `selected_node` is
-authoritative. Reused single-node functions alone receive:
+The mode is a class constant; `selected_node` is an execution argument, not a
+calibration dataset, and is authoritative. Reused single-node functions alone
+receive:
 
 ```text
 Node1 -> self.which_node = "alice"
@@ -239,9 +251,12 @@ implement SPCM policy, or handle USB devices.
 
 ### Build
 
-Build validates mode/node, registers one core/cache/DMA, loads variables,
-creates single-node projections, creates resolver contexts, binds node devices
-and SPCM aliases, and installs fixed wiring metadata.
+Build validates mode/node when configured at construction, registers one
+core/DMA/scheduler, loads variables, creates single-node projections, creates
+resolver contexts, binds node devices and SPCM aliases, and installs fixed
+wiring metadata. When constructed without a mode for repository examination,
+build binds the suffixed superset and defers validation, loading, and
+projection to `configure_execution()`/`prepare()` (see section 25).
 
 Active contexts:
 
@@ -361,6 +376,14 @@ Do not migrate runtime/results such as `fit_parameter_*`,
 
 ## 15. GeneralVariableScanMasterSatellite
 
+The shared implementation lives in
+`GeneralVariableScan_master_satellite_mixin.py`
+(`_GeneralVariableScanMasterSatelliteMixin` and `_CatchUnderflowRetryMixin`).
+The four public experiments fix their mode as a class constant and expose only
+that mode's function registry: the single-node files discover reusable legacy
+functions from `subroutines/experiment_functions.py`; the two-node files use
+only `subroutines/experiment_functions_two_nodes.py`.
+
 Single-node discovery accepts locally defined functions satisfying
 `inspect.isfunction`, matching module ownership, and containing
 `"experiment"` in the name.
@@ -397,18 +420,26 @@ Scan-point flow:
 Scans/overrides are non-persistent. Use `reload_experiment_variables()` for
 queued freshness. Never rebuild or prepare per point.
 
-`n_measurements` loads from the global dataset and may be a current-run GUI
-override without changing persistent calibration.
+Submitted GUI values always win for the run: `n_measurements` shares its name
+with the persistent global dataset, so prepare captures the submitted value
+before `configure_execution()` loads datasets and re-asserts it afterward,
+and the queued-run reload restores it again. Persistent calibration is never
+changed.
 
-The CatchError subclass retries only the failed point on `RTIOUnderflow`.
-It uses bounded retries and host backoff, and must propagate DRTIO, SPI,
-resolution, and other non-underflow failures.
+The CatchError experiments exist per mode
+(`GeneralVariableScan_CatchError_master_satellite_single_node`,
+`GeneralVariableScan_CatchError_master_satellite_two_nodes`) and share
+`_CatchUnderflowRetryMixin`, which wraps one scan point in bounded retries
+with host backoff. Only `RTIOUnderflow` is caught, and a retried point re-runs
+the full scan-point flow, including hardware initialization and its core
+reset. DRTIO, SPI, resolution, and all other non-underflow failures propagate.
 
 ## 16. Experiment functions
 
 Do not copy the large legacy module. Reuse compatible functions only in
-single-node mode. New DRTIO/two-node functions live only in the new module.
-Historical independent-Kasli functions remain untouched.
+single-node mode. New DRTIO/two-node functions live only in
+`subroutines/experiment_functions_two_nodes.py`. Historical independent-Kasli
+functions remain untouched.
 
 `master_satellite_namespace_sanity_experiment` is host-side and
 non-destructive by itself. Through current GVS it is not passive, because Base
@@ -540,20 +571,24 @@ safe first.
 
 ### Manual master-satellite hardware control
 
-`AOMsCoils_master_satellite.py` is separate from GVS and from the untouched
-standalone `AOMsCoils.py`. Build registers the suffixed two-node device
-superset without configuring execution or loading datasets. Prepare strictly
-configures Base in `two_nodes` mode so both physical nodes remain accessible.
-Its GUI selector is deliberately `which_node = node1 | node2 | two_nodes` and
-is a hard desired-state gate:
+Manual control is node-split: `AOMsCoils_master_satellite_mixin.py` holds the
+private shared implementation, and the public experiments are
+`AOMsCoils_master_satellite_Node1` and `AOMsCoils_master_satellite_Node2`,
+separate from GVS and from the untouched standalone `AOMsCoils.py`. Build
+registers the suffixed two-node device superset without configuring execution
+or loading datasets. Prepare configures Base in `single_node` mode for the
+class's fixed node and loads only that node's variables plus globals.
 
-| Selection | Node1 | Node2 |
+| Experiment | Selected node | Other node |
 |---|---|---|
-| `node1` | honor controls | force DDS OFF and coils 0 V |
-| `node2` | force DDS OFF and coils 0 V | honor controls |
-| `two_nodes` | honor independently | honor independently |
+| `AOMsCoils_master_satellite_Node1` | explicit OFF/0 V pass, then honor controls | never initialized or written |
+| `AOMsCoils_master_satellite_Node2` | explicit OFF/0 V pass, then honor controls | never initialized or written |
 
-Unselected-node checkboxes can never preserve or enable output.
+The per-node experiment never assigns the other node an output state, and it
+calls Base initialization with `reset_core=False` so outputs already
+established on the other node through the shared RTIO fabric are preserved.
+Making a node safe therefore means running that node's own experiment with its
+controls unchecked; there is no cross-node force-safe gate.
 
 Controlled DDS aliases and exact unified devices are:
 
@@ -598,11 +633,13 @@ K10CR1, Rigol, and other USB devices.
 
 Safe startup now switches each requested-off DDS OFF immediately after
 `init()` and before attenuation/profile programming. Base still initializes
-CPLDs, all DDS channels, TTL directions/states, Samplers/gains, and all Zotino
-outputs, so it is not passive. The utility performs a second explicit OFF/0-V
-pass before applying requested state.
+the selected node's CPLDs, DDS channels, TTL directions/states,
+Samplers/gains, and Zotino outputs (the unselected node's groups are removed
+from the lifecycle), so it is not passive. The utility performs a second
+explicit OFF/0-V pass before applying requested state.
 
-Commit `078dc0e` implements the utility, focused tests, and DDS ordering.
+Commit `078dc0e` implemented the original combined utility; commit `a7d8dff`
+split it into the per-node experiments and added the Base `reset_core` option.
 Kernel compilation, active-low polarity, coil identity/polarity, DRTIO
 readiness, remote SPI slack, and AD9910 synchronization still require hardware
 testing.
@@ -620,12 +657,12 @@ single-node compatibility, or prepare DDS defaults.
 
 At prepare:
 
-1. submitted `experiment_mode`/`selected_node` or AOMsCoils `which_node` is
-   strictly validated;
+1. submitted `selected_node` (single-node GVS) is strictly validated; the GVS
+   execution mode and the AOMsCoils node are fixed per class;
 2. Base configures `single_node Node1`, `single_node Node2`, or `two_nodes`;
 3. only the required node variables plus globals are loaded for GVS;
-4. AOMsCoils loads both node namespaces plus globals because it must force the
-   unselected node safe;
+4. AOMsCoils loads only its own node's namespace plus globals; the other node
+   is out of scope;
 5. selected-node compatibility and DDS bindings are published;
 6. missing datasets fail clearly before hardware initialization.
 
@@ -635,10 +672,9 @@ from the hardware lifecycle. Thus superset registration does not broaden
 single-node hardware access.
 
 GVS metadata uses fixed code defaults where persistent values cannot safely be
-read during examination: `n_measurements = 100` and the normal single-node scan
-presentation. The function selector exposes the union of the two registries
-because Explorer metadata cannot dynamically change after mode selection;
-prepare enforces mode membership before execution.
+read during examination: `n_measurements = 100` and the normal scan
+presentation. Each public GVS file has a fixed mode, so its function selector
+exposes only that mode's registry.
 
 ### Explorer naming and public-class imports
 
@@ -649,27 +685,30 @@ Explorer label. The expected labels are:
 ExperimentVariables_Node1
 ExperimentVariables_Node2
 ExperimentVariables_master_satellite
-GeneralVariableScan_master_satellite
-GeneralVariableScan_CatchError_master_satellite
-AOMsCoils_master_satellite
+GeneralVariableScan_master_satellite_single_node
+GeneralVariableScan_master_satellite_two_nodes
+GeneralVariableScan_CatchError_master_satellite_single_node
+GeneralVariableScan_CatchError_master_satellite_two_nodes
+AOMsCoils_master_satellite_Node1
+AOMsCoils_master_satellite_Node2
 ```
 
 Do not publicly import one dashboard `EnvExperiment` class into another
-repository file. CatchError previously imported `GeneralVariableScanMasterSatellite`
-under its public name, so ARTIQ rediscovered the base class and generated
-`GeneralVariableScan_master_satellite1`. Importing it as
-`_GeneralVariableScanMasterSatellite` preserves inheritance while hiding only
-the accidental duplicate. The CatchError subclass remains intentional and
-public. The namespace sanity function remains a GVS callable, not an Explorer
-experiment.
+repository file; a public import makes ARTIQ rediscover the class as a
+duplicate experiment (historically `GeneralVariableScan_master_satellite1`).
+Shared implementations therefore live in the `_mixin` modules as private
+classes, and every public experiment composes them in its own file. The
+namespace sanity function remains a GVS callable, not an Explorer experiment.
 
-Commits `a3eb7fe` and `f06f9be` implement these lifecycle/discovery fixes. The
-combined hardware-free suite passed 56 tests, including every public build
-with `None` arguments and empty dataset storage, plus separate strict runtime
-missing-dataset failures.
+Commits `a3eb7fe` and `f06f9be` implemented these lifecycle/discovery fixes;
+`025c027` split GVS by execution mode, and `a7d8dff` split manual control by
+node. The combined hardware-free suite passes 57 tests, including every public
+build with `None` arguments and empty dataset storage, strict runtime
+missing-dataset failures, submitted-GUI `n_measurements` precedence, and
+CatchError retry behavior.
 
 Implemented and hardware-free tested on branch
-`20260826_master_satellite_codex` through commit `f06f9be`:
+`20260826_master_satellite_codex`:
 
 - legacy selector removal;
 - explicit physical mapping;
@@ -678,10 +717,13 @@ Implemented and hardware-free tested on branch
 - Node1/Node2/global variables;
 - authoritative loading/projection/reload/target/cache APIs;
 - mode-specific registries and native namespace sanity;
-- GVS and CatchError variant;
+- mode-split GVS files and per-mode CatchError variants;
+- run-local GUI-argument precedence over persistent datasets
+  (`n_measurements`);
 - selected-node magnetometer wiring and suffixed results;
-- deterministic manual AOM/DDS, TTL optical-gate, microwave/RF, and
+- deterministic per-node manual AOM/DDS, TTL optical-gate, microwave/RF, and
   independent coil control;
+- `_mixin` naming for shared non-experiment modules;
 - DDS switch-OFF-before-programming safety ordering;
 - examination-safe deferred Base configuration with empty dataset storage;
 - stable Explorer class names and no duplicate public GVS import;

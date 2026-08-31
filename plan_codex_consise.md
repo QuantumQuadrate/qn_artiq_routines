@@ -23,16 +23,26 @@ architecture beside it. Do not gradually turn the standalone files into the
 new architecture.
 
 ```text
-Standalone                         Master-satellite
-GeneralVariableScan.py             GeneralVariableScan_master_satellite.py
-ExperimentVariables.py             ExperimentVariables_Node1.py
-BaseExperiment.py                  ExperimentVariables_Node2.py
-DeviceAliases.py                   ExperimentVariables_master_satellite.py
-experiment_functions.py            BaseExperiment_master_satellite.py
-                                    DeviceAliases_master_satellite.py
-                                    experiment_functions_master_satellite.py
-AOMsCoils.py                        AOMsCoils_master_satellite.py
+Standalone                             Master-satellite
+GeneralVariableScan.py                 GeneralVariableScan_master_satellite_mixin.py
+GeneralVariableScan_CatchUnderflow.py  GeneralVariableScan_master_satellite_single_node.py
+ExperimentVariables.py                 GeneralVariableScan_master_satellite_two_nodes.py
+BaseExperiment.py                      GeneralVariableScan_CatchError_master_satellite_single_node.py
+DeviceAliases.py                       GeneralVariableScan_CatchError_master_satellite_two_nodes.py
+experiment_functions.py                ExperimentVariables_Node1.py
+AOMsCoils.py                           ExperimentVariables_Node2.py
+                                       ExperimentVariables_master_satellite.py
+                                       BaseExperiment_master_satellite.py
+                                       DeviceAliases_master_satellite.py
+                                       experiment_functions_two_nodes.py
+                                       AOMsCoils_master_satellite_mixin.py
+                                       AOMsCoils_master_satellite_Node1.py
+                                       AOMsCoils_master_satellite_Node2.py
 ```
+
+`_mixin` files hold only private shared implementations and are not Explorer
+experiments. Execution mode is fixed per public GVS/CatchError file;
+`selected_node` is the single-node submitted argument.
 
 Standalone node selections remain only `alice` and `bob`. The deleted legacy
 `which_node == "two_nodes"` mode was not DRTIO and must never return.
@@ -79,6 +89,8 @@ unsuffixed namespace. The projection is never a second persistent source.
 9. Historical independent-Kasli functions remain untouched and are not native
    master-satellite functions.
 10. Hardware validation proceeds from passive link tests toward physics.
+11. A submitted experiment's own GUI argument values always win over
+    persistent datasets for that run.
 
 ## Special SPCM rule
 
@@ -104,21 +116,25 @@ Implemented and hardware-free tested:
 - Node1/Node2/global ExperimentVariables;
 - authoritative variable loading, projection, reload, and cache refresh;
 - mode-specific GVS registries and scan resolution;
-- master-satellite CatchError GVS;
+- per-mode master-satellite CatchError GVS variants;
+- run-local GUI-argument precedence over persistent datasets
+  (`n_measurements`);
 - native namespace sanity function;
 - minimal magnetometer compatibility and node-suffixed results;
-- deterministic two-node manual AOM/DDS, optical-gate, microwave/RF, and
-  independent coil control through `AOMsCoils_master_satellite.py`.
+- deterministic per-node manual AOM/DDS, optical-gate, microwave/RF, and
+  independent coil control through `AOMsCoils_master_satellite_Node1/Node2.py`.
 
-The manual utility binds the two-node device superset during build and
-configures Base as `two_nodes` during prepare so an unselected node can be
-actively made safe. Its selector is `which_node = node1 / node2 / two_nodes`.
-Selecting one node respects only that node's checkboxes; all
-controlled DDS outputs on the other node are switched OFF and all four of its
-coils are explicitly written to 0 V. Coil voltages are run-local GUI values
-with examination-safe 0 V defaults and are never persisted. Microwave/RF
-defaults OFF and requires confirmation. Feedback, old independent-Kasli
-networking, K10CR1, and Rigol are excluded.
+The manual utilities are node-split. Each public experiment binds the two-node
+device superset during build, then configures Base as `single_node` for its
+fixed node during prepare and loads only that node's variables plus globals.
+Only the selected node is initialized and driven: a second explicit OFF/0 V
+pass precedes the requested state, and Base initialization runs with
+`reset_core=False` so the other node's established outputs are never touched.
+Making a node safe means running that node's own experiment with its controls
+unchecked. Coil voltages are run-local GUI values with examination-safe 0 V
+defaults and are never persisted. Microwave/RF defaults OFF and requires
+confirmation. Feedback, old independent-Kasli networking, K10CR1, and Rigol
+are excluded.
 
 ARTIQ repository examination supplies `None` for submitted arguments and may
 run before any new persistent datasets exist. Every public master-satellite
@@ -130,6 +146,8 @@ preparation to prepare. Runtime missing datasets still fail before hardware.
 Explorer labels come from the first class-docstring line and must match the
 recognizable filename. Imported `EnvExperiment` subclasses must use private
 module aliases; otherwise ARTIQ can rediscover them as duplicate experiments.
+Shared implementations live in `_mixin` files that define no public
+experiment class.
 
 The software is ready for controlled gateware integration testing, not an
 immediate physical upgrade.
@@ -159,8 +177,8 @@ initialization changes DDS, TTL, Sampler, and Zotino state.
 4. Run a passive destination-1 readiness kernel.
 5. Verify namespace resolution without initializing outputs.
 6. Test one harmless local and one harmless remote RTIO operation.
-7. Use `AOMsCoils_master_satellite.py` to verify one Node1/Node2 AOM and coil
-   at a time, beginning with all outputs OFF/0 V.
+7. Use `AOMsCoils_master_satellite_Node1/Node2.py` to verify one AOM and coil
+   at a time on the corresponding node, beginning with all outputs OFF/0 V.
 8. Run `test_magnetometer_experiment` on Node1, then Node2.
 9. Add atom-loading/feedback compatibility.
 10. Create a separate master-satellite microwave optimizer.

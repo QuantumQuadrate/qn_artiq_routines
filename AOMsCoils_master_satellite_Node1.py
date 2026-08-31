@@ -2,7 +2,7 @@
 
 from artiq.experiment import EnvExperiment
 
-from AOMsCoils_master_satellite import _AOMsCoilsMasterSatelliteMixin
+from AOMsCoils_master_satellite_mixin import _AOMsCoilsMasterSatelliteMixin
 
 
 class AOMsCoils_master_satellite_Node1(

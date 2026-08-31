@@ -103,7 +103,8 @@ sys.modules.setdefault("artiq.language", language)
 sys.modules.setdefault("pyvisa", types.ModuleType("pyvisa"))
 
 
-from GeneralVariableScan_master_satellite import (  # noqa: E402
+from GeneralVariableScan_master_satellite_mixin import (  # noqa: E402
+    _CatchUnderflowRetryMixin,
     _GeneralVariableScanMasterSatelliteMixin,
     HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS,
     build_experiment_function_registry,
@@ -115,6 +116,12 @@ from GeneralVariableScan_master_satellite_single_node import (  # noqa: E402
 )
 from GeneralVariableScan_master_satellite_two_nodes import (  # noqa: E402
     GeneralVariableScan_master_satellite_two_nodes,
+)
+from GeneralVariableScan_CatchError_master_satellite_single_node import (  # noqa: E402
+    GeneralVariableScan_CatchError_master_satellite_single_node,
+)
+from GeneralVariableScan_CatchError_master_satellite_two_nodes import (  # noqa: E402
+    GeneralVariableScan_CatchError_master_satellite_two_nodes,
 )
 from subroutines.experiment_functions_two_nodes import (  # noqa: E402
     MASTER_SATELLITE_SANITY_ATTRIBUTES,
@@ -247,6 +254,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             ExperimentVariablesMasterSatellite,
             GeneralVariableScan_master_satellite_single_node,
             GeneralVariableScan_master_satellite_two_nodes,
+            GeneralVariableScan_CatchError_master_satellite_single_node,
+            GeneralVariableScan_CatchError_master_satellite_two_nodes,
             AOMsCoils_master_satellite_Node1,
             AOMsCoils_master_satellite_Node2,
         )
@@ -284,6 +293,16 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 lambda instance: None,
             ),
             (
+                GeneralVariableScan_CatchError_master_satellite_single_node,
+                lambda instance: (
+                    setattr(instance, "selected_node", "Node2"),
+                ),
+            ),
+            (
+                GeneralVariableScan_CatchError_master_satellite_two_nodes,
+                lambda instance: None,
+            ),
+            (
                 AOMsCoils_master_satellite_Node1,
                 lambda instance: None,
             ),
@@ -314,6 +333,15 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             "two_nodes",
         )
         self.assertFalse(hasattr(_GeneralVariableScanMasterSatelliteMixin, "build"))
+        self.assertEqual(
+            GeneralVariableScan_CatchError_master_satellite_single_node.EXPERIMENT_MODE,
+            "single_node",
+        )
+        self.assertEqual(
+            GeneralVariableScan_CatchError_master_satellite_two_nodes.EXPERIMENT_MODE,
+            "two_nodes",
+        )
+        self.assertFalse(hasattr(_CatchUnderflowRetryMixin, "build"))
 
         single_registry = (
             GeneralVariableScan_master_satellite_single_node()
@@ -332,14 +360,20 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             {"master_satellite_namespace_sanity_experiment"},
         )
 
-    def test_only_two_public_gvs_envexperiment_classes_exist(self):
+    def test_public_gvs_envexperiment_classes_match_the_split_files(self):
         expected = {
-            "GeneralVariableScan_master_satellite.py": set(),
+            "GeneralVariableScan_master_satellite_mixin.py": set(),
             "GeneralVariableScan_master_satellite_single_node.py": {
                 "GeneralVariableScan_master_satellite_single_node"
             },
             "GeneralVariableScan_master_satellite_two_nodes.py": {
                 "GeneralVariableScan_master_satellite_two_nodes"
+            },
+            "GeneralVariableScan_CatchError_master_satellite_single_node.py": {
+                "GeneralVariableScan_CatchError_master_satellite_single_node"
+            },
+            "GeneralVariableScan_CatchError_master_satellite_two_nodes.py": {
+                "GeneralVariableScan_CatchError_master_satellite_two_nodes"
             },
         }
         for filename, expected_classes in expected.items():
@@ -356,14 +390,13 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             }
             self.assertEqual(public_experiment_classes, expected_classes)
 
-        self.assertFalse(
-            Path("GeneralVariableScan_CatchError_master_satellite.py").exists()
-        )
-        self.assertFalse(
-            Path(
-                "subroutines/experiment_functions_master_satellite.py"
-            ).exists()
-        )
+        for retired_filename in (
+            "GeneralVariableScan_master_satellite.py",
+            "GeneralVariableScan_CatchError_master_satellite.py",
+            "AOMsCoils_master_satellite.py",
+            "subroutines/experiment_functions_master_satellite.py",
+        ):
+            self.assertFalse(Path(retired_filename).exists())
 
     def test_single_node_registry_uses_current_functions_and_exclusions(self):
         # Other hardware-free test modules may narrow the wildcard-exported
@@ -557,6 +590,127 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertTrue(
             all(not kwargs.get("persist", False) for _, _, kwargs in scan.dataset_writes)
         )
+
+    def test_submitted_n_measurements_survives_prepare_dataset_load(self):
+        scan = self._make_repository_examination_experiment(
+            GeneralVariableScan_master_satellite_single_node
+        )
+        scan.build()
+        for variable in (
+            *NODE1_VARIABLES,
+            *NODE2_VARIABLES,
+            *MASTER_SATELLITE_VARIABLES,
+        ):
+            scan.datasets[variable.name] = variable.value
+        self.assertEqual(scan.datasets["n_measurements"], 100)
+
+        # Submitted GUI values; n_measurements differs from the dataset.
+        scan.selected_node = "Node1"
+        scan.n_measurements = 7
+        scan.scan_variable1_name = "f_FORT"
+        scan.scan_sequence1 = "np.array([self.f_FORT])"
+        scan.scan_variable2_name = ""
+        scan.scan_sequence2 = "np.zeros(1)"
+        scan.override_ExperimentVariables = "{}"
+        scan.experiment_function = "atom_loading_experiment"
+        scan.scheduler = types.SimpleNamespace(get_status=lambda: {}, rid=0)
+
+        scan.prepare()
+
+        self.assertEqual(scan.n_measurements, 7)
+        self.assertEqual(scan.execution_n_measurements, 7)
+        self.assertEqual(scan.scan_variable1, "f_FORT_Node1")
+        self.assertEqual(scan.f_FORT, scan.datasets["f_FORT_Node1"])
+
+    def _make_catch_error_scan(self, scan_class):
+        scan = scan_class()
+        scan.base = FakeBase("single_node", "Node2")
+        scan.base.experiment = scan
+        scan.f_FORT_Node2 = 240.0
+        scan.scan_variable1 = "f_FORT_Node2"
+        scan.scan_variable2 = None
+        scan.scan_sequence1 = [1.0, 2.0]
+        scan.scan_sequence2 = [0.0]
+        scan.underflow_max_retries = 3
+        scan.underflow_backoff_ms = 0.0
+        scan.skip_only_that_iteration_if_exhausted = False
+        scan.dataset_writes = []
+        scan.attempts = []
+        scan._initialize_run_state = lambda: None
+        scan.initialize_hardware = lambda: None
+        scan.set_dataset = lambda name, value, **kwargs: scan.dataset_writes.append(
+            (name, value, kwargs)
+        )
+        return scan
+
+    def test_catch_error_retries_only_failed_scan_point(self):
+        for scan_class in (
+            GeneralVariableScan_CatchError_master_satellite_single_node,
+            GeneralVariableScan_CatchError_master_satellite_two_nodes,
+        ):
+            with self.subTest(experiment=scan_class.__name__):
+                scan = self._make_catch_error_scan(scan_class)
+
+                def selected_function(experiment):
+                    experiment.attempts.append(experiment.f_FORT_Node2)
+                    if len(experiment.attempts) == 1:
+                        raise RTIOUnderflow("transient")
+
+                scan._selected_experiment_function = selected_function
+                scan.run()
+
+                self.assertEqual(scan.attempts, [1.0, 1.0, 2.0])
+                iteration_writes = [
+                    value
+                    for name, value, _ in scan.dataset_writes
+                    if name == "iteration"
+                ]
+                self.assertEqual(iteration_writes, [0, 0, 0, 1])
+                self.assertEqual(scan.base.result_resets, 3)
+                self.assertTrue(
+                    all(
+                        not kwargs.get("persist", False)
+                        for _, _, kwargs in scan.dataset_writes
+                    )
+                )
+
+    def test_catch_error_does_not_hide_non_underflow_errors(self):
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_CatchError_master_satellite_single_node
+        )
+        scan.skip_only_that_iteration_if_exhausted = True
+
+        def selected_function(experiment):
+            raise RuntimeError("DRTIO unavailable")
+
+        scan._selected_experiment_function = selected_function
+        with self.assertRaisesRegex(RuntimeError, "DRTIO unavailable"):
+            scan.run()
+
+    def test_catch_error_exhaustion_respects_skip_configuration(self):
+        def always_underflow_first_point(experiment):
+            experiment.attempts.append(experiment.f_FORT_Node2)
+            if experiment.f_FORT_Node2 == 1.0:
+                raise RTIOUnderflow("persistent")
+
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_CatchError_master_satellite_single_node
+        )
+        scan.underflow_max_retries = 2
+        scan.skip_only_that_iteration_if_exhausted = True
+        scan._selected_experiment_function = always_underflow_first_point
+        scan.run()
+        self.assertEqual(scan.attempts, [1.0, 1.0, 2.0])
+
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_CatchError_master_satellite_single_node
+        )
+        scan.underflow_max_retries = 2
+        scan.skip_only_that_iteration_if_exhausted = False
+        scan._selected_experiment_function = always_underflow_first_point
+        with self.assertRaises(RTIOUnderflow):
+            scan.run()
+        self.assertEqual(scan.attempts, [1.0, 1.0])
 
     def test_namespace_sanity_is_non_destructive(self):
         experiment_object = types.SimpleNamespace()

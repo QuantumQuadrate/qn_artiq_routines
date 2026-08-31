@@ -27,7 +27,7 @@ if "artiq.experiment" not in sys.modules:
     sys.modules["artiq.experiment"] = experiment_module
 
 
-from AOMsCoils_master_satellite import _AOMsCoilsMasterSatelliteMixin  # noqa: E402
+from AOMsCoils_master_satellite_mixin import _AOMsCoilsMasterSatelliteMixin  # noqa: E402
 from AOMsCoils_master_satellite_Node1 import (  # noqa: E402
     AOMsCoils_master_satellite_Node1,
 )
@@ -205,7 +205,7 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
     def test_common_module_is_not_an_explorer_experiment(self):
         self.assertFalse(hasattr(_AOMsCoilsMasterSatelliteMixin, "build"))
         expected = {
-            "AOMsCoils_master_satellite.py": set(),
+            "AOMsCoils_master_satellite_mixin.py": set(),
             "AOMsCoils_master_satellite_Node1.py": {"AOMsCoils_master_satellite_Node1"},
             "AOMsCoils_master_satellite_Node2.py": {"AOMsCoils_master_satellite_Node2"},
         }
