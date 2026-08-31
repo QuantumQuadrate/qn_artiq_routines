@@ -541,9 +541,11 @@ safe first.
 ### Manual master-satellite hardware control
 
 `AOMsCoils_master_satellite.py` is separate from GVS and from the untouched
-standalone `AOMsCoils.py`. It always constructs Base in `two_nodes` mode so
-both physical nodes remain accessible. Its GUI selector is deliberately
-`which_node = node1 | node2 | two_nodes` and is a hard desired-state gate:
+standalone `AOMsCoils.py`. Build registers the suffixed two-node device
+superset without configuring execution or loading datasets. Prepare strictly
+configures Base in `two_nodes` mode so both physical nodes remain accessible.
+Its GUI selector is deliberately `which_node = node1 | node2 | two_nodes` and
+is a hard desired-state gate:
 
 | Selection | Node1 | Node2 |
 |---|---|---|
@@ -578,8 +580,10 @@ GRIN1, GRIN2, microwave, and Node2's dedicated D1 gate. Node1 D1 shares the
 GRIN1 optical gate.
 
 Each AZ-bottom, AZ-top, AX, and AY coil has an independent checkbox and
-run-local voltage argument. Values are seeded from node MOT calibration,
-limited to +/-10 V, and never persisted. Disabled coils are explicitly 0 V.
+run-local voltage argument. Explorer metadata uses a safe explicit 0 V default
+because persistent MOT datasets may not exist during repository examination.
+Values are limited to +/-10 V and never persisted. Disabled coils are
+explicitly 0 V.
 
 | Coil | Node1 Zotino | Node2 Zotino |
 |---|---:|---:|
@@ -598,13 +602,74 @@ CPLDs, all DDS channels, TTL directions/states, Samplers/gains, and all Zotino
 outputs, so it is not passive. The utility performs a second explicit OFF/0-V
 pass before applying requested state.
 
-Commit `078dc0e` implements the utility, focused tests, and DDS ordering. The
-combined master-satellite suite passed 51 hardware-free tests. Kernel
-compilation, active-low polarity, coil identity/polarity, DRTIO readiness,
-remote SPI slack, and AD9910 synchronization still require hardware testing.
+Commit `078dc0e` implements the utility, focused tests, and DDS ordering.
+Kernel compilation, active-low polarity, coil identity/polarity, DRTIO
+readiness, remote SPI slack, and AD9910 synchronization still require hardware
+testing.
+
+### Repository-examination lifecycle
+
+ARTIQ repository examination supplies `None` for argument values and must work
+with a completely empty master-satellite dataset namespace. This is required
+so Explorer can discover the ExperimentVariables initializers themselves.
+
+Public GVS and AOMsCoils build behavior is therefore limited to argument
+metadata and binding the suffixed Node1/Node2 physical-device superset. It does
+not select a runtime mode, load node/global calibration datasets, publish
+single-node compatibility, or prepare DDS defaults.
+
+At prepare:
+
+1. submitted `experiment_mode`/`selected_node` or AOMsCoils `which_node` is
+   strictly validated;
+2. Base configures `single_node Node1`, `single_node Node2`, or `two_nodes`;
+3. only the required node variables plus globals are loaded for GVS;
+4. AOMsCoils loads both node namespaces plus globals because it must force the
+   unselected node safe;
+5. selected-node compatibility and DDS bindings are published;
+6. missing datasets fail clearly before hardware initialization.
+
+For deferred single-node configuration, both nodes remain registered but the
+unselected node's CPLD, Sampler, Zotino, TTL, and safety-state lists are cleared
+from the hardware lifecycle. Thus superset registration does not broaden
+single-node hardware access.
+
+GVS metadata uses fixed code defaults where persistent values cannot safely be
+read during examination: `n_measurements = 100` and the normal single-node scan
+presentation. The function selector exposes the union of the two registries
+because Explorer metadata cannot dynamically change after mode selection;
+prepare enforces mode membership before execution.
+
+### Explorer naming and public-class imports
+
+ARTIQ uses the first line of each public `EnvExperiment` class docstring as the
+Explorer label. The expected labels are:
+
+```text
+ExperimentVariables_Node1
+ExperimentVariables_Node2
+ExperimentVariables_master_satellite
+GeneralVariableScan_master_satellite
+GeneralVariableScan_CatchError_master_satellite
+AOMsCoils_master_satellite
+```
+
+Do not publicly import one dashboard `EnvExperiment` class into another
+repository file. CatchError previously imported `GeneralVariableScanMasterSatellite`
+under its public name, so ARTIQ rediscovered the base class and generated
+`GeneralVariableScan_master_satellite1`. Importing it as
+`_GeneralVariableScanMasterSatellite` preserves inheritance while hiding only
+the accidental duplicate. The CatchError subclass remains intentional and
+public. The namespace sanity function remains a GVS callable, not an Explorer
+experiment.
+
+Commits `a3eb7fe` and `f06f9be` implement these lifecycle/discovery fixes. The
+combined hardware-free suite passed 56 tests, including every public build
+with `None` arguments and empty dataset storage, plus separate strict runtime
+missing-dataset failures.
 
 Implemented and hardware-free tested on branch
-`20260826_master_satellite_codex` through commit `078dc0e`:
+`20260826_master_satellite_codex` through commit `f06f9be`:
 
 - legacy selector removal;
 - explicit physical mapping;
@@ -618,6 +683,8 @@ Implemented and hardware-free tested on branch
 - deterministic manual AOM/DDS, TTL optical-gate, microwave/RF, and
   independent coil control;
 - DDS switch-OFF-before-programming safety ordering;
+- examination-safe deferred Base configuration with empty dataset storage;
+- stable Explorer class names and no duplicate public GVS import;
 - hardware-free tests.
 
 This is readiness for controlled gateware integration, not proof that physical

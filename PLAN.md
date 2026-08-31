@@ -1327,8 +1327,9 @@ Do not commit or push unless explicitly requested.
 
 `AOMsCoils_master_satellite.py` is the dedicated post-gateware manual-control
 utility. Standalone `AOMsCoils.py` remains untouched. The new utility is
-separate from GVS and always uses Base in `two_nodes` mode because an
-unselected node must remain accessible to be actively forced safe.
+separate from GVS. Build binds the suffixed two-node device superset without
+loading datasets; prepare strictly configures Base in `two_nodes` mode because
+an unselected node must remain accessible to be actively forced safe.
 
 Its selector is deliberately:
 
@@ -1350,8 +1351,9 @@ per node. DDS frequency/power comes through existing resolver bindings from
 authoritative node-suffixed ExperimentVariables. Node2 D1 specifically uses
 `f_GRIN2_D1_pumping_Node2` and `p_GRIN2_D1_pumping_Node2`.
 
-Each coil has an independent checkbox and run-local voltage seeded from MOT
-calibration. These values are never persisted, and OFF always writes 0 V.
+Each coil has an independent checkbox and run-local voltage. Explorer metadata
+uses an explicit safe 0 V default because MOT datasets may not yet exist.
+These values are never persisted, and OFF always writes 0 V.
 
 ```text
 Node1: AZ bottom 0, AZ top 1, AX 13, AY 14
@@ -1368,8 +1370,8 @@ forces controlled hardware OFF/0 V again, and only then applies requested
 state. Base initialization is still not passive because it initializes all
 CPLDs/DDS channels, TTL directions/states, Samplers/gains, and Zotinos.
 
-Commit `078dc0e` implements the utility, tests, and DDS safety ordering. The
-combined suite passed 51 hardware-free tests. Physical validation is pending.
+Commit `078dc0e` implements the utility, tests, and DDS safety ordering.
+Physical validation is pending.
 
 ---
 
@@ -1388,3 +1390,68 @@ combined suite passed 51 hardware-free tests. Physical validation is pending.
 
 AD9910 synchronization, DMA, timing-critical SPCM/herald/mapping behavior,
 parallel feedback, K10CR1, and microwave optimizer migration remain deferred.
+
+---
+
+## 35. Repository Examination and Explorer Discovery
+
+ARTIQ repository examination intentionally assigns `None` to submitted
+argument values. It must also succeed before any new Node1/Node2/global
+persistent datasets exist, because Explorer must discover the initializer
+experiments that create those datasets.
+
+For public GVS and AOMsCoils experiments:
+
+```text
+build
+    register GUI metadata
+    bind suffixed Node1/Node2 device superset
+    do not load ExperimentVariables
+    do not choose runtime presentation
+
+prepare
+    validate real submitted mode/node
+    load required authoritative datasets strictly
+    publish compatibility names where required
+    bind/prepare DDS defaults
+    fail before hardware if datasets are missing
+```
+
+Single-node GVS still loads only the selected node plus globals. Although both
+nodes are registered during examination-safe build, Base removes the
+unselected node's CPLD, Sampler, Zotino, TTL, and safety-state lists from the
+hardware lifecycle during single-node configuration. Hardware semantics are
+therefore unchanged.
+
+AOMsCoils requires both nodes at execution so it can actively disable the
+unselected node. Its manual coil arguments use 0 V metadata defaults instead
+of reading MOT datasets during examination. Persistent calibration remains
+strictly required during prepare and Base never creates it.
+
+Explorer labels come from the first public class-docstring line. Expected
+master-satellite entries are:
+
+```text
+ExperimentVariables_Node1
+ExperimentVariables_Node2
+ExperimentVariables_master_satellite
+GeneralVariableScan_master_satellite
+GeneralVariableScan_CatchError_master_satellite
+AOMsCoils_master_satellite
+```
+
+The previous `GeneralVariableScan_master_satellite1` was accidental: the
+CatchError file publicly imported the base GVS class, causing ARTIQ to discover
+it twice. The base is now imported under a private underscore name; the
+CatchError subclass remains a legitimate separate experiment.
+
+Commits:
+
+```text
+a3eb7fe Fix master-satellite repository examination
+f06f9be Make master-satellite examination dataset independent
+```
+
+The combined suite passed 56 hardware-free tests, including all public builds
+with `None` arguments and empty persistent storage, and separate tests proving
+runtime missing datasets still fail clearly.

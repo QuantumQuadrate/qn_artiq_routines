@@ -185,8 +185,9 @@ point on `RTIOUnderflow`. It must not hide DRTIO, SPI, mapping, or other errors.
 ## Manual hardware control
 
 `AOMsCoils_master_satellite.py` is separate from GVS and from the untouched
-standalone utility. It always binds Base in `two_nodes` mode so an unselected
-node can be actively forced safe. Its own selector is:
+standalone utility. Build binds the suffixed two-node device superset without
+loading datasets; prepare strictly configures Base in `two_nodes` mode so an
+unselected node can be actively forced safe. Its own selector is:
 
 ```text
 which_node = node1 | node2 | two_nodes
@@ -199,16 +200,52 @@ GRIN1and2, active-low optical gates, microwave/RF, and four independent coils
 per node. DDS values come only from authoritative node datasets. Node2 D1 uses
 the GRIN2 D1 frequency/power variables.
 
-Coil voltages are run-local GUI values seeded from node MOT calibration and
-never persisted. Explicit channels are Node1 `[0, 1, 13, 14]` and Node2
-`[0, 1, 2, 3]`. OFF always writes 0 V. Microwave/RF defaults OFF and requires
-confirmation. Feedback, old networking TTLs, K10CR1, Rigol, and other USB
-devices are excluded.
+Coil voltages are run-local GUI values with explicit examination-safe 0 V
+defaults and are never persisted. Explorer cannot safely seed them from MOT
+datasets because those datasets may not exist yet. Explicit channels are
+Node1 `[0, 1, 13, 14]` and Node2 `[0, 1, 2, 3]`. OFF always writes 0 V.
+Microwave/RF defaults OFF and requires confirmation. Feedback, old networking
+TTLs, K10CR1, Rigol, and other USB devices are excluded.
 
 Safe startup switches DDS outputs OFF before attenuation/profile programming,
 zeroes both Zotinos, performs another explicit controlled-output OFF/0-V pass,
-then applies the hard-gated requested state. Commit `078dc0e` implemented this
-with 51 passing combined hardware-free tests.
+then applies the hard-gated requested state. Commit `078dc0e` implemented the
+utility; later lifecycle fixes are recorded below.
+
+## Repository examination and Explorer discovery
+
+ARTIQ repository examination intentionally presents every experiment argument
+as `None`, and the new persistent datasets may be absent because Explorer must
+first discover their initializer experiments. Public master-satellite
+`build()` methods must succeed under both conditions and must not read
+calibration datasets merely to construct metadata.
+
+GVS and AOMsCoils use an unconfigured Base during build. Base registers the
+suffixed Node1/Node2 physical superset without loading ExperimentVariables.
+During prepare, submitted mode/node values are strictly validated, only the
+required authoritative datasets are loaded, compatibility presentation is
+installed, and DDS preparation occurs. Single-node execution removes the
+unselected node from hardware-lifecycle lists despite its devices remaining
+registered. Missing datasets still raise before hardware initialization.
+
+Explorer display names are the first line of public `EnvExperiment` class
+docstrings and should match filenames. A public import of
+`GeneralVariableScanMasterSatellite` in the CatchError module caused ARTIQ to
+rediscover the base class as `GeneralVariableScan_master_satellite1`; it is now
+imported under a private underscore alias. The intentional entries are:
+
+```text
+ExperimentVariables_Node1
+ExperimentVariables_Node2
+ExperimentVariables_master_satellite
+GeneralVariableScan_master_satellite
+GeneralVariableScan_CatchError_master_satellite
+AOMsCoils_master_satellite
+```
+
+Commits `a3eb7fe` and `f06f9be` implement examination-safe configuration,
+empty-dataset discovery, and duplicate Explorer removal. The combined suite
+passed 56 hardware-free tests.
 
 ## Hardware transition gate
 

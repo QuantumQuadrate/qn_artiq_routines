@@ -110,14 +110,26 @@ Implemented and hardware-free tested:
 - deterministic two-node manual AOM/DDS, optical-gate, microwave/RF, and
   independent coil control through `AOMsCoils_master_satellite.py`.
 
-The manual utility always binds Base in `two_nodes` mode so an unselected node
-can be actively made safe. Its selector is `which_node = node1 / node2 /
-two_nodes`. Selecting one node respects only that node's checkboxes; all
+The manual utility binds the two-node device superset during build and
+configures Base as `two_nodes` during prepare so an unselected node can be
+actively made safe. Its selector is `which_node = node1 / node2 / two_nodes`.
+Selecting one node respects only that node's checkboxes; all
 controlled DDS outputs on the other node are switched OFF and all four of its
 coils are explicitly written to 0 V. Coil voltages are run-local GUI values
-seeded from node-specific MOT calibration and are never persisted. Microwave/
-RF defaults OFF and requires confirmation. Feedback, old independent-Kasli
+with examination-safe 0 V defaults and are never persisted. Microwave/RF
+defaults OFF and requires confirmation. Feedback, old independent-Kasli
 networking, K10CR1, and Rigol are excluded.
+
+ARTIQ repository examination supplies `None` for submitted arguments and may
+run before any new persistent datasets exist. Every public master-satellite
+`build()` must therefore succeed with both conditions. GVS and AOMsCoils bind
+the suffixed Node1/Node2 device superset in build, but defer strict mode
+validation, authoritative dataset loading, selected-node projection, and DDS
+preparation to prepare. Runtime missing datasets still fail before hardware.
+
+Explorer labels come from the first class-docstring line and must match the
+recognizable filename. Imported `EnvExperiment` subclasses must use private
+module aliases; otherwise ARTIQ can rediscover them as duplicate experiments.
 
 The software is ready for controlled gateware integration testing, not an
 immediate physical upgrade.
