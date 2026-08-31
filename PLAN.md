@@ -1320,3 +1320,71 @@ Do not modify applets.
 Do not migrate historical two-node experiment functions.
 
 Do not commit or push unless explicitly requested.
+
+---
+
+## 33. Implemented Manual Master-Satellite Hardware Control
+
+`AOMsCoils_master_satellite.py` is the dedicated post-gateware manual-control
+utility. Standalone `AOMsCoils.py` remains untouched. The new utility is
+separate from GVS and always uses Base in `two_nodes` mode because an
+unselected node must remain accessible to be actively forced safe.
+
+Its selector is deliberately:
+
+```text
+which_node = node1 | node2 | two_nodes
+```
+
+This is a hard desired-state gate:
+
+- `node1`: honor Node1 controls; force controlled Node2 DDS outputs OFF and
+  every Node2 coil to 0 V;
+- `node2`: honor Node2 controls; force controlled Node1 DDS outputs OFF and
+  every Node1 coil to 0 V;
+- `two_nodes`: honor both independently.
+
+It controls FORT, cooling DP, AOM A1-A6, D1 pumping DP, GRIN1and2, relevant
+active-low optical TTL gates, microwave DDS, MW RF, and four independent coils
+per node. DDS frequency/power comes through existing resolver bindings from
+authoritative node-suffixed ExperimentVariables. Node2 D1 specifically uses
+`f_GRIN2_D1_pumping_Node2` and `p_GRIN2_D1_pumping_Node2`.
+
+Each coil has an independent checkbox and run-local voltage seeded from MOT
+calibration. These values are never persisted, and OFF always writes 0 V.
+
+```text
+Node1: AZ bottom 0, AZ top 1, AX 13, AY 14
+Node2: AZ bottom 0, AZ top 1, AX 2,  AY 3
+```
+
+Microwave/RF defaults OFF and requires explicit confirmation. Laser feedback,
+old independent-Kasli networking, K10CR1, Rigol, and other USB functions are
+excluded from the first version.
+
+Safe initialization switches each DDS OFF immediately after initialization
+and before attenuation/profile programming, zeroes both Zotinos, explicitly
+forces controlled hardware OFF/0 V again, and only then applies requested
+state. Base initialization is still not passive because it initializes all
+CPLDs/DDS channels, TTL directions/states, Samplers/gains, and Zotinos.
+
+Commit `078dc0e` implements the utility, tests, and DDS safety ordering. The
+combined suite passed 51 hardware-free tests. Physical validation is pending.
+
+---
+
+## 34. Updated Immediate Priority
+
+1. Secure verified standalone rollback artifacts.
+2. Build/archive matching master and satellite images plus unified database.
+3. Perform passive boot, log, and destination-1 checks.
+4. Verify namespace and harmless local/remote RTIO access.
+5. Start the manual utility with every output OFF and every coil at 0 V.
+6. Validate one Node1 AOM and coil at a time, then Node2.
+7. Confirm TTL polarity, coil identity/polarity, DRTIO readiness, and remote
+   SPI slack.
+8. Validate magnetometer Node1 then Node2.
+9. Add feedback and atom-loading compatibility only afterward.
+
+AD9910 synchronization, DMA, timing-critical SPCM/herald/mapping behavior,
+parallel feedback, K10CR1, and microwave optimizer migration remain deferred.
