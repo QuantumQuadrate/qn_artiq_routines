@@ -1,4 +1,4 @@
-"""Experiments written specifically for the master-satellite architecture."""
+"""Experiments written specifically for true master-satellite two-node use."""
 
 
 MASTER_SATELLITE_SANITY_ATTRIBUTES = (

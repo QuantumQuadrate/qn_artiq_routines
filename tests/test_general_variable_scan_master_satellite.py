@@ -2,7 +2,7 @@ import sys
 import types
 import unittest
 import json
-import importlib
+import ast
 from pathlib import Path
 
 
@@ -104,16 +104,19 @@ sys.modules.setdefault("pyvisa", types.ModuleType("pyvisa"))
 
 
 from GeneralVariableScan_master_satellite import (  # noqa: E402
-    GeneralVariableScanMasterSatellite,
+    _GeneralVariableScanMasterSatelliteMixin,
     HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS,
     build_experiment_function_registry,
     build_single_node_function_registry,
     build_two_node_function_registry,
 )
-from GeneralVariableScan_CatchError_master_satellite import (  # noqa: E402
-    GeneralVariableScan_CatchError_master_satellite,
+from GeneralVariableScan_master_satellite_single_node import (  # noqa: E402
+    GeneralVariableScan_master_satellite_single_node,
 )
-from subroutines.experiment_functions_master_satellite import (  # noqa: E402
+from GeneralVariableScan_master_satellite_two_nodes import (  # noqa: E402
+    GeneralVariableScan_master_satellite_two_nodes,
+)
+from subroutines.experiment_functions_two_nodes import (  # noqa: E402
     MASTER_SATELLITE_SANITY_ATTRIBUTES,
     master_satellite_namespace_sanity_experiment,
 )
@@ -237,8 +240,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             ExperimentVariablesNode1,
             ExperimentVariablesNode2,
             ExperimentVariablesMasterSatellite,
-            GeneralVariableScanMasterSatellite,
-            GeneralVariableScan_CatchError_master_satellite,
+            GeneralVariableScan_master_satellite_single_node,
+            GeneralVariableScan_master_satellite_two_nodes,
             AOMsCoils_master_satellite,
         )
         for experiment_class in public_experiments:
@@ -249,7 +252,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 instance.build()
 
         scan = self._make_repository_examination_experiment(
-            GeneralVariableScanMasterSatellite
+            GeneralVariableScan_master_satellite_single_node
         )
         scan.build()
         self.assertFalse(scan.base._execution_configured)
@@ -265,11 +268,14 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
     def test_empty_examination_does_not_weaken_runtime_dataset_validation(self):
         for experiment_class, configure in (
             (
-                GeneralVariableScanMasterSatellite,
+                GeneralVariableScan_master_satellite_single_node,
                 lambda instance: (
-                    setattr(instance, "experiment_mode", "single_node"),
                     setattr(instance, "selected_node", "Node1"),
                 ),
+            ),
+            (
+                GeneralVariableScan_master_satellite_two_nodes,
+                lambda instance: None,
             ),
             (
                 AOMsCoils_master_satellite,
@@ -288,23 +294,65 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 ):
                     instance.prepare()
 
-    def test_catch_error_module_exposes_only_its_own_public_gvs_class(self):
-        main_module = importlib.import_module(
-            "GeneralVariableScan_master_satellite"
+    def test_public_gvs_classes_have_fixed_distinct_modes(self):
+        self.assertEqual(
+            GeneralVariableScan_master_satellite_single_node.EXPERIMENT_MODE,
+            "single_node",
         )
-        catch_module = importlib.import_module(
-            "GeneralVariableScan_CatchError_master_satellite"
+        self.assertEqual(
+            GeneralVariableScan_master_satellite_two_nodes.EXPERIMENT_MODE,
+            "two_nodes",
         )
-        self.assertIs(
-            main_module.GeneralVariableScanMasterSatellite,
-            GeneralVariableScanMasterSatellite,
+        self.assertFalse(hasattr(_GeneralVariableScanMasterSatelliteMixin, "build"))
+
+        single_registry = (
+            GeneralVariableScan_master_satellite_single_node()
+            ._active_function_registry()
+        )
+        two_registry = (
+            GeneralVariableScan_master_satellite_two_nodes()
+            ._active_function_registry()
+        )
+        self.assertIn("atom_loading_experiment", single_registry)
+        self.assertNotIn(
+            "master_satellite_namespace_sanity_experiment", single_registry
+        )
+        self.assertEqual(
+            set(two_registry),
+            {"master_satellite_namespace_sanity_experiment"},
+        )
+
+    def test_only_two_public_gvs_envexperiment_classes_exist(self):
+        expected = {
+            "GeneralVariableScan_master_satellite.py": set(),
+            "GeneralVariableScan_master_satellite_single_node.py": {
+                "GeneralVariableScan_master_satellite_single_node"
+            },
+            "GeneralVariableScan_master_satellite_two_nodes.py": {
+                "GeneralVariableScan_master_satellite_two_nodes"
+            },
+        }
+        for filename, expected_classes in expected.items():
+            tree = ast.parse(Path(filename).read_text())
+            public_experiment_classes = {
+                node.name
+                for node in tree.body
+                if isinstance(node, ast.ClassDef)
+                and not node.name.startswith("_")
+                and any(
+                    isinstance(base, ast.Name) and base.id == "EnvExperiment"
+                    for base in node.bases
+                )
+            }
+            self.assertEqual(public_experiment_classes, expected_classes)
+
+        self.assertFalse(
+            Path("GeneralVariableScan_CatchError_master_satellite.py").exists()
         )
         self.assertFalse(
-            hasattr(catch_module, "GeneralVariableScanMasterSatellite")
-        )
-        self.assertIs(
-            catch_module.GeneralVariableScan_CatchError_master_satellite,
-            GeneralVariableScan_CatchError_master_satellite,
+            Path(
+                "subroutines/experiment_functions_master_satellite.py"
+            ).exists()
         )
 
     def test_single_node_registry_uses_current_functions_and_exclusions(self):
@@ -376,14 +424,13 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
 
     def test_wrong_mode_or_unknown_function_fails_clearly(self):
         with self.assertRaisesRegex(ValueError, "not available"):
-            GeneralVariableScanMasterSatellite._select_experiment_function(
+            _GeneralVariableScanMasterSatelliteMixin._select_experiment_function(
                 build_two_node_function_registry(),
                 "atom_loading_experiment",
             )
 
     def test_selected_node_has_separate_legacy_presentation(self):
-        scan = GeneralVariableScanMasterSatellite()
-        scan.experiment_mode = "single_node"
+        scan = GeneralVariableScan_master_satellite_single_node()
         scan.selected_node = "Node1"
         scan._publish_legacy_node_compatibility()
         self.assertEqual(scan.selected_node, "Node1")
@@ -421,7 +468,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             base.resolve_experiment_variable_target("f_FORT")
 
     def test_scan_and_override_refresh_authoritative_state_only(self):
-        scan = GeneralVariableScanMasterSatellite()
+        scan = GeneralVariableScan_master_satellite_single_node()
         scan.f_FORT_Node2 = 240.0
         scan.f_FORT = 240.0
         scan.base = FakeBase("single_node", "Node2")
@@ -453,7 +500,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             )
 
     def test_run_uses_reload_and_never_rebuilds_prepares_or_persists_scan(self):
-        scan = GeneralVariableScanMasterSatellite()
+        scan = GeneralVariableScan_master_satellite_single_node()
         scan.f_FORT_Node2 = 240.0
         scan.f_FORT = 240.0
         scan.n_measurements = 12
@@ -500,49 +547,6 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertTrue(
             all(not kwargs.get("persist", False) for _, _, kwargs in scan.dataset_writes)
         )
-
-    def test_catch_error_retries_only_failed_scan_point(self):
-        scan = GeneralVariableScan_CatchError_master_satellite()
-        scan.scan_sequence1 = [1.0, 2.0]
-        scan.scan_sequence2 = [0.0]
-        scan.underflow_max_retries = 3
-        scan.underflow_backoff_ms = 0.0
-        scan.skip_only_that_iteration_if_exhausted = False
-        scan.dataset_writes = []
-        scan.attempts = []
-        scan._initialize_run_state = lambda: None
-        scan.set_dataset = lambda name, value, **kwargs: scan.dataset_writes.append(
-            (name, value, kwargs)
-        )
-
-        def run_point(value1, value2, iteration):
-            scan.attempts.append((value1, iteration))
-            if value1 == 1.0 and len(scan.attempts) == 1:
-                raise RTIOUnderflow("transient")
-
-        scan._run_scan_point = run_point
-        scan.run()
-
-        self.assertEqual(scan.attempts, [(1.0, 0), (1.0, 0), (2.0, 1)])
-        self.assertTrue(
-            all(not kwargs.get("persist", False) for _, _, kwargs in scan.dataset_writes)
-        )
-
-    def test_catch_error_does_not_hide_non_underflow_errors(self):
-        scan = GeneralVariableScan_CatchError_master_satellite()
-        scan.scan_sequence1 = [1.0]
-        scan.scan_sequence2 = [0.0]
-        scan.underflow_max_retries = 3
-        scan.underflow_backoff_ms = 0.0
-        scan.skip_only_that_iteration_if_exhausted = True
-        scan._initialize_run_state = lambda: None
-        scan.set_dataset = lambda *args, **kwargs: None
-        scan._run_scan_point = lambda *args: (_ for _ in ()).throw(
-            RuntimeError("DRTIO unavailable")
-        )
-
-        with self.assertRaisesRegex(RuntimeError, "DRTIO unavailable"):
-            scan.run()
 
     def test_namespace_sanity_is_non_destructive(self):
         experiment_object = types.SimpleNamespace()

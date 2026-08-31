@@ -44,44 +44,35 @@ def build_single_node_function_registry():
 
 
 def build_two_node_function_registry():
-    import subroutines.experiment_functions_master_satellite as functions
+    import subroutines.experiment_functions_two_nodes as functions
 
     return build_experiment_function_registry(functions)
 
 
-class GeneralVariableScanMasterSatellite(EnvExperiment):
-    """GeneralVariableScan_master_satellite
+class _GeneralVariableScanMasterSatelliteMixin:
+    """Shared implementation for the two public master-satellite GVS files.
 
-    Scan authoritative variables on the master-satellite hardware stack.
+    This mixin deliberately does not inherit EnvExperiment, so ARTIQ Explorer
+    cannot expose this common implementation as a third dashboard experiment.
     """
 
-    VALID_MODES = ("single_node", "two_nodes")
     VALID_NODES = ("Node1", "Node2")
-    DEFAULT_MODE = "single_node"
     LEGACY_NODE_NAMES = {"Node1": "alice", "Node2": "bob"}
+    EXPERIMENT_MODE = None
 
-    def build(self):
-        self.setattr_argument(
-            "experiment_mode", EnumerationValue(self.VALID_MODES)
-        )
-        self.setattr_argument(
-            "selected_node", EnumerationValue(self.VALID_NODES)
-        )
-
+    def _build_master_satellite_scan(self):
+        if self.EXPERIMENT_MODE not in ("single_node", "two_nodes"):
+            raise RuntimeError(
+                "Public master-satellite GVS must define a fixed "
+                "EXPERIMENT_MODE."
+            )
+        self.experiment_mode = self.EXPERIMENT_MODE
         # Repository examination intentionally supplies None for argument
         # values. Bind the suffixed two-node device superset now; real mode
         # validation, variable loading, and compatibility presentation happen
         # in prepare() after submitted values are available.
         self.base = BaseExperimentMasterSatellite(experiment=self)
         self.base.build()
-
-        # Argument metadata needs a stable repository-examination default,
-        # but this value is never treated as the submitted runtime mode.
-        metadata_mode = (
-            self.experiment_mode
-            if self.experiment_mode in self.VALID_MODES
-            else self.DEFAULT_MODE
-        )
 
         self.setattr_argument(
             "n_measurements",
@@ -95,7 +86,7 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
         self.setattr_argument(
             "scan_variable1_name",
             StringValue(
-                "f_FORT" if metadata_mode == "single_node"
+                "f_FORT" if self.EXPERIMENT_MODE == "single_node"
                 else "f_FORT_Node1"
             ),
         )
@@ -103,7 +94,7 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
             "scan_sequence1",
             StringValue(
                 "np.array([self.f_FORT])"
-                if metadata_mode == "single_node"
+                if self.EXPERIMENT_MODE == "single_node"
                 else "np.array([self.f_FORT_Node1])"
             ),
         )
@@ -120,39 +111,26 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
             "Control experiment",
         )
 
-        single_registry = build_single_node_function_registry()
-        two_node_registry = build_two_node_function_registry()
-        duplicate_names = set(single_registry) & set(two_node_registry)
-        if duplicate_names:
-            raise RuntimeError(
-                "Experiment function names occur in both master-satellite "
-                f"registries: {', '.join(sorted(duplicate_names))}."
-            )
-        # Explorer metadata cannot change its enumeration after experiment_mode
-        # is selected, so expose the union and enforce mode membership in
-        # prepare() using the active registry.
-        function_names = sorted({**single_registry, **two_node_registry})
+        self.experiment_function_registry = self._active_function_registry()
+        function_names = sorted(self.experiment_function_registry)
         if not function_names:
             raise RuntimeError(
                 f"No experiment functions are available for "
-                f"{self.experiment_mode!r} mode."
+                f"{self.EXPERIMENT_MODE!r} mode."
             )
         self.setattr_argument(
             "experiment_function", EnumerationValue(function_names)
         )
 
     def _active_function_registry(self):
-        if self.experiment_mode == "single_node":
+        if self.EXPERIMENT_MODE == "single_node":
             return build_single_node_function_registry()
-        if self.experiment_mode == "two_nodes":
+        if self.EXPERIMENT_MODE == "two_nodes":
             return build_two_node_function_registry()
-        raise ValueError(
-            f"Unsupported experiment_mode {self.experiment_mode!r}; "
-            "expected 'single_node' or 'two_nodes'."
-        )
+        raise RuntimeError("Invalid fixed master-satellite GVS mode.")
 
     def _publish_legacy_node_compatibility(self):
-        if self.experiment_mode != "single_node":
+        if self.EXPERIMENT_MODE != "single_node":
             return
         try:
             self.which_node = self.LEGACY_NODE_NAMES[self.selected_node]
@@ -185,13 +163,12 @@ class GeneralVariableScanMasterSatellite(EnvExperiment):
     def prepare(self):
         selected_node = (
             self.selected_node
-            if self.experiment_mode == "single_node"
+            if self.EXPERIMENT_MODE == "single_node"
             else None
         )
         self.base.configure_execution(
-            self.experiment_mode, which_node=selected_node
+            self.EXPERIMENT_MODE, which_node=selected_node
         )
-        self.experiment_function_registry = self._active_function_registry()
         self._publish_legacy_node_compatibility()
         self.base.prepare()
 
