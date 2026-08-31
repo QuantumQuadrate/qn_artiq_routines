@@ -23,21 +23,21 @@ architecture beside it. Do not gradually turn the standalone files into the
 new architecture.
 
 ```text
-Standalone                             Master-satellite
-GeneralVariableScan.py                 GeneralVariableScan_master_satellite_mixin.py
-GeneralVariableScan_CatchUnderflow.py  GeneralVariableScan_master_satellite_single_node.py
-ExperimentVariables.py                 GeneralVariableScan_master_satellite_two_nodes.py
-BaseExperiment.py                      GeneralVariableScan_CatchError_master_satellite_single_node.py
-DeviceAliases.py                       GeneralVariableScan_CatchError_master_satellite_two_nodes.py
-experiment_functions.py                ExperimentVariables_Node1.py
-AOMsCoils.py                           ExperimentVariables_Node2.py
-                                       ExperimentVariables_master_satellite.py
-                                       BaseExperiment_master_satellite.py
-                                       DeviceAliases_master_satellite.py
-                                       experiment_functions_two_nodes.py
-                                       AOMsCoils_master_satellite_mixin.py
-                                       AOMsCoils_master_satellite_Node1.py
-                                       AOMsCoils_master_satellite_Node2.py
+Standalone                         Master-satellite
+GeneralVariableScan.py             GeneralVariableScan_master_satellite_mixin.py
+ExperimentVariables.py             GeneralVariableScan_master_satellite_single_node.py
+BaseExperiment.py                  GeneralVariableScan_master_satellite_two_nodes.py
+DeviceAliases.py                   GeneralVariableScan_CatchError_master_satellite_single_node.py
+experiment_functions.py            GeneralVariableScan_CatchError_master_satellite_two_nodes.py
+AOMsCoils.py                       ExperimentVariables_Node1.py
+                                   ExperimentVariables_Node2.py
+                                   ExperimentVariables_master_satellite.py
+                                   BaseExperiment_master_satellite.py
+                                   DeviceAliases_master_satellite.py
+                                   experiment_functions_two_nodes.py
+                                   AOMsCoils_master_satellite_mixin.py
+                                   AOMsCoils_master_satellite_Node1.py
+                                   AOMsCoils_master_satellite_Node2.py
 ```
 
 `_mixin` files hold only private shared implementations and are not Explorer
@@ -45,7 +45,10 @@ experiments. Execution mode is fixed per public GVS/CatchError file;
 `selected_node` is the single-node submitted argument.
 
 Standalone node selections remain only `alice` and `bob`. The deleted legacy
-`which_node == "two_nodes"` mode was not DRTIO and must never return.
+`which_node == "two_nodes"` mode was not DRTIO and must never return. The
+standalone `GeneralVariableScan.py` absorbed
+`GeneralVariableScan_CatchUnderflow.py`: per-iteration underflow retry is its
+optional `enable_Catch_UnderFlow` argument (off by default).
 
 ## Master-satellite execution model
 

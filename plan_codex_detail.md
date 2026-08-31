@@ -60,7 +60,10 @@ utilities/config/bob/
 
 Standalone selections remain only `alice` and `bob`. The removed legacy
 `which_node == "two_nodes"` mode was independent-Kasli coordination, not
-DRTIO, and must not return.
+DRTIO, and must not return. `GeneralVariableScan.py` absorbed
+`GeneralVariableScan_CatchUnderflow.py`: per-iteration underflow retry is its
+optional `enable_Catch_UnderFlow` argument (off by default; the retry values
+in the "Catch Underflow" GUI group take effect only when it is enabled).
 
 ### 4.2 New master-satellite stack
 

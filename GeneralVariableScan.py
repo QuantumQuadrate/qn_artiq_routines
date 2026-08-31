@@ -9,6 +9,11 @@ corresponding python sequences defining the scan steps, and an experiment functi
 utilities/experiment_functions.py. As some of these variables pertain to hardware settings, such as DDS power,
 it is necessary in general to re-initialize hardware at each scan step. We accomplish this by calling
 base.build before each call of the experiment function, i.e., at the start of each scan step.
+
+Setting enable_Catch_UnderFlow retries an iteration that fails with RTIOUnderflow, using the values in
+the "Catch Underflow" GUI group. This helps to catch OCCASIONAL Underflow errors; we need some management
+of Underflow in the experiment to use this Catch effectively. With the box unticked the scan behaves
+exactly like the original GeneralVariableScan (this file absorbed GeneralVariableScan_CatchUnderflow.py).
 """
 
 
@@ -30,6 +35,7 @@ from utilities.BaseExperiment import BaseExperiment
 from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
+from artiq.coredevice.exceptions import RTIOUnderflow
 
 class GeneralVariableScan(EnvExperiment):
 
@@ -66,6 +72,13 @@ class GeneralVariableScan(EnvExperiment):
         # a function that take no arguments that gets imported and run
         self.setattr_argument('experiment_function',
                               EnumerationValue(experiment_function_names_list))
+
+        # optional per-iteration RTIOUnderflow retry. the three retry values below
+        # only take effect when enable_Catch_UnderFlow is True.
+        self.setattr_argument("enable_Catch_UnderFlow", BooleanValue(False), "Catch Underflow")
+        self.setattr_argument("underflow_max_retries", NumberValue(10, ndecimals=0, step=1), "Catch Underflow")
+        self.setattr_argument("underflow_backoff_ms", NumberValue(200.0, step=0.5), "Catch Underflow")
+        self.setattr_argument("skip_only_that_iteration_if_exhausted", BooleanValue(True), "Catch Underflow")
 
         # toggles an interleaved control experiment, but what this means or whether
         # it has an effect depends on experiment_function
@@ -255,6 +268,25 @@ class GeneralVariableScan(EnvExperiment):
             delay(200*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
+    @kernel
+    def recover_from_underflow(self, backoff_ms: TFloat):
+        # Reset RTIO timeline and give the core some slack before retrying
+        self.core.reset()
+        delay(backoff_ms * ms)
+
+    def run_iteration(self):
+        """one scan step: re-derive dependent state, re-initialize hardware, measure, and save."""
+
+        self.initialize_dependent_variables()
+        self.initialize_hardware()
+        self.reset_datasets()
+
+        # the measurement loop.
+        self.experiment_function()
+
+        # write and overwrite the file here so we can quit the experiment early without losing data
+        self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+
     def run(self):
         """
         Step through the variable values defined by the scan sequences and run the experiment function.
@@ -297,16 +329,32 @@ class GeneralVariableScan(EnvExperiment):
                     setattr(self, self.scan_variable2, variable2_value)
                     logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
 
-                self.initialize_dependent_variables()
-                self.initialize_hardware()
-                self.reset_datasets()
+                if not self.enable_Catch_UnderFlow:
+                    self.run_iteration()
+                else:
+                    ### catching Underflow error
+                    retries = 0
+                    while True:
+                        try:
+                            self.run_iteration()
+                            break  ### exit retry loop, go to next iteration
 
-                # the measurement loop.
-                self.experiment_function()
+                        except RTIOUnderflow as e:
+                            retries += 1
+                            ### Tell the dashboard what happened
+                            logging.warning(e)
+                            self.print_async(f"Underflow at iteration {iteration}, retry {retries}/{int(self.underflow_max_retries)}")
+                            self.recover_from_underflow(self.underflow_backoff_ms)
 
-
-                # write and overwrite the file here so we can quit the experiment early without losing data
-                self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                            if retries >= int(self.underflow_max_retries):
+                                msg = f"Underflow at iteration {iteration} exceeded max retries ({int(self.underflow_max_retries)})"
+                                self.print_async(msg)
+                                if self.skip_only_that_iteration_if_exhausted:
+                                    ### Skips the iteration and continues to the next iteration.
+                                    break
+                                else:
+                                    ### Stop the experiment entirely
+                                    raise
 
                 iteration += 1
 
