@@ -50,7 +50,10 @@ def build_two_node_function_registry():
 
 
 class GeneralVariableScanMasterSatellite(EnvExperiment):
-    """Scan authoritative variables on the master-satellite hardware stack."""
+    """GeneralVariableScan_master_satellite
+
+    Scan authoritative variables on the master-satellite hardware stack.
+    """
 
     VALID_MODES = ("single_node", "two_nodes")
     VALID_NODES = ("Node1", "Node2")

@@ -225,7 +225,10 @@ NODE2_VARIABLES = (
 
 
 class ExperimentVariablesNode2(EnvExperiment):
-    """Initialize or intentionally update persistent variables for Node2."""
+    """ExperimentVariables_Node2
+
+    Initialize or intentionally update persistent variables for Node2.
+    """
 
     def build(self):
         self.vars_list = list(NODE2_VARIABLES)

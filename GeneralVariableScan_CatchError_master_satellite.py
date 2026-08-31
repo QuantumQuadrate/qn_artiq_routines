@@ -14,7 +14,9 @@ from GeneralVariableScan_master_satellite import (
 class GeneralVariableScan_CatchError_master_satellite(
     GeneralVariableScanMasterSatellite
 ):
-    """Retry an individual master-satellite scan point after an underflow.
+    """GeneralVariableScan_CatchError_master_satellite
+
+    Retry an individual master-satellite scan point after an underflow.
 
     Function discovery, authoritative variable resolution, compatibility
     projection, device binding, result-state handling, and hardware

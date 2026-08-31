@@ -22,7 +22,10 @@ from utilities.conversions import dB_to_V_kernel as dB_to_V
 
 
 class AOMsCoils_master_satellite(EnvExperiment):
-    """Manually apply an explicit, safely gated state to both nodes."""
+    """AOMsCoils_master_satellite
+
+    Manually apply an explicit, safely gated state to both nodes.
+    """
 
     VALID_NODE_SELECTIONS = ("node1", "node2", "two_nodes")
 

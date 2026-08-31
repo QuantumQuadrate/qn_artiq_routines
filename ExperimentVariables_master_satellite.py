@@ -32,7 +32,10 @@ MASTER_SATELLITE_VARIABLES = (
 
 
 class ExperimentVariablesMasterSatellite(EnvExperiment):
-    """Initialize or intentionally update shared master-satellite variables."""
+    """ExperimentVariables_master_satellite
+
+    Initialize or intentionally update shared master-satellite variables.
+    """
 
     def build(self):
         self.vars_list = list(MASTER_SATELLITE_VARIABLES)
