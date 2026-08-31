@@ -120,7 +120,12 @@ from subroutines.experiment_functions_two_nodes import (  # noqa: E402
     MASTER_SATELLITE_SANITY_ATTRIBUTES,
     master_satellite_namespace_sanity_experiment,
 )
-from AOMsCoils_master_satellite import AOMsCoils_master_satellite  # noqa: E402
+from AOMsCoils_master_satellite_Node1 import (  # noqa: E402
+    AOMsCoils_master_satellite_Node1,
+)
+from AOMsCoils_master_satellite_Node2 import (  # noqa: E402
+    AOMsCoils_master_satellite_Node2,
+)
 from ExperimentVariables_Node1 import (  # noqa: E402
     ExperimentVariablesNode1,
     NODE1_VARIABLES,
@@ -242,7 +247,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             ExperimentVariablesMasterSatellite,
             GeneralVariableScan_master_satellite_single_node,
             GeneralVariableScan_master_satellite_two_nodes,
-            AOMsCoils_master_satellite,
+            AOMsCoils_master_satellite_Node1,
+            AOMsCoils_master_satellite_Node2,
         )
         for experiment_class in public_experiments:
             with self.subTest(experiment=experiment_class.__name__):
@@ -259,7 +265,7 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(scan.dataset_reads, [])
 
         manual = self._make_repository_examination_experiment(
-            AOMsCoils_master_satellite
+            AOMsCoils_master_satellite_Node1
         )
         manual.build()
         self.assertFalse(manual.base._execution_configured)
@@ -278,8 +284,12 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 lambda instance: None,
             ),
             (
-                AOMsCoils_master_satellite,
-                lambda instance: setattr(instance, "which_node", "node1"),
+                AOMsCoils_master_satellite_Node1,
+                lambda instance: None,
+            ),
+            (
+                AOMsCoils_master_satellite_Node2,
+                lambda instance: None,
             ),
         ):
             with self.subTest(experiment=experiment_class.__name__):

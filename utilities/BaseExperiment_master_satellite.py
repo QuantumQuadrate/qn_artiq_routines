@@ -808,22 +808,30 @@ class BaseExperimentMasterSatellite:
 
     @kernel
     def initialize_hardware(
-        self, turn_off_dds_channels=True, turn_off_zotinos=True
+        self,
+        turn_off_dds_channels=True,
+        turn_off_zotinos=True,
+        initialize_spcms=True,
+        reset_core=True,
     ):
-        """Initialize active hardware using one core reset and ordered access."""
+        """Initialize active hardware with ordered access and optional reset."""
         if not self._prepared:
             raise RuntimeError("prepare() must be called before initialize_hardware().")
 
         # This is the only core reset owned by the master-satellite base.
-        self.experiment.core.reset()
+        # Node-local manual controls may omit it to preserve outputs already
+        # established on the other node through the shared RTIO fabric.
+        if reset_core:
+            self.experiment.core.reset()
 
         if self.node2_active:
             self._wait_for_satellite()
         else:
             self.experiment.core.break_realtime()
 
-        for spcm in self._spcm_inputs:
-            spcm.input()
+        if initialize_spcms:
+            for spcm in self._spcm_inputs:
+                spcm.input()
         self.experiment.core.break_realtime()
 
         self._initialize_cplds(self._cplds_node1)
