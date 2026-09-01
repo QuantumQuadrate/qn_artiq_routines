@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 from artiq.experiment import kernel, delay, ms, rpc, us
 
+from utilities.conversions import dB_to_V
+
 from ExperimentVariables_master_satellite_Node1 import NODE1_VARIABLES
 from ExperimentVariables_master_satellite_Node2 import NODE2_VARIABLES
 from ExperimentVariables_master_satellite_global import (
@@ -173,6 +175,36 @@ class BaseExperimentMasterSatellite:
         "best_852_power_ref",
     )
 
+    # Microwave scans persist these resonance/pi-pulse calibrations and
+    # health-check fidelities by their standalone names; single-node mode
+    # stores them node-suffixed so Node1 and Node2 results stay separate.
+    MICROWAVE_CALIBRATION_DATASETS = (
+        "f_microwaves_00_dds",
+        "f_microwaves_01_dds",
+        "f_microwaves_11_dds",
+        "f_microwaves_m10_dds",
+        "f_microwaves_m11_dds",
+        "t_microwave_00_pulse",
+        "t_microwave_01_pulse",
+        "t_microwave_11_pulse",
+        "t_microwave_m10_pulse",
+        "t_MW_RF_pulse",
+        "health_check_uw_freq00",
+        "health_check_uw_freq01",
+        "health_check_uw_freq11",
+        "health_check_uw_freqm10",
+        "health_check_uw_freqm11",
+    )
+
+    # The shim-tuning path inside the reused atom-loading functions writes
+    # MOT coil calibrations by their standalone names.
+    COIL_CALIBRATION_DATASETS = (
+        "AZ_bottom_volts_MOT",
+        "AZ_top_volts_MOT",
+        "AX_volts_MOT",
+        "AY_volts_MOT",
+    )
+
     def __init__(
         self,
         experiment,
@@ -205,6 +237,12 @@ class BaseExperimentMasterSatellite:
         self.shared_spcm_resolver = None
         self.compatibility_variable_map = {}
         self.feedback_dataset_map = {}
+        self._single_node_redirect_names = frozenset(
+            self.MAGNETOMETER_RESULT_DATASETS
+            + self.POLARIZATION_RESULT_DATASETS
+            + self.MICROWAVE_CALIBRATION_DATASETS
+            + self.COIL_CALIBRATION_DATASETS
+        )
         self.global_variable_names = frozenset(
             variable.name for variable in MASTER_SATELLITE_VARIABLES
         )
@@ -350,6 +388,22 @@ class BaseExperimentMasterSatellite:
         for device_name in ("core", "core_dma", "scheduler"):
             self.experiment.setattr_device(device_name)
 
+        @rpc(flags={"async"})
+        def print_async(*x):
+            """print asynchronously so we don't block the RTIO counter."""
+            print(*x)
+
+        self.experiment.print_async = print_async
+
+        def write_results_wrapper(kwargs={}):
+            # Deferred import: write_h5 needs h5py and coredevice modules
+            # that the hardware-free test environment does not provide.
+            from utilities.write_h5 import write_results
+
+            write_results(experiment=self.experiment, **kwargs)
+
+        self.experiment.write_results = write_results_wrapper
+
         nodes_to_bind = (
             self.active_nodes if self._execution_configured else self.VALID_NODES
         )
@@ -403,6 +457,12 @@ class BaseExperimentMasterSatellite:
             )
 
         self.experiment.measurements_progress = "measurements_progress"
+        # Fixed legacy dataset-name attributes used by the reused scan code.
+        self.experiment.SPCM0_rate_dataset = "SPCM0_counts_per_s"
+        self.experiment.SPCM1_rate_dataset = "SPCM1_counts_per_s"
+        self.experiment.scan_var_dataset = "scan_variables"
+        self.experiment.scan_sequence1_dataset = "scan_sequence1"
+        self.experiment.scan_sequence2_dataset = "scan_sequence2"
 
     def initialize_result_datasets(self):
         """Create the minimal transient single-node magnetometer results."""
@@ -413,10 +473,7 @@ class BaseExperimentMasterSatellite:
     def resolve_result_dataset_name(self, name):
         """Resolve hard-coded legacy result names for the selected node."""
         if self.experiment_mode == "single_node":
-            if (
-                name in self.MAGNETOMETER_RESULT_DATASETS
-                or name in self.POLARIZATION_RESULT_DATASETS
-            ):
+            if name in self._single_node_redirect_names:
                 return f"{name}_{self.which_node}"
             resolved_feedback_name = self.feedback_dataset_map.get(name)
             if resolved_feedback_name is not None:
@@ -596,6 +653,9 @@ class BaseExperimentMasterSatellite:
 
             resolver.dds_frequencies[:] = frequencies
             resolver.dds_powers[:] = powers
+
+        if self.experiment_mode == "single_node":
+            self._compute_derived_amplitudes()
 
     def reload_experiment_variables(self):
         """Reload active authoritative/global datasets without side effects."""
@@ -821,6 +881,123 @@ class BaseExperimentMasterSatellite:
             setattr(self.experiment, all_dds_attribute, list(resolver.dds_list))
 
         self._prepared = True
+        if self.experiment_mode == "single_node":
+            self._compute_derived_amplitudes()
+
+    def _compute_derived_amplitudes(self):
+        """Recompute the standalone in-memory RF amplitudes (single-node).
+
+        Mirrors the standalone BaseExperiment: absolute amplitudes from the
+        dBm calibrations, and the fractional RO/PGC/blowaway/OP levels from
+        them. In-memory only; scans and overrides recompute these through
+        refresh_variable_dependent_state().
+        """
+        experiment = self.experiment
+        experiment.ampl_FORT_loading = dB_to_V(experiment.p_FORT_loading)
+        experiment.ampl_cooling_DP_MOT = dB_to_V(experiment.p_cooling_DP_MOT)
+        experiment.ampl_MW_RF_dds = dB_to_V(experiment.p_MW_RF_dds)
+        experiment.ampl_excitation = dB_to_V(experiment.p_excitation)
+        experiment.ampl_microwaves = dB_to_V(experiment.p_microwaves)
+        for fiber_index in range(1, 7):
+            setattr(
+                experiment,
+                f"ampl_AOM_A{fiber_index}",
+                dB_to_V(getattr(experiment, f"p_AOM_A{fiber_index}")),
+            )
+
+        experiment.ampl_FORT_RO = (
+            experiment.ampl_FORT_loading * experiment.p_FORT_RO
+        )
+        experiment.ampl_FORT_PGC = (
+            experiment.ampl_FORT_loading * experiment.p_FORT_PGC
+        )
+        experiment.ampl_FORT_blowaway = (
+            experiment.ampl_FORT_loading * experiment.p_FORT_blowaway
+        )
+        experiment.ampl_FORT_OP = (
+            experiment.ampl_FORT_loading * experiment.p_FORT_OP
+        )
+        experiment.ampl_cooling_DP_RO = (
+            experiment.ampl_cooling_DP_MOT * experiment.p_cooling_DP_RO
+        )
+        experiment.ampl_cooling_DP_PGC = (
+            experiment.ampl_cooling_DP_MOT * experiment.p_cooling_DP_PGC
+        )
+
+    def initialize_single_node_result_state(self):
+        """Create the datasets and buffers the reused atom-physics code needs.
+
+        The set was traced from the microwave experiment chain
+        (load_MOT_and_FORT_until_atom, end_measurement, record_chopped_*,
+        health checks): every dataset those functions append to must exist,
+        plus the per-measurement accumulator lists the standalone Base built
+        in prepare. Broadcast, never persisted.
+        """
+        if not self._prepared:
+            raise RuntimeError(
+                "prepare() must complete before initializing result state."
+            )
+        if self.experiment_mode != "single_node":
+            raise RuntimeError(
+                "Single-node result state requires single_node mode."
+            )
+
+        experiment = self.experiment
+
+        detector_names = (
+            "SPCM0_RO1", "SPCM0_RO2", "SPCM1_RO1", "SPCM1_RO2",
+            "SPCM0_OtherNode_RO1", "SPCM0_OtherNode_RO2",
+            "SPCM1_OtherNode_RO1", "SPCM1_OtherNode_RO2",
+        )
+        integer_series = (
+            list(detector_names)
+            + [f"{name}_in_health_check" for name in detector_names]
+            + [
+                "AllSPCMs_RO1", "AllSPCMs_RO2",
+                "AllSPCMs_RO1_in_health_check",
+                "AllSPCMs_RO2_in_health_check",
+                "AllSPCMs_alternating_RO_alice",
+                "AllSPCMs_alternating_RO_bob",
+                "AllSPCMs_RO_atom_check",
+                "AllSPCMs_atom_check_in_loading",
+                "n_feedback_per_iteration",
+                "n_atom_loaded_per_iteration",
+            ]
+        )
+        for dataset_name in integer_series:
+            experiment.set_dataset(dataset_name, [0], broadcast=True)
+
+        float_series = (
+            "SPCM0_FORT_science",
+            "FORT_MM_science_volts",
+            "Atom_loading_time",
+            "time_without_atom",
+            "atom_loading_wall_clock",
+            "GRIN1_D1_monitor",
+            "GRIN1_EXC_monitor",
+            "Magnetometer_TEST_X",
+            "Magnetometer_TEST_Y",
+            "Magnetometer_TEST_Z",
+            "Sampler0_test",
+            "Sampler1_test",
+            "Sampler2_test",
+        )
+        for dataset_name in float_series:
+            experiment.set_dataset(dataset_name, [0.0], broadcast=True)
+
+        experiment.set_dataset("photocount_bins", [50], broadcast=True)
+
+        n_measurements = int(experiment.n_measurements)
+        for list_name in (
+            "SPCM0_RO1_list", "SPCM0_RO2_list",
+            "SPCM1_RO1_list", "SPCM1_RO2_list",
+            "SPCM0_OtherNode_RO1_list", "SPCM0_OtherNode_RO2_list",
+            "SPCM1_OtherNode_RO1_list", "SPCM1_OtherNode_RO2_list",
+            "AllSPCMs_RO1_list", "AllSPCMs_RO2_list",
+        ):
+            setattr(experiment, list_name, [0] * n_measurements)
+        experiment.atom_loading_time_list = [0.0] * n_measurements
+        experiment.atom_loading_time_other_node_list = [0.0] * n_measurements
 
     def _feedback_channel_dataset_names(self):
         """List the selected node's feedback dataset names from its config."""

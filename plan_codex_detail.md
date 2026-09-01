@@ -75,6 +75,7 @@ AOMsCoils_master_satellite_mixin.py
 AOMsCoils_master_satellite_Node1.py
 AOMsCoils_master_satellite_Node2.py
 FORT_Polarization_Optimizer_master_satellite.py
+MicrowaveScanOptimizer_master_satellite.py
 ExperimentVariables_master_satellite_Node1.py
 ExperimentVariables_master_satellite_Node2.py
 ExperimentVariables_master_satellite_global.py
@@ -491,22 +492,35 @@ remote Sampler SPI over DRTIO and is validated only after Node1.
 
 ## 19. Microwave optimizer
 
-The standalone `MicrowaveScanOptimizer.py` is incompatible and remains
-untouched. A separate master-satellite optimizer is required because it:
+The standalone `MicrowaveScanOptimizer.py` remains untouched and keeps
+serving the standalone systems together with the standalone HealthCheck GVS
+files, whose expids point at the standalone class.
 
-- constructs standalone Base;
-- treats legacy `which_node` as authoritative;
-- scans/persists unsuffixed node calibration;
-- repeats `prepare()`;
-- uses old queued rebuild behavior;
-- expects full standalone results and feedback objects;
-- needs derived cooling/FORT amplitudes;
-- uses unvalidated DMA traces;
-- has internal resets without destination checks;
-- resubmits jobs without master-satellite mode/node state.
+`MicrowaveScanOptimizer_master_satellite.py` is the port
+(`which_node = Node1 | Node2`; two_nodes is deliberately unsupported and
+never planned):
 
-Port it only after atom loading, feedback, derived amplitudes, result state, and
-DMA work in master-satellite single-node mode.
+- `scan_options`/`scan_dict` are extracted from the standalone source as
+  pure literals (no import of the standalone module), so the scan
+  definitions cannot drift;
+- Base provides the derived RF amplitudes, the traced single-node
+  atom-result datasets/buffers, `print_async`, and `write_results` that the
+  reused experiment functions need;
+- microwave calibrations and the `health_check_uw_*` fidelities persist
+  node-suffixed through the dataset redirect
+  (`MICROWAVE_CALIBRATION_DATASETS`); `fit_parameter_*` and `parent_rid`
+  stay unsuffixed run state;
+- scans and overrides mutate the suffixed authoritative attributes and
+  refresh the projection instead of re-running the one-shot Base prepare;
+  queued freshness uses `reload_experiment_variables()`;
+- health-check failures resubmit THIS class with `which_node` carried
+  forward. Future master-satellite HealthCheck files must submit the same
+  expid shape; they do not exist yet.
+
+Hardware validation is pending: Node1 first; Node2 scans exercise DMA
+playback and remote Sampler SPI over DRTIO (section 20). The port pulls
+sections 26.6/26.9 ahead of the atom-loading validation order by explicit
+decision.
 
 ## 20. DRTIO/timing constraints
 
@@ -774,6 +788,12 @@ Implemented and hardware-free tested on branch
   dataset redirect (`POLARIZATION_RESULT_DATASETS`) so monitors and the
   `best_852*` calibrations store node-suffixed; its two-node design is
   documented in the file and waits on parallel FORT feedback (section 18);
+- derived RF amplitudes and the traced single-node atom-result
+  datasets/buffers in Base, plus `print_async`/`write_results`;
+- `MicrowaveScanOptimizer_master_satellite` (`which_node = Node1 | Node2`)
+  with node-suffixed microwave calibrations and `health_check_uw_*`
+  fidelities and a self-resubmission expid carrying `which_node`
+  (section 19);
 - `_mixin` naming for shared non-experiment modules;
 - DDS switch-OFF-before-programming safety ordering;
 - examination-safe deferred Base configuration with empty dataset storage;
@@ -790,10 +810,12 @@ flashing or physics is safe.
 3. pass passive DRTIO validation;
 4. validate manual outputs with all OFF first, then one AOM/coil at a time;
 5. validate magnetometer Node1 then Node2;
-6. add derived cooling/FORT amplitudes and result state;
+6. validate on hardware the derived amplitudes and single-node result state
+   now provided by Base;
 7. validate active AOM/FORT feedback on hardware and extend it to GVS runs;
 8. validate normal atom loading;
-9. create master-satellite microwave optimizer;
+9. validate `MicrowaveScanOptimizer_master_satellite` on hardware (Node1
+   first; Node2 exercises DMA and remote SPI over DRTIO);
 10. recalibrate AD9910;
 11. revalidate DMA/remote SPI timing;
 12. add native two-node physics;

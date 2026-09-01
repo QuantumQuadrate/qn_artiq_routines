@@ -132,7 +132,14 @@ Implemented and hardware-free tested:
   waveplate control (one `k10cr1_ndsp` controller, node-suffixed axis names);
 - the single-node FORT polarization optimizer with node-suffixed waveplate
   calibration (the two-node variant is documented in the file and waits on
-  parallel FORT feedback).
+  parallel FORT feedback);
+- derived RF amplitudes and the single-node atom-result state in Base;
+- `MicrowaveScanOptimizer_master_satellite` (`which_node = Node1/Node2`,
+  never two_nodes): suffixed microwave calibrations and `health_check_uw_*`
+  fidelities, scan definitions read from the untouched standalone source,
+  self-resubmission carries `which_node`; the standalone optimizer and
+  HealthCheck files stay untouched, and future master-satellite HealthCheck
+  files must submit the new class with `which_node`.
 
 The manual utilities are node-split. Each public experiment binds the two-node
 device superset during build, then configures Base as `single_node` for its
@@ -199,7 +206,7 @@ initialization changes DDS, TTL, Sampler, and Zotino state.
    at a time on the corresponding node, beginning with all outputs OFF/0 V.
 8. Run `test_magnetometer_experiment` on Node1, then Node2.
 9. Add atom-loading/feedback compatibility.
-10. Create a separate master-satellite microwave optimizer.
+10. Validate the master-satellite microwave optimizer on hardware.
 11. Validate DMA and timing-critical single-photon work last.
 
 ## How a new AI should work
