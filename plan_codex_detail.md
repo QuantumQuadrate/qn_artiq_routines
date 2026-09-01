@@ -635,6 +635,14 @@ active-low polarity is retained for repump, pumping-repump, excitation0,
 GRIN1, GRIN2, microwave, and Node2's dedicated D1 gate. Node1 D1 shares the
 GRIN1 optical gate.
 
+Node2 additionally carries the standalone combined `Node2_GRIN1_AOM_ON` /
+`Node2_GRIN2_AOM_ON` modes, applied after the individual controls exactly as
+in the standalone ordering, so on Node2 they are authoritative: their OFF
+branches override `GRIN1and2_ON`, the GRIN gate controls, and the D1 DDS
+(`D1_pumping_DP_ON` on Node2 therefore effectively drives only
+`ttl_D1_pumping`, matching the original). The GRIN2 mode re-programs
+`dds_D1_pumping_DP` to `f/p_GRIN2_excitation` before switching it on.
+
 Coil control matches the standalone utility: a single `disable_coils`
 checkbox (default False) drives the selected node's four coils to the
 persistent `*_volts_MOT` calibration values, or to 0 V when set. Voltages are

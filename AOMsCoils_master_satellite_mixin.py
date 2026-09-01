@@ -86,6 +86,20 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
                 BooleanValue(False),
                 f"{self.NODE} TTL-controlled AOM gates",
             )
+        if self.NODE == "Node2":
+            # Standalone bob-only combined modes: DDS and optical gate driven
+            # together. Applied last, so on Node2 they are authoritative over
+            # the individual GRIN controls (their OFF branches override).
+            self.setattr_argument(
+                "Node2_GRIN1_AOM_ON",
+                BooleanValue(False),
+                "Node2 GRIN1/GRIN2 combined modes",
+            )
+            self.setattr_argument(
+                "Node2_GRIN2_AOM_ON",
+                BooleanValue(False),
+                "Node2 GRIN1/GRIN2 combined modes",
+            )
         # Coils follow the standalone AOMsCoils semantics: unless disabled,
         # all four coils are driven to the node's persistent MOT calibration
         # voltages. There are no manual voltage entries.
@@ -179,6 +193,18 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
             self.AY_volts_MOT,
         ]
 
+        # f/p_GRIN2_excitation project on both nodes, so the combined-mode
+        # kernel compiles everywhere; it only runs on Node2.
+        self._apply_node2_combined_modes = self.NODE == "Node2"
+        self._node2_grin1_combined = bool(
+            getattr(self, "Node2_GRIN1_AOM_ON", False)
+        )
+        self._node2_grin2_combined = bool(
+            getattr(self, "Node2_GRIN2_AOM_ON", False)
+        )
+        self._grin2_excitation_frequency = self.f_GRIN2_excitation
+        self._grin2_excitation_amplitude_dB = self.p_GRIN2_excitation
+
         # One controller process owns all eight rotators; the node identity
         # lives in the axis nickname. The NDSP client opens its connection
         # the moment the device is requested, so it is bound only when a
@@ -238,6 +264,35 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
             self.zotino0.set_dac(
                 self._coil_voltages, channels=self.COIL_CHANNELS
             )
+        delay(1 * ms)
+
+    @kernel
+    def _apply_node2_combined_grin_state(self):
+        """Replicate the standalone bob-only combined GRIN modes.
+
+        Applied after the individual DDS/gate controls, exactly as in the
+        standalone AOMsCoils ordering, so on Node2 these switches are
+        authoritative: their OFF branches override GRIN1and2_ON, the GRIN
+        gate controls, and the D1 DDS (D1_pumping_DP_ON on Node2 therefore
+        effectively drives only ttl_D1_pumping, as in the original).
+        """
+        if self._node2_grin1_combined:
+            self.GRIN1and2_dds.sw.on()
+            self.ttl_GRIN1_switch.off()
+        else:
+            self.GRIN1and2_dds.sw.off()
+            self.ttl_GRIN1_switch.on()
+        delay(1 * ms)
+        if self._node2_grin2_combined:
+            self.dds_D1_pumping_DP.set(
+                frequency=self._grin2_excitation_frequency,
+                amplitude=dB_to_V(self._grin2_excitation_amplitude_dB),
+            )
+            self.dds_D1_pumping_DP.sw.on()
+            self.ttl_GRIN2_switch.off()
+        else:
+            self.dds_D1_pumping_DP.sw.off()
+            self.ttl_GRIN2_switch.on()
         delay(1 * ms)
 
     @kernel
@@ -359,6 +414,8 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
         self._force_selected_node_off()
         self._apply_dds_state()
         self._apply_active_low_ttl_state()
+        if self._apply_node2_combined_modes:
+            self._apply_node2_combined_grin_state()
         self._apply_microwave_state()
         self._apply_coil_state()
 

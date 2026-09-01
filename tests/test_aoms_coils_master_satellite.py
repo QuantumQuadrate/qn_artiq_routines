@@ -305,6 +305,47 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         self.assertTrue(node1.ttl_microwave_switch.state)
         self.assertEqual(len(node1.dataset_writes), writes_after_prepare)
 
+    def test_node2_combined_grin_modes_drive_dds_and_gate_together(self):
+        from utilities.conversions import dB_to_V_kernel
+
+        node2 = self.make_experiment(Node2ManualExperiment, {
+            "Node2_GRIN1_AOM_ON": True, "Node2_GRIN2_AOM_ON": True,
+        })
+        node2.apply_manual_state()
+        grin1and2_dds = self.devices["urukul5_ch2"]
+        d1_dds = self.devices["urukul5_ch0"]
+        self.assertTrue(grin1and2_dds.state)
+        self.assertFalse(self.devices["ttl30"].state)  # GRIN1 gate open
+        self.assertTrue(d1_dds.state)
+        self.assertFalse(self.devices["ttl29"].state)  # GRIN2 gate open
+        self.assertEqual(d1_dds.last_set, {
+            "frequency": self.datasets["f_GRIN2_excitation_Node2"],
+            "amplitude": dB_to_V_kernel(
+                self.datasets["p_GRIN2_excitation_Node2"]
+            ),
+        })
+
+    def test_node2_combined_modes_off_override_individual_grin_controls(self):
+        node2 = self.make_experiment(Node2ManualExperiment, {
+            "GRIN1and2_ON": True, "D1_pumping_DP_ON": True,
+        })
+        node2.apply_manual_state()
+        # The unticked combined modes win, as in the standalone ordering:
+        # both DDSes end OFF while the dedicated D1 gate stays open.
+        self.assertFalse(self.devices["urukul5_ch2"].state)
+        self.assertFalse(self.devices["urukul5_ch0"].state)
+        self.assertFalse(self.devices["ttl28"].state)  # ttl_D1_pumping open
+        self.assertTrue(self.devices["ttl30"].state)   # GRIN1 gate closed
+        self.assertTrue(self.devices["ttl29"].state)   # GRIN2 gate closed
+
+    def test_node1_has_no_combined_grin_modes_and_keeps_grin_control(self):
+        node1 = self.make_experiment(
+            Node1ManualExperiment, {"GRIN1and2_ON": True}
+        )
+        self.assertFalse(hasattr(node1, "Node2_GRIN1_AOM_ON"))
+        node1.apply_manual_state()
+        self.assertTrue(self.devices["urukul0_ch3"].state)
+
     def test_laser_stabilizer_prepared_with_suffixed_persistence(self):
         node1 = self.make_experiment(Node1ManualExperiment)
         stabilizer = node1.laser_stabilizer

@@ -146,7 +146,9 @@ node's axes through the single `k10cr1_ndsp` controller (node-suffixed
 nicknames, bound only when a waveplate action is selected).
 `run_laser_feedback` matches the standalone utility (feedback, or monitor
 when unticked, only with all six fiber AOMs plus cooling DP on) and persists
-through node-suffixed datasets via unchanged aom_feedback code. Old
+through node-suffixed datasets via unchanged aom_feedback code. Node2 also
+carries the standalone combined `Node2_GRIN1/GRIN2_AOM_ON` modes, applied
+last and authoritative over the individual GRIN controls. Old
 independent-Kasli networking and Rigol are excluded.
 
 ARTIQ repository examination supplies `None` for submitted arguments and may
