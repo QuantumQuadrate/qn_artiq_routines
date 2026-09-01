@@ -12,49 +12,61 @@ def _identity_decorator(function=None, **kwargs):
     return lambda decorated: decorated
 
 
-if "artiq.experiment" not in sys.modules:
-    artiq_module = types.ModuleType("artiq")
-    experiment_module = types.ModuleType("artiq.experiment")
-    experiment_module.kernel = _identity_decorator
-    experiment_module.rpc = _identity_decorator
-    experiment_module.delay = lambda duration: None
-    experiment_module.EnvExperiment = object
-    experiment_module.NumberValue = lambda value, **kwargs: value
-    experiment_module.BooleanValue = lambda value=False, **kwargs: value
-    experiment_module.StringValue = lambda value, **kwargs: value
-    experiment_module.EnumerationValue = lambda values, **kwargs: tuple(values)[0]
-    experiment_module.MHz = 1e6
-    experiment_module.kHz = 1e3
-    experiment_module.ms = 1e-3
-    experiment_module.us = 1e-6
-    experiment_module.ns = 1e-9
-    experiment_module.s = 1.0
-    experiment_module.TFloat = float
-    experiment_module.TStr = str
-    experiment_module.TInt32 = int
-    experiment_module.TInt64 = int
-    experiment_module.TBool = bool
-    artiq_module.experiment = experiment_module
-    sys.modules["artiq"] = artiq_module
-    sys.modules["artiq.experiment"] = experiment_module
-else:
-    experiment_module = sys.modules["artiq.experiment"]
+_STUB_MARKER = "_qn_hardware_free_stub"
+
+
+def _artiq_experiment_stub_or_none():
+    """Return the artiq.experiment stub to (re)configure, or None.
+
+    The ARTIQ repository scan imports this file inside a live worker, where a
+    real artiq installation must never be modified or shadowed. A stub is
+    installed (or extended) only when artiq is genuinely absent - the
+    hardware-free test environment - or when an earlier hardware-free test
+    module already installed the marked stub.
+    """
+    existing_artiq = sys.modules.get("artiq")
+    if existing_artiq is not None:
+        if getattr(existing_artiq, _STUB_MARKER, False):
+            return sys.modules["artiq.experiment"]
+        return None
+    try:
+        import artiq  # noqa: F401
+    except ImportError:
+        artiq_module = types.ModuleType("artiq")
+        setattr(artiq_module, _STUB_MARKER, True)
+        experiment_module = types.ModuleType("artiq.experiment")
+        artiq_module.experiment = experiment_module
+        sys.modules["artiq"] = artiq_module
+        sys.modules["artiq.experiment"] = experiment_module
+        return experiment_module
+    return None
+
+
+_experiment_stub = _artiq_experiment_stub_or_none()
+if _experiment_stub is not None:
     for name, value in {
-        "rpc": _identity_decorator,
         "kernel": _identity_decorator,
+        "rpc": _identity_decorator,
+        "delay": lambda duration: None,
+        "EnvExperiment": object,
+        "NumberValue": lambda value, **kwargs: value,
+        "BooleanValue": lambda value=False, **kwargs: value,
+        "StringValue": lambda value, **kwargs: value,
+        "EnumerationValue": lambda values, **kwargs: tuple(values)[0],
+        "MHz": 1e6,
+        "kHz": 1e3,
+        "ms": 1e-3,
+        "us": 1e-6,
+        "ns": 1e-9,
+        "s": 1.0,
+        "TFloat": float,
         "TStr": str,
         "TInt32": int,
         "TInt64": int,
         "TBool": bool,
-        "s": 1.0,
     }.items():
-        if name in {"rpc", "kernel"} or not hasattr(experiment_module, name):
-            setattr(experiment_module, name, value)
-    if hasattr(experiment_module, "__all__"):
-        experiment_module.__all__ = sorted(
-            set(experiment_module.__all__)
-            | {"rpc", "kernel", "TStr", "TInt32", "TInt64", "TBool", "s"}
-        )
+        if not hasattr(_experiment_stub, name):
+            setattr(_experiment_stub, name, value)
 
 
 from AOMsCoils_master_satellite_mixin import _AOMsCoilsMasterSatelliteMixin  # noqa: E402

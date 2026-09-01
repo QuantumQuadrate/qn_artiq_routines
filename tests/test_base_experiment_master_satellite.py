@@ -5,26 +5,56 @@ import json
 from pathlib import Path
 
 
-if "artiq.experiment" not in sys.modules:
-    artiq_module = types.ModuleType("artiq")
-    experiment_module = types.ModuleType("artiq.experiment")
-    experiment_module.kernel = lambda function: function
-    experiment_module.rpc = lambda function=None, **kwargs: (
-        function if function is not None else (lambda decorated: decorated)
-    )
-    experiment_module.delay = lambda duration: None
-    experiment_module.EnvExperiment = object
-    experiment_module.NumberValue = lambda value, **kwargs: value
-    experiment_module.BooleanValue = lambda value, **kwargs: value
-    experiment_module.StringValue = lambda value, **kwargs: value
-    experiment_module.MHz = 1e6
-    experiment_module.kHz = 1e3
-    experiment_module.ms = 1e-3
-    experiment_module.us = 1e-6
-    experiment_module.ns = 1e-9
-    artiq_module.experiment = experiment_module
-    sys.modules["artiq"] = artiq_module
-    sys.modules["artiq.experiment"] = experiment_module
+_STUB_MARKER = "_qn_hardware_free_stub"
+
+
+def _artiq_experiment_stub_or_none():
+    """Return the artiq.experiment stub to (re)configure, or None.
+
+    The ARTIQ repository scan imports this file inside a live worker, where a
+    real artiq installation must never be modified or shadowed. A stub is
+    installed (or extended) only when artiq is genuinely absent - the
+    hardware-free test environment - or when an earlier hardware-free test
+    module already installed the marked stub.
+    """
+    existing_artiq = sys.modules.get("artiq")
+    if existing_artiq is not None:
+        if getattr(existing_artiq, _STUB_MARKER, False):
+            return sys.modules["artiq.experiment"]
+        return None
+    try:
+        import artiq  # noqa: F401
+    except ImportError:
+        artiq_module = types.ModuleType("artiq")
+        setattr(artiq_module, _STUB_MARKER, True)
+        experiment_module = types.ModuleType("artiq.experiment")
+        artiq_module.experiment = experiment_module
+        sys.modules["artiq"] = artiq_module
+        sys.modules["artiq.experiment"] = experiment_module
+        return experiment_module
+    return None
+
+
+_experiment_stub = _artiq_experiment_stub_or_none()
+if _experiment_stub is not None:
+    for name, value in {
+        "kernel": lambda function: function,
+        "rpc": lambda function=None, **kwargs: (
+            function if function is not None else (lambda decorated: decorated)
+        ),
+        "delay": lambda duration: None,
+        "EnvExperiment": object,
+        "NumberValue": lambda value, **kwargs: value,
+        "BooleanValue": lambda value=False, **kwargs: value,
+        "StringValue": lambda value, **kwargs: value,
+        "MHz": 1e6,
+        "kHz": 1e3,
+        "ms": 1e-3,
+        "us": 1e-6,
+        "ns": 1e-9,
+    }.items():
+        if not hasattr(_experiment_stub, name):
+            setattr(_experiment_stub, name, value)
 
 
 from utilities.BaseExperiment_master_satellite import (  # noqa: E402

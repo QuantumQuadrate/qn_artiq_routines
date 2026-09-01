@@ -30,68 +30,57 @@ class FakeEnvExperiment:
         self.dataset_writes.append((name, value, broadcast, persist))
 
 
-if "artiq.experiment" not in sys.modules:
-    artiq_module = types.ModuleType("artiq")
-    experiment_module = types.ModuleType("artiq.experiment")
-    experiment_module.EnvExperiment = FakeEnvExperiment
-    experiment_module.NumberValue = FakeArgumentValue
-    experiment_module.BooleanValue = FakeArgumentValue
-    experiment_module.StringValue = FakeArgumentValue
-    experiment_module.kernel = lambda function: function
-    experiment_module.delay = lambda duration: None
-    experiment_module.MHz = 1e6
-    experiment_module.kHz = 1e3
-    experiment_module.ms = 1e-3
-    experiment_module.us = 1e-6
-    experiment_module.ns = 1e-9
-    experiment_module.__all__ = [
-        "EnvExperiment",
-        "NumberValue",
-        "BooleanValue",
-        "StringValue",
-        "kernel",
-        "delay",
-        "MHz",
-        "kHz",
-        "ms",
-        "us",
-        "ns",
-    ]
-    artiq_module.experiment = experiment_module
-    sys.modules["artiq"] = artiq_module
-    sys.modules["artiq.experiment"] = experiment_module
+_STUB_MARKER = "_qn_hardware_free_stub"
 
-# Other hardware-free tests may have installed a smaller ARTIQ stub first.
-experiment_module = sys.modules["artiq.experiment"]
-for name, value in {
-    "EnvExperiment": FakeEnvExperiment,
-    "NumberValue": FakeArgumentValue,
-    "BooleanValue": FakeArgumentValue,
-    "StringValue": FakeArgumentValue,
-    "MHz": 1e6,
-    "kHz": 1e3,
-    "ms": 1e-3,
-    "us": 1e-6,
-    "ns": 1e-9,
-}.items():
-    if not hasattr(experiment_module, name):
-        setattr(experiment_module, name, value)
 
-existing_exports = set(getattr(experiment_module, "__all__", []))
-existing_exports.update(
-    {
-        "EnvExperiment",
-        "NumberValue",
-        "BooleanValue",
-        "StringValue",
-        "MHz",
-        "kHz",
-        "ms",
-        "us",
-        "ns",
+def _artiq_experiment_stub_or_none():
+    """Return the artiq.experiment stub to (re)configure, or None.
+
+    The ARTIQ repository scan imports this file inside a live worker, where a
+    real artiq installation must never be modified or shadowed. A stub is
+    installed (or extended) only when artiq is genuinely absent - the
+    hardware-free test environment - or when an earlier hardware-free test
+    module already installed the marked stub.
+    """
+    existing_artiq = sys.modules.get("artiq")
+    if existing_artiq is not None:
+        if getattr(existing_artiq, _STUB_MARKER, False):
+            return sys.modules["artiq.experiment"]
+        return None
+    try:
+        import artiq  # noqa: F401
+    except ImportError:
+        artiq_module = types.ModuleType("artiq")
+        setattr(artiq_module, _STUB_MARKER, True)
+        experiment_module = types.ModuleType("artiq.experiment")
+        artiq_module.experiment = experiment_module
+        sys.modules["artiq"] = artiq_module
+        sys.modules["artiq.experiment"] = experiment_module
+        return experiment_module
+    return None
+
+
+_experiment_stub = _artiq_experiment_stub_or_none()
+if _experiment_stub is not None:
+    _stub_exports = {
+        "EnvExperiment": FakeEnvExperiment,
+        "NumberValue": FakeArgumentValue,
+        "BooleanValue": FakeArgumentValue,
+        "StringValue": FakeArgumentValue,
+        "kernel": lambda function: function,
+        "delay": lambda duration: None,
+        "MHz": 1e6,
+        "kHz": 1e3,
+        "ms": 1e-3,
+        "us": 1e-6,
+        "ns": 1e-9,
     }
-)
-experiment_module.__all__ = sorted(existing_exports)
+    for name, value in _stub_exports.items():
+        if not hasattr(_experiment_stub, name):
+            setattr(_experiment_stub, name, value)
+    _existing_exports = set(getattr(_experiment_stub, "__all__", []))
+    _existing_exports.update(_stub_exports)
+    _experiment_stub.__all__ = sorted(_existing_exports)
 
 
 node1_module = importlib.import_module("ExperimentVariables_master_satellite_Node1")

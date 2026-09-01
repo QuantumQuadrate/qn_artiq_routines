@@ -12,41 +12,45 @@ def _identity_decorator(function=None, **kwargs):
     return lambda decorated: decorated
 
 
-if "artiq.experiment" not in sys.modules:
-    artiq = types.ModuleType("artiq")
-    experiment = types.ModuleType("artiq.experiment")
-    experiment.EnvExperiment = object
-    experiment.kernel = _identity_decorator
-    experiment.rpc = _identity_decorator
-    experiment.delay = lambda duration: None
-    experiment.NumberValue = lambda value, **kwargs: value
-    experiment.BooleanValue = lambda value, **kwargs: value
-    experiment.StringValue = lambda value, **kwargs: value
-    experiment.EnumerationValue = lambda values, **kwargs: tuple(values)[0]
-    experiment.TBool = bool
-    experiment.TFloat = float
-    experiment.TInt32 = int
-    experiment.TInt64 = int
-    experiment.TStr = str
-    experiment.MHz = 1e6
-    experiment.kHz = 1e3
-    experiment.ms = 1e-3
-    experiment.us = 1e-6
-    experiment.ns = 1e-9
-    experiment.s = 1.0
-    experiment.V = 1.0
-    artiq.experiment = experiment
-    sys.modules["artiq"] = artiq
-    sys.modules["artiq.experiment"] = experiment
-else:
-    experiment = sys.modules["artiq.experiment"]
-    supplemental_exports = {
+_STUB_MARKER = "_qn_hardware_free_stub"
+
+
+def _artiq_experiment_stub_or_none():
+    """Return the artiq.experiment stub to (re)configure, or None.
+
+    The ARTIQ repository scan imports this file inside a live worker, where a
+    real artiq installation must never be modified or shadowed. A stub is
+    installed (or extended) only when artiq is genuinely absent - the
+    hardware-free test environment - or when an earlier hardware-free test
+    module already installed the marked stub.
+    """
+    existing_artiq = sys.modules.get("artiq")
+    if existing_artiq is not None:
+        if getattr(existing_artiq, _STUB_MARKER, False):
+            return sys.modules["artiq.experiment"]
+        return None
+    try:
+        import artiq  # noqa: F401
+    except ImportError:
+        artiq_module = types.ModuleType("artiq")
+        setattr(artiq_module, _STUB_MARKER, True)
+        experiment_module = types.ModuleType("artiq.experiment")
+        artiq_module.experiment = experiment_module
+        sys.modules["artiq"] = artiq_module
+        sys.modules["artiq.experiment"] = experiment_module
+        return experiment_module
+    return None
+
+
+_experiment_stub = _artiq_experiment_stub_or_none()
+if _experiment_stub is not None:
+    _stub_exports = {
+        "EnvExperiment": object,
         "kernel": _identity_decorator,
         "rpc": _identity_decorator,
         "delay": lambda duration: None,
-        "EnvExperiment": object,
         "NumberValue": lambda value, **kwargs: value,
-        "BooleanValue": lambda value, **kwargs: value,
+        "BooleanValue": lambda value=False, **kwargs: value,
         "StringValue": lambda value, **kwargs: value,
         "EnumerationValue": lambda values, **kwargs: tuple(values)[0],
         "TBool": bool,
@@ -62,45 +66,44 @@ else:
         "s": 1.0,
         "V": 1.0,
     }
-    for name, value in supplemental_exports.items():
-        if name in {"kernel", "rpc"} or not hasattr(experiment, name):
-            setattr(experiment, name, value)
-    if hasattr(experiment, "__all__"):
-        experiment.__all__ = sorted(
-            set(experiment.__all__) | set(supplemental_exports)
+    for name, value in _stub_exports.items():
+        if not hasattr(_experiment_stub, name):
+            setattr(_experiment_stub, name, value)
+    if hasattr(_experiment_stub, "__all__"):
+        _experiment_stub.__all__ = sorted(
+            set(_experiment_stub.__all__) | set(_stub_exports)
         )
 
+    class RTIOUnderflow(Exception):
+        pass
 
-coredevice = types.ModuleType("artiq.coredevice")
-exceptions = types.ModuleType("artiq.coredevice.exceptions")
-
-
-class RTIOUnderflow(Exception):
-    pass
-
-
-exceptions.RTIOUnderflow = RTIOUnderflow
-ad9910 = types.ModuleType("artiq.coredevice.ad9910")
-for constant in (
-    "PHASE_MODE_ABSOLUTE",
-    "PHASE_MODE_CONTINUOUS",
-    "PHASE_MODE_TRACKING",
-    "RAM_DEST_ASF",
-    "RAM_MODE_RAMPUP",
-):
-    setattr(ad9910, constant, 0)
-urukul = types.ModuleType("artiq.coredevice.urukul")
-urukul.CFG_MASK_NU = 0
-language = types.ModuleType("artiq.language")
-language.us = experiment.us
-language.ns = experiment.ns
-language.MHz = experiment.MHz
-sys.modules.setdefault("artiq.coredevice", coredevice)
-sys.modules.setdefault("artiq.coredevice.exceptions", exceptions)
-sys.modules.setdefault("artiq.coredevice.ad9910", ad9910)
-sys.modules.setdefault("artiq.coredevice.urukul", urukul)
-sys.modules.setdefault("artiq.language", language)
-sys.modules.setdefault("pyvisa", types.ModuleType("pyvisa"))
+    coredevice = types.ModuleType("artiq.coredevice")
+    exceptions = types.ModuleType("artiq.coredevice.exceptions")
+    exceptions.RTIOUnderflow = RTIOUnderflow
+    ad9910 = types.ModuleType("artiq.coredevice.ad9910")
+    for constant in (
+        "PHASE_MODE_ABSOLUTE",
+        "PHASE_MODE_CONTINUOUS",
+        "PHASE_MODE_TRACKING",
+        "RAM_DEST_ASF",
+        "RAM_MODE_RAMPUP",
+    ):
+        setattr(ad9910, constant, 0)
+    urukul = types.ModuleType("artiq.coredevice.urukul")
+    urukul.CFG_MASK_NU = 0
+    language = types.ModuleType("artiq.language")
+    language.us = 1e-6
+    language.ns = 1e-9
+    language.MHz = 1e6
+    sys.modules.setdefault("artiq.coredevice", coredevice)
+    sys.modules.setdefault("artiq.coredevice.exceptions", exceptions)
+    sys.modules.setdefault("artiq.coredevice.ad9910", ad9910)
+    sys.modules.setdefault("artiq.coredevice.urukul", urukul)
+    sys.modules.setdefault("artiq.language", language)
+    sys.modules.setdefault("pyvisa", types.ModuleType("pyvisa"))
+    RTIOUnderflow = sys.modules["artiq.coredevice.exceptions"].RTIOUnderflow
+else:
+    from artiq.coredevice.exceptions import RTIOUnderflow  # noqa: F401
 
 
 from GeneralVariableScan_master_satellite_mixin import (  # noqa: E402
@@ -368,31 +371,33 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
 
     def test_single_node_registry_uses_current_functions_and_exclusions(self):
         # Other hardware-free test modules may narrow the wildcard-exported
-        # names on the shared ARTIQ stub during unittest discovery.
-        required_exports = {
-            "kernel": _identity_decorator,
-            "rpc": _identity_decorator,
-            "TBool": bool,
-            "TFloat": float,
-            "TInt32": int,
-            "TInt64": int,
-            "TStr": str,
-            "delay": lambda duration: None,
-            "MHz": 1e6,
-            "kHz": 1e3,
-            "ms": 1e-3,
-            "us": 1e-6,
-            "ns": 1e-9,
-            "s": 1.0,
-        }
-        artiq_experiment = sys.modules["artiq.experiment"]
-        for name, value in required_exports.items():
-            if not hasattr(artiq_experiment, name):
-                setattr(artiq_experiment, name, value)
-        if hasattr(artiq_experiment, "__all__"):
-            artiq_experiment.__all__ = sorted(
-                set(artiq_experiment.__all__) | set(required_exports)
-            )
+        # names on the shared ARTIQ stub during unittest discovery. Only ever
+        # touch our own marked stub, never a real artiq installation.
+        if getattr(sys.modules.get("artiq"), _STUB_MARKER, False):
+            required_exports = {
+                "kernel": _identity_decorator,
+                "rpc": _identity_decorator,
+                "TBool": bool,
+                "TFloat": float,
+                "TInt32": int,
+                "TInt64": int,
+                "TStr": str,
+                "delay": lambda duration: None,
+                "MHz": 1e6,
+                "kHz": 1e3,
+                "ms": 1e-3,
+                "us": 1e-6,
+                "ns": 1e-9,
+                "s": 1.0,
+            }
+            artiq_experiment = sys.modules["artiq.experiment"]
+            for name, value in required_exports.items():
+                if not hasattr(artiq_experiment, name):
+                    setattr(artiq_experiment, name, value)
+            if hasattr(artiq_experiment, "__all__"):
+                artiq_experiment.__all__ = sorted(
+                    set(artiq_experiment.__all__) | set(required_exports)
+                )
 
         registry = build_single_node_function_registry()
         self.assertIn("atom_loading_experiment", registry)
