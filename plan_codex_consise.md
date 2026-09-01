@@ -129,7 +129,10 @@ Implemented and hardware-free tested:
   `disable_coils` MOT-coil control through
   `AOMsCoils_master_satellite_Node1/Node2.py`;
 - single-node laser-feedback compatibility (`run_laser_feedback`) and K10CR1
-  waveplate control (one `k10cr1_ndsp` controller, node-suffixed axis names).
+  waveplate control (one `k10cr1_ndsp` controller, node-suffixed axis names);
+- the single-node FORT polarization optimizer with node-suffixed waveplate
+  calibration (the two-node variant is documented in the file and waits on
+  parallel FORT feedback).
 
 The manual utilities are node-split. Each public experiment binds the two-node
 device superset during build, then configures Base as `single_node` for its

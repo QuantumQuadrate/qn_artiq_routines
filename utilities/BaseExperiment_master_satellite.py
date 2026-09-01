@@ -159,6 +159,20 @@ class BaseExperimentMasterSatellite:
         "Magnetometer_MOT_Z",
     )
 
+    # Legacy FORT-polarization helpers and routines address these transient
+    # monitors and persistent waveplate calibrations by their standalone
+    # names; single-node mode stores them node-suffixed.
+    POLARIZATION_RESULT_DATASETS = (
+        "FORT_MM_monitor",
+        "FORT_APD_monitor",
+        "HWP_angle",
+        "QWP_angle",
+        "best_852HWP_to_max",
+        "best_852QWP_to_max",
+        "best_852_power",
+        "best_852_power_ref",
+    )
+
     def __init__(
         self,
         experiment,
@@ -399,7 +413,10 @@ class BaseExperimentMasterSatellite:
     def resolve_result_dataset_name(self, name):
         """Resolve hard-coded legacy result names for the selected node."""
         if self.experiment_mode == "single_node":
-            if name in self.MAGNETOMETER_RESULT_DATASETS:
+            if (
+                name in self.MAGNETOMETER_RESULT_DATASETS
+                or name in self.POLARIZATION_RESULT_DATASETS
+            ):
                 return f"{name}_{self.which_node}"
             resolved_feedback_name = self.feedback_dataset_map.get(name)
             if resolved_feedback_name is not None:

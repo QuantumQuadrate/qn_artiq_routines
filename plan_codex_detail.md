@@ -74,6 +74,7 @@ GeneralVariableScan_master_satellite_two_nodes.py
 AOMsCoils_master_satellite_mixin.py
 AOMsCoils_master_satellite_Node1.py
 AOMsCoils_master_satellite_Node2.py
+FORT_Polarization_Optimizer_master_satellite.py
 ExperimentVariables_master_satellite_Node1.py
 ExperimentVariables_master_satellite_Node2.py
 ExperimentVariables_master_satellite_global.py
@@ -767,6 +768,12 @@ Implemented and hardware-free tested on branch
   unchanged aom_feedback code with node-suffixed persistence;
 - K10CR1 waveplate control through one `k10cr1_ndsp` controller with
   node-suffixed axis names;
+- the single-node FORT polarization optimizer
+  (`FORT_Polarization_Optimizer_master_satellite`, `which_node = node1 |
+  node2`), reusing the unchanged legacy record/rotation helpers through the
+  dataset redirect (`POLARIZATION_RESULT_DATASETS`) so monitors and the
+  `best_852*` calibrations store node-suffixed; its two-node design is
+  documented in the file and waits on parallel FORT feedback (section 18);
 - `_mixin` naming for shared non-experiment modules;
 - DDS switch-OFF-before-programming safety ordering;
 - examination-safe deferred Base configuration with empty dataset storage;
