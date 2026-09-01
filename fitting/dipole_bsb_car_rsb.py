@@ -1,7 +1,11 @@
 import numpy as np
 from scipy.special import eval_genlaguerre, factorial
 from scipy.signal import lombscargle
-from .FitBase import FitBase
+try:
+    from .FitBase import FitBase
+except ImportError:
+    # ARTIQ's repository scan imports this file without package context.
+    from FitBase import FitBase
 
 
 def gen_rab_freq(n0=0, n1=1, omega0=1.0, eta=0.1):

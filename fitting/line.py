@@ -1,4 +1,8 @@
-from . import FitBase
+try:
+    from . import FitBase
+except ImportError:
+    # ARTIQ's repository scan imports this file without package context.
+    import FitBase
 
 
 def parameter_initialiser(x, y, p):

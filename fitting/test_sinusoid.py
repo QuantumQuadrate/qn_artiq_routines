@@ -11,7 +11,7 @@ cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
-from fitting_oxford.sinusoid import sinusoid
+from fitting.sinusoid import sinusoid
 
 from utilities.BaseExperiment import BaseExperiment
 from utilities.conversions import dB_to_V_kernel as dB_to_V
