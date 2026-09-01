@@ -505,11 +505,8 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
                         getattr(self, scan_dict[self.scan_type]["center"]))
 
 
-            ### setting experiment function
-            if self.which_node == 'bob':
-                self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
-            elif self.which_node == 'alice':
-                self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
+            ### setting experiment function (same for both nodes)
+            self.experiment_name = scan_dict[self.scan_type]["experiment_name"]
 
             ### setting target retention to calculate fidelity
             if scan_dict[self.scan_type]["fit_model"] in ["resonance_dip", "rabi_flop"]:

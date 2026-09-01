@@ -52,6 +52,9 @@ scan_options = [
     "Ramsey_00_Scan", "Ramsey_01_Scan", "Ramsey_11_Scan",
 ]
 
+### Node1 and Node2 historically used different microwave experiment
+### functions (separate experiment_name_alice/_bob entries); they now share
+### the same functions, so each scan carries a single experiment_name.
 scan_dict={
     "Frequency_00_Scan":{
         "print_statement": "Frequency_00_Scan with pi pulse",
@@ -62,8 +65,7 @@ scan_dict={
         "scan_variable1_name": "f_microwaves_dds",
         "center": "f_microwaves_00_dds",
 
-        "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_experiment",
+        "experiment_name": "microwave_Rabi_2_experiment",
 
         "fit_model": "resonance_dip",
         "initialise": {
@@ -81,8 +83,7 @@ scan_dict={
         "scan_variable1_name": "f_microwaves_dds",
         "center": "f_microwaves_01_dds",
 
-        "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_experiment",
+        "experiment_name": "microwave_Rabi_2_experiment",
 
         "fit_model": "resonance_dip",
         "initialise": {
@@ -98,8 +99,7 @@ scan_dict={
         "scan_variable1_name": "f_microwaves_11_dds",
         "center": "f_microwaves_11_dds",
 
-        "experiment_name_alice": "microwave_map01_map11_experiment",
-        "experiment_name_bob": "microwave_map01_map11_experiment",
+        "experiment_name": "microwave_map01_map11_experiment",
 
         "fit_model": "resonance_peak",
         "initialise": {
@@ -115,8 +115,7 @@ scan_dict={
         "scan_variable1_name": "f_microwaves_m10_dds",
         "center": "f_microwaves_m10_dds",
 
-        "experiment_name_alice": "microwave_map00_map0m1_experiment",
-        "experiment_name_bob": "microwave_map00_map0m1_experiment",
+        "experiment_name": "microwave_map00_map0m1_experiment",
 
         "fit_model": "resonance_peak",
         "initialise": {},
@@ -132,8 +131,7 @@ scan_dict={
         "scan_variable1_name": "f_microwaves_m11_dds",
         "center": "f_microwaves_m11_dds",
 
-        "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
-        "experiment_name_bob": "microwave_map01_MWRFm11_experiment",
+        "experiment_name": "microwave_map01_MWRFm11_experiment",
 
         "fit_model": "resonance_peak",
         "initialise": {
@@ -152,8 +150,7 @@ scan_dict={
         "scan_variable1_name": "t_microwave_pulse",
         "pi_pulse": "t_microwave_00_pulse",
 
-        "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_experiment",
+        "experiment_name": "microwave_Rabi_2_experiment",
 
         "fit_model": "rabi_flop",
         "initialise": {},
@@ -170,8 +167,7 @@ scan_dict={
         "scan_variable1_name": "t_microwave_pulse",
         "pi_pulse": "t_microwave_01_pulse",
 
-        "experiment_name_alice": "microwave_Rabi_2_experiment",
-        "experiment_name_bob": "microwave_Rabi_2_experiment",
+        "experiment_name": "microwave_Rabi_2_experiment",
 
         "fit_model": "rabi_flop",
         "initialise": {},
@@ -186,8 +182,7 @@ scan_dict={
         "scan_variable1_name": "t_microwave_11_pulse",
         "pi_pulse": "t_microwave_11_pulse",
 
-        "experiment_name_alice": "microwave_map01_map11_experiment",
-        "experiment_name_bob": "microwave_map01_map11_experiment",
+        "experiment_name": "microwave_map01_map11_experiment",
 
         "fit_model": "rabi_flop_reversed",
         "initialise": {},
@@ -202,8 +197,7 @@ scan_dict={
         "scan_variable1_name": "t_microwave_m10_pulse",
         "pi_pulse": "t_microwave_m10_pulse",
 
-        "experiment_name_alice": "microwave_map00_map0m1_experiment",
-        "experiment_name_bob": "microwave_map00_map0m1_experiment",
+        "experiment_name": "microwave_map00_map0m1_experiment",
 
         "fit_model": "rabi_flop_reversed",
         "initialise": {},
@@ -219,8 +213,7 @@ scan_dict={
         "scan_variable1_name": "t_MW_RF_pulse",
         "pi_pulse": "t_MW_RF_pulse",
 
-        "experiment_name_alice": "microwave_map01_MWRFm11_experiment",
-        "experiment_name_bob": "microwave_map01_MWRFm11_experiment",
+        "experiment_name": "microwave_map01_MWRFm11_experiment",
 
         "fit_model": "rabi_flop_reversed",
         "initialise": {},
@@ -237,8 +230,7 @@ scan_dict={
 
         "scan_variable1_name": "t_delay_between_shots",
 
-        "experiment_name_alice": "microwave_Ramsey_00_experiment",
-        "experiment_name_bob": "microwave_Ramsey_00_experiment",
+        "experiment_name": "microwave_Ramsey_00_experiment",
 
         ###todo:  fitting not ready for Ramsey yet
         "fit_model": "rabi_flop",
@@ -255,8 +247,7 @@ scan_dict={
 
         "scan_variable1_name": "t_delay_between_shots",
 
-        "experiment_name_alice": "microwave_Ramsey_00_experiment",
-        "experiment_name_bob": "microwave_Ramsey_00_experiment",
+        "experiment_name": "microwave_Ramsey_00_experiment",
 
         ###todo:  fitting not ready for Ramsey yet
         "fit_model": "rabi_flop",
@@ -271,8 +262,7 @@ scan_dict={
 
         "scan_variable1_name": "t_delay_between_shots",
 
-        "experiment_name_alice": "microwave_Ramsey_11_experiment",
-        "experiment_name_bob": "microwave_Ramsey_11_experiment",
+        "experiment_name": "microwave_Ramsey_11_experiment",
 
         ###todo:  fitting not ready for Ramsey yet
         "fit_model": "rabi_flop",
@@ -391,11 +381,8 @@ class MicrowaveScanOptimizer(EnvExperiment):
         self.scan_variable1 = str(self.scan_variable1_name)
         ### Note: there are some unnecessary lines so that the results are compatible with GVS analysis code
 
-        ### setting the experiment function
-        if self.which_node == 'bob':
-            self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
-        elif self.which_node == 'alice':
-            self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
+        ### setting the experiment function (same for both nodes)
+        self.experiment_name = scan_dict[self.scan_type]["experiment_name"]
         self.experiment_function = lambda: eval(self.experiment_name)(self)
 
         ### setting up the fit model
@@ -948,11 +935,8 @@ class MicrowaveScanOptimizer(EnvExperiment):
         elif self.scan_type.startswith("Time"):
             setattr(self, scan_dict[self.scan_type]["scan_variable1_name"], getattr(self, scan_dict[self.scan_type]["pi_pulse"]))
 
-        ### setting experiment function
-        if self.which_node == 'bob':
-            self.experiment_name = scan_dict[self.scan_type]["experiment_name_bob"]
-        elif self.which_node == 'alice':
-            self.experiment_name = scan_dict[self.scan_type]["experiment_name_alice"]
+        ### setting experiment function (same for both nodes)
+        self.experiment_name = scan_dict[self.scan_type]["experiment_name"]
 
         ### setting target retention to calculate fidelity
         if scan_dict[self.scan_type]["fit_model"] in ["resonance_dip", "rabi_flop"]:
