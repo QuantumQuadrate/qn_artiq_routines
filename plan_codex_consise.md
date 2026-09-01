@@ -138,8 +138,10 @@ Making a node safe means running that node's own experiment with its controls
 unchecked. Coils follow the standalone `disable_coils` semantics: unless
 disabled, the four coils are driven to the node's persistent MOT calibration
 voltages; nothing is entered manually or persisted. Microwave/RF defaults OFF
-and requires confirmation. Feedback, old independent-Kasli networking, K10CR1, and Rigol
-are excluded.
+and requires confirmation. K10CR1 780/852 rotations act on the selected
+node's axes through the single `k10cr1_ndsp` controller (node-suffixed
+nicknames, bound only when a waveplate action is selected). Feedback, old
+independent-Kasli networking, and Rigol are excluded.
 
 ARTIQ repository examination supplies `None` for submitted arguments and may
 run before any new persistent datasets exist. Every public master-satellite

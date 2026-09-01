@@ -512,9 +512,19 @@ DMA work in master-satellite single-node mode.
 ## 21. Host-controlled devices
 
 All Node1/Node2 USB and host-controlled devices will connect to the master-side
-host. K10CR1/NDSP, Rigol, and similar devices do not belong in per-node RTIO
-translation without a concrete reason. Eventually use suffixed global
-nicknames and selected-node legacy projection where needed. This work is
+host. Host devices do not belong in per-node RTIO translation.
+
+K10CR1 is implemented: one `k10cr1_ndsp` controller entry in the unified
+database owns all eight rotators through one USB hub, with node-suffixed
+axis nicknames (`780_HWP_Node1`, ..., `852_QWP_Node2`) and the combined
+serial list. The launcher (`ndsp/k10cr1/launcher_multi_rotor.py`) reads
+`sn_list`/`nickname_list` from that entry, so the launcher, driver, and
+`subroutines/k10cr1_functions.py` are all unchanged. AOMsCoils binds the
+controller at prepare, and only when a waveplate action is selected, because
+the sipyco client connects the moment the device is requested; do not use
+`best_effort` for the rotators (silent `None` returns would drop motion
+commands). After editing a deployed database, run `artiq_client
+scan-devices` (no gateware impact). Rigol and similar devices remain
 deferred and must not block basic DRTIO/magnetometer validation.
 
 ## 22. Gateware and rollback gate
@@ -628,9 +638,14 @@ argument is a plain boolean.
 | AX | 13 | 2 |
 | AY | 14 | 3 |
 
-Microwave/RF defaults OFF, obeys hard gating, and requires confirmation. The
-first version excludes laser feedback, old independent-Kasli networking,
-K10CR1, Rigol, and other USB devices.
+Microwave/RF defaults OFF, obeys hard gating, and requires confirmation.
+
+K10CR1 780/852 waveplate rotations are ported from the standalone utility
+(section 21 has the controller design): thirteen booleans in the 780/852 GUI
+groups drive this node's axes only, via node-suffixed axis names. The 852
+target moves are gated on the 852 booleans, fixing the standalone copy-paste
+bug that gated them on the 780 booleans. Old independent-Kasli networking,
+Rigol, and other USB devices remain excluded.
 
 Safe startup now switches each requested-off DDS OFF immediately after
 `init()` and before attenuation/profile programming. Base still initializes

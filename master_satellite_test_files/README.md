@@ -25,6 +25,10 @@ Important:
 
 - Do not regenerate gateware unless explicitly requested.
 - Do not modify these reference files unless explicitly requested.
+- Exception made on explicit request (2026-08-31): the host-side
+  `k10cr1_ndsp` controller entry was appended to the unified database. It is
+  an NDSP entry with no gateware impact; after editing a deployed database,
+  run `artiq_client scan-devices`.
 - Use these files to determine the low-level master/satellite device mapping
   while implementing the new software architecture.
 - Experiment-facing master-satellite names should use the node suffix

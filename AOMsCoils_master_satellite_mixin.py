@@ -2,6 +2,11 @@
 
 from artiq.experiment import BooleanValue, NumberValue, delay, kernel, ms
 
+from subroutines.k10cr1_functions import (
+    go_to_home,
+    move_by_deg,
+    move_to_target_deg,
+)
 from utilities.BaseExperiment_master_satellite import BaseExperimentMasterSatellite
 from utilities.conversions import dB_to_V_kernel as dB_to_V
 
@@ -15,6 +20,22 @@ class _AOMsCoilsMasterSatelliteMixin:
 
     NODE = None
     COIL_CHANNELS = ()
+
+    K10CR1_CONTROL_ARGUMENTS = (
+        "go_to_home_780HWP",
+        "go_to_home_780QWP",
+        "go_to_target_780HWP",
+        "go_to_target_780QWP",
+        "move_780HWP_by",
+        "move_780QWP_by",
+        "go_to_home_852HWP",
+        "go_to_home_852QWP",
+        "go_to_target_852HWP",
+        "go_to_target_852QWP",
+        "move_852HWP_by",
+        "move_852QWP_by",
+        "go_to_optimized_852_settings",
+    )
 
     DDS_CONTROLS = (
         ("FORT_AOM_ON", "dds_FORT"),
@@ -80,6 +101,13 @@ class _AOMsCoilsMasterSatelliteMixin:
             BooleanValue(False),
             "Microwave/RF safety confirmation",
         )
+        for control_name in self.K10CR1_CONTROL_ARGUMENTS:
+            group = (
+                "K10CR1 780 waveplates"
+                if "780" in control_name
+                else "K10CR1 852 waveplates"
+            )
+            self.setattr_argument(control_name, BooleanValue(False), group)
 
     def prepare(self):
         self.base.configure_execution("single_node", self.NODE)
@@ -127,6 +155,20 @@ class _AOMsCoilsMasterSatelliteMixin:
             self.AX_volts_MOT,
             self.AY_volts_MOT,
         ]
+
+        # One controller process owns all eight rotators; the node identity
+        # lives in the axis nickname. The NDSP client opens its connection
+        # the moment the device is requested, so it is bound only when a
+        # waveplate action is actually selected.
+        self._k10cr1_requested = any(
+            bool(getattr(self, name)) for name in self.K10CR1_CONTROL_ARGUMENTS
+        )
+        if self._k10cr1_requested:
+            self.setattr_device("k10cr1_ndsp")
+        self._axis_780_HWP = f"780_HWP_{self.NODE}"
+        self._axis_780_QWP = f"780_QWP_{self.NODE}"
+        self._axis_852_HWP = f"852_HWP_{self.NODE}"
+        self._axis_852_QWP = f"852_QWP_{self.NODE}"
 
     @kernel
     def _force_selected_node_off(self):
@@ -191,6 +233,73 @@ class _AOMsCoilsMasterSatelliteMixin:
         delay(1 * ms)
 
     @kernel
+    def k10cr1_operations(self):
+        """Rotate only this node's waveplates; axis names carry the node.
+
+        Unlike the standalone utility, the 852 target moves are gated on the
+        852 booleans (the original gated them on the 780 booleans).
+        """
+        self.core.reset()
+        delay(10 * ms)
+        if self.go_to_home_780HWP:
+            go_to_home(self, self._axis_780_HWP)
+        if self.go_to_home_780QWP:
+            go_to_home(self, self._axis_780_QWP)
+
+        if self.go_to_target_780HWP:
+            move_to_target_deg(
+                self, name=self._axis_780_HWP, target_deg=self.target_780_HWP
+            )
+        if self.go_to_target_780QWP:
+            move_to_target_deg(
+                self, name=self._axis_780_QWP, target_deg=self.target_780_QWP
+            )
+
+        if self.move_780HWP_by:
+            move_by_deg(
+                self, name=self._axis_780_HWP, target_deg=self.move_780_HWP_by
+            )
+        if self.move_780QWP_by:
+            move_by_deg(
+                self, name=self._axis_780_QWP, target_deg=self.move_780_QWP_by
+            )
+
+        if self.go_to_home_852HWP:
+            go_to_home(self, self._axis_852_HWP)
+        if self.go_to_home_852QWP:
+            go_to_home(self, self._axis_852_QWP)
+
+        if self.go_to_target_852HWP:
+            move_to_target_deg(
+                self, name=self._axis_852_HWP, target_deg=self.target_852_HWP
+            )
+        if self.go_to_target_852QWP:
+            move_to_target_deg(
+                self, name=self._axis_852_QWP, target_deg=self.target_852_QWP
+            )
+
+        if self.move_852HWP_by:
+            move_by_deg(
+                self, name=self._axis_852_HWP, target_deg=self.move_852_HWP_by
+            )
+        if self.move_852QWP_by:
+            move_by_deg(
+                self, name=self._axis_852_QWP, target_deg=self.move_852_QWP_by
+            )
+
+        if self.go_to_optimized_852_settings:
+            move_to_target_deg(
+                self,
+                name=self._axis_852_HWP,
+                target_deg=self.best_852HWP_to_max,
+            )
+            move_to_target_deg(
+                self,
+                name=self._axis_852_QWP,
+                target_deg=self.best_852QWP_to_max,
+            )
+
+    @kernel
     def apply_manual_state(self):
         """Initialize and modify only this experiment's selected node."""
         self.base.initialize_hardware(
@@ -207,3 +316,5 @@ class _AOMsCoilsMasterSatelliteMixin:
 
     def run(self):
         self.apply_manual_state()
+        if self._k10cr1_requested:
+            self.k10cr1_operations()

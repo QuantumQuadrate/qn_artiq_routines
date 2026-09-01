@@ -1397,3 +1397,20 @@ device_db["urukul5_ch3"] = {
         "io_update_delay": "eeprom_urukul5:76"
     }
 }
+
+# Host-side NDSP controller added 2026-08-31 (after the 2026-07-15 generated
+# database): one server on the master host owns all eight K10CR1 waveplate
+# rotators through one USB hub. Axis nicknames carry the node identity; the
+# launcher (ndsp/k10cr1/launcher_multi_rotor.py) reads sn_list/nickname_list
+# from this entry. No gateware impact.
+device_db["k10cr1_ndsp"] = {
+    "type": "controller",
+    "sn_list": [55420984, 55422044, 55000740, 55000759,      # Node1
+                55422744, 55000915, 55105704, 55105694],     # Node2
+    "nickname_list": ["780_QWP_Node1", "780_HWP_Node1",
+                      "852_QWP_Node1", "852_HWP_Node1",
+                      "780_QWP_Node2", "780_HWP_Node2",
+                      "852_QWP_Node2", "852_HWP_Node2"],
+    "host": "::1",  # localhost of the master host
+    "port": 8080
+}

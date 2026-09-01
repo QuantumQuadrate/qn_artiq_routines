@@ -6,10 +6,17 @@ import unittest
 from pathlib import Path
 
 
+def _identity_decorator(function=None, **kwargs):
+    if function is not None:
+        return function
+    return lambda decorated: decorated
+
+
 if "artiq.experiment" not in sys.modules:
     artiq_module = types.ModuleType("artiq")
     experiment_module = types.ModuleType("artiq.experiment")
-    experiment_module.kernel = lambda function: function
+    experiment_module.kernel = _identity_decorator
+    experiment_module.rpc = _identity_decorator
     experiment_module.delay = lambda duration: None
     experiment_module.EnvExperiment = object
     experiment_module.NumberValue = lambda value, **kwargs: value
@@ -21,10 +28,33 @@ if "artiq.experiment" not in sys.modules:
     experiment_module.ms = 1e-3
     experiment_module.us = 1e-6
     experiment_module.ns = 1e-9
+    experiment_module.s = 1.0
     experiment_module.TFloat = float
+    experiment_module.TStr = str
+    experiment_module.TInt32 = int
+    experiment_module.TInt64 = int
+    experiment_module.TBool = bool
     artiq_module.experiment = experiment_module
     sys.modules["artiq"] = artiq_module
     sys.modules["artiq.experiment"] = experiment_module
+else:
+    experiment_module = sys.modules["artiq.experiment"]
+    for name, value in {
+        "rpc": _identity_decorator,
+        "kernel": _identity_decorator,
+        "TStr": str,
+        "TInt32": int,
+        "TInt64": int,
+        "TBool": bool,
+        "s": 1.0,
+    }.items():
+        if name in {"rpc", "kernel"} or not hasattr(experiment_module, name):
+            setattr(experiment_module, name, value)
+    if hasattr(experiment_module, "__all__"):
+        experiment_module.__all__ = sorted(
+            set(experiment_module.__all__)
+            | {"rpc", "kernel", "TStr", "TInt32", "TInt64", "TBool", "s"}
+        )
 
 
 from AOMsCoils_master_satellite_mixin import _AOMsCoilsMasterSatelliteMixin  # noqa: E402
@@ -82,6 +112,7 @@ def make_shared_hardware(log):
             devices.setdefault(unified_name, FakeDevice(unified_name, log))
     devices["core_dma"] = FakeDevice("core_dma", log)
     devices["scheduler"] = FakeDevice("scheduler", log)
+    devices["k10cr1_ndsp"] = FakeDevice("k10cr1_ndsp", log)
     return devices
 
 
@@ -234,6 +265,49 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         self.assertFalse(node1.dds_microwaves.state)
         self.assertTrue(node1.ttl_microwave_switch.state)
         self.assertEqual(node1.dataset_writes, [])
+
+    def test_k10cr1_binds_only_when_a_waveplate_action_is_selected(self):
+        node1 = self.make_experiment(Node1ManualExperiment)
+        self.assertFalse(node1._k10cr1_requested)
+        self.assertFalse(hasattr(node1, "k10cr1_ndsp"))
+
+        node2 = self.make_experiment(
+            Node2ManualExperiment, {"go_to_home_852QWP": True}
+        )
+        self.assertTrue(node2._k10cr1_requested)
+        self.assertIs(node2.k10cr1_ndsp, self.devices["k10cr1_ndsp"])
+        self.assertEqual(node2._axis_780_HWP, "780_HWP_Node2")
+        self.assertEqual(node2._axis_852_QWP, "852_QWP_Node2")
+
+    def test_852_target_moves_are_gated_on_852_booleans(self):
+        import AOMsCoils_master_satellite_mixin as mixin_module
+        from unittest import mock
+
+        calls = []
+        with mock.patch.object(
+            mixin_module, "go_to_home",
+            side_effect=lambda experiment, name: calls.append(("home", name)),
+        ), mock.patch.object(
+            mixin_module, "move_to_target_deg",
+            side_effect=lambda experiment, name, target_deg: calls.append(
+                ("target", name, target_deg)
+            ),
+        ), mock.patch.object(
+            mixin_module, "move_by_deg",
+            side_effect=lambda experiment, name, target_deg: calls.append(
+                ("by", name, target_deg)
+            ),
+        ):
+            node1 = self.make_experiment(Node1ManualExperiment, {
+                "go_to_target_780HWP": True,
+                "go_to_target_852QWP": True,
+            })
+            node1.run()
+
+        self.assertEqual(calls, [
+            ("target", "780_HWP_Node1", self.datasets["target_780_HWP_Node1"]),
+            ("target", "852_QWP_Node1", self.datasets["target_852_QWP_Node1"]),
+        ])
 
     def test_common_module_is_not_an_explorer_experiment(self):
         self.assertFalse(hasattr(_AOMsCoilsMasterSatelliteMixin, "build"))
