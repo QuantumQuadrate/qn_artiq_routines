@@ -9,6 +9,9 @@ if "artiq.experiment" not in sys.modules:
     artiq_module = types.ModuleType("artiq")
     experiment_module = types.ModuleType("artiq.experiment")
     experiment_module.kernel = lambda function: function
+    experiment_module.rpc = lambda function=None, **kwargs: (
+        function if function is not None else (lambda decorated: decorated)
+    )
     experiment_module.delay = lambda duration: None
     experiment_module.EnvExperiment = object
     experiment_module.NumberValue = lambda value, **kwargs: value

@@ -123,18 +123,56 @@ class ManualExperimentEnvironment:
         self.log = log
         self.dataset_reads = []
         self.dataset_writes = []
+        self.dataset_appends = []
+        self.broadcast_sets = {}
     def setattr_argument(self, name, value, *args, **kwargs): setattr(self, name, value)
     def setattr_device(self, name): setattr(self, name, self.devices[name])
-    def get_dataset(self, name): self.dataset_reads.append(name); return self.datasets[name]
-    def set_dataset(self, name, value, **kwargs): self.dataset_writes.append((name, value, kwargs))
+    def get_dataset(self, name, *args, **kwargs):
+        self.dataset_reads.append(name)
+        return self.datasets[name]
+    def set_dataset(self, name, value, **kwargs):
+        self.dataset_writes.append((name, value, kwargs))
+        self.broadcast_sets[name] = value
+    def append_to_dataset(self, name, value):
+        self.dataset_appends.append((name, value))
+        if name not in self.broadcast_sets:
+            raise KeyError(name)
+        self.broadcast_sets[name] = list(self.broadcast_sets[name]) + [value]
 
 
-class Node1ManualExperiment(ManualExperimentEnvironment, AOMsCoils_master_satellite_Node1):
-    pass
+class FakeStabilizerChannel:
+    def __init__(self, dataset, dB_dataset):
+        self.dataset = dataset
+        self.dB_dataset = dB_dataset
+        self.dB_history_dataset = dB_dataset + "_history"
 
 
-class Node2ManualExperiment(ManualExperimentEnvironment, AOMsCoils_master_satellite_Node2):
-    pass
+class FakeStabilizer:
+    def __init__(self, experiment, dds_names, iterations, averages, **kwargs):
+        self.exp = experiment
+        self.dds_names = dds_names
+        self.iterations = iterations
+        self.averages = averages
+        self.kwargs = kwargs
+        self.run_calls = 0
+        self.monitor_calls = 0
+        self.all_channels = [
+            FakeStabilizerChannel("MOT1_monitor", "p_AOM_A1"),
+            FakeStabilizerChannel("MOT2_monitor", "p_AOM_A2"),
+        ]
+
+    def run(self): self.run_calls += 1
+    def monitor(self): self.monitor_calls += 1
+
+
+# The harness sits after the experiment classes in the MRO so the dataset
+# redirection layer resolves names before the harness records them.
+class Node1ManualExperiment(AOMsCoils_master_satellite_Node1, ManualExperimentEnvironment):
+    _stabilizer_factory = FakeStabilizer
+
+
+class Node2ManualExperiment(AOMsCoils_master_satellite_Node2, ManualExperimentEnvironment):
+    _stabilizer_factory = FakeStabilizer
 
 
 class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
@@ -261,10 +299,71 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             "microwave_dds_ON": True,
             "yes_Im_sure_I_want_MW_or_RF_dds_ON": False,
         })
+        writes_after_prepare = len(node1.dataset_writes)
         node1.apply_manual_state()
         self.assertFalse(node1.dds_microwaves.state)
         self.assertTrue(node1.ttl_microwave_switch.state)
-        self.assertEqual(node1.dataset_writes, [])
+        self.assertEqual(len(node1.dataset_writes), writes_after_prepare)
+
+    def test_laser_stabilizer_prepared_with_suffixed_persistence(self):
+        node1 = self.make_experiment(Node1ManualExperiment)
+        stabilizer = node1.laser_stabilizer
+        self.assertIsInstance(stabilizer, FakeStabilizer)
+        self.assertEqual(
+            stabilizer.dds_names,
+            eval(self.datasets["fast_feedback_dds_list_Node1"]),
+        )
+        self.assertEqual(
+            node1.base.feedback_dataset_map["p_AOM_A1"], "p_AOM_A1_Node1"
+        )
+        self.assertEqual(
+            node1.base.feedback_dataset_map["MOT1_monitor"],
+            "MOT1_monitor_Node1",
+        )
+        self.assertEqual(
+            node1.base.feedback_dataset_map["feedbackchannels"],
+            "feedbackchannels_Node1",
+        )
+        self.assertIn("p_AOM_A1_Node1", node1.dataset_reads)
+        self.assertEqual(
+            node1.broadcast_sets["feedbackchannels_Node1"],
+            ["p_AOM_A1_Node1", "p_AOM_A2_Node1"],
+        )
+        self.assertEqual(
+            node1.broadcast_sets["p_AOM_A1_history_Node1"],
+            [float(self.datasets["p_AOM_A1_Node1"])],
+        )
+
+        node2 = self.make_experiment(Node2ManualExperiment)
+        self.assertEqual(node2.which_node, "bob")
+        self.assertEqual(
+            node2.base.feedback_dataset_map["p_AOM_A1"], "p_AOM_A1_Node2"
+        )
+
+    def test_run_feedback_gates_on_all_stabilized_aoms(self):
+        all_on = {name: True for name in (
+            "AOM_A1_ON", "AOM_A2_ON", "AOM_A3_ON",
+            "AOM_A4_ON", "AOM_A5_ON", "AOM_A6_ON", "cooling_DP_ON",
+        )}
+
+        node1 = self.make_experiment(
+            Node1ManualExperiment, {**all_on, "run_laser_feedback": True}
+        )
+        node1.run()
+        self.assertEqual(node1.laser_stabilizer.run_calls, 1)
+        self.assertEqual(node1.laser_stabilizer.monitor_calls, 0)
+
+        monitor_only = self.make_experiment(Node1ManualExperiment, all_on)
+        monitor_only.run()
+        self.assertEqual(monitor_only.laser_stabilizer.run_calls, 0)
+        self.assertEqual(monitor_only.laser_stabilizer.monitor_calls, 1)
+
+        partial = self.make_experiment(
+            Node1ManualExperiment, {"run_laser_feedback": True}
+        )
+        partial.run()
+        self.assertEqual(partial.laser_stabilizer.run_calls, 0)
+        self.assertEqual(partial.laser_stabilizer.monitor_calls, 0)
 
     def test_k10cr1_binds_only_when_a_waveplate_action_is_selected(self):
         node1 = self.make_experiment(Node1ManualExperiment)

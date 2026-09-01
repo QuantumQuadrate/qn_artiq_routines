@@ -472,10 +472,21 @@ until hardware demonstrates a failure.
 Active feedback is AOM1-AOM6 and FORT with loading/science/holding setpoints.
 D1 feedback is inactive; retain history without expanding it.
 
-Full standalone feedback compatibility is not implemented in the new Base:
-`laser_stabilizer`, feedback histories, amplitude arrays, and related derived
-state remain future work. Do not implement parallel feedback before
-single-node feedback works and SED-lane constraints are checked.
+Single-node feedback compatibility is implemented without modifying
+`subroutines/aom_feedback.py`: every dataset access in AOMPowerStabilizer
+goes through the experiment object, so
+`BaseExperimentMasterSatellite.prepare_laser_stabilizer()` installs a name
+map (from the selected node's `feedback_channels.json`) and the
+`_DatasetRedirectMixin` routes those reads and writes to the node-suffixed
+authoritative datasets (`p_AOM_A1_NodeX`, `*_history`, `feedbackchannels`).
+The stabilizer itself is constructed from the projected legacy namespace
+(`fast_feedback_dds_list`, samplers, set points, `dds_defaults`,
+`which_node`), so shared feedback code stays byte-identical to main.
+
+GVS-level feedback integration and hardware validation remain outstanding.
+Do not implement parallel feedback before single-node feedback works on
+hardware and SED-lane constraints are checked; Node2 feedback exercises
+remote Sampler SPI over DRTIO and is validated only after Node1.
 
 ## 19. Microwave optimizer
 
@@ -644,8 +655,14 @@ K10CR1 780/852 waveplate rotations are ported from the standalone utility
 (section 21 has the controller design): thirteen booleans in the 780/852 GUI
 groups drive this node's axes only, via node-suffixed axis names. The 852
 target moves are gated on the 852 booleans, fixing the standalone copy-paste
-bug that gated them on the 780 booleans. Old independent-Kasli networking,
-Rigol, and other USB devices remain excluded.
+bug that gated them on the 780 booleans.
+
+`run_laser_feedback` mirrors the standalone utility: only when every fiber
+AOM (A1-A6) and the cooling DP are requested on does the utility run the
+laser stabilizer (or `monitor()` when the box is unticked), then re-apply the
+requested DDS and optical-gate states. Feedback results persist to the
+node-suffixed datasets through the redirection layer (section 18). Old
+independent-Kasli networking, Rigol, and other USB devices remain excluded.
 
 Safe startup now switches each requested-off DDS OFF immediately after
 `init()` and before attenuation/profile programming. Base still initializes
@@ -737,7 +754,11 @@ Implemented and hardware-free tested on branch
   (`n_measurements`);
 - selected-node magnetometer wiring and suffixed results;
 - deterministic per-node manual AOM/DDS, TTL optical-gate, microwave/RF, and
-  independent coil control;
+  `disable_coils` MOT-coil control;
+- single-node laser-feedback compatibility (`run_laser_feedback`) through
+  unchanged aom_feedback code with node-suffixed persistence;
+- K10CR1 waveplate control through one `k10cr1_ndsp` controller with
+  node-suffixed axis names;
 - `_mixin` naming for shared non-experiment modules;
 - DDS switch-OFF-before-programming safety ordering;
 - examination-safe deferred Base configuration with empty dataset storage;
@@ -755,7 +776,7 @@ flashing or physics is safe.
 4. validate manual outputs with all OFF first, then one AOM/coil at a time;
 5. validate magnetometer Node1 then Node2;
 6. add derived cooling/FORT amplitudes and result state;
-7. add active AOM/FORT feedback compatibility;
+7. validate active AOM/FORT feedback on hardware and extend it to GVS runs;
 8. validate normal atom loading;
 9. create master-satellite microwave optimizer;
 10. recalibrate AD9910;

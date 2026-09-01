@@ -7,11 +7,14 @@ from subroutines.k10cr1_functions import (
     move_by_deg,
     move_to_target_deg,
 )
-from utilities.BaseExperiment_master_satellite import BaseExperimentMasterSatellite
+from utilities.BaseExperiment_master_satellite import (
+    BaseExperimentMasterSatellite,
+    _DatasetRedirectMixin,
+)
 from utilities.conversions import dB_to_V_kernel as dB_to_V
 
 
-class _AOMsCoilsMasterSatelliteMixin:
+class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
     """Common implementation; public node experiments live in separate files.
 
     This class deliberately does not inherit EnvExperiment and therefore must
@@ -20,6 +23,9 @@ class _AOMsCoilsMasterSatelliteMixin:
 
     NODE = None
     COIL_CHANNELS = ()
+    # Tests inject a fake stabilizer class here; None selects the real
+    # AOMPowerStabilizer from subroutines/aom_feedback.py.
+    _stabilizer_factory = None
 
     K10CR1_CONTROL_ARGUMENTS = (
         "go_to_home_780HWP",
@@ -101,6 +107,11 @@ class _AOMsCoilsMasterSatelliteMixin:
             BooleanValue(False),
             "Microwave/RF safety confirmation",
         )
+        self.setattr_argument(
+            "run_laser_feedback",
+            BooleanValue(False),
+            "Laser power stabilization",
+        )
         for control_name in self.K10CR1_CONTROL_ARGUMENTS:
             group = (
                 "K10CR1 780 waveplates"
@@ -112,6 +123,18 @@ class _AOMsCoilsMasterSatelliteMixin:
     def prepare(self):
         self.base.configure_execution("single_node", self.NODE)
         self.base.prepare()
+
+        # The stabilizer reads its per-node feedback config via the legacy
+        # node name and persists through the node-suffixed datasets.
+        self.which_node = self.base.NODE_LEGACY_NAMES[self.NODE]
+        self.base.prepare_laser_stabilizer(
+            stabilizer_factory=self._stabilizer_factory
+        )
+        self._all_stabilized_aoms_requested = bool(
+            self.AOM_A1_ON and self.AOM_A2_ON and self.AOM_A3_ON
+            and self.AOM_A4_ON and self.AOM_A5_ON and self.AOM_A6_ON
+            and self.cooling_DP_ON
+        )
 
         resolver = self.base.node_resolvers[self.NODE]
         self._manual_dds = []
@@ -233,6 +256,31 @@ class _AOMsCoilsMasterSatelliteMixin:
         delay(1 * ms)
 
     @kernel
+    def run_feedback(self):
+        """Feed back (or monitor) when every stabilized AOM is requested on.
+
+        Mirrors the standalone utility: the stabilizer only runs when all six
+        fiber AOMs and the cooling DP are requested on, and the requested DDS
+        and optical-gate states are re-applied afterward because the
+        stabilizer switches AOMs during its measurement phase.
+        """
+        self.core.reset()
+        if self._all_stabilized_aoms_requested:
+            if self.run_laser_feedback:
+                self.laser_stabilizer.run()
+                delay(1 * ms)
+                self._apply_dds_state()
+                delay(1 * ms)
+                self._apply_active_low_ttl_state()
+            else:
+                delay(10 * ms)
+                self.laser_stabilizer.monitor()
+                delay(1 * ms)
+                self._apply_dds_state()
+                delay(1 * ms)
+                self._apply_active_low_ttl_state()
+
+    @kernel
     def k10cr1_operations(self):
         """Rotate only this node's waveplates; axis names carry the node.
 
@@ -316,5 +364,6 @@ class _AOMsCoilsMasterSatelliteMixin:
 
     def run(self):
         self.apply_manual_state()
+        self.run_feedback()
         if self._k10cr1_requested:
             self.k10cr1_operations()

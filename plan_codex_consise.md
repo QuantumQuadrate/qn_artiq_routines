@@ -126,7 +126,10 @@ Implemented and hardware-free tested:
 - native namespace sanity function;
 - minimal magnetometer compatibility and node-suffixed results;
 - deterministic per-node manual AOM/DDS, optical-gate, microwave/RF, and
-  independent coil control through `AOMsCoils_master_satellite_Node1/Node2.py`.
+  `disable_coils` MOT-coil control through
+  `AOMsCoils_master_satellite_Node1/Node2.py`;
+- single-node laser-feedback compatibility (`run_laser_feedback`) and K10CR1
+  waveplate control (one `k10cr1_ndsp` controller, node-suffixed axis names).
 
 The manual utilities are node-split. Each public experiment binds the two-node
 device superset during build, then configures Base as `single_node` for its
@@ -140,8 +143,11 @@ disabled, the four coils are driven to the node's persistent MOT calibration
 voltages; nothing is entered manually or persisted. Microwave/RF defaults OFF
 and requires confirmation. K10CR1 780/852 rotations act on the selected
 node's axes through the single `k10cr1_ndsp` controller (node-suffixed
-nicknames, bound only when a waveplate action is selected). Feedback, old
-independent-Kasli networking, and Rigol are excluded.
+nicknames, bound only when a waveplate action is selected).
+`run_laser_feedback` matches the standalone utility (feedback, or monitor
+when unticked, only with all six fiber AOMs plus cooling DP on) and persists
+through node-suffixed datasets via unchanged aom_feedback code. Old
+independent-Kasli networking and Rigol are excluded.
 
 ARTIQ repository examination supplies `None` for submitted arguments and may
 run before any new persistent datasets exist. Every public master-satellite

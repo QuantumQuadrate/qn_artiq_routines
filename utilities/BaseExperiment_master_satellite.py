@@ -1,6 +1,10 @@
 """Base hardware orchestration for the master-satellite architecture."""
 
-from artiq.experiment import kernel, delay, ms, us
+import json
+from pathlib import Path
+
+import numpy as np
+from artiq.experiment import kernel, delay, ms, rpc, us
 
 from ExperimentVariables_master_satellite_Node1 import NODE1_VARIABLES
 from ExperimentVariables_master_satellite_Node2 import NODE2_VARIABLES
@@ -22,6 +26,7 @@ class BaseExperimentMasterSatellite:
 
     VALID_MODES = ("single_node", "two_nodes")
     VALID_NODES = ("Node1", "Node2")
+    NODE_LEGACY_NAMES = {"Node1": "alice", "Node2": "bob"}
     SATELLITE_DESTINATION = 1
 
     DDS_ALIASES = (
@@ -185,6 +190,7 @@ class BaseExperimentMasterSatellite:
         self.node_resolvers = {}
         self.shared_spcm_resolver = None
         self.compatibility_variable_map = {}
+        self.feedback_dataset_map = {}
         self.global_variable_names = frozenset(
             variable.name for variable in MASTER_SATELLITE_VARIABLES
         )
@@ -392,11 +398,12 @@ class BaseExperimentMasterSatellite:
 
     def resolve_result_dataset_name(self, name):
         """Resolve hard-coded legacy result names for the selected node."""
-        if (
-            self.experiment_mode == "single_node"
-            and name in self.MAGNETOMETER_RESULT_DATASETS
-        ):
-            return f"{name}_{self.which_node}"
+        if self.experiment_mode == "single_node":
+            if name in self.MAGNETOMETER_RESULT_DATASETS:
+                return f"{name}_{self.which_node}"
+            resolved_feedback_name = self.feedback_dataset_map.get(name)
+            if resolved_feedback_name is not None:
+                return resolved_feedback_name
         return name
 
     def reset_result_state_for_scan_point(self):
@@ -798,6 +805,105 @@ class BaseExperimentMasterSatellite:
 
         self._prepared = True
 
+    def _feedback_channel_dataset_names(self):
+        """List the selected node's feedback dataset names from its config."""
+        config_path = (
+            Path(__file__).resolve().parent
+            / "config"
+            / self.NODE_LEGACY_NAMES[self.which_node]
+            / "feedback_channels.json"
+        )
+        with config_path.open() as config_file:
+            stabilizer_dict = json.load(config_file)
+
+        dataset_names = []
+        for feedback_channels in stabilizer_dict.values():
+            for channel_parameters in feedback_channels.values():
+                dataset_names.append(channel_parameters["dataset"])
+                dataset_names.append(channel_parameters["power_dataset"])
+                dataset_names.append(
+                    channel_parameters["power_dataset"] + "_history"
+                )
+        return dataset_names
+
+    def prepare_laser_stabilizer(self, stabilizer_factory=None):
+        """Build the selected node's AOMPowerStabilizer with suffixed persistence.
+
+        subroutines/aom_feedback.py is unchanged from the standalone stack:
+        every dataset it touches goes through the experiment object, so this
+        method installs a name map that routes those reads and writes to the
+        node-suffixed authoritative datasets before construction. The
+        stabilizer itself sees the ordinary projected legacy namespace
+        (samplers, DDS aliases, set points, dds_defaults, which_node).
+        """
+        if not self._prepared:
+            raise RuntimeError(
+                "prepare() must complete before preparing the laser "
+                "stabilizer."
+            )
+        if self.experiment_mode != "single_node":
+            raise RuntimeError(
+                "Master-satellite laser feedback is single-node only for now."
+            )
+
+        suffix = f"_{self.which_node}"
+        self.feedback_dataset_map = {
+            name: f"{name}{suffix}"
+            for name in self._feedback_channel_dataset_names()
+        }
+        self.feedback_dataset_map["feedbackchannels"] = (
+            f"feedbackchannels{suffix}"
+        )
+
+        if stabilizer_factory is None:
+            from subroutines.aom_feedback import AOMPowerStabilizer
+
+            stabilizer_factory = AOMPowerStabilizer
+
+        experiment = self.experiment
+        # Present the resolver's DDS default-variable names the same way the
+        # standalone DeviceAliases does for the stabilizer.
+        experiment.dds_defaults = (
+            self.node_resolvers[self.which_node].dds_defaults
+        )
+        fast_feedback_dds_names = eval(experiment.fast_feedback_dds_list)
+        experiment.laser_stabilizer = stabilizer_factory(
+            experiment=experiment,
+            dds_names=fast_feedback_dds_names,
+            iterations=experiment.aom_feedback_iterations,
+            averages=experiment.aom_feedback_averages,
+            leave_AOMs_on=False,
+            leave_MOT_AOMs_on=True,
+        )
+
+        channels = experiment.laser_stabilizer.all_channels
+        experiment.set_dataset(
+            "feedbackchannels",
+            [
+                self.resolve_result_dataset_name(channel.dB_dataset)
+                for channel in channels
+            ],
+            broadcast=True,
+            persist=True,
+        )
+        experiment.initial_RF_dB_values = np.zeros(len(channels))
+        for channel_index, channel in enumerate(channels):
+            experiment.initial_RF_dB_values[channel_index] = (
+                experiment.get_dataset(channel.dB_dataset, archive=False)
+            )
+            try:
+                experiment.append_to_dataset(
+                    channel.dB_history_dataset,
+                    float(experiment.initial_RF_dB_values[channel_index]),
+                )
+            except KeyError:
+                experiment.set_dataset(
+                    channel.dB_history_dataset,
+                    [float(experiment.initial_RF_dB_values[channel_index])],
+                    broadcast=True,
+                )
+        return experiment.laser_stabilizer
+
     @kernel
     def _wait_for_satellite(self):
         ready = False
@@ -944,3 +1050,30 @@ class BaseExperimentMasterSatellite:
                     zotino.write_dac(channel, 0.0)
                     zotino.load()
                     delay(1 * ms)
+
+
+class _DatasetRedirectMixin:
+    """Route legacy hard-coded dataset names through Base resolution.
+
+    Reused single-node code addresses magnetometer results and laser-feedback
+    datasets by their standalone names. These overrides translate exactly the
+    names Base knows about (see resolve_result_dataset_name) and pass every
+    other name through unchanged. This mixin deliberately does not inherit
+    EnvExperiment and expects the experiment to hold its Base as self.base.
+    """
+
+    def set_dataset(self, key, value, **kwargs):
+        return super().set_dataset(
+            self.base.resolve_result_dataset_name(key), value, **kwargs
+        )
+
+    def get_dataset(self, key, *args, **kwargs):
+        return super().get_dataset(
+            self.base.resolve_result_dataset_name(key), *args, **kwargs
+        )
+
+    @rpc(flags={"async"})
+    def append_to_dataset(self, key, value):
+        super().append_to_dataset(
+            self.base.resolve_result_dataset_name(key), value
+        )

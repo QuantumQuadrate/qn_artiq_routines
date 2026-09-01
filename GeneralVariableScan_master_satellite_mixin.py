@@ -16,6 +16,7 @@ from artiq.coredevice.exceptions import RTIOUnderflow
 
 from utilities.BaseExperiment_master_satellite import (
     BaseExperimentMasterSatellite,
+    _DatasetRedirectMixin,
 )
 
 
@@ -55,7 +56,7 @@ def build_two_node_function_registry():
     return build_experiment_function_registry(functions)
 
 
-class _GeneralVariableScanMasterSatelliteMixin:
+class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
     """Shared implementation for the public master-satellite GVS files.
 
     This mixin deliberately does not inherit EnvExperiment, so ARTIQ Explorer
@@ -288,17 +289,6 @@ class _GeneralVariableScanMasterSatelliteMixin:
     def _refresh_runtime_variable_state(self):
         self.base.refresh_compatibility_variables()
         self.base.refresh_variable_dependent_state()
-
-    @rpc(flags={"async"})
-    def append_to_dataset(self, name, value):
-        """Redirect selected-node legacy magnetometer result names.
-
-        Existing single-node magnetometer helpers use hard-coded unsuffixed
-        strings. Only those known result names are translated; all other
-        dataset appends retain normal EnvExperiment behavior.
-        """
-        resolved_name = self.base.resolve_result_dataset_name(name)
-        super().append_to_dataset(resolved_name, value)
 
     def _apply_run_wide_overrides(self):
         for target, value in self.authoritative_overrides.items():
