@@ -135,9 +135,10 @@ Only the selected node is initialized and driven: a second explicit OFF/0 V
 pass precedes the requested state, and Base initialization runs with
 `reset_core=False` so the other node's established outputs are never touched.
 Making a node safe means running that node's own experiment with its controls
-unchecked. Coil voltages are run-local GUI values with examination-safe 0 V
-defaults and are never persisted. Microwave/RF defaults OFF and requires
-confirmation. Feedback, old independent-Kasli networking, K10CR1, and Rigol
+unchecked. Coils follow the standalone `disable_coils` semantics: unless
+disabled, the four coils are driven to the node's persistent MOT calibration
+voltages; nothing is entered manually or persisted. Microwave/RF defaults OFF
+and requires confirmation. Feedback, old independent-Kasli networking, K10CR1, and Rigol
 are excluded.
 
 ARTIQ repository examination supplies `None` for submitted arguments and may

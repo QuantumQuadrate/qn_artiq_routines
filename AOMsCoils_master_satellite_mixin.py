@@ -35,7 +35,6 @@ class _AOMsCoilsMasterSatelliteMixin:
         ("GRIN1_AOM_switch_ON", "ttl_GRIN1_switch"),
         ("GRIN2_AOM_switch_ON", "ttl_GRIN2_switch"),
     )
-    COIL_NAMES = ("AZ_bottom", "AZ_top", "AX", "AY")
 
     def _build_node_manual_controls(self):
         if self.NODE not in ("Node1", "Node2") or len(self.COIL_CHANNELS) != 4:
@@ -60,19 +59,12 @@ class _AOMsCoilsMasterSatelliteMixin:
                 BooleanValue(False),
                 f"{self.NODE} TTL-controlled AOM gates",
             )
-        for coil_name in self.COIL_NAMES:
-            self.setattr_argument(
-                f"{coil_name}_coil_ON",
-                BooleanValue(False),
-                f"{self.NODE} coils",
-            )
-            self.setattr_argument(
-                f"{coil_name}_voltage",
-                NumberValue(
-                    0.0, unit="V", min=-10.0, max=10.0, ndecimals=3
-                ),
-                f"{self.NODE} run-local coil voltage (safe 0 V default)",
-            )
+        # Coils follow the standalone AOMsCoils semantics: unless disabled,
+        # all four coils are driven to the node's persistent MOT calibration
+        # voltages. There are no manual voltage entries.
+        self.setattr_argument(
+            "disable_coils", BooleanValue(False), f"{self.NODE} coils"
+        )
         self.setattr_argument(
             "microwave_dds_ON",
             BooleanValue(False),
@@ -127,11 +119,13 @@ class _AOMsCoilsMasterSatelliteMixin:
             self._manual_ttls.append(self.ttl_D1_pumping)
             self._manual_ttl_enabled.append(self.D1_pumping_DP_ON)
 
-        self._coil_enabled = [
-            getattr(self, f"{name}_coil_ON") for name in self.COIL_NAMES
-        ]
+        # MOT coil voltages come from the node's persistent MOT calibration
+        # through the single-node projection; disable_coils selects 0 V.
         self._coil_voltages = [
-            getattr(self, f"{name}_voltage") for name in self.COIL_NAMES
+            self.AZ_bottom_volts_MOT,
+            self.AZ_top_volts_MOT,
+            self.AX_volts_MOT,
+            self.AY_volts_MOT,
         ]
 
     @kernel
@@ -171,11 +165,14 @@ class _AOMsCoilsMasterSatelliteMixin:
 
     @kernel
     def _apply_coil_state(self):
-        requested = [0.0, 0.0, 0.0, 0.0]
-        for i in range(4):
-            if self._coil_enabled[i]:
-                requested[i] = self._coil_voltages[i]
-        self.zotino0.set_dac(requested, channels=self.COIL_CHANNELS)
+        if self.disable_coils:
+            self.zotino0.set_dac(
+                [0.0, 0.0, 0.0, 0.0], channels=self.COIL_CHANNELS
+            )
+        else:
+            self.zotino0.set_dac(
+                self._coil_voltages, channels=self.COIL_CHANNELS
+            )
         delay(1 * ms)
 
     @kernel

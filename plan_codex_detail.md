@@ -614,11 +614,12 @@ active-low polarity is retained for repump, pumping-repump, excitation0,
 GRIN1, GRIN2, microwave, and Node2's dedicated D1 gate. Node1 D1 shares the
 GRIN1 optical gate.
 
-Each AZ-bottom, AZ-top, AX, and AY coil has an independent checkbox and
-run-local voltage argument. Explorer metadata uses a safe explicit 0 V default
-because persistent MOT datasets may not exist during repository examination.
-Values are limited to +/-10 V and never persisted. Disabled coils are
-explicitly 0 V.
+Coil control matches the standalone utility: a single `disable_coils`
+checkbox (default False) drives the selected node's four coils to the
+persistent `*_volts_MOT` calibration values, or to 0 V when set. Voltages are
+read from the authoritative node datasets at prepare, never entered in the
+GUI, and never persisted. Repository examination is unaffected because the
+argument is a plain boolean.
 
 | Coil | Node1 Zotino | Node2 Zotino |
 |---|---:|---:|

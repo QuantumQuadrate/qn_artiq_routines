@@ -136,7 +136,6 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
     def test_node1_then_node2_preserves_node1_outputs(self):
         node1 = self.make_experiment(Node1ManualExperiment, {
             "FORT_AOM_ON": True, "Repump_AOM_switch_ON": True,
-            "AY_coil_ON": True, "AY_voltage": 1.25,
         })
         node1.apply_manual_state()
         self.assertFalse(any(operation == "reset" for _, operation, _ in self.log))
@@ -145,17 +144,22 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         )
         state1 = (fort1.state, repump1.state, dict(zotino1.dac_values))
         self.assertEqual(state1, (True, False, {**state1[2]}))
-        self.assertEqual(zotino1.dac_values[14], 1.25)
+        self.assertEqual(
+            zotino1.dac_values[14], self.datasets["AY_volts_MOT_Node1"]
+        )
 
         node2 = self.make_experiment(Node2ManualExperiment, {
-            "AOM_A1_ON": True, "AX_coil_ON": True, "AX_voltage": -0.75,
+            "AOM_A1_ON": True,
         })
         node2_log_start = len(self.log)
         node2.apply_manual_state()
         self.assertFalse(any(operation == "reset" for _, operation, _ in self.log))
         self.assertEqual((fort1.state, repump1.state, dict(zotino1.dac_values)), state1)
         self.assertTrue(self.devices["urukul3_ch0"].state)
-        self.assertEqual(self.devices["zotino1"].dac_values[2], -0.75)
+        self.assertEqual(
+            self.devices["zotino1"].dac_values[2],
+            self.datasets["AX_volts_MOT_Node2"],
+        )
         with Path("utilities/config/master_satellite/device_aliases.json").open() as file:
             node1_devices = set(json.load(file)["Node1"].values())
         self.assertTrue(
@@ -164,10 +168,13 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
 
     def test_node2_then_node1_preserves_node2_outputs(self):
         node2 = self.make_experiment(Node2ManualExperiment, {
-            "FORT_AOM_ON": True, "AZ_top_coil_ON": True, "AZ_top_voltage": 2.0,
+            "FORT_AOM_ON": True,
         })
         node2.apply_manual_state()
         fort2, zotino2 = self.devices["urukul4_ch3"], self.devices["zotino1"]
+        self.assertEqual(
+            zotino2.dac_values[1], self.datasets["AZ_top_volts_MOT_Node2"]
+        )
         state2 = (fort2.state, dict(zotino2.dac_values))
         node1 = self.make_experiment(Node1ManualExperiment, {"AOM_A6_ON": True})
         node1_log_start = len(self.log)
@@ -177,6 +184,32 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             node2_devices = set(json.load(file)["Node2"].values())
         self.assertTrue(
             all(device not in node2_devices for device, _, _ in self.log[node1_log_start:])
+        )
+
+    def test_disable_coils_forces_all_four_coils_to_zero(self):
+        node1 = self.make_experiment(
+            Node1ManualExperiment, {"disable_coils": True}
+        )
+        node1.apply_manual_state()
+        zotino = self.devices["zotino0"]
+        self.assertEqual(
+            [zotino.dac_values[channel] for channel in (0, 1, 13, 14)],
+            [0.0, 0.0, 0.0, 0.0],
+        )
+
+    def test_mot_coil_voltages_come_from_persistent_calibration(self):
+        node1 = self.make_experiment(Node1ManualExperiment)
+        self.assertFalse(node1.disable_coils)
+        node1.apply_manual_state()
+        zotino = self.devices["zotino0"]
+        self.assertEqual(
+            [zotino.dac_values[channel] for channel in (0, 1, 13, 14)],
+            [
+                self.datasets["AZ_bottom_volts_MOT_Node1"],
+                self.datasets["AZ_top_volts_MOT_Node1"],
+                self.datasets["AX_volts_MOT_Node1"],
+                self.datasets["AY_volts_MOT_Node1"],
+            ],
         )
 
     def test_only_selected_node_datasets_are_loaded(self):
