@@ -115,6 +115,23 @@ class FakeCore(FakeDevice):
     def get_rtio_destination_status(self, destination): return True
 
 
+class FakeRotator(FakeDevice):
+    """Single k10cr1_ndsp controller; node identity lives in the axis name."""
+
+    def __init__(self, name, log):
+        super().__init__(name, log)
+        self.positions = {}
+
+    def move_to(self, position, axis):
+        self.positions[axis] = position
+        self._record("move_to", (axis, position))
+
+    def home(self, axis): self._record("home", axis)
+    def is_homed(self, axis): return True
+    def is_moving(self, axis): return False
+    def get_position(self, axis): return self.positions.get(axis, 0)
+
+
 def make_shared_hardware(log):
     devices = {"core": FakeCore("core", log)}
     with Path("utilities/config/master_satellite/device_aliases.json").open() as file:
@@ -124,7 +141,7 @@ def make_shared_hardware(log):
             devices.setdefault(unified_name, FakeDevice(unified_name, log))
     devices["core_dma"] = FakeDevice("core_dma", log)
     devices["scheduler"] = FakeDevice("scheduler", log)
-    devices["k10cr1_ndsp"] = FakeDevice("k10cr1_ndsp", log)
+    devices["k10cr1_ndsp"] = FakeRotator("k10cr1_ndsp", log)
     return devices
 
 
@@ -139,6 +156,7 @@ class ManualExperimentEnvironment:
         self.broadcast_sets = {}
     def setattr_argument(self, name, value, *args, **kwargs): setattr(self, name, value)
     def setattr_device(self, name): setattr(self, name, self.devices[name])
+    def get_device(self, name): return self.devices[name]
     def get_dataset(self, name, *args, **kwargs):
         self.dataset_reads.append(name)
         return self.datasets[name]
@@ -418,18 +436,50 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(partial.laser_stabilizer.run_calls, 0)
         self.assertEqual(partial.laser_stabilizer.monitor_calls, 0)
 
-    def test_k10cr1_binds_only_when_a_waveplate_action_is_selected(self):
+    def test_k10cr1_proxy_is_lazy_and_node_aware(self):
+        from utilities.BaseExperiment_master_satellite import (
+            _NodeAxisK10CR1Proxy,
+        )
+
         node1 = self.make_experiment(Node1ManualExperiment)
         self.assertFalse(node1._k10cr1_requested)
-        self.assertFalse(hasattr(node1, "k10cr1_ndsp"))
+        self.assertIsInstance(node1.k10cr1_ndsp, _NodeAxisK10CR1Proxy)
+        # Lazy: publishing the proxy performs no device access.
+        self.assertIsNone(node1.k10cr1_ndsp._client)
 
         node2 = self.make_experiment(
             Node2ManualExperiment, {"go_to_home_852QWP": True}
         )
         self.assertTrue(node2._k10cr1_requested)
-        self.assertIs(node2.k10cr1_ndsp, self.devices["k10cr1_ndsp"])
         self.assertEqual(node2._axis_780_HWP, "780_HWP_Node2")
         self.assertEqual(node2._axis_852_QWP, "852_QWP_Node2")
+        # Bare axis names resolve to the selected node; suffixed pass through.
+        node2.k10cr1_ndsp.home("852_QWP")
+        node2.k10cr1_ndsp.home("852_HWP_Node2")
+        self.assertEqual(
+            [entry for entry in self.log if entry[1] == "home"],
+            [
+                ("k10cr1_ndsp", "home", "852_QWP_Node2"),
+                ("k10cr1_ndsp", "home", "852_HWP_Node2"),
+            ],
+        )
+
+    def test_legacy_bare_axis_names_reach_the_selected_node(self):
+        from subroutines.k10cr1_functions import move_to_target_deg
+
+        node1 = self.make_experiment(Node1ManualExperiment)
+        move_to_target_deg(node1, name="852_HWP", target_deg=5.0)
+        rotator = self.devices["k10cr1_ndsp"]
+        self.assertEqual(
+            rotator.positions["852_HWP_Node1"],
+            int(5.0 * self.datasets["deg_to_pos_Node1"]),
+        )
+
+    def test_k10cr1_missing_entry_fails_lazily_with_guidance(self):
+        del self.devices["k10cr1_ndsp"]
+        node1 = self.make_experiment(Node1ManualExperiment)  # prepare works
+        with self.assertRaisesRegex(RuntimeError, "k10cr1_ndsp"):
+            node1.k10cr1_ndsp.get_position("852_HWP")
 
     def test_852_target_moves_are_gated_on_852_booleans(self):
         import AOMsCoils_master_satellite_mixin as mixin_module

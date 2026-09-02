@@ -152,8 +152,9 @@ unchecked. Coils follow the standalone `disable_coils` semantics: unless
 disabled, the four coils are driven to the node's persistent MOT calibration
 voltages; nothing is entered manually or persisted. Microwave/RF defaults OFF
 and requires confirmation. K10CR1 780/852 rotations act on the selected
-node's axes through the single `k10cr1_ndsp` controller (node-suffixed
-nicknames, bound only when a waveplate action is selected).
+node's axes through the single `k10cr1_ndsp` controller: in single-node
+mode Base publishes a lazy node-aware proxy that resolves bare legacy axis
+names to the node's suffixed nicknames and connects only on first use.
 `run_laser_feedback` matches the standalone utility (feedback, or monitor
 when unticked, only with all six fiber AOMs plus cooling DP on) and persists
 through node-suffixed datasets via unchanged aom_feedback code. Node2 also

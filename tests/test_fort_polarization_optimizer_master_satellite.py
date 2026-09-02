@@ -206,6 +206,9 @@ class OptimizerEnvironment:
     def setattr_device(self, name):
         setattr(self, name, self.devices[name])
 
+    def get_device(self, name):
+        return self.devices[name]
+
     def get_dataset(self, name, *args, **kwargs):
         self.dataset_reads.append(name)
         return self.datasets[name]
@@ -297,7 +300,10 @@ class FortPolarizationOptimizerMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(node1.base.which_node, "Node1")
         self.assertEqual(node1.which_node, "alice")
         self.assertEqual(node1._axis_852_HWP, "852_HWP_Node1")
-        self.assertIs(node1.k10cr1_ndsp, self.rotator)
+        # The Base-published proxy forwards to the single controller with
+        # node-resolved axis names (bare names get this node's suffix).
+        node1.k10cr1_ndsp.home("852_HWP")
+        self.assertIn(("k10cr1_ndsp", "home", "852_HWP_Node1"), self.log)
 
         node2 = self.make_experiment({"which_node": "node2"})
         self.assertEqual(node2.base.which_node, "Node2")

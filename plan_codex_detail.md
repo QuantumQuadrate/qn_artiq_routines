@@ -545,11 +545,15 @@ database owns all eight rotators through one USB hub, with node-suffixed
 axis nicknames (`780_HWP_Node1`, ..., `852_QWP_Node2`) and the combined
 serial list. The launcher (`ndsp/k10cr1/launcher_multi_rotor.py`) reads
 `sn_list`/`nickname_list` from that entry, so the launcher, driver, and
-`subroutines/k10cr1_functions.py` are all unchanged. AOMsCoils binds the
-controller at prepare, and only when a waveplate action is selected, because
-the sipyco client connects the moment the device is requested; do not use
-`best_effort` for the rotators (silent `None` returns would drop motion
-commands). After editing a deployed database, run `artiq_client
+`subroutines/k10cr1_functions.py` are all unchanged. In single-node mode
+Base publishes `k10cr1_ndsp` as a lazy node-aware proxy
+(`_NodeAxisK10CR1Proxy`): reused legacy code that addresses axes by their
+bare standalone names ('852_HWP', ...) is resolved to the selected node's
+nicknames, already-suffixed names pass through unchanged, and the real
+sipyco client - which connects the moment the device is created - is
+fetched only on the first actual call, so experiments that never rotate
+never connect. Do not use `best_effort` for the rotators (silent `None`
+returns would drop motion commands). After editing a deployed database, run `artiq_client
 scan-devices` (no gateware impact). Rigol and similar devices remain
 deferred and must not block basic DRTIO/magnetometer validation.
 

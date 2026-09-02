@@ -146,10 +146,9 @@ class FORT_Polarization_Optimizer_master_satellite(
         self.full_range = submitted_full_range
         self.sample_pts = submitted_sample_pts
 
-        # One controller owns all eight rotators; the node identity lives in
-        # the axis nickname. NDSP clients connect the moment the device is
-        # requested, so bind it here rather than in build().
-        self.setattr_device("k10cr1_ndsp")
+        # Base publishes k10cr1_ndsp as a lazy node-aware proxy (it connects
+        # only on first use). Axis names stay explicitly suffixed here; the
+        # proxy passes already-suffixed names through unchanged.
         self._axis_852_HWP = f"852_HWP_{node}"
         self._axis_852_QWP = f"852_QWP_{node}"
 

@@ -843,6 +843,12 @@ class BaseExperimentMasterSatellite:
         if self.experiment_mode == "single_node":
             resolver = self.node_resolvers[self.which_node]
             self.experiment.named_devices = resolver
+            # One controller owns all eight waveplate rotators; reused
+            # single-node code addresses axes by their bare standalone names,
+            # which this proxy resolves to the selected node's nicknames.
+            self.experiment.k10cr1_ndsp = _NodeAxisK10CR1Proxy(
+                self.experiment, self.which_node
+            )
         else:
             self.experiment.named_devices_Node1 = self.node_resolvers["Node1"]
             self.experiment.named_devices_Node2 = self.node_resolvers["Node2"]
@@ -1244,6 +1250,63 @@ class BaseExperimentMasterSatellite:
                     zotino.write_dac(channel, 0.0)
                     zotino.load()
                     delay(1 * ms)
+
+
+class _NodeAxisK10CR1Proxy:
+    """Lazy, node-aware view of the k10cr1_ndsp waveplate controller.
+
+    The unified controller owns all eight rotators with node-suffixed axis
+    nicknames (780_HWP_Node1, ..., 852_QWP_Node2). Reused single-node code
+    addresses axes by their standalone bare names ('852_HWP', ...), so every
+    method argument matching a bare axis name is resolved to the selected
+    node's axis; already-suffixed names and non-axis arguments pass through
+    unchanged (every k10cr1_driver method takes the axis as a plain string,
+    in varying positions, so resolution is argument-position independent).
+
+    The underlying sipyco client opens its TCP connection when the device is
+    created, so it is fetched only on the first actual call - experiments
+    that never rotate never connect, and repository examination never sees
+    the device at all.
+    """
+
+    BARE_AXIS_NAMES = ("780_HWP", "780_QWP", "852_HWP", "852_QWP")
+
+    def __init__(self, experiment, node):
+        self._experiment = experiment
+        self._node = node
+        self._client = None
+
+    def _resolve_axis(self, value):
+        if isinstance(value, str) and value in self.BARE_AXIS_NAMES:
+            return f"{value}_{self._node}"
+        return value
+
+    def _get_client(self):
+        if self._client is None:
+            try:
+                self._client = self._experiment.get_device("k10cr1_ndsp")
+            except Exception as error:
+                raise RuntimeError(
+                    "Unable to reach the k10cr1_ndsp waveplate controller: "
+                    f"{error}. Check that the unified device database has "
+                    "the k10cr1_ndsp entry (then run artiq_client "
+                    "scan-devices) and that the rotator server is running."
+                ) from error
+        return self._client
+
+    def __getattr__(self, method_name):
+        def forward(*args, **kwargs):
+            client_method = getattr(self._get_client(), method_name)
+            resolved_args = tuple(
+                self._resolve_axis(argument) for argument in args
+            )
+            resolved_kwargs = {
+                key: self._resolve_axis(value)
+                for key, value in kwargs.items()
+            }
+            return client_method(*resolved_args, **resolved_kwargs)
+
+        return forward
 
 
 class _DatasetRedirectMixin:

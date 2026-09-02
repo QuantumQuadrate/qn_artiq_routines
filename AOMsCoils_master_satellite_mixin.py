@@ -205,15 +205,13 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
         self._grin2_excitation_frequency = self.f_GRIN2_excitation
         self._grin2_excitation_amplitude_dB = self.p_GRIN2_excitation
 
-        # One controller process owns all eight rotators; the node identity
-        # lives in the axis nickname. The NDSP client opens its connection
-        # the moment the device is requested, so it is bound only when a
-        # waveplate action is actually selected.
+        # Base publishes k10cr1_ndsp as a lazy node-aware proxy (it connects
+        # only on first use); this gate merely decides whether the waveplate
+        # operations run at all. Axis names stay explicitly suffixed here;
+        # the proxy passes already-suffixed names through unchanged.
         self._k10cr1_requested = any(
             bool(getattr(self, name)) for name in self.K10CR1_CONTROL_ARGUMENTS
         )
-        if self._k10cr1_requested:
-            self.setattr_device("k10cr1_ndsp")
         self._axis_780_HWP = f"780_HWP_{self.NODE}"
         self._axis_780_QWP = f"780_QWP_{self.NODE}"
         self._axis_852_HWP = f"852_HWP_{self.NODE}"
