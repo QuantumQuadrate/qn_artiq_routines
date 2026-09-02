@@ -736,7 +736,8 @@ class MicrowaveScanOptimizer(EnvExperiment):
                             print("Case 2.1: left-skewed (out-of-range)")
                             # example: shift center left by half current span
                             if lowest_value < 0.2:
-                                new_center = f0 - self.freq_scan_min_step_size_kHz
+                                # freq_scan_min_step_size_kHz is a kHz number; scan values are in Hz
+                                new_center = f0 - self.freq_scan_min_step_size_kHz * kHz
                             elif lowest_value < 0.4:
                                 step = abs(f2 - f0)  # distance between -x and -x/2
                                 new_center = f0 - step  # move further left
@@ -749,7 +750,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         elif lowest_index == 1 and slope_right < 0 and lowest_value < threshold_low:
                             print("Case 2.2: right-skewed (out-of-range)")
                             if lowest_value < 0.2:
-                                new_center = f1 + self.freq_scan_min_step_size_kHz
+                                new_center = f1 + self.freq_scan_min_step_size_kHz * kHz
                             elif lowest_value < 0.4:
                                 step = abs(f1 - f3)  # distance between +x/2 and +x
                                 new_center = f1 + step  # move further right
@@ -766,7 +767,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                             print("Case 2.3: left-skewed (within-range)")
                             # e.g. pick a center between -x and +x/2 leaning left
                             if lowest_value < 0.2:
-                                new_center = f2 + self.freq_scan_min_step_size_kHz
+                                new_center = f2 + self.freq_scan_min_step_size_kHz * kHz
                             else:
                                 step = abs((f2 - f0)/2)
                                 new_center = f2 + step
@@ -776,7 +777,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
                         elif lowest_index == 3 and slope_right > 0 and lowest_value < threshold_low:
                             print("Case 2.4: right-skewed (within-range)")
                             if lowest_value < 0.2:
-                                new_center = f3 - self.freq_scan_min_step_size_kHz
+                                new_center = f3 - self.freq_scan_min_step_size_kHz * kHz
                             else:
                                 step = abs((f1 - f3)/2)
                                 new_center = f3 - step
@@ -1263,8 +1264,10 @@ class MicrowaveScanOptimizer(EnvExperiment):
         n_atoms_loaded_array = np.zeros(iterations)
 
         for i in range(iterations):
-            shot1 = photocounts[i * measurements:(i + 1) * measurements]
-            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+            # the SPCM datasets are seeded with a leading [0]; skip it so each
+            # window holds exactly this iteration's measurements
+            shot1 = photocounts[1 + i * measurements:1 + (i + 1) * measurements]
+            shot2 = photocounts2[1 + i * measurements:1 + (i + 1) * measurements]
 
             atoms_loaded = [x > cutoff for x in shot1]
             n_atoms_loaded = sum(atoms_loaded)
@@ -1285,8 +1288,10 @@ class MicrowaveScanOptimizer(EnvExperiment):
         retention_array = np.zeros(iterations)
 
         for i in range(iterations):
-            shot1 = photocounts[i * measurements:(i + 1) * measurements]
-            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+            # the SPCM datasets are seeded with a leading [0]; skip it so each
+            # window holds exactly this iteration's measurements
+            shot1 = photocounts[1 + i * measurements:1 + (i + 1) * measurements]
+            shot2 = photocounts2[1 + i * measurements:1 + (i + 1) * measurements]
 
             atoms_loaded = [x > cutoff for x in shot1]
             n_atoms_loaded = sum(atoms_loaded)

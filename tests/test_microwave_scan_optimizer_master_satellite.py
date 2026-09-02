@@ -285,6 +285,11 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         experiment = OptimizerExperiment()
         experiment.initialize_environment(self.devices, self.datasets, self.log)
         experiment.build()
+        # Base.build installs the real write_results wrapper as an instance
+        # attribute; replace it with the recording stub for tests.
+        experiment.write_results = lambda kwargs={}: self.log.append(
+            ("write_results", kwargs.get("name"), None)
+        )
         for name, value in (updates or {}).items():
             setattr(experiment, name, value)
         experiment.prepare()
@@ -485,6 +490,95 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         self.assertTrue(expid["arguments"]["Frequency_01_Scan"])
         self.assertFalse(expid["arguments"]["run_health_check_and_optimize"])
         self.assertEqual(expid["arguments"]["n_measurements"], 6)
+
+    def test_min_step_displacement_uses_khz_units_in_both_sources(self):
+        import re
+
+        for filename in (
+            "MicrowaveScanOptimizer.py",
+            "MicrowaveScanOptimizer_master_satellite.py",
+        ):
+            source = Path(filename).read_text(encoding="utf-8")
+            converted = re.findall(
+                r"new_center = f\d [+-] "
+                r"self\.freq_scan_min_step_size_kHz \* kHz",
+                source,
+            )
+            self.assertEqual(len(converted), 4, filename)
+            bare = re.findall(
+                r"new_center = f\d [+-] "
+                r"self\.freq_scan_min_step_size_kHz(?! \* kHz)",
+                source,
+            )
+            self.assertEqual(bare, [], filename)
+            # Difference-based offsets are already in Hz and stay unconverted.
+            self.assertIn("step = abs(f2 - f0)", source)
+
+    def test_adaptive_refine_displaces_center_by_ten_kilohertz(self):
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_00_Scan": True,
+            "n_measurements": 4,
+            "run_health_check_and_optimize": False,
+            "enable_geometric_frequency_scan": True,
+            "enable_fitting": False,
+            "freq_scan_min_step_size_kHz": 10.0,
+        })
+
+        cutoff = (
+            experiment.single_atom_threshold * experiment.t_SPCM_first_shot
+        )
+        loaded = cutoff * 10
+        # Retentions per scanned point: the first point (f0 = center - x) is
+        # the lowest and far below 0.2, the left slope is positive, so the
+        # adaptive logic must take Case 2.1 and shift the center left by
+        # exactly freq_scan_min_step_size_kHz expressed in Hz.
+        retained_counts = iter([0, 3, 3, 3] + [3] * 50)
+
+        def fake_scan_point(inner_self):
+            shots1 = [loaded] * 4
+            retained = next(retained_counts)
+            shots2 = [loaded] * retained + [0.0] * (4 - retained)
+            ro1 = list(inner_self.get_dataset("AllSPCMs_RO1")) + shots1
+            ro2 = list(inner_self.get_dataset("AllSPCMs_RO2")) + shots2
+            inner_self.set_dataset("AllSPCMs_RO1", ro1, broadcast=True)
+            inner_self.set_dataset("AllSPCMs_RO2", ro2, broadcast=True)
+
+        # prepare() bound the real function by reference; substitute the
+        # fake for the scan loop itself.
+        experiment._selected_experiment_function = fake_scan_point
+        experiment.experiment_function = lambda: fake_scan_point(experiment)
+        experiment.run()
+
+        scanned = list(experiment.broadcast_sets["scan_sequence1"])
+        self.assertGreater(len(scanned), 4)
+        f0 = scanned[0]
+        # Pair-mode scan lists end on their center point, so the last refined
+        # point IS the new center: f0 - 10 kHz, not f0 - 10 Hz.
+        refined_center = scanned[-1]
+        self.assertAlmostEqual(f0 - refined_center, 10_000.0)
+
+    def test_retention_slicing_skips_the_dataset_seed(self):
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_00_Scan": True,
+            "n_measurements": 4,
+        })
+        loaded = 200.0
+        cutoff = 100.0
+        # One iteration of four shots behind the [0] seed: three atoms load
+        # (indices 0, 1, 3), two of those are retained (indices 0 and 3).
+        shot1 = [0] + [loaded, loaded, 0.0, loaded]
+        shot2 = [0] + [loaded, 0.0, 0.0, loaded]
+        retention = experiment.get_retention(shot1, shot2, 4, 1, cutoff)
+        self.assertAlmostEqual(retention[0], 2 / 3)
+
+        retention_array, loading_rate, n_loaded = (
+            experiment.get_loading_and_retention(shot1, shot2, 4, 1, cutoff)
+        )
+        self.assertAlmostEqual(retention_array[0], 2 / 3)
+        self.assertAlmostEqual(loading_rate[0], 3 / 4)
+        self.assertEqual(n_loaded[0], 3)
 
     def test_scan_point_updates_authoritative_and_compatibility_values(self):
         experiment = self.make_experiment({

@@ -748,8 +748,10 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         n_atoms_loaded_array = np.zeros(iterations)
 
         for i in range(iterations):
-            shot1 = photocounts[i * measurements:(i + 1) * measurements]
-            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+            # the SPCM datasets are seeded with a leading [0]; skip it so each
+            # window holds exactly this iteration's measurements
+            shot1 = photocounts[1 + i * measurements:1 + (i + 1) * measurements]
+            shot2 = photocounts2[1 + i * measurements:1 + (i + 1) * measurements]
 
             atoms_loaded = [x > cutoff for x in shot1]
             n_atoms_loaded = sum(atoms_loaded)
@@ -771,8 +773,10 @@ class GeneralVariableScan_HealthCheck(EnvExperiment):
         retention_array = np.zeros(iterations)
 
         for i in range(iterations):
-            shot1 = photocounts[i * measurements:(i + 1) * measurements]
-            shot2 = photocounts2[i * measurements:(i + 1) * measurements]
+            # the SPCM datasets are seeded with a leading [0]; skip it so each
+            # window holds exactly this iteration's measurements
+            shot1 = photocounts[1 + i * measurements:1 + (i + 1) * measurements]
+            shot2 = photocounts2[1 + i * measurements:1 + (i + 1) * measurements]
 
             atoms_loaded = [x > cutoff for x in shot1]
             n_atoms_loaded = sum(atoms_loaded)
