@@ -5,6 +5,12 @@ This code turns on the MOT AOMs and also the MOT coils, plus 780 and 852 wavepla
 """
 from artiq.experiment import *
 
+import sys, os
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+sys.path.append(cwd+"\\repository\\qn_artiq_routines\\standalone")
+
 from utilities.BaseExperiment import BaseExperiment
 from utilities.conversions import dB_to_V_kernel as dB_to_V
 from subroutines.k10cr1_functions import *

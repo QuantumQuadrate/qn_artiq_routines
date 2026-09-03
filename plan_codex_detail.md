@@ -73,13 +73,16 @@ under a `standalone` group while the master-satellite stack keeps the
 repository top level (the primary namespace after the migration). Shared
 infrastructure (`utilities/`, `subroutines/`, `fitting/`, configs) and the
 already-foldered standalone consumers (`tests/`, `MOT_experiments/`) stay in
-place. Import resolution is cwd-based
-(`sys.path.append(cwd + "\\repository\\qn_artiq_routines")`), so the move
-changed no `utilities.*`/`subroutines.*` imports; the files that import
+place. `utilities.*`/`subroutines.*` imports resolve only through the
+standard cwd-based block (`sys.path.append(cwd +
+"\\repository\\qn_artiq_routines")` plus the `standalone` folder), which
+every standalone entry point now carries at module top. The ARTIQ worker
+puts only the experiment file's own directory on `sys.path`, so an entry
+point must never rely on sitting next to `utilities/` — seven files had no
+block at all before the move and gained it. The files that import
 `ExperimentVariables` or `MicrowaveScanOptimizer` as top-level modules
 (`utilities/BaseExperiment.py`, `MOT_experiments/Coils-SPCMCounts.py`, the
-two HealthCheck files) additionally append the `standalone` folder to
-`sys.path`. Hardcoded scheduler expid `file` paths in the standalone
+two HealthCheck files) use the same appends. Hardcoded scheduler expid `file` paths in the standalone
 optimizer and HealthCheck files carry the `qn_artiq_routines\\standalone\\`
 prefix, and the master-satellite optimizer reads the standalone scan
 definitions from `standalone/MicrowaveScanOptimizer.py`.

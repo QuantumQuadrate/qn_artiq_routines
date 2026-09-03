@@ -48,9 +48,12 @@ All 16 standalone Explorer entry points live in the `standalone/` folder and
 appear in Explorer under that group; the master-satellite stack keeps the
 repository top level (the primary namespace after the migration). Shared code
 (`utilities/`, `subroutines/`, `fitting/`, configs) and the already-foldered
-standalone consumers (`tests/`, `MOT_experiments/`) did not move. The few
-top-level-module imports and hardcoded scheduler expid `file` paths carry the
-`standalone` prefix (detailed plan §4.1).
+standalone consumers (`tests/`, `MOT_experiments/`) did not move. Every
+entry point carries the standard cwd-based `sys.path` block (the ARTIQ
+worker adds only the file's own directory, so entry points must never rely
+on sitting next to `utilities/`), and the top-level-module imports and
+hardcoded scheduler expid `file` paths carry the `standalone` prefix
+(detailed plan §4.1).
 
 Standalone node selections remain only `alice` and `bob`. The deleted legacy
 `which_node == "two_nodes"` mode was not DRTIO and must never return. The

@@ -7,6 +7,12 @@ import csv
 import numpy as np
 from datetime import datetime as dt
 
+import sys, os
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+sys.path.append(cwd+"\\repository\\qn_artiq_routines\\standalone")
+
 from utilities.BaseExperiment import BaseExperiment
 from subroutines.experiment_functions import load_MOT_and_FORT
 

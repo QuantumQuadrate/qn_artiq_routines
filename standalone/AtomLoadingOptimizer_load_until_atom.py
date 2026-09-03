@@ -15,6 +15,12 @@ import mloop.interfaces as mli
 import mloop.controllers as mlc
 import mloop.visualizations as mlv
 
+import sys, os
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+sys.path.append(cwd+"\\repository\\qn_artiq_routines\\standalone")
+
 from utilities.BaseExperiment import BaseExperiment
 
 
