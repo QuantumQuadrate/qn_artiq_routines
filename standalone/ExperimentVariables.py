@@ -301,6 +301,7 @@ class ExperimentVariables(EnvExperiment):
             Variable("t_blowaway", 150 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_pumping", 3000 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_depumping", 2 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
+            Variable("t_OP_coil_relax_time", 0.4 * ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_exp_trigger", 0.1*ms, NumberValue, {'type': 'float', 'unit': 'ms'}, "Timing"),
             Variable("t_OP_chop_period", 1.5 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),
             Variable("t_OP_chop_offset", 0.5 * us, NumberValue, {'type': 'float', 'unit': 'us'}, "Timing"),

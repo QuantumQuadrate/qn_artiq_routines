@@ -2281,7 +2281,9 @@ def CW_optical_pumping_node1(self):
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
         channels=self.coil_channels)
-    delay(0.4 * ms)  # coil relaxation time
+    ### Physical coil-relaxation time
+    # delay(0.4 * ms)  # coil relaxation time
+    delay(self.t_OP_coil_relax_time)
 
     ### Optical pumping phase
     self.ttl_pumping_repump_switch.off()
@@ -2349,7 +2351,9 @@ def CW_optical_pumping_node2(self):
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
         channels=self.coil_channels)
-    delay(0.395 * ms)  # coil relaxation time
+    ### Physical coil-relaxation time
+    # delay(0.395 * ms)  # coil relaxation time
+    delay(self.t_OP_coil_relax_time)
 
     ### so that D1 can pass
     self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
@@ -2419,7 +2423,8 @@ def record_CW_optical_pumping_node1(self):
         self.zotino0.load()
 
         ### Physical coil-relaxation time
-        delay(0.4 * ms)
+        # delay(0.4 * ms)
+        delay(self.t_OP_coil_relax_time)
 
         ### Optical pumping
         with parallel:
@@ -2478,7 +2483,8 @@ def record_CW_optical_pumping_node2(self):
         self.zotino0.load()
 
         ### Physical coil-relaxation time
-        delay(0.395 * ms)
+        # delay(0.395 * ms)
+        delay(self.t_OP_coil_relax_time)
 
         ### Configure GRIN1 DDS
         self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))

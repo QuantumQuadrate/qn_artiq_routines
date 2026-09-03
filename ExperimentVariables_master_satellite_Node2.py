@@ -122,6 +122,7 @@ NODE2_VARIABLES = (
     Variable('t_blowaway_Node2', 2.9999999999999997e-05, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
     Variable('t_pumping_Node2', 3e-05, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
     Variable('t_depumping_Node2', 2e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
+    Variable('t_OP_coil_relax_time_Node2', 0.0004, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_exp_trigger_Node2', 0.001, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_OP_chop_period_Node2', 1e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
     Variable('t_OP_chop_offset_Node2', 5e-07, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),

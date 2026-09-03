@@ -402,7 +402,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         registry = build_single_node_function_registry()
         self.assertIn("atom_loading_experiment", registry)
         self.assertIn("test_ttl_pulse_experiment", registry)
-        self.assertEqual(len(registry), 50)
+        self.assertIn("atom_photon_parity_11_AllSPCM_experiment", registry)
+        self.assertEqual(len(registry), 51)
         for name in HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS:
             self.assertNotIn(name, registry)
         self.assertNotIn("master_satellite_namespace_sanity_experiment", registry)
