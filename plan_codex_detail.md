@@ -48,7 +48,7 @@ single-node physics and a dependable rollback path.
 ### 4.1 Validated standalone stack
 
 ```text
-standalone/GeneralVariableScan.py        (all 16 standalone Explorer
+standalone/GeneralVariableScan.py        (all 17 standalone Explorer
 standalone/ExperimentVariables.py         entry points live here)
 standalone/AOMsCoils.py
 standalone/MicrowaveScanOptimizer.py

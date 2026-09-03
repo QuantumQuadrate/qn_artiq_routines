@@ -44,7 +44,7 @@ the single-node submitted argument. Both standalone and master-satellite GVS
 carry optional per-point underflow retry behind `enable_Catch_UnderFlow`
 (off by default).
 
-All 16 standalone Explorer entry points live in the `standalone/` folder and
+All 17 standalone Explorer entry points live in the `standalone/` folder and
 appear in Explorer under that group; the master-satellite stack keeps the
 repository top level (the primary namespace after the migration). Shared code
 (`utilities/`, `subroutines/`, `fitting/`, configs) and the already-foldered
