@@ -23,19 +23,19 @@ architecture beside it. Do not gradually turn the standalone files into the
 new architecture.
 
 ```text
-Standalone                         Master-satellite
-GeneralVariableScan.py             GeneralVariableScan_master_satellite_mixin.py
-ExperimentVariables.py             GeneralVariableScan_master_satellite_single_node.py
-BaseExperiment.py                  GeneralVariableScan_master_satellite_two_nodes.py
-DeviceAliases.py                   ExperimentVariables_master_satellite_Node1.py
-experiment_functions.py            ExperimentVariables_master_satellite_Node2.py
-AOMsCoils.py                       ExperimentVariables_master_satellite_global.py
-                                   BaseExperiment_master_satellite.py
-                                   DeviceAliases_master_satellite.py
-                                   experiment_functions_two_nodes.py
-                                   AOMsCoils_master_satellite_mixin.py
-                                   AOMsCoils_master_satellite_Node1.py
-                                   AOMsCoils_master_satellite_Node2.py
+Standalone                             Master-satellite
+standalone/GeneralVariableScan.py      GeneralVariableScan_master_satellite_mixin.py
+standalone/ExperimentVariables.py      GeneralVariableScan_master_satellite_single_node.py
+utilities/BaseExperiment.py            GeneralVariableScan_master_satellite_two_nodes.py
+utilities/DeviceAliases.py             ExperimentVariables_master_satellite_Node1.py
+subroutines/experiment_functions.py    ExperimentVariables_master_satellite_Node2.py
+standalone/AOMsCoils.py                ExperimentVariables_master_satellite_global.py
+                                       BaseExperiment_master_satellite.py
+                                       DeviceAliases_master_satellite.py
+                                       experiment_functions_two_nodes.py
+                                       AOMsCoils_master_satellite_mixin.py
+                                       AOMsCoils_master_satellite_Node1.py
+                                       AOMsCoils_master_satellite_Node2.py
 ```
 
 `_mixin` files hold only private shared implementations and are not Explorer
@@ -43,6 +43,14 @@ experiments. Execution mode is fixed per public GVS file; `selected_node` is
 the single-node submitted argument. Both standalone and master-satellite GVS
 carry optional per-point underflow retry behind `enable_Catch_UnderFlow`
 (off by default).
+
+All 16 standalone Explorer entry points live in the `standalone/` folder and
+appear in Explorer under that group; the master-satellite stack keeps the
+repository top level (the primary namespace after the migration). Shared code
+(`utilities/`, `subroutines/`, `fitting/`, configs) and the already-foldered
+standalone consumers (`tests/`, `MOT_experiments/`) did not move. The few
+top-level-module imports and hardcoded scheduler expid `file` paths carry the
+`standalone` prefix (detailed plan §4.1).
 
 Standalone node selections remain only `alice` and `bob`. The deleted legacy
 `which_node == "two_nodes"` mode was not DRTIO and must never return. The

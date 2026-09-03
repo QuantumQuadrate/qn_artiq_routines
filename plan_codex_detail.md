@@ -48,8 +48,10 @@ single-node physics and a dependable rollback path.
 ### 4.1 Validated standalone stack
 
 ```text
-GeneralVariableScan.py
-ExperimentVariables.py
+standalone/GeneralVariableScan.py        (all 16 standalone Explorer
+standalone/ExperimentVariables.py         entry points live here)
+standalone/AOMsCoils.py
+standalone/MicrowaveScanOptimizer.py
 utilities/BaseExperiment.py
 utilities/DeviceAliases.py
 subroutines/experiment_functions.py
@@ -64,6 +66,23 @@ DRTIO, and must not return. `GeneralVariableScan.py` absorbed
 `GeneralVariableScan_CatchUnderflow.py`: per-iteration underflow retry is its
 optional `enable_Catch_UnderFlow` argument (off by default; the retry values
 in the "Catch Underflow" GUI group take effect only when it is enabled).
+
+All standalone Explorer experiment entry points live in the `standalone/`
+folder; ARTIQ scans the repository recursively, so they appear in Explorer
+under a `standalone` group while the master-satellite stack keeps the
+repository top level (the primary namespace after the migration). Shared
+infrastructure (`utilities/`, `subroutines/`, `fitting/`, configs) and the
+already-foldered standalone consumers (`tests/`, `MOT_experiments/`) stay in
+place. Import resolution is cwd-based
+(`sys.path.append(cwd + "\\repository\\qn_artiq_routines")`), so the move
+changed no `utilities.*`/`subroutines.*` imports; the files that import
+`ExperimentVariables` or `MicrowaveScanOptimizer` as top-level modules
+(`utilities/BaseExperiment.py`, `MOT_experiments/Coils-SPCMCounts.py`, the
+two HealthCheck files) additionally append the `standalone` folder to
+`sys.path`. Hardcoded scheduler expid `file` paths in the standalone
+optimizer and HealthCheck files carry the `qn_artiq_routines\\standalone\\`
+prefix, and the master-satellite optimizer reads the standalone scan
+definitions from `standalone/MicrowaveScanOptimizer.py`.
 
 ### 4.2 New master-satellite stack
 

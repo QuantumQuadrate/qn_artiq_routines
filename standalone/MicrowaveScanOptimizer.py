@@ -1006,7 +1006,7 @@ class MicrowaveScanOptimizer(EnvExperiment):
         # todo: make a default expid and overwrite it just a few things.
         default_expid = {
             "log_level": 30, #todo: check which level this is - debug? info? or else?
-            "file": "qn_artiq_routines\\MicrowaveScanOptimizer.py",
+            "file": "qn_artiq_routines\\standalone\\MicrowaveScanOptimizer.py",
             "class_name": "MicrowaveScanOptimizer",
             "arguments": {
                 "parent_rid": self.parent_rid,

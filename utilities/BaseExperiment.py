@@ -50,6 +50,7 @@ import math
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+sys.path.append(cwd+"\\repository\\qn_artiq_routines\\standalone")
 
 from subroutines.aom_feedback import AOMPowerStabilizer
 from ExperimentVariables import setattr_variables

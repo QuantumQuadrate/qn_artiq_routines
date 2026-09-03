@@ -65,7 +65,7 @@ class MonitorFORTWithLuca(EnvExperiment):
             variable_dict[key] = value
 
         self.new_job_expid = {'log_level': 30,
-                              'file': 'qn_artiq_routines\\GeneralVariableScan.py',
+                              'file': 'qn_artiq_routines\\standalone\\GeneralVariableScan.py',
                               'class_name': 'GeneralVariableScan',
                               'arguments': {'n_measurements': str(self.n_measurements),
                                             'scan_variable1_name': 'dummy_variable',

@@ -495,7 +495,7 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         import re
 
         for filename in (
-            "MicrowaveScanOptimizer.py",
+            "standalone/MicrowaveScanOptimizer.py",
             "MicrowaveScanOptimizer_master_satellite.py",
         ):
             source = Path(filename).read_text(encoding="utf-8")

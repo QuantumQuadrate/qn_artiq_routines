@@ -1,5 +1,5 @@
 """
-GeneralVariableScan_HealthCheck_CatchError
+GeneralVariableScan_HealthCheck
 
 This class runs a GVS with chosen experiment function, periodically performs
 single-point microwave health checks, and if a check fails, it automatically schedules a dedicated
@@ -22,19 +22,19 @@ import sys, os
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+sys.path.append(cwd+"\\repository\\qn_artiq_routines\\standalone")
 from utilities.BaseExperiment import BaseExperiment
 
 # this is where your experiment function should live
 from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
-from artiq.coredevice.exceptions import RTIOUnderflow
 
 from MicrowaveScanOptimizer import scan_dict, scan_options
 
 import copy
 
-class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
+class GeneralVariableScan_HealthCheck(EnvExperiment):
 
     def build(self):
         """
@@ -63,6 +63,7 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
         self.setattr_argument("Frequency_01_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
         self.setattr_argument("Frequency_11_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
         self.setattr_argument("Frequency_m10_Scan", BooleanValue(default=False),"Health Check - Select to include in health check")
+        self.setattr_argument("Frequency_m11_Scan", BooleanValue(default=False), "Health Check - Select to include in health check")
 
 
         # the number of measurements to be made for a certain setting of the
@@ -91,10 +92,6 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
         # a function that take no arguments that gets imported and run
         self.setattr_argument('experiment_function',
                               EnumerationValue(experiment_function_names_list), "General Variable Scan")
-
-        self.setattr_argument("underflow_max_retries", NumberValue(10, ndecimals=0, step=1), "Catch Underflow")
-        self.setattr_argument("underflow_backoff_ms", NumberValue(200.0, step=0.5), "Catch Underflow")
-        self.setattr_argument("skip_only_that_iteration_if_exhausted", BooleanValue(True), "Catch Underflow")
 
         # toggles an interleaved control experiment, but what this means or whether
         # it has an effect depends on experiment_function
@@ -306,12 +303,6 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
             delay(200*ms) # lotsa slack
         self.dds_FORT.sw.on()
 
-    @kernel
-    def recover_from_underflow(self, backoff_ms: TFloat):
-        # Reset RTIO timeline and give the core some slack before retrying
-        self.core.reset()
-        delay(backoff_ms * ms)
-
     def run(self):
         """
         Main scan loop with embedded health checks.
@@ -327,7 +318,7 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
           health check:
             * If all checks pass → resumes scan.
             * If any checks fail → schedules optimization scan(s) and a
-              "resume" GeneralVariableScan_HealthCheck_CatchError, then terminates
+              "resume" GeneralVariableScan_HealthCheck, then terminates
               the current run and pauses the scheduler.
         """
 
@@ -359,96 +350,71 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
 
             for variable2_value in self.scan_sequence2:
 
-                # self.set_dataset("iteration", iteration, broadcast=True)
+                self.set_dataset("iteration", iteration, broadcast=True)
 
                 if self.scan_variable2 != None:
                     setattr(self, self.scan_variable2, variable2_value)
                     logging.info(f"current iteration: {self.scan_variable2_name} ={variable2_value}")
 
-                ### catching Underflow error
-                retries = 0
-                while True:
-                    try:
-                        ### Run Health Check
-                        if self.run_health_check_and_schedule:
-                            if iteration % self.every_n_ite == 0:
-                                print(
-                                    f"running health check before iteration #{iteration}, scanning over {self.scan_variable1}: {variable1_value}")
+                self.initialize_dependent_variables() ## base.prepare()
+                self.initialize_hardware()
+                self.reset_datasets()
 
-                                ####todo:  error if nothing checked;
-                                ### run health check
-                                failed_scans = self.health_check_microwave_freqs()
+                # print("experiment_function running with n_measurements :", self.n_measurements)
 
-                                ### write and overwrite the health check results
-                                self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
-                                                                                                         :-11] + "_scan_over_" + self.scan_var_filesuffix})
+                # the measurement loop.
+                self.experiment_function()
 
-                                if failed_scans:
-                                    print("These scans need re-optimisation:", failed_scans)
-                                    ###todo: if health check fail, i) schedule optimization
-                                    for scan_name in failed_scans:
-                                        print("Scheduling experiment to optimize: ", scan_name)
-                                        override_args = copy.deepcopy(self.override_arguments_for_scheduling_optimization_dict)
-                                        override_args[scan_name] = True
-                                        self.submit_optimization_scans(override_arguments=override_args)
-                                        self.override_arguments_for_scheduling_optimization_dict[scan_name] = False
+                # write and overwrite the file here so we can quit the experiment early without losing data
+                # self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
-                                    ###todo: if health check fail, ii) schedule resuming experiment
-                                    self.submit_resume_scan_after_optimization(current_iteration=iteration)
+                self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
-                                    ### after scheduling scans above, it terminates the current experiment
-                                    self.scheduler.request_termination(self.scheduler.rid)
+                iteration += 1
 
-                                else:
-                                    print("All microwave health checks passed. Resuming next scan")
-                                    ### update everything back to previous setting - done inside healthcheck if passed
+                ## Run Health Check
+                if self.run_health_check_and_schedule:
+                    if self.health_check_every_n_ite and (iteration % self.every_n_ite) == 0:
+                        print(f"running health check after iteration #{iteration-1}, scanning over {self.scan_variable1}: {variable1_value}")
 
-                                    ### Override variables again to avoid conflict
-                                    # override specific variables. this will apply to the entire scan, so it is outside the loops
-                                    for variable, value in self.override_ExperimentVariables_dict.items():
-                                        setattr(self, variable, value)
+                        ####todo:  error if nothing checked;
+                        ### run health check
+                        failed_scans = self.health_check_microwave_freqs()
 
-                                ### terminating the experiment if health_check failed.
-                                self.core.comm.close()  # placing the hardware in a safe state and disconnecting it from the core device
-                                self.scheduler.pause()
-
-                        ### Re-derive anything dependent on current scan values
-                        self.initialize_dependent_variables()
-
-                        ### (Re-)initialize hardware for this step
-                        self.initialize_hardware()
-
-                        ### Reset per-iteration datasets
-                        self.reset_datasets()
-
-                        self.experiment_function()
-
-                        iteration += 1
-                        self.set_dataset("iteration", iteration, broadcast=True)
-
-                        ### If we got here, the iteration succeeded; persist results immediately
+                        ### I am not sure why we write_results here. I disabled and everything seems to work fine. Akbar 2025-12-07.
+                        ### write and overwrite the health check results
                         self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
-                                                                                                 :-11] + "_scan_over_" + self.scan_var_filesuffix})
+                                                                                            :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
-                        break  ### exit retry loop, go to next iteration
+                        if failed_scans:
+                            print("These scans need re-optimisation:", failed_scans)
+                            ###todo: if health check fail, i) schedule optimization
+                            for scan_name in failed_scans:
+                                print("Scheduling experiment to optimize: ", scan_name)
+                                override_args = copy.deepcopy(self.override_arguments_for_scheduling_optimization_dict)
+                                override_args[scan_name] = True
+                                self.submit_optimization_scans(override_arguments = override_args)
+                                self.override_arguments_for_scheduling_optimization_dict[scan_name] = False
 
-                    except RTIOUnderflow as e:
-                        retries += 1
-                        ### Tell the dashboard what happened
-                        logging.warning(e)
-                        self.print_async(f"Underflow at iteration {iteration}, retry {retries}/{int(self.underflow_max_retries)}")
-                        self.recover_from_underflow(self.underflow_backoff_ms)
+                            ###todo: if health check fail, ii) schedule resuming experiment
+                            self.submit_resume_scan_after_optimization(current_iteration = iteration)
 
-                        if retries >= int(self.underflow_max_retries):
-                            msg = f"Underflow at iteration {iteration} exceeded max retries ({int(self.underflow_max_retries)})"
-                            self.print_async(msg)
-                            if self.skip_only_that_iteration_if_exhausted:
-                                ### Skips the iteration and continues to the next iteration.
-                                ### todo:  Do we need to update the dataset to add something like NaN or 0 to indicate bad/skipped iteration?
-                                break
-                            else:
-                                ### Stop the experiment entirely
-                                raise
+                            ### after scheduling scans above, it terminates the current experiment
+                            self.scheduler.request_termination(self.scheduler.rid)
+
+                        else:
+                            print("All microwave health checks passed. Resuming next scan")
+                            ### update everything back to previous setting - done inside healthcheck if passed
+
+                            ### Override variables again to avoid conflict
+                            # override specific variables. this will apply to the entire scan, so it is outside the loops
+                            for variable, value in self.override_ExperimentVariables_dict.items():
+                                setattr(self, variable, value)
+
+                        ### terminating the experiment if health_check failed.
+                        self.core.comm.close()  # placing the hardware in a safe state and disconnecting it from the core device
+                        self.scheduler.pause()
+
 
 
         print("****************    General Variable Scan DONE   *****************")
@@ -591,7 +557,7 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
         # todo: make a default expid and overwrite it just a few things.
         default_expid = {
             "log_level": 30,
-            "file": "qn_artiq_routines\\MicrowaveScanOptimizer.py",
+            "file": "qn_artiq_routines\\standalone\\MicrowaveScanOptimizer.py",
             "class_name": "MicrowaveScanOptimizer",
             "arguments": {
                 'parent_rid': self.parent_rid,
@@ -661,9 +627,9 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
 
     def submit_resume_scan_after_optimization(self, current_iteration, override_arguments = None):  # todo: account for changes
         """
-        Schedule a follow-up GeneralVariableScan_HealthCheck_CatchError to resume a scan.
+        Schedule a follow-up GeneralVariableScan_HealthCheck to resume a scan.
 
-        - Builds a new expid for GeneralVariableScan_HealthCheck_CatchError with default
+        - Builds a new expid for GeneralVariableScan_HealthCheck with default
           health-check and scan settings.
         - Copies relevant arguments from the current experiment via
           update_default_expid_from_self().
@@ -682,8 +648,8 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
         # todo: make a default expid and overwrite it just a few things.
         default_expid = {
             'log_level': 30,
-            'file': 'qn_artiq_routines\\GeneralVariableScan_HealthCheck_CatchError.py',
-            'class_name': 'GeneralVariableScan_HealthCheck_CatchError',
+            'file': 'qn_artiq_routines\\standalone\\GeneralVariableScan_HealthCheck.py',
+            'class_name': 'GeneralVariableScan_HealthCheck',
             'arguments': {
                 'parent_rid': self.parent_rid,
                 'run_health_check_and_schedule': True,
@@ -700,6 +666,7 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
                 'Frequency_01_Scan': False,
                 'Frequency_11_Scan': False,
                 'Frequency_m10_Scan': False,
+                'Frequency_m11_Scan': False,
 
                 # measurement settings
                 'n_measurements': 100,
@@ -766,7 +733,6 @@ class GeneralVariableScan_HealthCheck_CatchError(EnvExperiment):
                 args[key] = getattr(self, key)
 
         return expid
-
 
     def get_loading_and_retention(self, photocounts, photocounts2, measurements, iterations, cutoff):
         """

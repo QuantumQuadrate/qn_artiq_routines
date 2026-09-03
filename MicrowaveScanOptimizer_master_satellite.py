@@ -64,9 +64,9 @@ def _load_standalone_scan_definitions():
     repository-scan worker. Both assignments are pure literals, so they are
     extracted from the source instead.
     """
-    source = Path(__file__).with_name("MicrowaveScanOptimizer.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        Path(__file__).parent / "standalone" / "MicrowaveScanOptimizer.py"
+    ).read_text(encoding="utf-8")
     definitions = {}
     for node in ast.parse(source).body:
         if (

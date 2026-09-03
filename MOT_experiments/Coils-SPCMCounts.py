@@ -10,6 +10,7 @@ current_working_directory = os.getcwd()
 cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+sys.path.append(cwd+"\\repository\\qn_artiq_routines\\standalone")
 from ExperimentVariables import setattr_variables
 
 
