@@ -1024,6 +1024,76 @@ class BaseExperimentMasterSatellite:
         for dataset_name in integer_series:
             experiment.set_dataset(dataset_name, [0], broadcast=True)
 
+        # Per-iteration display datasets. The standalone GeneralVariableScan
+        # seeds these itself (see its initialize_datasets); they are NOT
+        # node-suffixed because the applets plot them under these exact names.
+        # end_measurement and the readout subroutines append to them, so they
+        # must exist or append_to_dataset raises KeyError.
+        current_iteration_series = (
+            [f"{name}_current_iteration" for name in detector_names]
+            + [
+                "AllSPCMs_RO1_current_iteration",
+                "AllSPCMs_RO2_current_iteration",
+                "AllSPCMs_alternating_RO_alice_current_iteration",
+                "AllSPCMs_alternating_RO_bob_current_iteration",
+                "test_dataset",
+            ]
+        )
+        for dataset_name in current_iteration_series:
+            experiment.set_dataset(dataset_name, [0], broadcast=True)
+
+        # Remaining append targets the standalone BaseExperiment seeds. These
+        # were found by diffing the standalone seeding surface against what
+        # this method creates: any of them reached by a reused experiment
+        # function raises "Cannot mutate nonexistent dataset" otherwise.
+        # Initial values mirror standalone exactly, because the shape matters
+        # (e.g. the tStamps datasets hold pairs).
+        standalone_float_series = (
+            "Atom_loading_time_other_node", "time_without_atom_other_node",
+            "MOT1_end_monitor", "MOT2_end_monitor", "MOT3_end_monitor",
+            "MOT4_end_monitor", "MOT5_end_monitor", "MOT6_end_monitor",
+            "REPUMP1_monitor", "REPUMP2_monitor", "REPUMP3_monitor",
+            "REPUMP4_monitor", "REPUMP5_monitor", "REPUMP6_monitor",
+            "PUMPING_REPUMP1_monitor", "PUMPING_REPUMP2_monitor",
+            "Magnetometer_Mag690_Zero_X", "Magnetometer_Mag690_Zero_Y",
+            "Magnetometer_Mag690_Zero_Z",
+            "SPCM0_SinglePhoton_reduced_tStamps",
+            "SPCM1_SinglePhoton_reduced_tStamps",
+            "SPCM0_OtherNode_SinglePhoton_reduced_tStamps",
+            "SPCM1_OtherNode_SinglePhoton_reduced_tStamps",
+            "reference_tStamps_t1", "sync_time_took",
+            "zotino_test1_offset_monitor", "zotino_test2_offset_monitor",
+            "zotino_test3_offset_monitor", "zotino_test4_offset_monitor",
+            "zotino_test5_offset_monitor", "zotino_test6_offset_monitor",
+            "zotino_test7_offset_monitor", "zotino_test8_offset_monitor",
+        )
+        for dataset_name in standalone_float_series:
+            experiment.set_dataset(dataset_name, [0.0], broadcast=True)
+
+        standalone_integer_series = (
+            "AllSPCMs_parity_RO",
+            "SPCM0_SinglePhoton", "SPCM1_SinglePhoton",
+            "SPCM0_OtherNode_SinglePhoton", "SPCM1_OtherNode_SinglePhoton",
+            "SPCM0_SinglePhoton_parity", "SPCM1_SinglePhoton_parity",
+            "SPCM0_OtherNode_SinglePhoton_parity",
+            "SPCM1_OtherNode_SinglePhoton_parity",
+            "n_excitation_cycles", "n_photon_events",
+        )
+        for dataset_name in standalone_integer_series:
+            experiment.set_dataset(dataset_name, [0], broadcast=True)
+
+        for dataset_name in (
+            "SPCM0_SinglePhoton_tStamps", "SPCM1_SinglePhoton_tStamps",
+            "SPCM0_OtherNode_SinglePhoton_tStamps",
+            "SPCM1_OtherNode_SinglePhoton_tStamps",
+        ):
+            experiment.set_dataset(dataset_name, [[0.0, 0.0]], broadcast=True)
+
+        for dataset_name in ("angle_780_HWP", "angle_780_QWP"):
+            experiment.set_dataset(dataset_name, [], broadcast=True)
+
+        experiment.set_dataset("iteration", 0, broadcast=True)
+
         float_series = (
             "SPCM0_FORT_science",
             "FORT_MM_science_volts",
@@ -1041,6 +1111,21 @@ class BaseExperimentMasterSatellite:
         )
         for dataset_name in float_series:
             experiment.set_dataset(dataset_name, [0.0], broadcast=True)
+
+        # record_FORT_MM_power / record_FORT_APD_power (k10cr1_functions.py)
+        # append to these. The FORT polarization optimizer is what normally
+        # creates them, and they are broadcast-only -- never persisted -- so
+        # they disappear whenever the master restarts. Standalone gets away
+        # with that because the optimizer is run early in a session; the
+        # master-satellite stack has no such ordering guarantee, and
+        # append_to_dataset raises KeyError on a missing dataset. Create them
+        # only when absent, so a scan does not discard what an earlier run in
+        # this session accumulated.
+        for monitor_name in ("FORT_MM_monitor", "FORT_APD_monitor"):
+            try:
+                experiment.get_dataset(monitor_name, archive=False)
+            except KeyError:
+                experiment.set_dataset(monitor_name, [], broadcast=True)
 
         experiment.set_dataset("photocount_bins", [50], broadcast=True)
 

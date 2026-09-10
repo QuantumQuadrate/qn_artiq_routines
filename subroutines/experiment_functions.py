@@ -421,6 +421,15 @@ def run_feedback_and_record_FORT_MM_power(self, record_power = True):
 
     ## record FORT MM and APD powers
     if record_power:
+        ### The three stabilizer runs above budget their time with fixed
+        ### delays and never call break_realtime, so any host work that
+        ### outruns those budgets erodes slack permanently. Nothing below is
+        ### timing-critical relative to the feedback, so resync the cursor
+        ### before driving the FORT switch rather than inheriting whatever
+        ### slack the feedback left. (Observed as RTIOUnderflow on channel 39
+        ### with ~-5.9 ms slack under the DRTIO master gateware, which costs
+        ### slightly more CPU per RTIO event than the standalone build.)
+        self.core.break_realtime()
         self.dds_FORT.sw.on()  ### turns FORT on
         delay(0.1*ms)
 
@@ -13749,6 +13758,7 @@ def atom_photon_parity_11_AllSPCM_experiment(self):
                     delay(5 * us)
                     atom_parity_shot(self)
 
+                    ### actually this is not necessary;
                     ### Drain the herald channel's additional edges from the photon gate.
                     ### Exactly one detector clicked in this branch, so only that channel can hold leftovers.
                     if SPCM0_click_time > 0: self.ttl_SPCM0.count(t_end_SPCM)
