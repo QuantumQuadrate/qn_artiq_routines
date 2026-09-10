@@ -2,7 +2,9 @@ from artiq.experiment import *
 
 
 class TestRTIOClockVsReference(EnvExperiment):
-    """Definitive RTIO-clock check against the lab frequency reference.
+    """TestRTIOClockVsReference
+
+    Definitive RTIO-clock check against the lab frequency reference.
 
     Feed a reference-locked TTL-level square wave of known frequency (e.g.
     a signal generator locked to the house 10 MHz that also disciplines the
