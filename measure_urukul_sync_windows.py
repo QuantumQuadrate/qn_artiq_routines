@@ -13,18 +13,30 @@ depends on where it started. A channel whose true optimum is far from its
 stored seed reports "no valid window/delay" even though a window exists, and
 a channel with a fuzzy window reports a different value every run.
 
-That is why urukul4 came back as 19/9/15/10 on 2026-09-10: four channels on
-one card share the same SYSCLK and the same CPLD-distributed SYNC, so their
-optima must agree within about a tap. A ten-tap spread (~750 ps) is not
-physical skew, it is an unreliable measurement.
-
 This sweeps each channel from seeds spanning the whole 0..31 delay line, so
 every window in range is reachable from at least one starting point, and
-reports what was found from each. Read the result as:
+reports what was found from each.
 
-  * same delay from most seeds, decent window   -> real, trustworthy optimum
-  * scattered delays / tiny windows             -> marginal SYNC sampling
-  * nothing found from any seed                 -> no usable window at all
+READ THE WINDOW, NOT THE DELAY
+------------------------------
+The 2026-09-10 sweep settled how to interpret this, and it is not what the
+delay spread suggests. EVERY channel, healthy ones included, returns delays
+in three clusters about 13 taps apart -- because a clean sampling point
+repeats once per SYSCLK period (1 ns at 1 GHz = 13.3 taps of 75 ps), and
+tune_sync_delay simply returns whichever repeat is nearest its seed. All of
+them catch the same SYNC_IN edge, since SYNC_IN is 62.5 MHz (16 ns) and the
+whole delay line spans only 2.3 ns, so they are equally valid. A wide delay
+spread across seeds is therefore EXPECTED and says nothing about health --
+and it also explains the scatter sinara_tester reports, which is just
+different stored seeds landing in different repeats.
+
+The discriminator is the WINDOW. On the 2026-09-10 sweep the separation was
+absolute: 20 of 24 channels returned window 1-2 from every single seed,
+while urukul4_ch2 and all four urukul5 channels returned window 0 from 4-5
+of the 7 seeds. Window 0 means the delay was clean at zero validation margin
+but could not hold any wider one -- no setup/hold margin at all. Those
+channels still pass sometimes, which is exactly the intermittency that made
+this look like a flaky card for a year.
 
 WHAT THE NUMBERS MEAN
 ---------------------
@@ -152,18 +164,24 @@ class measure_urukul_sync_windows(EnvExperiment):
         self.report()
 
     @staticmethod
-    def _verdict(hits, best_window):
-        """Classify a channel from the delays found across all seeds."""
-        if not hits:
+    def _verdict(windows):
+        """Classify a channel by its setup/hold margin.
+
+        Judged on window width only. The delay values legitimately differ
+        between seeds -- clean sampling points repeat every SYSCLK period
+        (~13 taps) and the tuner returns whichever repeat is nearest its
+        seed -- so delay spread carries no information about health.
+        """
+        if not windows:
             return "NO WINDOW from any seed"
-        spread = max(hits) - min(hits)
-        if len(hits) >= len(SEEDS) - 1 and spread <= 2:
-            return "consistent (spread {} taps)".format(spread)
-        if spread > 4:
-            return "SCATTERED (spread {} taps) -- marginal".format(spread)
-        if len(hits) <= len(SEEDS) // 2:
-            return "only {}/{} seeds found a window".format(len(hits), len(SEEDS))
-        return "usable (spread {} taps, window {})".format(spread, best_window)
+        zero_margin = sum(1 for window in windows if window == 0)
+        if zero_margin == 0:
+            return "healthy (margin >= {} at every seed)".format(min(windows))
+        if 2 * zero_margin >= len(SEEDS):
+            return ("MARGINAL -- zero setup/hold margin at {}/{} seeds"
+                    .format(zero_margin, len(SEEDS)))
+        return ("borderline -- zero margin at {}/{} seeds"
+                .format(zero_margin, len(SEEDS)))
 
     def report(self):
         header = "{:<16}{:<6}".format("channel", "PLL")
@@ -173,27 +191,42 @@ class measure_urukul_sync_windows(EnvExperiment):
         print(header + "verdict")
         print("-" * (len(header) + 40))
 
+        suspects = []
         for i, name in enumerate(self.channel_names):
             row = "{:<16}{:<6}".format(
                 name, "ok" if self.pll_locked[i] == 1 else "LOCK?")
-            hits = []
-            best_window = -1
+            windows = []
             for _, found_delay, found_window in self.results[i]:
                 if found_delay < 0:
                     row += "{:<9}".format("-")
                 else:
                     row += "{:<9}".format("%d/%d" % (found_delay, found_window))
-                    hits.append(found_delay)
-                    best_window = max(best_window, found_window)
-            print(row + self._verdict(hits, best_window))
+                    windows.append(found_window)
+            verdict = self._verdict(windows)
+            print(row + verdict)
 
-            self.set_dataset("urukul_sync_hits_%s" % name, hits, broadcast=True)
+            if not windows or 2 * sum(1 for w in windows if w == 0) >= len(SEEDS):
+                suspects.append(name)
+            self.set_dataset("urukul_sync_windows_%s" % name, windows,
+                             broadcast=True)
 
         print("")
-        print("delay/window are in ~75 ps taps. A channel is healthy when most "
-              "seeds agree to within a tap or two and the window is not 0.")
-        print("Channels on one card share SYSCLK and SYNC, so their optima "
-              "should agree; a wide spread within a card means the measurement "
-              "is unreliable, not that the channels differ.")
+        print("delay/window are in ~75 ps taps. Judge a channel by the WINDOW: "
+              "it is the setup/hold margin, and 0 means none at all.")
+        print("Differing delays between seeds are EXPECTED -- a clean sampling "
+              "point repeats every SYSCLK period (~13 taps), and the tuner "
+              "returns whichever repeat is nearest its seed. All of them catch "
+              "the same 62.5 MHz SYNC_IN edge, so they are equally valid.")
+        if suspects:
+            print("")
+            print("SUSPECT CHANNELS ({}): {}".format(len(suspects),
+                                                     ", ".join(suspects)))
+            cards = sorted({name.split("_")[0] for name in suspects})
+            print("Cards involved: {}. A card where ALL FOUR channels are "
+                  "suspect points at the card; a lone channel points at that "
+                  "one AD9910.".format(", ".join(cards)))
+        else:
+            print("")
+            print("No channel showed zero margin. SYNC is healthy everywhere.")
         print("Nothing was written to EEPROM. Run your normal experiment to "
               "restore switch and attenuator state.")
