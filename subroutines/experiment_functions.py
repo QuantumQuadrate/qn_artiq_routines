@@ -1288,6 +1288,14 @@ def load_until_atom_smooth_FORT_recycle(self):
             if self.enable_laser_feedback:
                 delay(0.1 * ms) ### necessary to avoid underflow
 
+                ### The 0.1 ms above was tuned on standalone hardware and is not
+                ### enough on the satellite, where these SPI events cross DRTIO.
+                ### Nothing before this point is timing-critical -- the loading
+                ### loop has just given up and we are about to run feedback,
+                ### which is wall-clock work anyway -- so resynchronize instead
+                ### of guessing a larger delay.
+                self.core.break_realtime()
+
                 # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
                 # delay(0.1 * ms)
                 # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
