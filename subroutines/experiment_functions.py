@@ -835,6 +835,14 @@ def load_MOT_and_FORT_until_atom(self):
             # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
             delay(0.1 * ms) ### necessary to avoid underflow
 
+            ### 0.1 ms is not enough once these SPI events cross DRTIO to the
+            ### satellite, and the set_dataset above is a host round trip that
+            ### spends slack while the cursor stands still. This branch has
+            ### already given up on the current loading attempt, so nothing
+            ### here is timing-critical. Same fix as in
+            ### load_until_atom_smooth_FORT_recycle.
+            self.core.break_realtime()
+
             ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
             ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
             self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
@@ -1050,6 +1058,14 @@ def load_MOT_and_FORT_until_atom_recycle(self):
             ### If max_tries reached and still no atom, run feedback
             if self.enable_laser_feedback:
                 delay(0.1 * ms) ### necessary to avoid underflow
+
+                ### 0.1 ms is not enough once these SPI events cross DRTIO to
+                ### the satellite, and the set_dataset above is a host round
+                ### trip that spends slack while the cursor stands still. This
+                ### branch has already given up on the current loading attempt,
+                ### so nothing here is timing-critical. Same fix as in
+                ### load_until_atom_smooth_FORT_recycle.
+                self.core.break_realtime()
 
                 ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
                 ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
