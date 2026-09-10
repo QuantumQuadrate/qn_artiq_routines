@@ -1113,19 +1113,18 @@ class BaseExperimentMasterSatellite:
             experiment.set_dataset(dataset_name, [0.0], broadcast=True)
 
         # record_FORT_MM_power / record_FORT_APD_power (k10cr1_functions.py)
-        # append to these. The FORT polarization optimizer is what normally
-        # creates them, and they are broadcast-only -- never persisted -- so
-        # they disappear whenever the master restarts. Standalone gets away
-        # with that because the optimizer is run early in a session; the
-        # master-satellite stack has no such ordering guarantee, and
-        # append_to_dataset raises KeyError on a missing dataset. Create them
-        # only when absent, so a scan does not discard what an earlier run in
-        # this session accumulated.
+        # append to these without creating them, so the caller must.
+        #
+        # Seed UNCONDITIONALLY. It is tempting to create them only when
+        # absent, but that does not work: DatasetManager.get() falls through
+        # to the master's database, while append_to_dataset() resolves via
+        # _get_mutation_target(), which consults only THIS worker's local and
+        # broadcaster dicts. A dataset left over in the master from an earlier
+        # run therefore satisfies get() while append_to_dataset() still raises
+        # KeyError. Every other dataset here is seeded unconditionally for the
+        # same reason.
         for monitor_name in ("FORT_MM_monitor", "FORT_APD_monitor"):
-            try:
-                experiment.get_dataset(monitor_name, archive=False)
-            except KeyError:
-                experiment.set_dataset(monitor_name, [], broadcast=True)
+            experiment.set_dataset(monitor_name, [], broadcast=True)
 
         experiment.set_dataset("photocount_bins", [50], broadcast=True)
 
