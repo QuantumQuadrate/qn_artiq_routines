@@ -507,10 +507,27 @@ The stabilizer itself is constructed from the projected legacy namespace
 (`fast_feedback_dds_list`, samplers, set points, `dds_defaults`,
 `which_node`), so shared feedback code stays byte-identical to main.
 
-GVS-level feedback integration and hardware validation remain outstanding.
+Single-node GVS builds the stabilizer in `prepare()` and the full single-node
+result state in `_initialize_run_state()`, matching the microwave optimizer.
+Both are required, not optional: the reused experiment functions read
+`self.stabilizer_<channel>` and host scalars such as `AllSPCMs_RO2` inside
+kernels, and the ARTIQ compiler types those from the host object, so a missing
+attribute fails to COMPILE rather than to run. Two-node mode must not call
+either, because master-satellite feedback is single-node only for now.
+
+GVS-level feedback hardware validation remains outstanding.
 Do not implement parallel feedback before single-node feedback works on
 hardware and SED-lane constraints are checked; Node2 feedback exercises
 remote Sampler SPI over DRTIO and is validated only after Node1.
+
+Kernel-level regression checking is available offline via
+`artiq-master/compile_check_master_satellite.py`, which compiles every
+master-satellite kernel without connecting to hardware (it no-ops
+`Core._run_compiled`, copies the dataset database, and reproduces the worker's
+chdir into the results directory). It lives outside the repository so the
+repository scan never sees it. Flag-guarded kernels are only compiled by a
+case that switches the flag on, so a green result means nothing unless the
+target kernel appears in the printed compiled-kernel list.
 
 ## 19. Microwave optimizer
 

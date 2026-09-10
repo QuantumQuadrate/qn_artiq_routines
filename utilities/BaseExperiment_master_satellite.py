@@ -963,6 +963,49 @@ class BaseExperimentMasterSatellite:
             "SPCM0_OtherNode_RO1", "SPCM0_OtherNode_RO2",
             "SPCM1_OtherNode_RO1", "SPCM1_OtherNode_RO2",
         )
+
+        # Host-side scalars the reused experiment_functions read and write.
+        # The ARTIQ compiler types kernel attribute access from the host
+        # object, so every one of these must EXIST before compilation or the
+        # kernel fails to compile (not merely to run) with "host object does
+        # not have an attribute". This mirrors the standalone
+        # BaseExperiment block; Rigol_modulation_volts is deliberately omitted
+        # because Rigol is out of scope for master-satellite and no
+        # experiment function references it.
+        integer_scalars = (
+            list(detector_names)
+            + [f"{name}_in_health_check" for name in detector_names]
+            + [
+                "AllSPCMs_RO1", "AllSPCMs_RO2",
+                "AllSPCMs_RO1_in_health_check",
+                "AllSPCMs_RO2_in_health_check",
+                "AllSPCMs_parity_RO",
+                "AllSPCMs_alternating_RO_alice",
+                "AllSPCMs_alternating_RO_bob",
+                "SPCM0_test_RO", "SPCM1_test_RO",
+                "SPCM0_OtherNode_test_RO", "SPCM1_OtherNode_test_RO",
+                "AllSPCMs_test_RO",
+                "SPCM0_FORT_science",
+                "measurement",
+                "n_feedback_per_iteration",
+                "n_atom_loaded_per_iteration",
+            ]
+        )
+        for scalar_name in integer_scalars:
+            setattr(experiment, scalar_name, 0)
+
+        experiment.atom_loading_time = 0.0
+        experiment.atom_loading_time_other_node = 0.0
+        experiment.in_health_check = False
+
+        experiment.FORT_step_size = 1
+        experiment.FORT_total_points = 1
+        experiment.FORT_amplitudes_list = [0]
+
+        # DMA handle placeholders; the tuple shape is what the ARTIQ DMA API
+        # returns and what the legacy readout code expects.
+        experiment.ro_dma_handle = (np.int32(0), np.int64(0), np.int32(0))
+        experiment.ro_dma_handle2 = (np.int32(0), np.int64(0), np.int32(0))
         integer_series = (
             list(detector_names)
             + [f"{name}_in_health_check" for name in detector_names]

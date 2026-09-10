@@ -143,6 +143,39 @@ from ExperimentVariables_master_satellite_global import (  # noqa: E402
 )
 
 
+class _FakeStabilizerChannel:
+    def __init__(self, dataset, dB_dataset):
+        self.dataset = dataset
+        self.dB_dataset = dB_dataset
+        self.dB_history_dataset = dB_dataset + "_history"
+
+
+class _FakeStabilizer:
+    """Stand-in for AOMPowerStabilizer.
+
+    The real one reads utilities/config/<node>/feedback_channels.json via a
+    path built from the process cwd, which is meaningless under the test
+    runner; only the attribute surface Base touches is reproduced here.
+    """
+
+    def __init__(self, experiment, dds_names, iterations, averages, **kwargs):
+        self.exp = experiment
+        self.dds_names = dds_names
+        self.iterations = iterations
+        self.averages = averages
+        self.kwargs = kwargs
+        self.all_channels = [
+            _FakeStabilizerChannel("MOT1_monitor", "p_AOM_A1"),
+            _FakeStabilizerChannel("FORT_monitor", "p_FORT_loading"),
+        ]
+
+    def run(self):
+        pass
+
+    def monitor(self):
+        pass
+
+
 class FakeBase:
     def __init__(self, mode="single_node", node="Node2"):
         self.mode = mode
@@ -154,6 +187,8 @@ class FakeBase:
         self.build_calls = 0
         self.prepare_calls = 0
         self.result_initializations = 0
+        self.single_node_result_initializations = 0
+        self.stabilizer_preparations = 0
         self.result_resets = 0
 
     def resolve_experiment_variable_target(self, name):
@@ -207,6 +242,16 @@ class FakeBase:
     def initialize_result_datasets(self):
         self.result_initializations += 1
 
+    def initialize_single_node_result_state(self):
+        # Single-node GVS also builds the full atom-physics result surface,
+        # not just the magnetometer datasets.
+        self.single_node_result_initializations += 1
+
+    def prepare_laser_stabilizer(self, stabilizer_factory=None):
+        # Single-node GVS builds the stabilizer so the reused experiment
+        # functions find self.stabilizer_<channel>.
+        self.stabilizer_preparations += 1
+
     def reset_result_state_for_scan_point(self):
         self.result_resets += 1
 
@@ -226,13 +271,23 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             for unified_name in node_mapping.values():
                 devices.setdefault(unified_name, object())
 
-        def get_dataset(name):
+        def get_dataset(name, *args, **kwargs):
             experiment_instance.dataset_reads.append(name)
             if name not in experiment_instance.datasets:
                 raise KeyError(name)
             return experiment_instance.datasets[name]
 
+        def set_dataset(name, value, *args, **kwargs):
+            experiment_instance.datasets[name] = value
+
+        def append_to_dataset(name, value):
+            experiment_instance.datasets.setdefault(name, []).append(value)
+
         experiment_instance.get_dataset = get_dataset
+        # prepare() now builds the laser stabilizer in single-node mode, which
+        # writes feedbackchannels and seeds the per-channel dB histories.
+        experiment_instance.set_dataset = set_dataset
+        experiment_instance.append_to_dataset = append_to_dataset
         experiment_instance.setattr_device = lambda name: setattr(
             experiment_instance, name, devices[name]
         )
@@ -589,6 +644,16 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         scan.override_ExperimentVariables = "{}"
         scan.experiment_function = "atom_loading_experiment"
         scan.scheduler = types.SimpleNamespace(get_status=lambda: {}, rid=0)
+        # Single-node prepare() now builds the laser stabilizer so the reused
+        # experiment functions find self.stabilizer_<channel>. Inject a
+        # stand-in: the real AOMPowerStabilizer reads a config file resolved
+        # from the process cwd, which is meaningless under the test runner.
+        scan._stabilizer_factory = _FakeStabilizer
+        # This harness replaces get_dataset with an instance attribute, which
+        # shadows the redirect mixin, so the stabilizer's channel datasets are
+        # read under their unsuffixed legacy names here.
+        scan.datasets["p_AOM_A1"] = 0.0
+        scan.datasets["p_FORT_loading"] = 0.0
 
         scan.prepare()
 

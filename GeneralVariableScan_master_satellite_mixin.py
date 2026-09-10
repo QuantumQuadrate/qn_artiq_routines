@@ -66,6 +66,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
     VALID_NODES = ("Node1", "Node2")
     LEGACY_NODE_NAMES = {"Node1": "alice", "Node2": "bob"}
     EXPERIMENT_MODE = None
+    # Overridden by tests to inject a stand-in for AOMPowerStabilizer; None
+    # means Base builds the real one.
+    _stabilizer_factory = None
 
     def _build_master_satellite_scan(self):
         if self.EXPERIMENT_MODE not in ("single_node", "two_nodes"):
@@ -207,6 +210,18 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self._publish_legacy_node_compatibility()
         self.base.prepare()
 
+        # The reused experiment_functions reach for the per-channel feedback
+        # objects (self.stabilizer_FORT, self.stabilizer_AOM_A5, ...), which
+        # only exist once AOMPowerStabilizer has been constructed -- it is what
+        # publishes them onto the experiment. Without this, any function that
+        # touches feedback fails to COMPILE, not merely to run. AOMsCoils and
+        # the microwave optimizer already do this; two-node mode must not,
+        # because master-satellite feedback is single-node only for now.
+        if self.EXPERIMENT_MODE == "single_node":
+            self.base.prepare_laser_stabilizer(
+                stabilizer_factory=self._stabilizer_factory
+            )
+
         self.scan_variable1 = self.base.resolve_experiment_variable_target(
             str(self.scan_variable1_name)
         )
@@ -314,6 +329,13 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
 
         self._apply_run_wide_overrides()
         self.base.initialize_result_datasets()
+        if self.EXPERIMENT_MODE == "single_node":
+            # initialize_result_datasets() only covers the magnetometer
+            # results. The reused atom-physics functions also need the full
+            # single-node result surface (SPCM datasets, per-measurement
+            # buffers and the host scalars they read in kernels), which the
+            # microwave optimizer already sets up this way.
+            self.base.initialize_single_node_result_state()
 
     def _execute_scan_point(self, variable1_value, variable2_value, iteration):
         """Execute one scan point without rebuilding or preparing devices."""
