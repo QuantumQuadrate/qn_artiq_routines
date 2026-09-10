@@ -835,12 +835,11 @@ def load_MOT_and_FORT_until_atom(self):
             # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
             delay(0.1 * ms) ### necessary to avoid underflow
 
-            ### 0.1 ms is not enough once these SPI events cross DRTIO to the
-            ### satellite, and the set_dataset above is a host round trip that
-            ### spends slack while the cursor stands still. This branch has
-            ### already given up on the current loading attempt, so nothing
-            ### here is timing-critical. Same fix as in
-            ### load_until_atom_smooth_FORT_recycle.
+            ### Same as load_until_atom_smooth_FORT_recycle: the slack is eaten
+            ### by the set_dataset RPC above, NOT by the DRTIO crossing -- both
+            ### destinations measured the same 1 us minimum lead, so Node1 is
+            ### exposed here too. This branch has already given up on the
+            ### current loading attempt, so nothing here is timing-critical.
             self.core.break_realtime()
 
             ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -1059,12 +1058,12 @@ def load_MOT_and_FORT_until_atom_recycle(self):
             if self.enable_laser_feedback:
                 delay(0.1 * ms) ### necessary to avoid underflow
 
-                ### 0.1 ms is not enough once these SPI events cross DRTIO to
-                ### the satellite, and the set_dataset above is a host round
-                ### trip that spends slack while the cursor stands still. This
-                ### branch has already given up on the current loading attempt,
-                ### so nothing here is timing-critical. Same fix as in
-                ### load_until_atom_smooth_FORT_recycle.
+                ### Same as load_until_atom_smooth_FORT_recycle: the slack is
+                ### eaten by the set_dataset RPC above, NOT by the DRTIO
+                ### crossing -- both destinations measured the same 1 us
+                ### minimum lead, so Node1 is exposed here too. This branch has
+                ### already given up on the current loading attempt, so nothing
+                ### here is timing-critical.
                 self.core.break_realtime()
 
                 ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
@@ -1304,12 +1303,15 @@ def load_until_atom_smooth_FORT_recycle(self):
             if self.enable_laser_feedback:
                 delay(0.1 * ms) ### necessary to avoid underflow
 
-                ### The 0.1 ms above was tuned on standalone hardware and is not
-                ### enough on the satellite, where these SPI events cross DRTIO.
-                ### Nothing before this point is timing-critical -- the loading
-                ### loop has just given up and we are about to run feedback,
-                ### which is wall-clock work anyway -- so resynchronize instead
-                ### of guessing a larger delay.
+                ### NOT a DRTIO penalty. measure_drtio_event_cost (2026-09-10)
+                ### showed master and satellite behave identically: both accept
+                ### a 1 us lead and both underflow at 0.5 us. The slack is spent
+                ### BEFORE this call -- the set_dataset RPC above and the loop's
+                ### host-side work advance wall clock while the cursor stands
+                ### still. The observed failure was 0.586 ms behind, ~500x past
+                ### that floor, so no plausible delay() would have covered it.
+                ### Nothing here is timing-critical (the loop has given up and
+                ### feedback is wall-clock work), so restore the slack instead.
                 self.core.break_realtime()
 
                 # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope

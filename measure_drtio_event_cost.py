@@ -46,6 +46,31 @@ cursor a known distance ahead of the live RTIO counter, submit one event, and
 see whether it is accepted. Walking that distance down until RTIOUnderflow
 appears gives the smallest lead the channel tolerates. The gap between the
 local and remote answers is the extra delay a satellite event needs.
+
+RESULT, 2026-09-10 (RID 38429)
+------------------------------
+There is NO measurable DRTIO penalty. Master and satellite came out
+indistinguishable on both tests:
+
+    submission cost   master 713 mu/event   satellite 711 mu/event
+    minimum lead      master 1000 mu        satellite 1000 mu
+                      (both 8/8 at 1000 mu, both 0/8 at 500 mu)
+
+So a satellite event is no more demanding than a master one, and the
+"crossing the fibre costs slack" theory is dead. ARTIQ buffers events at the
+satellite ahead of time -- the DEST#1 boot log even reports "buffer space is
+128" -- so the link latency is absorbed rather than charged to the caller.
+
+That reframes the Node2 underflow entirely. The failure had -585808 mu of
+slack, roughly 500x past the 1000 mu floor, which no plausible delay() would
+have covered. The slack is spent BEFORE the call, by host round trips --
+set_dataset, append_to_dataset, print_async -- which advance wall clock while
+the timeline cursor stands still. It is slack EROSION across loop iterations,
+not per-event cost, and it is not Node2-specific: Node1 hit the same class of
+failure on channel 39 (ttl_urukul0_sw0, destination 0) in the feedback path.
+
+Re-run this after any gateware or link change; it is the control that tells
+you whether a new underflow is about DRTIO at all.
 """
 
 import numpy as np
