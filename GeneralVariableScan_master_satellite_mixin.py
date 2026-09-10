@@ -153,6 +153,16 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self.setattr_argument(
             "experiment_function", EnumerationValue(function_names)
         )
+        self.setattr_argument(
+            "create_applets",
+            BooleanValue(True),
+            "Applets",
+            tooltip="Ask the dashboard to show this node's applets, with "
+                    "dataset names resolved for the selected node. Untick to "
+                    "leave the dashboard exactly as it is. Requires the applet "
+                    "dock's CCB policy to be 'Create and enable/disable "
+                    "applets'.",
+        )
 
     def _active_function_registry(self):
         if self.EXPERIMENT_MODE == "single_node":
@@ -336,6 +346,43 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             # buffers and the host scalars they read in kernels), which the
             # microwave optimizer already sets up this way.
             self.base.initialize_single_node_result_state()
+
+            # Scan labels, exactly as the standalone GeneralVariableScan
+            # publishes them; the retention applet reads these for its axis.
+            # Single-node only: Base publishes scan_var_dataset and friends
+            # as part of the legacy-compatibility namespace, which two-node
+            # mode does not have.
+            scan_names = [
+                name for name in (str(self.scan_variable1_name),
+                                  str(self.scan_variable2_name)) if name
+            ]
+            self.set_dataset(self.scan_var_dataset, ",".join(scan_names),
+                             broadcast=True)
+            self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1,
+                             broadcast=True)
+            self.set_dataset(self.scan_sequence2_dataset, self.scan_sequence2,
+                             broadcast=True)
+
+        self._create_node_applets()
+
+    def _create_node_applets(self):
+        """Ask the dashboard for this node's applets, if enabled.
+
+        Never fatal: the applets are a convenience, and the CCB is a
+        dashboard-side service that artiq_run and the offline compile check
+        do not provide meaningfully.
+        """
+        if not self.create_applets or self.EXPERIMENT_MODE != "single_node":
+            return
+        try:
+            from applets_master_satellite import create_applets_for
+
+            created = create_applets_for(self, self.base)
+        except Exception as error:  # noqa: BLE001 - convenience only
+            logging.warning("could not create applets: %s", error)
+        else:
+            logging.info("requested %d applets for %s", len(created),
+                         self.base.which_node)
 
     def _execute_scan_point(self, variable1_value, variable2_value, iteration):
         """Execute one scan point without rebuilding or preparing devices."""

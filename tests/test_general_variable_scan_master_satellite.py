@@ -586,6 +586,15 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         scan.scan_variable2 = None
         scan.scan_sequence1 = [246.0, 247.0]
         scan.scan_sequence2 = [0.0]
+        # Submitted argument names and the dataset names Base publishes; the
+        # run now also broadcasts the scan labels the retention applet reads.
+        scan.scan_variable1_name = "f_FORT"
+        scan.scan_variable2_name = ""
+        scan.scan_var_dataset = "scan_variables"
+        scan.scan_sequence1_dataset = "scan_sequence1"
+        scan.scan_sequence2_dataset = "scan_sequence2"
+        # Applet creation is a dashboard convenience; off for this unit test.
+        scan.create_applets = False
         scan.hardware_initializations = 0
         scan.function_calls = 0
         scan.dataset_writes = []
@@ -616,7 +625,16 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(scan.f_FORT, 247.0)
         self.assertEqual(scan.base.dds_frequency_cache, 247.0)
         self.assertEqual(scan.n_measurements, 12)
-        self.assertTrue(all(name == "iteration" for name, _, _ in scan.dataset_writes))
+        # run() may broadcast progress and the scan labels the applets read,
+        # and nothing else -- in particular never an authoritative variable.
+        written = [name for name, _, _ in scan.dataset_writes]
+        self.assertTrue(
+            set(written) <= {"iteration", "scan_variables", "scan_sequence1",
+                             "scan_sequence2"},
+            f"unexpected dataset writes during run: {sorted(set(written))}",
+        )
+        self.assertNotIn("f_FORT_Node2", written)
+        self.assertNotIn("f_FORT", written)
         self.assertTrue(
             all(not kwargs.get("persist", False) for _, _, kwargs in scan.dataset_writes)
         )
