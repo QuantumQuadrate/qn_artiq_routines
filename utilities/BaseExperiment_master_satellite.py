@@ -8,6 +8,14 @@ from artiq.experiment import kernel, delay, ms, rpc, us
 
 from utilities.conversions import dB_to_V
 
+# Must stay a module-level import, exactly as the standalone BaseExperiment
+# does it. subroutines/aom_feedback.py captures os.getcwd() at import time and
+# builds its feedback_channels.json path from it; the ARTIQ worker chdirs into
+# the run's results directory before prepare() runs, so importing it lazily
+# from prepare_laser_stabilizer() captures the results directory instead and
+# the config file is not found.
+from subroutines.aom_feedback import AOMPowerStabilizer
+
 from ExperimentVariables_master_satellite_Node1 import NODE1_VARIABLES
 from ExperimentVariables_master_satellite_Node2 import NODE2_VARIABLES
 from ExperimentVariables_master_satellite_global import (
@@ -1056,8 +1064,6 @@ class BaseExperimentMasterSatellite:
         )
 
         if stabilizer_factory is None:
-            from subroutines.aom_feedback import AOMPowerStabilizer
-
             stabilizer_factory = AOMPowerStabilizer
 
         experiment = self.experiment
@@ -1215,15 +1221,19 @@ class BaseExperimentMasterSatellite:
 
     @kernel
     def _configure_ttl_group(self, inputs, outputs, safe_on, safe_off):
-        for ttl in inputs:
-            ttl.input()
-        for ttl in outputs:
-            ttl.output()
-        for ttl in safe_on:
-            ttl.on()
+        # Each loop needs its OWN variable name: `inputs` holds TTLInOut and
+        # the other three hold TTLOut, and the ARTIQ compiler's inference is
+        # monomorphic, so reusing one name across the loops makes it try to
+        # unify list(elt=TTLInOut) with list(elt=TTLOut) and fail to compile.
+        for ttl_input in inputs:
+            ttl_input.input()
+        for ttl_output in outputs:
+            ttl_output.output()
+        for ttl_safe_on in safe_on:
+            ttl_safe_on.on()
             delay(1 * ms)
-        for ttl in safe_off:
-            ttl.off()
+        for ttl_safe_off in safe_off:
+            ttl_safe_off.off()
             delay(1 * ms)
         self.experiment.core.break_realtime()
 

@@ -193,6 +193,11 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
             self.AY_volts_MOT,
         ]
 
+        # COIL_CHANNELS is a tuple so the per-node constant cannot be mutated,
+        # but the ARTIQ compiler types Zotino.set_dac's `channels` argument as
+        # list(elt=int32) and refuses a tuple, so hand the kernel a list.
+        self._coil_channels = list(self.COIL_CHANNELS)
+
         # f/p_GRIN2_excitation project on both nodes, so the combined-mode
         # kernel compiles everywhere; it only runs on Node2.
         self._apply_node2_combined_modes = self.NODE == "Node2"
@@ -226,7 +231,7 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
             ttl.on()
             delay(1 * ms)
         self.zotino0.set_dac(
-            [0.0, 0.0, 0.0, 0.0], channels=self.COIL_CHANNELS
+            [0.0, 0.0, 0.0, 0.0], channels=self._coil_channels
         )
         delay(1 * ms)
 
@@ -256,11 +261,11 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
     def _apply_coil_state(self):
         if self.disable_coils:
             self.zotino0.set_dac(
-                [0.0, 0.0, 0.0, 0.0], channels=self.COIL_CHANNELS
+                [0.0, 0.0, 0.0, 0.0], channels=self._coil_channels
             )
         else:
             self.zotino0.set_dac(
-                self._coil_voltages, channels=self.COIL_CHANNELS
+                self._coil_voltages, channels=self._coil_channels
             )
         delay(1 * ms)
 
