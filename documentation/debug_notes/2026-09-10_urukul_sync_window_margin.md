@@ -114,6 +114,33 @@ absolute, and it lands exactly on `urukul4_ch2` plus all of `urukul5`.
 PLL lock was confirmed on all 24 channels, so this is not a clock or PLL
 problem.
 
+### Reproducibility: count the zeros, don't weight them
+
+A second sweep (RID 38431, same session, no power cycle) gave the same
+answer only once the verdict rule was fixed:
+
+| channel | run 38430 | run 38431 |
+| --- | --- | --- |
+| urukul4_ch1 | 0 zeros | 0 zeros |
+| urukul4_ch2 | 4 zeros | 6 zeros |
+| urukul4_ch3 | 0 zeros | 0 zeros |
+| urukul5_ch0 | 5 zeros | 4 zeros |
+| urukul5_ch1 | 4 zeros | 6 zeros |
+| urukul5_ch2 | 5 zeros | **2 zeros** |
+| urukul5_ch3 | 5 zeros | **3 zeros** |
+
+**How many** seeds hit zero is not reproducible — these channels sit right
+on the boundary, so the count swings run to run. `urukul5_ch2` moved from
+5/7 to 2/7. **Which** channels produce a zero at all is perfectly
+reproducible: the same five in both runs, and every healthy channel produced
+none in either.
+
+The tool originally flagged a channel only when at least half the seeds hit
+zero, which split these two runs into different verdicts for identical
+hardware. The rule is now **any zero is suspect**, under which both runs
+agree exactly. If a future run disagrees with this table, suspect the rule
+before suspecting the hardware.
+
 ---
 
 ## How to read the numbers

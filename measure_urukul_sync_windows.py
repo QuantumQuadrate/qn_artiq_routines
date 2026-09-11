@@ -177,10 +177,14 @@ class measure_urukul_sync_windows(EnvExperiment):
         zero_margin = sum(1 for window in windows if window == 0)
         if zero_margin == 0:
             return "healthy (margin >= {} at every seed)".format(min(windows))
-        if 2 * zero_margin >= len(SEEDS):
-            return ("MARGINAL -- zero setup/hold margin at {}/{} seeds"
-                    .format(zero_margin, len(SEEDS)))
-        return ("borderline -- zero margin at {}/{} seeds"
+        # ANY zero is the signal. How MANY seeds hit zero is not reproducible
+        # -- these channels sit on the boundary, so the count swings between
+        # runs (urukul5_ch2 gave 5/7 on RID 38430 and 2/7 on RID 38431). What
+        # is perfectly reproducible is which channels produce a zero at all:
+        # healthy channels produced none in either run. An earlier threshold
+        # of "half the seeds" split the two runs into different verdicts for
+        # the same hardware; this does not.
+        return ("MARGINAL -- zero setup/hold margin at {}/{} seeds"
                 .format(zero_margin, len(SEEDS)))
 
     def report(self):
@@ -205,7 +209,7 @@ class measure_urukul_sync_windows(EnvExperiment):
             verdict = self._verdict(windows)
             print(row + verdict)
 
-            if not windows or 2 * sum(1 for w in windows if w == 0) >= len(SEEDS):
+            if not windows or any(window == 0 for window in windows):
                 suspects.append(name)
             self.set_dataset("urukul_sync_windows_%s" % name, windows,
                              broadcast=True)
