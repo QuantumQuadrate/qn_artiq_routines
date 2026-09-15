@@ -19,29 +19,47 @@ reports what was found from each.
 
 READ THE WINDOW, NOT THE DELAY
 ------------------------------
-The 2026-09-10 sweep settled how to interpret this, and it is not what the
+The 2026-09-10 sweeps settled how to interpret this, and it is not what the
 delay spread suggests. EVERY channel, healthy ones included, returns delays
-in three clusters about 13 taps apart -- because a clean sampling point
-repeats once per SYSCLK period (1 ns at 1 GHz = 13.3 taps of 75 ps), and
-tune_sync_delay simply returns whichever repeat is nearest its seed. All of
-them catch the same SYNC_IN edge, since SYNC_IN is 62.5 MHz (16 ns) and the
-whole delay line spans only 2.3 ns, so they are equally valid. A wide delay
-spread across seeds is therefore EXPECTED and says nothing about health --
-and it also explains the scatter sinara_tester reports, which is just
-different stored seeds landing in different repeats.
+in about three clusters roughly 12 taps apart -- because a clean sampling
+point repeats once per SYSCLK period, and tune_sync_delay simply returns
+whichever repeat is nearest its seed. (Measured pitch on this system: 11.8
+taps per 1 ns SYSCLK period, i.e. ~85 ps per tap against the AD9910's
+~75 ps nominal.) Every repeat catches the same SYNC_IN edge, since SYNC_IN
+is 62.5 MHz (16 ns) while the whole delay line spans only ~2.5 ns, so they
+are equally valid. A wide delay spread across seeds is therefore EXPECTED
+and says nothing about health -- and it also explains the scatter
+sinara_tester reports, which is just different seeds landing in different
+repeats.
 
-The discriminator is the WINDOW. On the 2026-09-10 sweep the separation was
-absolute: 20 of 24 channels returned window 1-2 from every single seed,
-while urukul4_ch2 and all four urukul5 channels returned window 0 from 4-5
-of the 7 seeds. Window 0 means the delay was clean at zero validation margin
-but could not hold any wider one -- no setup/hold margin at all. Those
-channels still pass sometimes, which is exactly the intermittency that made
-this look like a flaky card for a year.
+The discriminator is the WINDOW. Window 0 means the delay was clean at zero
+validation margin but could not hold any wider one -- no setup/hold margin.
+Channels like that still pass sometimes, which is exactly the intermittency
+that made the old Node2 cards look flaky for a year.
+
+HOW MANY ZEROS MAKE A FAULT
+---------------------------
+Count the seeds that return window 0:
+
+    0 zeros     healthy
+    1 zero      inconclusive -- re-run before concluding anything
+    2+ zeros    MARGINAL
+
+Calibrated on three runs. The faulty channels (old urukul4_ch2 and all four
+of the old urukul5) returned 4-5 zeros on RID 38430 and 2-6 on RID 38431 --
+every run. Healthy channels returned none on those runs, but on RID 38432,
+after the replacement, two healthy channels each returned exactly one, both
+from seed 3 at the bottom of the delay line -- one of them urukul0_ch0, a
+Node1 card that was never touched. So a single zero occurs on healthy
+channels, and a faulty one can dip as low as two. A threshold of two
+classifies all three runs without error; the two earlier rules ("half the
+seeds", then "any zero") each got one of them wrong.
 
 WHAT THE NUMBERS MEAN
 ---------------------
-delay  - position on the AD9910 SYNC_IN delay line, 0..31 taps of ~75 ps
-         (so the whole range spans ~2.3 ns). This is TIME, not frequency.
+delay  - position on the AD9910 SYNC_IN delay line, 0..31 taps, nominally
+         ~75 ps each (~85 ps measured on this system), so the line spans
+         roughly 2.5 ns. This is TIME, not frequency.
 window - validation width in the same tap units: how wide a region around
          the sampling point stayed free of the chip's SMP_ERR flag. Bigger
          is better; it is the margin you have against drift.
@@ -72,6 +90,14 @@ from artiq.coredevice.urukul import urukul_sta_pll_lock
 #: Seeds spanning the delay line. tune_sync_delay reaches about +-6 taps, so
 #: a spacing of 4 leaves no gap and gives overlapping views of each window.
 SEEDS = (3, 7, 11, 15, 19, 23, 27)
+
+#: Zero-margin seeds needed to call a channel MARGINAL. A single zero is
+#: within the noise of this measurement -- see HOW MANY ZEROS MAKE A FAULT.
+MARGINAL_ZEROS = 2
+
+
+def _zero_margin(windows):
+    return sum(1 for window in windows if window == 0)
 
 
 class measure_urukul_sync_windows(EnvExperiment):
@@ -169,23 +195,19 @@ class measure_urukul_sync_windows(EnvExperiment):
 
         Judged on window width only. The delay values legitimately differ
         between seeds -- clean sampling points repeat every SYSCLK period
-        (~13 taps) and the tuner returns whichever repeat is nearest its
+        (~12 taps) and the tuner returns whichever repeat is nearest its
         seed -- so delay spread carries no information about health.
         """
         if not windows:
             return "NO WINDOW from any seed"
-        zero_margin = sum(1 for window in windows if window == 0)
-        if zero_margin == 0:
+        zeros = _zero_margin(windows)
+        if zeros == 0:
             return "healthy (margin >= {} at every seed)".format(min(windows))
-        # ANY zero is the signal. How MANY seeds hit zero is not reproducible
-        # -- these channels sit on the boundary, so the count swings between
-        # runs (urukul5_ch2 gave 5/7 on RID 38430 and 2/7 on RID 38431). What
-        # is perfectly reproducible is which channels produce a zero at all:
-        # healthy channels produced none in either run. An earlier threshold
-        # of "half the seeds" split the two runs into different verdicts for
-        # the same hardware; this does not.
+        if zeros < MARGINAL_ZEROS:
+            return ("inconclusive -- zero margin at {}/{} seeds, re-run"
+                    .format(zeros, len(SEEDS)))
         return ("MARGINAL -- zero setup/hold margin at {}/{} seeds"
-                .format(zero_margin, len(SEEDS)))
+                .format(zeros, len(SEEDS)))
 
     def report(self):
         header = "{:<16}{:<6}".format("channel", "PLL")
@@ -196,6 +218,7 @@ class measure_urukul_sync_windows(EnvExperiment):
         print("-" * (len(header) + 40))
 
         suspects = []
+        rerun = []
         for i, name in enumerate(self.channel_names):
             row = "{:<16}{:<6}".format(
                 name, "ok" if self.pll_locked[i] == 1 else "LOCK?")
@@ -206,23 +229,26 @@ class measure_urukul_sync_windows(EnvExperiment):
                 else:
                     row += "{:<9}".format("%d/%d" % (found_delay, found_window))
                     windows.append(found_window)
-            verdict = self._verdict(windows)
-            print(row + verdict)
+            print(row + self._verdict(windows))
 
-            if not windows or any(window == 0 for window in windows):
+            zeros = _zero_margin(windows)
+            if not windows or zeros >= MARGINAL_ZEROS:
                 suspects.append(name)
+            elif zeros:
+                rerun.append(name)
             self.set_dataset("urukul_sync_windows_%s" % name, windows,
                              broadcast=True)
 
         print("")
-        print("delay/window are in ~75 ps taps. Judge a channel by the WINDOW: "
-              "it is the setup/hold margin, and 0 means none at all.")
+        print("delay/window are in delay-line taps (~85 ps measured here). "
+              "Judge a channel by the WINDOW: it is the setup/hold margin, "
+              "and 0 means none at all.")
         print("Differing delays between seeds are EXPECTED -- a clean sampling "
-              "point repeats every SYSCLK period (~13 taps), and the tuner "
+              "point repeats every SYSCLK period (~12 taps), and the tuner "
               "returns whichever repeat is nearest its seed. All of them catch "
               "the same 62.5 MHz SYNC_IN edge, so they are equally valid.")
+        print("")
         if suspects:
-            print("")
             print("SUSPECT CHANNELS ({}): {}".format(len(suspects),
                                                      ", ".join(suspects)))
             cards = sorted({name.split("_")[0] for name in suspects})
@@ -230,7 +256,11 @@ class measure_urukul_sync_windows(EnvExperiment):
                   "suspect points at the card; a lone channel points at that "
                   "one AD9910.".format(", ".join(cards)))
         else:
-            print("")
-            print("No channel showed zero margin. SYNC is healthy everywhere.")
+            print("No channel is marginal ({}+ zero-margin seeds). SYNC is "
+                  "healthy.".format(MARGINAL_ZEROS))
+        if rerun:
+            print("Single zero -- re-run to confirm ({}): {}. One zero has been "
+                  "seen on known-healthy channels; faulty ones showed 2+ on "
+                  "every run.".format(len(rerun), ", ".join(rerun)))
         print("Nothing was written to EEPROM. Run your normal experiment to "
               "restore switch and attenuator state.")

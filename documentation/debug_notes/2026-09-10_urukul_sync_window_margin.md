@@ -1,12 +1,44 @@
 # Node2 Urukul SYNC window margin
 
-**Date:** 2026-09-10 **Status:** Diagnosed. Hardware replacement pending.
+**Date:** 2026-09-10 **Status:** **Resolved 2026-09-15** — both cards replaced.
 **Hardware:** Node2 crate, `urukul4` and `urukul5` (satellite, destination 1).
 In standalone naming these were Node2's `urukul1` and `urukul2`.
 
 ---
 
-## Verdict
+## Resolution (2026-09-15)
+
+`urukul4` and `urukul5` were replaced with spare v1.5 and v1.5.6 cards — the
+same CPLD generation and `proto_rev` 8, so no software or device_db change.
+
+* `artiq_sinara_tester` passed **on the first run**: no `no valid
+  window/delay`, and no re-running until it creeps through. From the common
+  seed 15, all four channels of each new card landed within two taps of each
+  other (urukul4: 13/15/15/14, urukul5: 18/18/17/19). The old urukul4
+  scattered 19/9/15/10 from the same seed.
+* `measure_urukul_sync_windows` (RID 38432): the failure signature is gone.
+  Every channel on both new cards returned margin from every seed but one —
+  `urukul4_ch1` returned window 0 once, from seed 3 at the bottom of the
+  delay line. `urukul0_ch0`, a Node1 card never touched and clean on
+  2026-09-10, did exactly the same in this run. The old cards returned
+  window 0 on 2–6 of 7 seeds, every run. See "How many zeros make a fault"
+  below for why a single zero is noise.
+
+**A tester pass is not proof of margin.** On 2026-09-10 the tester passed
+three of the five channels the sweep flagged (old urukul4_ch2 `15 3`,
+urukul5_ch0 `20 0`, urukul5_ch1 `20 0`), failed on the fourth, and never
+reached the fifth. It runs one hill-climb per channel and prints where it
+landed; it never reports the window. Certify cards with the sweep.
+
+**Why v1.5.x spares and not the new v1.6 cards.** v1.6 replaces the CPLD with
+an FPGA (iCE40), and the current Urukul gateware is `proto_rev` 9. ARTIQ 7's
+driver accepts only 8 and raises `Urukul proto_rev mismatch`; v1.6 support
+arrived in ARTIQ 9. Whether a `proto_rev` 8 build exists for the v1.6 FPGA
+is unconfirmed — ask M-Labs before putting those cards on ARTIQ 7.
+
+---
+
+## Verdict (2026-09-10, before replacement)
 
 `urukul5` has a **card-level fault**: all four channels have zero SYNC
 setup/hold margin. `urukul4_ch2` has the same fault on **one channel only**;
@@ -131,15 +163,38 @@ answer only once the verdict rule was fixed:
 
 **How many** seeds hit zero is not reproducible — these channels sit right
 on the boundary, so the count swings run to run. `urukul5_ch2` moved from
-5/7 to 2/7. **Which** channels produce a zero at all is perfectly
-reproducible: the same five in both runs, and every healthy channel produced
-none in either.
+5/7 to 2/7. **Which** channels produce a zero at all looked perfectly
+reproducible here: the same five in both runs, and every healthy channel
+produced none in either. A third run disproved that — see below.
 
 The tool originally flagged a channel only when at least half the seeds hit
 zero, which split these two runs into different verdicts for identical
-hardware. The rule is now **any zero is suspect**, under which both runs
-agree exactly. If a future run disagrees with this table, suspect the rule
-before suspecting the hardware.
+hardware. It was then changed to **any zero is suspect**, with the warning
+that if a future run disagreed, the rule should be suspected before the
+hardware. That is what happened.
+
+### How many zeros make a fault (after RID 38432)
+
+The post-replacement sweep (RID 38432) gave exactly one zero on each of two
+healthy channels — `urukul0_ch0`, a Node1 card never touched and clean on
+RID 38430, and the new `urukul4_ch1` — both from seed 3, at the bottom of
+the delay line. So "any zero" raises false alarms. Tested against all three
+runs (38431 was only partly captured):
+
+| rule | 38430 | 38431 | 38432 |
+| --- | --- | --- | --- |
+| zeros ≥ half the seeds | correct | misses urukul5_ch2, ch3 | correct |
+| any zero | correct | correct | flags 2 healthy channels |
+| **zeros ≥ 2** | correct | correct | correct |
+
+Rules that ignore zeros near the delay-line edge also fit, but only if the
+"edge" is drawn in exactly the right place, so they were rejected.
+
+The tool now reports three tiers: **0 zeros = healthy, 1 = inconclusive
+(re-run), 2+ = MARGINAL.** The faulty channels showed 2–6 zeros on every
+run; healthy channels have shown at most one. That gap is thin — a faulty
+channel dipped to exactly two once — so never condemn or clear a card on a
+single run.
 
 ---
 
@@ -278,14 +333,15 @@ still fail intermittently.
 
 ---
 
-## Next steps
+## Next steps — done 2026-09-15
 
-1. Replace `urukul5`. Node2's Urukuls sit at the edge of the rack, so this
-   does not need a full teardown.
-2. Re-run `measure_urukul_sync_windows`. A good card should show a non-zero
-   window at every seed, like `urukul0`–`urukul3` do.
-3. Run `artiq_sinara_tester` once to write fresh EEPROM calibration.
-4. If the boot-time ritual is gone, the issue is closed.
+1. ~~Replace `urukul5`.~~ Done, and `urukul4` was replaced too.
+2. ~~Re-run `measure_urukul_sync_windows`.~~ Done (RID 38432): no channel
+   marginal under the corrected rule.
+3. ~~Run `artiq_sinara_tester` once.~~ Done: it passed on the first run and
+   wrote fresh EEPROM calibration.
+4. Still to confirm: that the boot-time ritual stays gone over the next few
+   power cycles. So far there has been only one boot with the new cards.
 
 ---
 

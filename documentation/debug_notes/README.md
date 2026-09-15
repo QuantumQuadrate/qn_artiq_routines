@@ -14,4 +14,4 @@ until someone acts on it weeks later.
 
 | Note | Topic | Status |
 | --- | --- | --- |
-| [2026-09-10_urukul_sync_window_margin.md](2026-09-10_urukul_sync_window_margin.md) | Node2 Urukul `no valid window/delay`, the year-old sinara_tester ritual | Diagnosed — replace urukul5 |
+| [2026-09-10_urukul_sync_window_margin.md](2026-09-10_urukul_sync_window_margin.md) | Node2 Urukul `no valid window/delay`, the year-old sinara_tester ritual | Resolved 2026-09-15 — urukul4/5 replaced |
