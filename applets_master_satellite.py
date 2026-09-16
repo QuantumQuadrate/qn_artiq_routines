@@ -68,9 +68,13 @@ _PHOTON = "Single Photon Experiment"
 _K10 = "K10CR1"
 
 # The nine applets Node1 actually had ENABLED, transcribed from its live
-# dashboard state (AppData/Local/m-labs/artiq/7). Keeping the default set
-# small is deliberate: 65 applets were defined there but only nine running,
-# and applet count is what makes the dashboard struggle.
+# dashboard state (AppData/Local/m-labs/artiq/7), plus the four per-SPCM
+# count-rate applets restored 2026-09-16 for MonitorSPCMinApplet -- they were
+# defined in that dashboard state but not enabled, and their commands here are
+# copied from it verbatim. Keeping the default set small is deliberate: 65
+# applets were defined there but only nine running, and applet count is what
+# makes the dashboard struggle. Move anything rarely watched down to
+# OPTIONAL_APPLET_SPECS rather than growing this list further.
 APPLET_SPECS = (
     _spec("measurements progress", ("builtin", "progress_bar"),
           ("measurements_progress",)),
@@ -94,6 +98,24 @@ APPLET_SPECS = (
            ("--t_exposure", "t_SPCM_second_shot")),
           group=_GVS),
 
+    # The four master-local SPCMs, written by MonitorSPCMinApplet. The dataset
+    # names stay in their LEGACY form because that is what the experiments
+    # actually write; only the titles carry the canonical detector names
+    # (SPCM_H1 = SPCM0, SPCM_V1 = SPCM1, SPCM_H2 = SPCM0_OtherNode,
+    # SPCM_V2 = SPCM1_OtherNode). These are not node-suffixed: the detectors
+    # are master-local, so both nodes write the same five datasets.
+    _spec("SPCM_H1 count rate", "plot_xyline.py",
+          ("SPCM0_counts_per_s",),
+          (("--pts", "applet_plot_points_short"),), group=_OPT),
+    _spec("SPCM_V1 count rate", "plot_xyline.py",
+          ("SPCM1_counts_per_s",),
+          (("--pts", "applet_plot_points_short"),), group=_OPT),
+    _spec("SPCM_H2 count rate", "plot_xyline.py",
+          ("SPCM0_OtherNode_counts_per_s",),
+          (("--pts", "applet_plot_points_short"),), group=_OPT),
+    _spec("SPCM_V2 count rate", "plot_xyline.py",
+          ("SPCM1_OtherNode_counts_per_s",),
+          (("--pts", "applet_plot_points_short"),), group=_OPT),
     _spec("All SPCMs count rate", "plot_xyline.py",
           ("AllSPCMs_counts_per_s",),
           (("--pts", "applet_plot_points_medium"),), group=_OPT),
