@@ -855,6 +855,17 @@ def load_MOT_and_FORT_until_atom(self):
 
             try_n = 0
 
+    ### The loading loop above drains a few us of slack per iteration:
+    ### host RPCs advance wall clock while the timeline cursor does not
+    ### (set_dataset(broadcast) measured at ~4 us through this master,
+    ### plus print_async and the per-try CPU work), and nothing in the
+    ### loop ever restores it. After a few hundred tries the deficit
+    ### reaches milliseconds and the first RTIO event after the loop --
+    ### this Zotino write, channel 33 -- is submitted in the past.
+    ### Seen at -0.51 ms and -3.58 ms. The loop has just ended and
+    ### nothing here is timing-critical, so restore the slack.
+    self.core.break_realtime()
+
     self.zotino0.set_dac([0.0], self.UV_trig_channel)
     delay(100*us)
 
@@ -1078,6 +1089,17 @@ def load_MOT_and_FORT_until_atom_recycle(self):
                 delay(0.1 * ms)
 
                 try_n = 0
+
+        ### The loading loop above drains a few us of slack per iteration:
+        ### host RPCs advance wall clock while the timeline cursor does not
+        ### (set_dataset(broadcast) measured at ~4 us through this master,
+        ### plus print_async and the per-try CPU work), and nothing in the
+        ### loop ever restores it. After a few hundred tries the deficit
+        ### reaches milliseconds and the first RTIO event after the loop --
+        ### this Zotino write, channel 33 -- is submitted in the past.
+        ### Seen at -0.51 ms and -3.58 ms. The loop has just ended and
+        ### nothing here is timing-critical, so restore the slack.
+        self.core.break_realtime()
 
         if self.which_node == 'alice':
             self.zotino0.set_dac([0.0], self.UV_trig_channel)
@@ -1330,6 +1352,17 @@ def load_until_atom_smooth_FORT_recycle(self):
                 delay(0.1 * ms)
 
                 try_n = 0
+
+        ### The loading loop above drains a few us of slack per iteration:
+        ### host RPCs advance wall clock while the timeline cursor does not
+        ### (set_dataset(broadcast) measured at ~4 us through this master,
+        ### plus print_async and the per-try CPU work), and nothing in the
+        ### loop ever restores it. After a few hundred tries the deficit
+        ### reaches milliseconds and the first RTIO event after the loop --
+        ### this Zotino write, channel 33 -- is submitted in the past.
+        ### Seen at -0.51 ms and -3.58 ms. The loop has just ended and
+        ### nothing here is timing-critical, so restore the slack.
+        self.core.break_realtime()
 
         self.zotino0.set_dac([0.0], self.UV_trig_channel)
         delay(100*us)
@@ -3854,8 +3887,8 @@ def atom_loading_2_experiment(self):
         # delay(0.1 * ms)
         # self.zotino0.set_dac([0.0], self.Osc_trig_channel)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        # load_MOT_and_FORT_until_atom_recycle(self)
+        # load_until_atom_smooth_FORT_recycle(self)
+        load_MOT_and_FORT_until_atom_recycle(self)
 
         # self.zotino0.set_dac([3.5], self.Osc_trig_channel)  ### for triggering oscilloscope
         # delay(0.1 * ms)
