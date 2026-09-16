@@ -5,6 +5,24 @@ functionalities by using an external switch to toggle between the two
 during the same run of this experiment. At the time of writing this, this is
 done using ttl14 set to high, and a switch to toggle the connection of ttl14
 to ttl3, the state of which we read to determine the which variables to tune.
+
+MASTER-SATELLITE
+----------------
+selected_node picks Node1 or Node2 in the GUI; exactly one node is tuned per
+run, which is how this experiment is used anyway (one potentiometer box, one
+set of coils). Base runs in single_node mode, so every device and variable
+below keeps its familiar unsuffixed name: dds_AOM_A1, sampler1, coil_channels
+and AZ_bottom_volts_MOT all resolve to the selected node's hardware, and the
+values persist to that node's suffixed datasets.
+
+Two things worth knowing before running this on Node2:
+
+* The canonical SPCMs are master-local on BOTH nodes (SPCM_H1/V1/H2/V2 live
+  on the Node1 crate), so the four counters read the same detectors whichever
+  node is selected. Only the coils, beams and samplers follow the node.
+* ttl3/ttl14 are ordinary per-node TTLs, so they resolve to the selected
+  node's crate. The physical toggle switch has to be wired to that crate for
+  the beams/coils mode toggle to work.
 """
 
 from artiq.experiment import *
@@ -18,17 +36,36 @@ cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
-from utilities.BaseExperiment import BaseExperiment
+from utilities.BaseExperiment_master_satellite import (
+    BaseExperimentMasterSatellite,
+    _DatasetRedirectMixin,
+)
 
 
-class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
+class SamplerMOTCoilAndBeamBalanceTune(_DatasetRedirectMixin, EnvExperiment):
+    """SamplerMOTCoilAndBeamBalanceTune
+
+    Tune the selected node's MOT coils and beam balance from the Sampler.
+    """
+
+    VALID_NODES = ("Node1", "Node2")
 
     def build(self):
         """
         declare hardware and user-configurable independent variables
         """
-        self.base = BaseExperiment(experiment=self)
+        self.base = BaseExperimentMasterSatellite(experiment=self)
         self.base.build()
+
+        # Exactly one node per run: the potentiometer box and the coils being
+        # tuned belong to one crate. two_nodes is deliberately unsupported.
+        self.setattr_argument(
+            "selected_node",
+            EnumerationValue(self.VALID_NODES),
+            "Node selection",
+            tooltip="Node1 = alice, Node2 = bob. Only one node is tuned per "
+                    "run; its coils, beams and samplers are used.",
+        )
 
         self.setattr_argument("FORT_AOM_on", BooleanValue(False))
 
@@ -83,7 +120,10 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(500), "Laser feedback")
         self.setattr_argument("monitor_only", BooleanValue(False), "Laser feedback")
 
-        self.base.set_datasets_from_gui_args()
+        # The standalone Base archived the GUI arguments here with
+        # set_datasets_from_gui_args(). The master-satellite Base has no such
+        # method, and ARTIQ already stores the submitted arguments in the HDF5
+        # under expid, so nothing is lost by dropping it.
         print("build - done")
 
     def prepare(self):
@@ -94,7 +134,20 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         any conversions from human-readable units to machine units (mu) are done here
         """
 
+        node = str(self.selected_node)
+        if node not in self.VALID_NODES:
+            raise ValueError(
+                f"Unsupported selected_node {self.selected_node!r}; expected "
+                "'Node1' or 'Node2'."
+            )
+
+        self.base.configure_execution("single_node", node)
+        # The shared feedback code branches on the alice/bob presentation.
+        self.which_node = self.base.NODE_LEGACY_NAMES[node]
         self.base.prepare()
+        # Publishes laser_stabilizer and the per-channel stabilizer_AOM_A*
+        # objects read in run(); single-node only.
+        self.base.prepare_laser_stabilizer()
 
         self.beam_tuning_disabled = not (self.what_to_tune == self.beam_mode or self.what_to_tune == self.both_mode)
 
@@ -121,7 +174,9 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
 
     @kernel
     def run(self):
-        self.core.reset()
+        # base.initialize_hardware() owns the core reset in the
+        # master-satellite stack, and waits for the satellite when Node2 is
+        # the selected node.
         self.base.initialize_hardware()
 
         self.core.break_realtime()

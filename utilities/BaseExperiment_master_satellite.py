@@ -468,6 +468,16 @@ class BaseExperimentMasterSatellite:
         # Fixed legacy dataset-name attributes used by the reused scan code.
         self.experiment.SPCM0_rate_dataset = "SPCM0_counts_per_s"
         self.experiment.SPCM1_rate_dataset = "SPCM1_counts_per_s"
+        # The other node's detectors and the combined rate, same names the
+        # standalone Base publishes. The canonical SPCMs are master-local on
+        # both nodes, so all four counters are readable whichever node runs.
+        self.experiment.SPCM0_OtherNode_rate_dataset = (
+            "SPCM0_OtherNode_counts_per_s"
+        )
+        self.experiment.SPCM1_OtherNode_rate_dataset = (
+            "SPCM1_OtherNode_counts_per_s"
+        )
+        self.experiment.AllSPCMs_rate_dataset = "AllSPCMs_counts_per_s"
         self.experiment.scan_var_dataset = "scan_variables"
         self.experiment.scan_sequence1_dataset = "scan_sequence1"
         self.experiment.scan_sequence2_dataset = "scan_sequence2"
