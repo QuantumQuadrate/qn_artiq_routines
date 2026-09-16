@@ -436,6 +436,17 @@ def run_feedback_and_record_FORT_MM_power(self, record_power = True):
         record_FORT_MM_power(self)
         record_FORT_APD_power(self)
 
+    ### Feedback is wall-clock work: three stabilizer runs, each doing
+    ### blocking sampler reads and dataset writes, budgeted only with fixed
+    ### 0.1 ms delays. Whatever the host overruns is slack lost for good,
+    ### and with record_power=False nothing above restores it, so the
+    ### CALLER's next RTIO event is submitted in the past -- observed as
+    ### RTIOUnderflow at -5.58 ms on channel 56 (dds_microwaves.sw)
+    ### immediately after this returned. Restoring here covers every call
+    ### site at once; no caller can rely on a deterministic cursor across a
+    ### feedback run, and the branch above has restored since 2026-09-10.
+    self.core.break_realtime()
+
 @kernel
 def rotator_test_experiment(self):
     """
@@ -1314,6 +1325,10 @@ def load_until_atom_smooth_FORT_recycle(self):
                 self.print_async("Atom loading is bad. Tuning X and Y shims.")
                 tune_shims_for_atom_loading(self)
                 shim_tune_runs += 1
+
+                ### Shim tuning is host-heavy for the same reason; restore
+                ### before going back round the loading loop.
+                self.core.break_realtime()
 
                 ### restart the loading attempt with the (possibly) improved shims
                 try_n = 0
