@@ -104,7 +104,7 @@ so they can be told apart at a glance:
 
 ## Measurement
 
-Run **`measure_urukul_sync_windows`** (repo top level). It sweeps seven
+Run **`measure_urukul_sync_windows`** (in `tests/`). It sweeps seven
 seeds spanning the whole 0–31 delay line so every window in range is
 reachable, and reports what each seed found as `delay/window`. It does
 **not** write the EEPROM.
@@ -349,7 +349,7 @@ still fail intermittently.
 
 | What | Where |
 | --- | --- |
-| Sweep tool | `measure_urukul_sync_windows.py` (repo top level) |
+| Sweep tool | `measure_urukul_sync_windows.py` (in `tests/`) |
 | Search span limit | `artiq/coredevice/ad9910.py`, `search_span = 13` |
 | Error raised | `artiq/coredevice/ad9910.py:1038` |
 | `init()` calls the tuner | `artiq/coredevice/ad9910.py:509` |
