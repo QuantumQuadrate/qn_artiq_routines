@@ -261,6 +261,13 @@ class FakeBase:
         # once per RUN rather than once per scan point.
         self.force_off_calls += 1
 
+    def result_name_tag(self):
+        # The mixin builds the write_results name dict before calling, so
+        # this runs even when write_results itself is stubbed out.
+        if self.mode == "single_node":
+            return self.node
+        return "TwoNodes"
+
 
 class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
     @staticmethod
@@ -604,6 +611,14 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         scan.hardware_initializations = 0
         scan.function_calls = 0
         scan.dataset_writes = []
+        # prepare() normally sets these two; this harness builds the scan by
+        # hand, so supply them for the per-scan-point write_results name.
+        scan.experiment_name = "atom_loading_experiment"
+        scan.scan_var_filesuffix = "f_FORT"
+        scan.result_names = []
+        scan.write_results = lambda kwargs={}: scan.result_names.append(
+            kwargs.get("name")
+        )
         scan.initialize_hardware = lambda: setattr(
             scan,
             "hardware_initializations",
@@ -628,6 +643,13 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         # scan point: zeroing its Zotino is an init plus sixteen DAC writes
         # over remote SPI, and two scan points ran above.
         self.assertEqual(scan.base.force_off_calls, 1)
+        # One named save per scan point, each carrying the node FIRST in the
+        # name. ARTIQ's own <rid>-<class>.h5 has no node in it, so this is
+        # the only thing that makes results sortable by node in Analysis.
+        self.assertEqual(
+            scan.result_names,
+            ["Node2_atom_loading_scan_over_f_FORT"] * 2,
+        )
         self.assertEqual(scan.function_calls, 2)
         self.assertEqual(scan.base.result_initializations, 1)
         self.assertEqual(scan.base.result_resets, 2)
@@ -707,6 +729,11 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         scan.attempts = []
         scan._initialize_run_state = lambda: None
         scan.initialize_hardware = lambda: None
+        # These tests are about underflow retry, not filenames, but the
+        # per-scan-point save still runs; give it what it needs and swallow it.
+        scan.experiment_name = "atom_loading_experiment"
+        scan.scan_var_filesuffix = "f_FORT"
+        scan.write_results = lambda kwargs={}: None
         scan.set_dataset = lambda name, value, **kwargs: scan.dataset_writes.append(
             (name, value, kwargs)
         )

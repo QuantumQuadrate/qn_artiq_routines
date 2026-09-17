@@ -278,6 +278,15 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         }
 
         self.experiment_name = str(self.experiment_function)
+        # Filename suffix built the same way standalone GeneralVariableScan
+        # does it (GeneralVariableScan.py:137-140, scan vars joined with
+        # "_and_"), so results from both stacks stay filterable by the same
+        # substrings in the Analysis notebooks.
+        scan_vars = [
+            name for name in (str(self.scan_variable1_name),
+                              str(self.scan_variable2_name)) if name
+        ]
+        self.scan_var_filesuffix = "_and_".join(scan_vars)
         self._selected_experiment_function = (
             self._select_experiment_function(
                 self.experiment_function_registry,
@@ -414,6 +423,19 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self.base.reset_result_state_for_scan_point()
         self.set_dataset("iteration", iteration, broadcast=True)
         self._selected_experiment_function(self)
+
+        # Saved per scan point, matching standalone GeneralVariableScan's
+        # run_iteration: it lets a run be quit early without losing data, and
+        # guards against ARTIQ corrupting the h5 during worker cleanup (see
+        # README on write_results). The master-satellite port had no named
+        # save at all, so GVS results carried no node at all -- ARTIQ's own
+        # filename is just <rid>-GeneralVariableScan_master_satellite_
+        # single_node.h5. result_name_tag() puts the node first in the name.
+        self.write_results({
+            'name': self.base.result_name_tag() + "_"
+                    + self.experiment_name[:-11]
+                    + "_scan_over_" + self.scan_var_filesuffix
+        })
 
     def _report_underflow(self, message):
         logging.warning(message)

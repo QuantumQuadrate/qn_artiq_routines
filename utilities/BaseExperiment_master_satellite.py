@@ -442,6 +442,29 @@ class BaseExperimentMasterSatellite:
                 switches.append(switch)
         self._other_node_dds_switches = switches
 
+    def result_name_tag(self):
+        """Node token for result FILENAMES -- not for dataset names.
+
+        ARTIQ's own <rid>-<class>.h5 carries no node, because none of the
+        master-satellite class names mention one, so the write_results name
+        is the only place a run's node can appear. That is what makes results
+        sortable by node in the Analysis notebooks, which find files by
+        substring (h5_data_utilities walks the results tree and matches on
+        name fragments rather than reconstructing exact filenames).
+
+        Built from which_node rather than from each experiment's own GUI
+        argument, because those are spelled inconsistently across the stack:
+        MicrowaveScanOptimizer uses Node1/Node2, FORT_Polarization_Optimizer
+        uses node1/node2.
+
+        Deliberately NOT _presentation_name below, which returns the BARE
+        name in single_node mode -- here single-node is precisely the case
+        that needs the tag.
+        """
+        if self.experiment_mode == "single_node":
+            return self.which_node
+        return "TwoNodes"
+
     def _presentation_name(self, base_name, node):
         if self.experiment_mode == "single_node":
             return base_name

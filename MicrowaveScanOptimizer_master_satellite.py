@@ -418,7 +418,7 @@ class MicrowaveScanOptimizer_master_satellite(
         if self.scan_type.startswith("Freq") and self.run_health_check_and_optimize:
             if self.health_check_general() == False:
                 # write and overwrite the health check results
-                self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
+                self.write_results({'name': self.base.result_name_tag() + "_parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
                                                                                          :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                 print("Initial Health Check - failed with fidelity: ",
@@ -453,7 +453,7 @@ class MicrowaveScanOptimizer_master_satellite(
                     self.experiment_function()
 
                     # write and overwrite the file here so we can quit the experiment early without losing data
-                    self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
+                    self.write_results({'name': self.base.result_name_tag() + "_parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
                                                                                              :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                     iteration += 1
@@ -479,7 +479,7 @@ class MicrowaveScanOptimizer_master_satellite(
                     self.reset_datasets()
 
                     self.experiment_function()
-                    self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
+                    self.write_results({'name': self.base.result_name_tag() + "_parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[
                                                                                              :-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                     iteration += 1
@@ -510,70 +510,144 @@ class MicrowaveScanOptimizer_master_satellite(
                         elif fit_model in ["resonance_peak", "rabi_flop_reversed"]:
                             retention_array = 1.0 - retention_array
 
-                        # First four points of the INITIAL scan sequence:
-                        # index 0 -> -x, index 1 -> +x, index 2 -> -x/2, index 3 -> +x/2
-                        f0, f1, f2, f3 = self.scan_sequence1[0:4]
-                        R0, R1, R2, R3 = map(float, retention_array[0:4])
-
-                        # left two points: (-x -> -x/2) => indices 0 -> 2
-                        slope_left = R2 - R0
-                        # right two points: (+x/2 -> +x) => indices 3 -> 1
-                        slope_right = R1 - R3
-
-                        lowest_index = int(np.argmin(retention_array[:4]))
-                        lowest_value = float(retention_array[lowest_index])
-
+                        # First four points of the PAIRED scan sequence
+                        # (make_scan_list, mode="pair"):
+                        #   index 0 -> -x, 1 -> +x, 2 -> -r*x, 3 -> +r*x
+                        # where r = 1 - 1/shrink_factor. These are NOT at
+                        # -x/2 and +x/2 unless shrink_factor is exactly 2; at
+                        # shrink_factor 2.5 they sit at +-0.6x, so any
+                        # threshold tuned on the "half" reading is off by 20%.
                         threshold_low = 0.7  # tune this as needed
                         new_center = None
+                        no_clear_dip = False
+                        # NaN so the all(> 0.9) broaden test below is False if
+                        # we never got four points.
+                        R0 = R1 = R2 = R3 = float("nan")
 
-                        # 2.0 well centered:
-                        if (lowest_index == 2 or lowest_index == 3) and slope_left < 0 and slope_right > 0:
-                            print("Case 2.0: Well centered")
-                        # 2.1 left skewed:
-                        elif lowest_index == 0 and slope_left > 0 and lowest_value < threshold_low:
-                            print("Case 2.1: left-skewed (out-of-range)")
-                            if lowest_value < 0.2:
-                                # freq_scan_min_step_size_kHz is a kHz number; scan values are in Hz
-                                new_center = f0 - self.freq_scan_min_step_size_kHz * kHz
-                            elif lowest_value < 0.4:
-                                step = abs(f2 - f0)
-                                new_center = f0 - step
-                            else:
-                                step = 2 * abs(f2 - f0)
-                                new_center = f0 - step
-
-                        # 2.2 right skewed:
-                        elif lowest_index == 1 and slope_right < 0 and lowest_value < threshold_low:
-                            print("Case 2.2: right-skewed (out-of-range)")
-                            if lowest_value < 0.2:
-                                new_center = f1 + self.freq_scan_min_step_size_kHz * kHz
-                            elif lowest_value < 0.4:
-                                step = abs(f1 - f3)
-                                new_center = f1 + step
-                            else:
-                                step = 2 * abs(f1 - f3)
-                                new_center = f1 + step
-
-                        # 2.3 within range but skewed left:
-                        elif lowest_index == 2 and slope_left < 0 and lowest_value < threshold_low:
-                            print("Case 2.3: left-skewed (within-range)")
-                            if lowest_value < 0.2:
-                                new_center = f2 + self.freq_scan_min_step_size_kHz * kHz
-                            else:
-                                step = abs((f2 - f0) / 2)
-                                new_center = f2 + step
-
-                        # 2.4 within range but skewed right:
-                        elif lowest_index == 3 and slope_right > 0 and lowest_value < threshold_low:
-                            print("Case 2.4: right-skewed (within-range)")
-                            if lowest_value < 0.2:
-                                new_center = f3 - self.freq_scan_min_step_size_kHz * kHz
-                            else:
-                                step = abs((f1 - f3) / 2)
-                                new_center = f3 - step
-
+                        if len(retention_array) < 4 or len(self.scan_sequence1) < 4:
+                            # A run can end with fewer data windows than scan
+                            # points, so four are not guaranteed.
+                            print(
+                                "Decision loop: only "
+                                f"{min(len(retention_array), len(self.scan_sequence1))}"
+                                " point(s) available; leaving the center alone"
+                            )
                         else:
-                            print("Not in case 2.1 ~ 2.4")
+                            f0, f1, f2, f3 = self.scan_sequence1[0:4]
+                            R0, R1, R2, R3 = map(float, retention_array[0:4])
+
+                            # WING ASYMMETRY, not slope, locates the
+                            # resonance. The old test (slope_left < 0 and
+                            # slope_right > 0) only says "some dip lies
+                            # between the outer points", which holds for any
+                            # interior dip however lopsided -- that is why a
+                            # clearly right-shifted scan was reported as well
+                            # centered. Positive asymmetry means the right
+                            # probe is deeper, i.e. the resonance is RIGHT of
+                            # the current center.
+                            asym_inner = R2 - R3
+                            asym_outer = R0 - R1
+
+                            # Retention is a fraction over ~n_measurements
+                            # loaded atoms, so its binomial sigma is roughly
+                            # sqrt(p(1-p)/n) ~ 0.05 at n = 100, and ~0.07 on
+                            # a difference of two. This is about a 2-sigma
+                            # cut: raise it if the decision looks jumpy,
+                            # lower it to react to smaller shifts.
+                            asym_tol = 0.15
+
+                            # Decide on whichever PAIR actually shows the
+                            # asymmetry. The inner pair alone is not enough: a
+                            # resonance at or beyond an outer probe leaves
+                            # BOTH inner points on the flat shoulder, so
+                            # asym_inner is ~0 while asym_outer is large. A
+                            # dip sitting exactly on f0 (R = [0, .75, .75,
+                            # .75]) reads as perfectly centered on the inner
+                            # pair alone.
+                            if abs(asym_outer) > abs(asym_inner):
+                                asym = asym_outer
+                            else:
+                                asym = asym_inner
+
+                            lowest_index = int(np.argmin(retention_array[:4]))
+                            lowest_value = float(retention_array[lowest_index])
+
+                            if abs(asym_outer) > asym_tol and asym_outer * asym_inner < 0:
+                                # The inner and outer pairs disagree about
+                                # which side is deeper. Usually means the dip
+                                # is comparable to the noise, or the window
+                                # straddles two features. Worth seeing.
+                                print(
+                                    "Decision loop: inner and outer wings "
+                                    f"disagree (inner {asym_inner:+.3f}, "
+                                    f"outer {asym_outer:+.3f})"
+                                )
+
+                            # Skew is tested BEFORE centering. The centered
+                            # test used to come first with no depth or
+                            # symmetry guard, so it absorbed nearly every
+                            # skewed scan and left cases 2.3/2.4 unreachable.
+                            # Depth deliberately does not gate the skew cases:
+                            # a resonance outside the probed window leaves all
+                            # four points high, which is exactly when
+                            # re-centering matters most.
+                            if asym > asym_tol:
+                                if lowest_index == 1:
+                                    print("Case 2.2: right-skewed (out-of-range)")
+                                    if lowest_value < 0.2:
+                                        # freq_scan_min_step_size_kHz is a kHz
+                                        # number; scan values are in Hz
+                                        new_center = f1 + self.freq_scan_min_step_size_kHz * kHz
+                                    elif lowest_value < 0.4:
+                                        step = abs(f1 - f3)
+                                        new_center = f1 + step
+                                    else:
+                                        step = 2 * abs(f1 - f3)
+                                        new_center = f1 + step
+                                else:
+                                    print("Case 2.4: right-skewed (within-range)")
+                                    if lowest_value < 0.2:
+                                        new_center = f3 - self.freq_scan_min_step_size_kHz * kHz
+                                    else:
+                                        step = abs((f1 - f3) / 2)
+                                        new_center = f3 - step
+
+                            elif asym < -asym_tol:
+                                if lowest_index == 0:
+                                    print("Case 2.1: left-skewed (out-of-range)")
+                                    if lowest_value < 0.2:
+                                        new_center = f0 - self.freq_scan_min_step_size_kHz * kHz
+                                    elif lowest_value < 0.4:
+                                        step = abs(f2 - f0)
+                                        new_center = f0 - step
+                                    else:
+                                        step = 2 * abs(f2 - f0)
+                                        new_center = f0 - step
+                                else:
+                                    print("Case 2.3: left-skewed (within-range)")
+                                    if lowest_value < 0.2:
+                                        new_center = f2 + self.freq_scan_min_step_size_kHz * kHz
+                                    else:
+                                        step = abs((f2 - f0) / 2)
+                                        new_center = f2 + step
+
+                            elif lowest_value > threshold_low:
+                                # Symmetric AND shallow: no usable dip in the
+                                # probed window at all. Hands over to the
+                                # broaden-the-search path below rather than
+                                # silently accepting the center.
+                                no_clear_dip = True
+                                print(
+                                    "Decision loop: no clear dip in the probed "
+                                    f"window (best retention {lowest_value:.3f} "
+                                    f"> {threshold_low})"
+                                )
+
+                            else:
+                                print(
+                                    "Case 2.0: Well centered (asymmetry "
+                                    f"{asym_inner:+.3f} within {asym_tol})"
+                                )
 
                         # If we decided on a refined center, build a new scan
                         if new_center is not None:
@@ -587,8 +661,8 @@ class MicrowaveScanOptimizer_master_satellite(
                             pending_sequence1 = list(new_sequence1)
                             did_refine = True
                         else:
-                            if all(r > 0.9 for r in (R0, R1, R2, R3)):
-                                print("Resonance not in this range; seaching broader range with same center")
+                            if no_clear_dip or all(r > 0.9 for r in (R0, R1, R2, R3)):
+                                print("Resonance not in this range; searching broader range with same center")
                                 self.shrink_factor = self.shrink_factor * 2
                                 print("Manual scan range: - 2* self.freq_scan_range_left_kHz ~ +2* self.freq_scan_range_left_kHz, 20kHz step")
 
@@ -645,7 +719,7 @@ class MicrowaveScanOptimizer_master_satellite(
                         print("optimization failed - dataset not updated")
 
                 # write and overwrite the file here so we can quit the experiment early without losing data
-                self.write_results({'name': "parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+                self.write_results({'name': self.base.result_name_tag() + "_parent_rid_" + f"{self.parent_rid}" + "_" + self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
 
                 iteration += 1
 
