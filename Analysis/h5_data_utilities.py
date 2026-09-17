@@ -365,41 +365,6 @@ def ms_files(date_filters, node=None, name_filters=None, **kwargs):
     return pairs
 
 
-def ms_filter_by_node(filenames, node):
-    """Keep only the files belonging to one node.
-
-    This is the node-selection knob for the master_satellite notebooks. They
-    go on calling get_files_by_criteria exactly as they always did, then
-    narrow the result with one line:
-
-        node = "Node2"
-        fnames = ms_filter_by_node(fnames, node)
-
-    node=None returns the list unchanged, so a notebook with the knob left
-    alone finds precisely what it found before the knob existed.
-
-    A file whose node cannot be determined is DROPPED when a node is
-    requested, and says so rather than disappearing silently: that covers
-    standalone runs, and both-nodes files such as a pre-port
-    MonitorSPCMinApplet run, which carries Node1 and Node2 datasets at once.
-    """
-    if node is None:
-        return list(filenames)
-
-    kept = []
-    for filename in filenames:
-        try:
-            with h5py.File(filename, "r") as handle:
-                this_node = ms_node_of(handle, filename=filename)
-        except Exception as error:
-            print(f"skipping {filename}: {error}")
-            continue
-        if this_node == node:
-            kept.append(filename)
-    print(f"{len(kept)} of {len(filenames)} files are {node}")
-    return kept
-
-
 def _ms_decode(value):
     """bytes -> str, 0-d array -> its scalar, anything else unchanged."""
     if isinstance(value, bytes):
