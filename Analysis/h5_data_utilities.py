@@ -218,6 +218,29 @@ def get_files_by_criteria(date_filters, name_filters, condition,
                         print(f"skipping {filename}, which is corrupt")
     return file_list
 
+def get_files_by_multiple_names(date_filters, name_filters, **kwargs):
+    """
+    Call get_files_by_criteria once for each name_filter
+    and merge the results without duplicates.
+
+    Useful now that result filenames carry a node tag: pass e.g.
+    ["_Node1_atom_loading", "_Node2_atom_loading"] to pull both nodes at once,
+    or a single tag to pull one node.
+    """
+    combined = set()
+    for nf in name_filters:
+        fnames = get_files_by_criteria(
+            date_filters=date_filters,
+            name_filters=[nf],   # single filter -> original logic unchanged
+            condition=kwargs.get("condition", lambda x: True),
+            start_dir=kwargs.get("start_dir", results),
+            include_path=kwargs.get("include_path", True),
+            print_filenames=kwargs.get("print_filenames", False),
+        )
+        combined.update(fnames)
+
+    return list(combined)
+
 
 
 
@@ -263,7 +286,15 @@ def h5_archive_and_datasets_to_locals(f, parent_locals, quiet=False):
                     value = f[data_level][key][:]
                     # locals().update({key: value})
 
-                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'AllSPCMs_RO1' or key == 'AllSPCMs_RO2':
+                if key in ('SPCM0_RO1', 'SPCM0_RO2',
+                           'SPCM1_RO1', 'SPCM1_RO2',
+                           'AllSPCMs_RO1', 'AllSPCMs_RO2',
+                           # AllSPCMs_* is the current name. BothSPCMs_* is
+                           # what files written before the rename carry, kept
+                           # so old data still gets its leading [0] dataset
+                           # seed stripped -- otherwise those arrays come back
+                           # off by one, silently.
+                           'BothSPCMs_RO1', 'BothSPCMs_RO2'):
                     value = value[1:]
                 
                 parent_locals.update({key: value})
@@ -313,7 +344,15 @@ def print_h5_archive_and_datasets(f, scalars_only=True, quiet=False):
                     value = f[data_level][key][:]
                     # locals().update({key: value})
 
-                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'AllSPCMs_RO1' or key == 'AllSPCMs_RO2':
+                if key in ('SPCM0_RO1', 'SPCM0_RO2',
+                           'SPCM1_RO1', 'SPCM1_RO2',
+                           'AllSPCMs_RO1', 'AllSPCMs_RO2',
+                           # AllSPCMs_* is the current name. BothSPCMs_* is
+                           # what files written before the rename carry, kept
+                           # so old data still gets its leading [0] dataset
+                           # seed stripped -- otherwise those arrays come back
+                           # off by one, silently.
+                           'BothSPCMs_RO1', 'BothSPCMs_RO2'):
                     value = value[1:]
 
                 if scalars_only:
