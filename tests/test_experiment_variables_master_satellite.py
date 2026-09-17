@@ -173,12 +173,19 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         experiment = self.initialize(
             global_module.ExperimentVariablesMasterSatelliteGlobal
         )
+        # Deliberately an exact inventory rather than something derived from
+        # MASTER_SATELLITE_VARIABLES: adding a global should be a conscious
+        # decision, and this is what forces it to be one. The two-atom
+        # thresholds joined it on 2026-09-17, moving out of the per-node
+        # files because they describe the joint two-node readout.
         self.assertEqual(
             experiment.datasets,
             {
                 "n_measurements": 100,
                 "t_delay_in_bob_mu": 189,
                 "parallel_AOM_feedback": True,
+                "two_atom_threshold": 39000.0,
+                "two_atom_threshold_for_loading": 89000.0,
             },
         )
         self.assertFalse(

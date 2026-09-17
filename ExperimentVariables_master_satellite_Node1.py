@@ -157,8 +157,9 @@ NODE1_VARIABLES = (
     Variable('tune_852_waveplates_to_target_in_experiment_Node1', False, BooleanValue, {}, 'Booleans'),
     Variable('single_atom_threshold_Node1', 14000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
     Variable('single_atom_threshold_for_loading_Node1', 44000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
-    Variable('two_atom_threshold_Node1', 39000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
-    Variable('two_atom_threshold_for_loading_Node1', 89000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
+    # two_atom_threshold and two_atom_threshold_for_loading moved to
+    # ExperimentVariables_master_satellite_global.py on 2026-09-17: they
+    # describe the joint two-node readout, so both nodes share one value.
     Variable('set_point_PD1_AOM_A1_Node1', 0.22000000000000003, NumberValue, {'type': 'float', 'ndecimals': 4}, 'Set points'),
     Variable('set_point_PD2_AOM_A2_Node1', 0.19799686232465835, NumberValue, {'type': 'float', 'ndecimals': 4}, 'Set points'),
     Variable('set_point_PD3_AOM_A3_Node1', 0.21705300033549457, NumberValue, {'type': 'float', 'ndecimals': 4}, 'Set points'),

@@ -28,6 +28,27 @@ MASTER_SATELLITE_VARIABLES = (
         {},
         "master-satellite feedback",
     ),
+    # Two-atom thresholds are GLOBAL on purpose: they describe the joint
+    # two-node readout, not one node's detector, so both nodes must agree on
+    # them. They were per-node until 2026-09-17 and carried identical values
+    # on both, which is the duplication this removes. Being global also makes
+    # the bare name exist in two_nodes mode -- the per-node declarations only
+    # ever produced two_atom_threshold_NodeX, while the two-node experiment
+    # functions read self.two_atom_threshold.
+    Variable(
+        "two_atom_threshold",
+        39000.0,
+        NumberValue,
+        {"type": "float"},
+        "Thresholds and cut-offs",
+    ),
+    Variable(
+        "two_atom_threshold_for_loading",
+        89000.0,
+        NumberValue,
+        {"type": "float"},
+        "Thresholds and cut-offs",
+    ),
 )
 
 
