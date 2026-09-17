@@ -339,8 +339,9 @@ def ms_node_of(f, filename=None):
 def ms_files(date_filters, node=None, name_filters=None, **kwargs):
     """Find master-satellite result files and report each one's node.
 
-    Returns a list of (filename, node) pairs, newest-last as os.walk gives
-    them. Pass node="Node1" or "Node2" to keep only that node's runs.
+    Returns a list of (filename, node) pairs sorted by path, which for the
+    date-based results tree is effectively chronological. Pass node="Node1"
+    or "Node2" to keep only that node's runs.
 
     name_filters defaults to MASTER_SATELLITE_NAME_FILTERS so standalone runs
     are never mixed in.
@@ -362,6 +363,124 @@ def ms_files(date_filters, node=None, name_filters=None, **kwargs):
             continue
         pairs.append((filename, this_node))
     return pairs
+
+
+def ms_filter_by_node(filenames, node):
+    """Keep only the files belonging to one node.
+
+    This is the node-selection knob for the master_satellite notebooks. They
+    go on calling get_files_by_criteria exactly as they always did, then
+    narrow the result with one line:
+
+        node = "Node2"
+        fnames = ms_filter_by_node(fnames, node)
+
+    node=None returns the list unchanged, so a notebook with the knob left
+    alone finds precisely what it found before the knob existed.
+
+    A file whose node cannot be determined is DROPPED when a node is
+    requested, and says so rather than disappearing silently: that covers
+    standalone runs, and both-nodes files such as a pre-port
+    MonitorSPCMinApplet run, which carries Node1 and Node2 datasets at once.
+    """
+    if node is None:
+        return list(filenames)
+
+    kept = []
+    for filename in filenames:
+        try:
+            with h5py.File(filename, "r") as handle:
+                this_node = ms_node_of(handle, filename=filename)
+        except Exception as error:
+            print(f"skipping {filename}: {error}")
+            continue
+        if this_node == node:
+            kept.append(filename)
+    print(f"{len(kept)} of {len(filenames)} files are {node}")
+    return kept
+
+
+def _ms_decode(value):
+    """bytes -> str, 0-d array -> its scalar, anything else unchanged."""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    if isinstance(value, np.ndarray) and value.shape == ():
+        return _ms_decode(value[()])
+    return value
+
+
+def _ms_handle(source):
+    """(handle, handle_to_close) for either an open h5py.File or a path."""
+    if isinstance(source, (str, bytes, os.PathLike)):
+        opened = h5py.File(source, "r")
+        return opened, opened
+    return source, None
+
+
+def ms_get(source, key, default=None):
+    """Read one value from a master-satellite result file.
+
+    Resolves in the same precedence ms_archive_and_datasets_to_locals uses:
+    datasets, then archive, then the submitted expid arguments.
+
+    That last step is exactly what the direct h5py subscripts in these
+    notebooks were missing. GeneralVariableScan_master_satellite does NOT
+    archive scan_variable1_name as a dataset the way the standalone stack
+    does -- it survives only in expid["arguments"] -- and n_measurements
+    lives in archive rather than datasets. So ds['scan_variable1_name']
+    raises, and because the surrounding try wore a bare `except:`, every
+    master-satellite GVS run was reported as "oops... something wrong with"
+    rather than as a missing name. Nothing was wrong with those files.
+
+    Node suffixes are resolved, so the bare name works whichever node wrote
+    the file.
+
+    Strings come back DECODED. Do not wrap the result in str_from_h5: that is
+    a bytes-repr trick, str(np.array(x))[2:-1], and handed an already-decoded
+    str it silently returns a single character.
+
+    source may be an open h5py.File or a path.
+    """
+    handle, to_close = _ms_handle(source)
+    try:
+        try:
+            node = ms_node_of(handle)
+        except Exception:
+            node = None
+
+        names = [key] if node is None else [key, f"{key}_{node}"]
+        for container in ("datasets", "archive"):
+            if container not in handle:
+                continue
+            group = handle[container]
+            for name in names:
+                if name in group:
+                    return _ms_decode(group[name][()])
+
+        arguments = _ms_expid_arguments(handle)
+        for name in names:
+            if name in arguments:
+                return arguments[name]
+        return default
+    finally:
+        if to_close is not None:
+            to_close.close()
+
+
+def ms_scan_label(source):
+    """The "scanned over ..." label for a master-satellite result file.
+
+    Returns "f_FORT" or "f_FORT, t_FORT", or "" if the run recorded no scan
+    variable. Opens the file once, unlike reading the two names separately.
+    """
+    handle, to_close = _ms_handle(source)
+    try:
+        first = ms_get(handle, "scan_variable1_name", "") or ""
+        second = ms_get(handle, "scan_variable2_name", "") or ""
+        return f"{first}, {second}" if second else first
+    finally:
+        if to_close is not None:
+            to_close.close()
 
 
 def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
