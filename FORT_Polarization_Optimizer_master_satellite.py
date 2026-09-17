@@ -47,6 +47,7 @@ plan_codex_detail.md section 18):
 
 from artiq.experiment import *
 
+import logging
 import numpy as np
 
 from subroutines.k10cr1_functions import (
@@ -110,6 +111,15 @@ class FORT_Polarization_Optimizer_master_satellite(
             BooleanValue(False),
             "optimization settings",
         )
+        self.setattr_argument(
+            "show_shared_applets",
+            BooleanValue(True),
+            "Applets",
+            tooltip="Ask the dashboard for the node-independent applets: "
+                    "Microwaves Health Check and feedback RF, one of each per "
+                    "node. They live in their own group and are never "
+                    "retired, so this only re-asserts them.",
+        )
 
     def prepare(self):
         # tolerance_deg/full_range/sample_pts are run-local GUI values that
@@ -172,6 +182,35 @@ class FORT_Polarization_Optimizer_master_satellite(
                 self, name=self._axis_852_QWP,
                 target_deg=self.best_852QWP_to_max,
             )
+
+    @kernel
+    def force_other_node_off(self):
+        self.base.force_other_node_off()
+
+    def _create_shared_applets(self):
+        """Keep the node-independent applets up, if enabled.
+
+        Microwaves Health Check and feedback RF, one of each per node. This
+        experiment runs laser feedback through its own stabilizer factory, so
+        the feedback RF plot is directly relevant while it optimizes. Only the
+        shared applets: it does not take over the per-node applet set or
+        retire the idle node's group, which is what create_applets_for would
+        do.
+
+        Never fatal: an applet is a convenience, and the CCB is a
+        dashboard-side service. In particular nothing is created when no
+        dashboard is connected.
+        """
+        if not self.show_shared_applets:
+            return
+        try:
+            from applets_master_satellite import create_shared_applets_for
+
+            created = create_shared_applets_for(self, self.base)
+        except Exception as error:  # noqa: BLE001 - convenience only
+            logging.warning("could not create shared applets: %s", error)
+        else:
+            logging.info("requested %d shared applets", len(created))
 
     def initialize_datasets(self):
         # Written through the dataset-redirect layer, so these land under the
@@ -405,10 +444,23 @@ class FORT_Polarization_Optimizer_master_satellite(
         )
 
     def run(self):
+        # Re-assert the node-independent applets first, so they come up while
+        # the hardware initializes rather than after it.
+        self._create_shared_applets()
+
         # Unlike the standalone optimizer, prepare() is not re-run here: the
         # master-satellite Base prepare is one-shot, and initialize_hardware
         # performs the core reset.
         self.initialize_hardware()
+
+        # Once per run: single_node mode leaves the other node out of the
+        # initialization lifecycle, so without this its beams and coils keep
+        # whatever state the previous run left them in. Placed AFTER
+        # initialize_hardware because that is this experiment's only
+        # core.reset() -- nothing later can clear the RTIO FIFO underneath
+        # these events.
+        self.force_other_node_off()
+
         self.initialize_datasets()
 
         self.optimization_routine_zigzag_power_normalized()

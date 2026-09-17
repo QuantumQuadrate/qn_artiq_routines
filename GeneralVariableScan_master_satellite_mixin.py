@@ -330,6 +330,10 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
     def initialize_hardware(self):
         self.base.initialize_hardware()
 
+    @kernel
+    def force_other_node_off(self):
+        self.base.force_other_node_off()
+
     def _initialize_run_state(self):
         """Refresh queued values and initialize transient run results once."""
         if self.needs_experiment_variable_reload:
@@ -366,23 +370,42 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self._create_node_applets()
 
     def _create_node_applets(self):
-        """Ask the dashboard for this node's applets, if enabled.
+        """Ask the dashboard for applets, if enabled.
+
+        Two-node mode gets the SHARED applets only. create_applets_for
+        refuses anything but single_node, because the per-node applets read
+        result datasets that two-node mode does not suffix, so both nodes
+        would write the same names and there would be nothing for a per-node
+        applet to point at. The shared specs do not have that problem: they
+        name their datasets explicitly per node, so they resolve unchanged in
+        either mode.
+
+        Worth knowing about feedback RF in two-node mode: prepare_laser_
+        stabilizer is deliberately skipped there, so such a run writes no
+        p_AOM_A*_history_* at all and the plot shows the last single-node
+        run's data rather than live values.
 
         Never fatal: the applets are a convenience, and the CCB is a
         dashboard-side service that artiq_run and the offline compile check
         do not provide meaningfully.
         """
-        if not self.create_applets or self.EXPERIMENT_MODE != "single_node":
+        if not self.create_applets:
             return
         try:
-            from applets_master_satellite import create_applets_for
+            if self.EXPERIMENT_MODE == "single_node":
+                from applets_master_satellite import create_applets_for
 
-            created = create_applets_for(self, self.base)
+                created = create_applets_for(self, self.base)
+            else:
+                from applets_master_satellite import create_shared_applets_for
+
+                created = create_shared_applets_for(self, self.base)
         except Exception as error:  # noqa: BLE001 - convenience only
             logging.warning("could not create applets: %s", error)
         else:
+            # which_node is None in two-node mode; name the mode instead.
             logging.info("requested %d applets for %s", len(created),
-                         self.base.which_node)
+                         self.base.which_node or self.EXPERIMENT_MODE)
 
     def _execute_scan_point(self, variable1_value, variable2_value, iteration):
         """Execute one scan point without rebuilding or preparing devices."""
@@ -442,6 +465,17 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
 
     def run(self):
         self._initialize_run_state()
+
+        # Once per run, before the scan loop. single_node mode leaves the
+        # other node out of the initialization lifecycle, so without this its
+        # beams and coils keep whatever state the previous run left them in.
+        # Placing it here is safe: the core.reset() inside the per-scan-point
+        # initialize_hardware() can only drive TTLs low and cannot change a
+        # held Zotino output, so it cannot undo this. The host-side mode guard
+        # keeps the kernel out of the two-node variant, which has no "other"
+        # node and whose device lists would not type-check.
+        if self.EXPERIMENT_MODE == "single_node":
+            self.force_other_node_off()
 
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)

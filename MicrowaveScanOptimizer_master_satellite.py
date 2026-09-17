@@ -113,6 +113,11 @@ class MicrowaveScanOptimizer_master_satellite(
 
         self.setattr_argument('run_health_check_and_optimize', BooleanValue(default=True), "Health Check")
         self.setattr_argument("target_fidelity", NumberValue(0.80, ndecimals=2, step=1), "Health Check")
+        self.setattr_argument(
+            'show_shared_applets',
+            BooleanValue(default=True),
+            "Applets",
+        )
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Scan Setting")
         self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Scan Setting")
@@ -308,6 +313,34 @@ class MicrowaveScanOptimizer_master_satellite(
         self.core.break_realtime()
         self.base.initialize_hardware()
 
+    @kernel
+    def force_other_node_off(self):
+        self.base.force_other_node_off()
+
+    def _create_shared_applets(self):
+        """Keep the node-independent applets up, if enabled.
+
+        Microwaves Health Check and feedback RF, one of each per node. This
+        experiment deliberately does not take over the per-node applet set or
+        retire the idle node's group, which is what create_applets_for would
+        do -- it is these plots we want on screen, not the whole dashboard.
+
+        Never fatal: an applet is a convenience, and the CCB is a
+        dashboard-side service that artiq_run and the offline compile check
+        do not provide meaningfully. In particular, nothing is created when
+        no dashboard is connected.
+        """
+        if not self.show_shared_applets:
+            return
+        try:
+            from applets_master_satellite import create_shared_applets_for
+
+            created = create_shared_applets_for(self, self.base)
+        except Exception as error:  # noqa: BLE001 - convenience only
+            logging.warning("could not create shared applets: %s", error)
+        else:
+            logging.info("requested %d shared applets", len(created))
+
     def initialize_datasets(self):
         self.base.initialize_single_node_result_state()
 
@@ -365,6 +398,19 @@ class MicrowaveScanOptimizer_master_satellite(
             self._apply_run_wide_overrides()
 
         self.initialize_datasets()
+
+        # Re-assert the two Microwaves Health Check applets (one per node).
+        # They sit in their own group and are never retired, so this only has
+        # to ask for them; they persist between runs and across node changes.
+        self._create_shared_applets()
+
+        # Once per run, ahead of both the health-check and the scan branches:
+        # single_node mode leaves the other node out of the initialization
+        # lifecycle, so without this its beams and coils keep whatever state
+        # the previous run left them in. The per-scan-point
+        # initialize_hardware() below cannot undo it -- core.reset() only ever
+        # drives TTLs low and cannot change a held Zotino output.
+        self.force_other_node_off()
 
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)

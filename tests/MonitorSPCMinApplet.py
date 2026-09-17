@@ -146,9 +146,20 @@ class MonitorSPCMinApplet(_DatasetRedirectMixin, EnvExperiment):
         if not self.create_applets:
             return
         try:
-            from applets_master_satellite import create_applets_for
+            from applets_master_satellite import (
+                APPLET_SPECS,
+                SPCM_MONITOR_APPLET_SPECS,
+                create_applets_for,
+            )
 
-            created = create_applets_for(self, self.base)
+            # The SPCM count-rate applets are deliberately NOT in the default
+            # set: they would otherwise come up on every scan. This experiment
+            # is the one that exists to watch them, so it is the one that asks
+            # for them.
+            created = create_applets_for(
+                self, self.base,
+                specs=APPLET_SPECS + SPCM_MONITOR_APPLET_SPECS,
+            )
         except Exception as error:  # noqa: BLE001 - convenience only
             logging.warning("could not create applets: %s", error)
         else:

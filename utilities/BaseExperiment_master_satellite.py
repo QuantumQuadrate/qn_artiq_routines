@@ -55,6 +55,15 @@ class BaseExperimentMasterSatellite:
     )
 
     CPLDS = ("urukul0_cpld", "urukul1_cpld", "urukul2_cpld")
+    # Every Urukul channel of one node, in standalone naming. Used to reach
+    # the OTHER node's RF switches without going through the DDS alias
+    # machinery, which needs per-node defaults that single-node mode
+    # deliberately does not load for the unselected node.
+    URUKUL_CHANNELS = tuple(
+        f"urukul{card}_ch{channel}"
+        for card in range(3)
+        for channel in range(4)
+    )
     SAMPLERS = ("sampler0", "sampler1", "sampler2")
     ZOTINOS = ("zotino0",)
     TTLS = tuple(f"ttl{i}" for i in range(16))
@@ -291,6 +300,17 @@ class BaseExperimentMasterSatellite:
         self._ttl_safe_off_node2 = []
         self._spcm_inputs = []
 
+        # The node NOT selected in single_node mode. Its devices stay bound
+        # but leave the initialization lifecycle, so force_other_node_off()
+        # keeps its own references in order to drive that node safe.
+        self._other_node = None
+        self._other_node_is_satellite = False
+        self._other_node_cplds = []
+        self._other_node_zotinos = []
+        self._other_node_gate_on = []
+        self._other_node_gate_off = []
+        self._other_node_dds_switches = []
+
     def _set_execution_configuration(self, experiment_mode, which_node):
         if experiment_mode not in self.VALID_MODES:
             raise ValueError(
@@ -347,6 +367,7 @@ class BaseExperimentMasterSatellite:
                 "Node2" if self.which_node == "Node1" else "Node1"
             )
             self._deactivate_node_hardware_groups(other_node)
+            self._bind_other_node_dds_switches(other_node)
             self._publish_single_node_physical_presentations()
             self._bind_node_ttl_aliases(self.which_node)
             self._publish_shared_spcm_compatibility()
@@ -354,8 +375,25 @@ class BaseExperimentMasterSatellite:
         self._install_single_node_wiring_metadata()
 
     def _deactivate_node_hardware_groups(self, node):
-        """Keep bound devices registered but exclude a node from lifecycle."""
+        """Keep bound devices registered but exclude a node from lifecycle.
+
+        Excluding a node means "do not INITIALIZE it"; nothing here emits a
+        hardware operation, which is why the unselected node used to keep
+        whatever output state the previous run left it in. The cleared lists
+        are retained under _other_node_* so force_other_node_off() can drive
+        that node safe when an experiment asks for it.
+        """
         suffix = node.lower()
+        self._other_node = node
+        self._other_node_is_satellite = node == "Node2"
+        self._other_node_cplds = list(getattr(self, f"_cplds_{suffix}"))
+        self._other_node_zotinos = list(getattr(self, f"_zotinos_{suffix}"))
+        self._other_node_gate_on = list(
+            getattr(self, f"_ttl_safe_on_{suffix}")
+        )
+        self._other_node_gate_off = list(
+            getattr(self, f"_ttl_safe_off_{suffix}")
+        )
         for storage_name in (
             "_cplds",
             "_samplers",
@@ -366,6 +404,43 @@ class BaseExperimentMasterSatellite:
             "_ttl_safe_off",
         ):
             setattr(self, f"{storage_name}_{suffix}", [])
+
+    def _bind_other_node_dds_switches(self, node):
+        """Bind the unselected node's twelve Urukul RF switches.
+
+        An AD9910's ``sw`` is an independent TTLOut resolved at construction
+        (artiq/coredevice/ad9910.py binds sw_device with a plain dmgr.get), so
+        obtaining these switch objects costs no SPI traffic at all. The DDS
+        channels are bound as PHYSICAL devices rather than through bind_dds,
+        because the alias route resolves f_*/p_* defaults that single_node
+        mode deliberately does not load for the other node.
+
+        Attribute names are explicitly node-suffixed instead of going through
+        _presentation_name, which returns the BARE name in single_node mode
+        and would publish the other node's devices straight over the selected
+        node's own urukul0_ch0/... attributes.
+        """
+        resolver = self.node_resolvers.get(node)
+        if resolver is None:
+            # An experiment that configured its execution mode BEFORE build()
+            # bound only the selected node, so there is nothing to reach and
+            # force_other_node_off() stays a no-op. AOMsCoils relies on that.
+            return
+        switches = []
+        for standalone_name in self.URUKUL_CHANNELS:
+            device = resolver.bind_physical_device(
+                standalone_name,
+                self._default_attribute_name(node, standalone_name),
+            )
+            # A channel only has .sw when its device_db entry declares
+            # sw_device. Every channel in this system does, but skipping
+            # rather than raising keeps a device_db quirk from breaking
+            # prepare() for every single-node experiment over what is a
+            # safety convenience.
+            switch = getattr(device, "sw", None)
+            if switch is not None:
+                switches.append(switch)
+        self._other_node_dds_switches = switches
 
     def _presentation_name(self, base_name, node):
         if self.experiment_mode == "single_node":
@@ -1397,6 +1472,72 @@ class BaseExperimentMasterSatellite:
                     zotino.write_dac(channel, 0.0)
                     zotino.load()
                     delay(1 * ms)
+
+    @kernel
+    def force_other_node_off(self):
+        """Drive the node that is NOT selected into a dark, de-energised state.
+
+        single_node mode removes the other node from the initialization
+        lifecycle (see _deactivate_node_hardware_groups), which means "do not
+        initialize it" -- so its beams and coils keep whatever state the
+        previous run left them in. This drives them off explicitly: RF
+        switches open, active-low optical gates blocked, every Zotino channel
+        at 0 V.
+
+        Why the CPLDs are initialized here even though we only want things
+        OFF: a Urukul's RF switch is the CPLD configuration-register bit
+        logically OR-ed with the sw TTL (see cfg_sw in
+        artiq/coredevice/urukul.py), and that register's HARDWARE state is not
+        carried between experiments while the driver's mirror is re-seeded
+        from the device_db default of 0x0. Dropping the sw TTL is therefore
+        not sufficient on a crate this run never initialized: a bit left set
+        in the CPLD would hold the beam on regardless of the TTL. cpld.init()
+        writes the 0x0 mirror out, clearing all four switches. CPLD init does
+        NOT run the AD9910 SYNC window search, so sync calibration is
+        untouched.
+
+        Call this ONCE per run, not per scan point: it costs three CPLD
+        inits, twelve TTL writes, and a Zotino init plus sixteen DAC writes,
+        all over remote SPI when the other node is the satellite.
+        core.reset() can only drive TTL PHYs low and cannot change a Zotino's
+        held output, so the state established here survives the
+        per-scan-point initialize_hardware() calls that follow.
+        """
+        if len(self._other_node_dds_switches) == 0:
+            return
+
+        # node2_active is False whenever Node1 is selected, so
+        # initialize_hardware() skipped the readiness wait. Writes to
+        # destination 1 still need the DRTIO link up.
+        if self._other_node_is_satellite:
+            self._wait_for_satellite()
+        else:
+            self.experiment.core.break_realtime()
+
+        self._initialize_cplds(self._other_node_cplds)
+
+        for dds_switch in self._other_node_dds_switches:
+            dds_switch.off()
+            delay(1 * ms)
+
+        # These gates are ACTIVE LOW: on() blocks the AOM, off() passes it.
+        # Each loop needs its own variable name; see _configure_ttl_group.
+        for gate_to_block in self._other_node_gate_on:
+            gate_to_block.on()
+            delay(1 * ms)
+        for gate_to_clear in self._other_node_gate_off:
+            gate_to_clear.off()
+            delay(1 * ms)
+
+        for zotino in self._other_node_zotinos:
+            self.experiment.core.break_realtime()
+            zotino.init()
+            for channel in range(16):
+                zotino.write_dac(channel, 0.0)
+                zotino.load()
+                delay(1 * ms)
+
+        self.experiment.core.break_realtime()
 
 
 class _NodeAxisK10CR1Proxy:

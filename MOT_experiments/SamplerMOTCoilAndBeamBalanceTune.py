@@ -120,6 +120,16 @@ class SamplerMOTCoilAndBeamBalanceTune(_DatasetRedirectMixin, EnvExperiment):
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(500), "Laser feedback")
         self.setattr_argument("monitor_only", BooleanValue(False), "Laser feedback")
 
+        self.setattr_argument(
+            "show_shared_applets",
+            BooleanValue(True),
+            "Applets",
+            tooltip="Ask the dashboard for the node-independent applets: "
+                    "Microwaves Health Check and feedback RF, one of each per "
+                    "node. They live in their own group and are never "
+                    "retired, so this only re-asserts them.",
+        )
+
         # The standalone Base archived the GUI arguments here with
         # set_datasets_from_gui_args(). The master-satellite Base has no such
         # method, and ARTIQ already stores the submitted arguments in the HDF5
@@ -170,7 +180,33 @@ class SamplerMOTCoilAndBeamBalanceTune(_DatasetRedirectMixin, EnvExperiment):
         self.set_dataset(self.SPCM1_OtherNode_rate_dataset, [0.0], broadcast=True)
         self.set_dataset(self.AllSPCMs_rate_dataset, [0.0], broadcast=True)
 
+        self._create_shared_applets()
+
         print("prepare - done")
+
+    def _create_shared_applets(self):
+        """Keep the node-independent applets up, if enabled.
+
+        Microwaves Health Check and feedback RF, one of each per node. This
+        experiment runs laser feedback, so the feedback RF plot is exactly
+        what one wants on screen while tuning. Only the shared applets: it
+        does not take over the per-node applet set or retire the idle node's
+        group, which is what create_applets_for would do.
+
+        Never fatal: an applet is a convenience, and the CCB is a
+        dashboard-side service. In particular nothing is created when no
+        dashboard is connected.
+        """
+        if not self.show_shared_applets:
+            return
+        try:
+            from applets_master_satellite import create_shared_applets_for
+
+            created = create_shared_applets_for(self, self.base)
+        except Exception as error:  # noqa: BLE001 - convenience only
+            logging.warning("could not create shared applets: %s", error)
+        else:
+            logging.info("requested %d shared applets", len(created))
 
     @kernel
     def run(self):

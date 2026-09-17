@@ -67,14 +67,23 @@ _MON = "Monitor in each measurement"
 _PHOTON = "Single Photon Experiment"
 _K10 = "K10CR1"
 
-# The nine applets Node1 actually had ENABLED, transcribed from its live
-# dashboard state (AppData/Local/m-labs/artiq/7), plus the four per-SPCM
-# count-rate applets restored 2026-09-16 for MonitorSPCMinApplet -- they were
-# defined in that dashboard state but not enabled, and their commands here are
-# copied from it verbatim. Keeping the default set small is deliberate: 65
-# applets were defined there but only nine running, and applet count is what
-# makes the dashboard struggle. Move anything rarely watched down to
-# OPTIONAL_APPLET_SPECS rather than growing this list further.
+# What every experiment gets, and nothing more. Originally the nine applets
+# Node1 actually had ENABLED, transcribed from its live dashboard state
+# (AppData/Local/m-labs/artiq/7). Four of those moved out on 2026-09-17 so
+# they stop coming up on every scan:
+#
+#   SPCM count rates (x5)     -> SPCM_MONITOR_APPLET_SPECS, asked for only by
+#                                MonitorSPCMinApplet
+#   n_excitation_cycles       -> OPTIONAL_APPLET_SPECS, single-photon work only
+#   FORT APD / FORT MM        -> SHARED_APPLET_SPECS, now one applet per NODE
+#                                and always up, since the FORT is used
+#                                everywhere
+#
+# Keeping this set small is deliberate: 65 applets were defined in that
+# dashboard state but only nine running, and applet count is what makes the
+# dashboard struggle. Put anything that only one experiment cares about in its
+# own tuple, as SPCM_MONITOR_APPLET_SPECS does, or in OPTIONAL_APPLET_SPECS --
+# do not grow this list.
 APPLET_SPECS = (
     _spec("measurements progress", ("builtin", "progress_bar"),
           ("measurements_progress",)),
@@ -98,12 +107,50 @@ APPLET_SPECS = (
            ("--t_exposure", "t_SPCM_second_shot")),
           group=_GVS),
 
-    # The four master-local SPCMs, written by MonitorSPCMinApplet. The dataset
-    # names stay in their LEGACY form because that is what the experiments
-    # actually write; only the titles carry the canonical detector names
-    # (SPCM_H1 = SPCM0, SPCM_V1 = SPCM1, SPCM_H2 = SPCM0_OtherNode,
-    # SPCM_V2 = SPCM1_OtherNode). These are not node-suffixed: the detectors
-    # are master-local, so both nodes write the same five datasets.
+    _spec("Atom loading time (s)", "plot_xy_multichannel.py",
+          ("Atom_loading_time", "n_measurements"), group=_MON),
+)
+
+#: Applets that were defined but not enabled on Node1 (several were enabled
+#: on Node2). Pass them explicitly when you want them:
+#:     create_applets_for(self, self.base,
+#:                        specs=APPLET_SPECS + OPTIONAL_APPLET_SPECS)
+OPTIONAL_APPLET_SPECS = (
+    # The unsuffixed "Microwaves Health Check" that used to live here is
+    # superseded by the two per-node entries in SHARED_APPLET_SPECS below,
+    # which are always created and show both nodes at once.
+    #
+    # n_excitation_cycles moved down here 2026-09-17: only the single-photon
+    # work looks at it, so it should not come up on every run.
+    _spec("n_excitation_cycles", "plot_xyline.py", ("n_excitation_cycles",),
+          (("--pts", "applet_plot_points_short"),), group=_PHOTON),
+    _spec("Time without atom (s)", ("builtin", "big_number"),
+          ("time_without_atom",), group=_GVS),
+    _spec("optimization cost", ("builtin", "plot_xy"), ("cost",), group=_OPT),
+    # The unsuffixed "feedback RF" that used to live here is superseded by the
+    # two per-node entries in SHARED_APPLET_SPECS below, which are always
+    # created and show both nodes at once.
+    _spec("waveplate trajectory", ("builtin", "plot_xy"), ("HWP_angle",),
+          (("--x", "QWP_angle"),), group=_K10),
+    _spec("FORT MM (normalized and accounted for power)",
+          "plot_FORT_MM_norm_to_power.py", ("FORT_MM_monitor",),
+          (("--y0", "best_852_power_ref"), ("--y1", "FORT_APD_monitor"),
+           ("--y2", "set_point_FORT_APD_loading")), group=_K10),
+)
+
+#: The SPCM count-rate applets. Deliberately NOT in APPLET_SPECS: they would
+#: otherwise be created on every scan, and MonitorSPCMinApplet is the one
+#: experiment that exists to watch them, so it asks for them explicitly:
+#:
+#:     create_applets_for(self, self.base,
+#:                        specs=APPLET_SPECS + SPCM_MONITOR_APPLET_SPECS)
+#:
+#: Titles carry the canonical detector names (SPCM_H1 = SPCM0, SPCM_V1 =
+#: SPCM1, SPCM_H2 = SPCM0_OtherNode, SPCM_V2 = SPCM1_OtherNode) while the
+#: dataset names stay LEGACY, because that is what the experiments write.
+#: Not node-suffixed: the detectors are master-local, so both nodes write the
+#: same five datasets. Commands copied verbatim from the dashboard backup.
+SPCM_MONITOR_APPLET_SPECS = (
     _spec("SPCM_H1 count rate", "plot_xyline.py",
           ("SPCM0_counts_per_s",),
           (("--pts", "applet_plot_points_short"),), group=_OPT),
@@ -119,46 +166,98 @@ APPLET_SPECS = (
     _spec("All SPCMs count rate", "plot_xyline.py",
           ("AllSPCMs_counts_per_s",),
           (("--pts", "applet_plot_points_medium"),), group=_OPT),
-
-    _spec("Atom loading time (s)", "plot_xy_multichannel.py",
-          ("Atom_loading_time", "n_measurements"), group=_MON),
-
-    _spec("n_excitation_cycles", "plot_xyline.py", ("n_excitation_cycles",),
-          (("--pts", "applet_plot_points_short"),), group=_PHOTON),
-
-    _spec("FORT APD normalized setpoint", "plot_xyline_relative_y.py",
-          ("FORT_APD_monitor",),
-          (("--y0", "set_point_FORT_APD_loading"),), group=_K10),
-    _spec("FORT MM normalized to ref", "plot_xyline_relative_y.py",
-          ("FORT_MM_monitor",),
-          (("--y0", "best_852_power_ref"),), group=_K10),
 )
 
-#: Applets that were defined but not enabled on Node1 (several were enabled
-#: on Node2). Pass them explicitly when you want them:
-#:     create_applets_for(self, self.base,
-#:                        specs=APPLET_SPECS + OPTIONAL_APPLET_SPECS)
-OPTIONAL_APPLET_SPECS = (
-    _spec("Microwaves Health Check", "bar_plot_microwaves_health_check.py",
-          ("health_check_uw_freq00", "health_check_uw_freq01",
-           "health_check_uw_freq11", "health_check_uw_freqm10",
-           "health_check_uw_freqm11")),
-    _spec("Time without atom (s)", ("builtin", "big_number"),
-          ("time_without_atom",), group=_GVS),
-    _spec("optimization cost", ("builtin", "plot_xy"), ("cost",), group=_OPT),
-    _spec("feedback RF", "plot_xy_multichannel.py",
-          ("p_AOM_A1_history", "MOT_beam_monitor_points"),
-          (("--y2", "p_AOM_A2_history"), ("--y3", "p_AOM_A3_history"),
-           ("--y4", "p_AOM_A4_history"), ("--y5", "p_AOM_A5_history"),
-           ("--y6", "p_AOM_A6_history"), ("--y7", "p_FORT_loading_history"),
-           ("--labels", "feedbackchannels")),
-          group=_MON),
-    _spec("waveplate trajectory", ("builtin", "plot_xy"), ("HWP_angle",),
-          (("--x", "QWP_angle"),), group=_K10),
-    _spec("FORT MM (normalized and accounted for power)",
-          "plot_FORT_MM_norm_to_power.py", ("FORT_MM_monitor",),
-          (("--y0", "best_852_power_ref"), ("--y1", "FORT_APD_monitor"),
-           ("--y2", "set_point_FORT_APD_loading")), group=_K10),
+
+#: Top-level group for applets that belong to NEITHER node. It is never one of
+#: base.VALID_NODES, so create_applets_for's disable_applet_group pass leaves
+#: it alone -- which is what keeps these up no matter which node is running.
+SHARED_APPLET_GROUP = "Both nodes"
+
+_HEALTH_CHECK_DATASETS = (
+    "health_check_uw_freq00",
+    "health_check_uw_freq01",
+    "health_check_uw_freq11",
+    "health_check_uw_freqm10",
+    "health_check_uw_freqm11",
+)
+
+_FEEDBACK_RF_ARGS = ("p_AOM_A1_history", "MOT_beam_monitor_points")
+_FEEDBACK_RF_OPTIONS = (
+    ("--y2", "p_AOM_A2_history"),
+    ("--y3", "p_AOM_A3_history"),
+    ("--y4", "p_AOM_A4_history"),
+    ("--y5", "p_AOM_A5_history"),
+    ("--y6", "p_AOM_A6_history"),
+    ("--y7", "p_FORT_loading_history"),
+    ("--labels", "feedbackchannels"),
+)
+
+
+def _per_node_specs(title, script, args, options=()):
+    """One spec per node, with every dataset name pinned to that node.
+
+    Every entry in ``args`` and every VALUE in ``options`` must be a dataset
+    name rather than a literal, since each simply gets the node suffix
+    appended.
+    """
+    return tuple(
+        _spec(
+            f"{title} {node}",
+            script,
+            tuple(f"{name}_{node}" for name in args),
+            tuple((flag, f"{value}_{node}") for flag, value in options),
+        )
+        for node in ("Node1", "Node2")
+    )
+
+
+#: Applets that show BOTH nodes and stay up regardless of which one is
+#: running. Unlike every spec above, their dataset names are written out
+#: node-suffixed rather than left legacy-unsuffixed: resolve_applet_dataset
+#: would otherwise rewrite them to whichever node happens to be running, and
+#: the whole point here is to pin one applet per node. Suffixed names survive
+#: that resolution in both directions -- the running node's are returned
+#: unchanged, and the other node's raise ValueError and fall through to
+#: resolve_result_dataset_name, which passes them through untouched.
+#:
+#: Both families keep showing the idle node's data rather than going blank:
+#: the microwave fidelities are persistent per-node ExperimentVariables, and
+#: the feedback histories are per-node result datasets. Note the suffix goes
+#: on the END of the whole legacy name -- p_AOM_A1_history_Node1, not
+#: p_AOM_A1_Node1_history -- which is what feedback_dataset_map produces.
+SHARED_APPLET_SPECS = (
+    _per_node_specs(
+        "Microwaves Health Check",
+        "bar_plot_microwaves_health_check.py",
+        _HEALTH_CHECK_DATASETS,
+    )
+    + _per_node_specs(
+        "feedback RF",
+        "plot_xy_multichannel.py",
+        _FEEDBACK_RF_ARGS,
+        _FEEDBACK_RF_OPTIONS,
+    )
+    # The FORT monitors are shared for the same reason: the FORT is used
+    # everywhere, so both nodes' traces should stay on screen whichever node
+    # is running. Unlike the two families above, the plotted y-series
+    # (FORT_APD_monitor_NodeX, FORT_MM_monitor_NodeX) are broadcast-only
+    # transients rather than persistent datasets -- they live in the running
+    # master's memory, so the APPLET persists across runs but its data starts
+    # empty after a master restart until feedback republishes it. The --y0
+    # reference values are persistent per-node variables.
+    + _per_node_specs(
+        "FORT APD normalized setpoint",
+        "plot_xyline_relative_y.py",
+        ("FORT_APD_monitor",),
+        (("--y0", "set_point_FORT_APD_loading"),),
+    )
+    + _per_node_specs(
+        "FORT MM normalized to ref",
+        "plot_xyline_relative_y.py",
+        ("FORT_MM_monitor",),
+        (("--y0", "best_852_power_ref"),),
+    )
 )
 
 
@@ -209,8 +308,55 @@ def applet_group_for(base):
     return "TwoNodes"
 
 
-def create_applets_for(experiment, base, specs=APPLET_SPECS):
+def _dashboard_ccb(experiment):
+    """Fetch the dashboard-supplied CCB virtual device.
+
+    Experiments need not bind it, so fetch rather than assume an attribute.
+    """
+    ccb = getattr(experiment, "ccb", None)
+    if ccb is None:
+        ccb = experiment.get_device("ccb")
+    return ccb
+
+
+def create_shared_applets_for(experiment, base,
+                              shared_specs=SHARED_APPLET_SPECS):
+    """Create the node-independent applets and nothing else.
+
+    These live under SHARED_APPLET_GROUP, which is never one of
+    base.VALID_NODES, so no disable_applet_group pass can retire them.
+
+    Use this instead of create_applets_for from an experiment that should
+    keep the shared applets up WITHOUT taking over the per-node applet set
+    and without retiring the idle node's group. Passing specs=() to
+    create_applets_for would not do: it still runs the disable pass.
+
+    Works in either execution mode. The shared specs name their datasets
+    node-suffixed, and suffixed names resolve unchanged in two_nodes too.
+
+    Returns the (title, command) pairs issued.
+    """
+    ccb = _dashboard_ccb(experiment)
+    issued = []
+    for spec in shared_specs:
+        command = build_applet_command(spec, base)
+        group = (
+            [SHARED_APPLET_GROUP] if spec.group is None
+            else [SHARED_APPLET_GROUP, spec.group]
+        )
+        ccb.issue("create_applet", spec.title, command, group=group)
+        issued.append((spec.title, command))
+    return issued
+
+
+def create_applets_for(experiment, base, specs=APPLET_SPECS,
+                       shared_specs=SHARED_APPLET_SPECS):
     """Create this node's applets and retire the other node's group.
+
+    ``specs`` are per-node: they are created under the running node's group
+    and the other node's group is disabled. ``shared_specs`` are created
+    under SHARED_APPLET_GROUP instead, which is never disabled, so they stay
+    up whichever node runs. Pass ``shared_specs=()`` to skip them.
 
     Returns the (title, command) pairs issued. Safe to call on every run:
     create_applet replaces the spec of an existing applet with the same name
@@ -226,11 +372,7 @@ def create_applets_for(experiment, base, specs=APPLET_SPECS):
             "differed only by using two_atom_threshold.)"
         )
 
-    # "ccb" is a virtual device supplied by the dashboard/worker; experiments
-    # need not bind it, so fetch it rather than assuming an attribute.
-    ccb = getattr(experiment, "ccb", None)
-    if ccb is None:
-        ccb = experiment.get_device("ccb")
+    ccb = _dashboard_ccb(experiment)
 
     node_group = applet_group_for(base)
     issued = []
@@ -239,6 +381,10 @@ def create_applets_for(experiment, base, specs=APPLET_SPECS):
         group = [node_group] if spec.group is None else [node_group, spec.group]
         ccb.issue("create_applet", spec.title, command, group=group)
         issued.append((spec.title, command))
+
+    # Node-independent applets go in their own top-level group, so the
+    # disable pass below cannot retire them along with the idle node.
+    issued.extend(create_shared_applets_for(experiment, base, shared_specs))
 
     # Only one node runs at a time, so retire the other node's applets rather
     # than leaving them subscribed to datasets nothing is updating.

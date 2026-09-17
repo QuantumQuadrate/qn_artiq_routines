@@ -190,6 +190,7 @@ class FakeBase:
         self.single_node_result_initializations = 0
         self.stabilizer_preparations = 0
         self.result_resets = 0
+        self.force_off_calls = 0
 
     def resolve_experiment_variable_target(self, name):
         self.resolve_calls.append(name)
@@ -254,6 +255,11 @@ class FakeBase:
 
     def reset_result_state_for_scan_point(self):
         self.result_resets += 1
+
+    def force_other_node_off(self):
+        # Counted so a test can assert the unselected node is driven safe
+        # once per RUN rather than once per scan point.
+        self.force_off_calls += 1
 
 
 class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
@@ -618,6 +624,10 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(scan.base.build_calls, 0)
         self.assertEqual(scan.base.prepare_calls, 0)
         self.assertEqual(scan.hardware_initializations, 2)
+        # The other node is driven safe ONCE for the whole run, not once per
+        # scan point: zeroing its Zotino is an init plus sixteen DAC writes
+        # over remote SPI, and two scan points ran above.
+        self.assertEqual(scan.base.force_off_calls, 1)
         self.assertEqual(scan.function_calls, 2)
         self.assertEqual(scan.base.result_initializations, 1)
         self.assertEqual(scan.base.result_resets, 2)
