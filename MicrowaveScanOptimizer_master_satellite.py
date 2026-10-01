@@ -43,6 +43,7 @@ from fitting.resonance_peak import resonance_peak
 
 from utilities.BaseExperiment_master_satellite import (
     BaseExperimentMasterSatellite,
+    merge_per_node_override_dictionaries,
     _DatasetRedirectMixin,
 )
 
@@ -120,7 +121,20 @@ class MicrowaveScanOptimizer_master_satellite(
         )
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Scan Setting")
-        self.setattr_argument('override_ExperimentVariables', StringValue("{'dummy_variable':4}"), "General Scan Setting")
+        # One override dictionary per node, and deliberately no shared one:
+        # both may stay populated at once, so switching which_node is the only
+        # edit needed to move a scan between nodes. Globals such as
+        # n_measurements go in the running node's dictionary.
+        for node in self.VALID_NODES:
+            self.setattr_argument(
+                f'override_ExperimentVariables_{node}',
+                StringValue("{}"),
+                "General Scan Setting",
+                tooltip=f"Overrides applied only when {node} runs. Otherwise "
+                        f"ignored entirely -- not even evaluated, so it may "
+                        f"name {node} variables that do not exist on the "
+                        f"other node. Globals belong here too.",
+            )
         self.setattr_argument('enable_fitting', BooleanValue(default=True), "General Scan Setting")
         self.setattr_argument('enable_geometric_frequency_scan', BooleanValue(default=True), "General Scan Setting")
 
@@ -183,10 +197,6 @@ class MicrowaveScanOptimizer_master_satellite(
         # parent_rid is run bookkeeping and deliberately stays unsuffixed.
         self.set_dataset("parent_rid", self.parent_rid, broadcast=True, persist=True)
 
-        override_dict = eval(self.override_ExperimentVariables)
-        assert type(override_dict) == dict, \
-            "override_ExperimentVariables should be a python dictionary"
-
         ### goes through the booleans and sets the scan type
         self.scan_type = self.get_scan_type()
 
@@ -196,10 +206,20 @@ class MicrowaveScanOptimizer_master_satellite(
         # health-check re-merge behavior. Overrides mutate the suffixed
         # authoritative attributes; the legacy projection then mirrors them
         # for the reused functions.
-        self._user_authoritative_overrides = {
-            self.base.resolve_experiment_variable_target(str(name)): value
-            for name, value in override_dict.items()
-        }
+        #
+        # Only the running node's dictionary is read, so the other node's may
+        # stay populated. The merge is shared with the GVS mixin through the
+        # base module; globals() keeps override text evaluating in THIS
+        # module's namespace, where entries like {'f_FORT': 240*MHz} find
+        # their units.
+        self._user_authoritative_overrides = (
+            merge_per_node_override_dictionaries(
+                experiment=self,
+                active_nodes=(self._selected_node,),
+                resolve_target=self.base.resolve_experiment_variable_target,
+                eval_globals=globals(),
+            )
+        )
         self._scan_override_items = dict(
             scan_dict[self.scan_type]["override_items"]
         )
@@ -842,7 +862,8 @@ class MicrowaveScanOptimizer_master_satellite(
                 "target_fidelity": 0.80,
 
                 "n_measurements": self._execution_n_measurements,
-                "override_ExperimentVariables": "{'dummy_variable': 4}",
+                "override_ExperimentVariables_Node1": "{}",
+                "override_ExperimentVariables_Node2": "{}",
                 "enable_fitting": True,
                 "enable_geometric_frequency_scan": True,
 
@@ -884,8 +905,13 @@ class MicrowaveScanOptimizer_master_satellite(
                 new_expid["arguments"][key] = True
                 break  # stop once the first TRUE is found
 
-        ### keeping set override_ExperimentVariables
-        new_expid["arguments"]["override_ExperimentVariables"] = self.override_ExperimentVariables
+        ### keeping BOTH per-node override dictionaries. A health-check
+        ### resubmission must not drop the idle node's: it is carried by this
+        ### expid alone, so losing it here would silently empty that field for
+        ### every later run of the resubmitted chain.
+        for node in self.VALID_NODES:
+            argument_name = f"override_ExperimentVariables_{node}"
+            new_expid["arguments"][argument_name] = getattr(self, argument_name)
 
         if override_arguments is not None:
             for key, value in override_arguments.items():

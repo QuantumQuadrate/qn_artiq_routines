@@ -26,6 +26,77 @@ from utilities.DeviceAliases_master_satellite import (
 )
 
 
+def merge_per_node_override_dictionaries(
+    experiment,
+    active_nodes,
+    resolve_target,
+    eval_globals,
+    argument_prefix="override_ExperimentVariables",
+):
+    """Merge the per-node experiment-variable override dictionaries.
+
+    An experiment declares one override field per node --
+    override_ExperimentVariables_Node1 and _Node2 -- and only the running
+    node's is read. That is the whole point: both can stay populated, so
+    switching nodes needs no editing of either.
+
+    The idle node's dictionary is NOT EVALUATED, let alone resolved. Both
+    steps would raise, for two separate reasons:
+    resolve_experiment_variable_target rejects the other node's names on
+    purpose, and in single_node mode the other node's attributes are never
+    loaded at all, since _load_experiment_variables walks active_nodes only.
+    So an entry written as {'f_FORT_Node2': self.f_FORT_Node2} fails inside
+    eval, before resolution is ever reached.
+
+    There is deliberately no node-agnostic field. Globals such as
+    n_measurements resolve to themselves, so put them in the running node's
+    dictionary; in two_nodes mode name a global in one node's dictionary
+    only, since naming it in both reads as overriding one variable twice.
+
+    eval_globals is the CALLING MODULE's globals(), so override text keeps
+    being evaluated in the namespace it always was -- entries like
+    {'t_FORT_loading': 5*ms} depend on the units and numpy names each
+    experiment file imports.
+
+    A target named by two of these fields raises rather than letting
+    declaration order silently pick a winner.
+    """
+    merged = {}
+    provenance = {}
+
+    for node in active_nodes:
+        argument_name = f"{argument_prefix}_{node}"
+        expression = getattr(experiment, argument_name, None)
+        # A cleared field means "no overrides", not a syntax error.
+        if expression is None or not str(expression).strip():
+            continue
+
+        try:
+            overrides = eval(expression, eval_globals, {"self": experiment})
+        except Exception as error:
+            raise ValueError(
+                f"Could not evaluate {argument_name} {expression!r}: {error}"
+            ) from error
+
+        if not isinstance(overrides, dict):
+            raise ValueError(
+                f"{argument_name} must evaluate to a dictionary."
+            )
+
+        for name, value in overrides.items():
+            target = resolve_target(str(name))
+            if target in merged:
+                raise ValueError(
+                    f"Experiment variable {target!r} is overridden twice: "
+                    f"once via {provenance[target]} and again via "
+                    f"{argument_name}. Remove one of them."
+                )
+            merged[target] = value
+            provenance[target] = argument_name
+
+    return merged
+
+
 class BaseExperimentMasterSatellite:
     """Expose and initialize master-satellite hardware for one or two nodes.
 

@@ -16,6 +16,7 @@ from artiq.coredevice.exceptions import RTIOUnderflow
 
 from utilities.BaseExperiment_master_satellite import (
     BaseExperimentMasterSatellite,
+    merge_per_node_override_dictionaries,
     _DatasetRedirectMixin,
 )
 
@@ -112,9 +113,19 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self.setattr_argument(
             "scan_sequence2", StringValue("np.zeros(1)")
         )
-        self.setattr_argument(
-            "override_ExperimentVariables", StringValue("{}")
-        )
+        # One override dictionary per node, and deliberately no shared one:
+        # both may stay populated at once, so switching selected_node is the
+        # only edit needed to move a scan between nodes. Globals such as
+        # n_measurements go in the running node's dictionary.
+        for node in self.VALID_NODES:
+            self.setattr_argument(
+                f"override_ExperimentVariables_{node}",
+                StringValue("{}"),
+                tooltip=f"Overrides applied only when {node} runs. Otherwise "
+                        f"ignored entirely -- not even evaluated, so it may "
+                        f"name {node} variables that do not exist on the "
+                        f"other node. Globals belong here too.",
+            )
         # Optional per-point RTIOUnderflow retry. The three retry values
         # below take effect only when enable_Catch_UnderFlow is True.
         self.setattr_argument(
@@ -202,6 +213,32 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 f"Could not evaluate {description} {expression!r}: {error}"
             ) from error
 
+    def _active_override_nodes(self):
+        """Nodes whose per-node override dictionary applies to this run."""
+        if self.EXPERIMENT_MODE == "single_node":
+            return (self.selected_node,)
+        return tuple(self.VALID_NODES)
+
+    def _collect_authoritative_overrides(self):
+        """Merge this run's per-node override dictionaries.
+
+        The merge itself lives in the base module and is shared with
+        MicrowaveScanOptimizer_master_satellite, so both experiments treat
+        the idle node's dictionary identically -- see
+        merge_per_node_override_dictionaries for why that dictionary is never
+        even evaluated.
+
+        globals() is passed so override text keeps being evaluated in THIS
+        module's namespace, where entries like {'f_FORT': 240*MHz} find their
+        units.
+        """
+        return merge_per_node_override_dictionaries(
+            experiment=self,
+            active_nodes=self._active_override_nodes(),
+            resolve_target=self.base.resolve_experiment_variable_target,
+            eval_globals=globals(),
+        )
+
     def prepare(self):
         # n_measurements is a run-local GUI value sharing its name with a
         # persistent global dataset. Capture the submitted value before
@@ -263,19 +300,7 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             self.scan_variable2 = None
             self.scan_sequence2 = np.zeros(1)
 
-        overrides = self._evaluate_expression(
-            self.override_ExperimentVariables,
-            "override_ExperimentVariables",
-            {"self": self},
-        )
-        if not isinstance(overrides, dict):
-            raise ValueError(
-                "override_ExperimentVariables must evaluate to a dictionary."
-            )
-        self.authoritative_overrides = {
-            self.base.resolve_experiment_variable_target(str(name)): value
-            for name, value in overrides.items()
-        }
+        self.authoritative_overrides = self._collect_authoritative_overrides()
 
         self.experiment_name = str(self.experiment_function)
         # Filename suffix built the same way standalone GeneralVariableScan

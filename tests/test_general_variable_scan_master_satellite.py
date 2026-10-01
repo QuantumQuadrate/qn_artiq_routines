@@ -572,6 +572,140 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(scan.f_FORT, 247.0)
         self.assertEqual(scan.base.dds_frequency_cache, 247.0)
 
+    def _make_override_scan(self, node):
+        """A single-node scan wired up just enough to collect overrides."""
+        scan = GeneralVariableScan_master_satellite_single_node()
+        scan.selected_node = node
+        scan.base = FakeBase("single_node", node)
+        scan.base.experiment = scan
+        scan.override_ExperimentVariables_Node1 = "{}"
+        scan.override_ExperimentVariables_Node2 = "{}"
+        return scan
+
+    def test_idle_node_overrides_do_not_block_the_running_node(self):
+        """Both per-node dictionaries stay populated; only one takes effect.
+
+        This is the reported failure: Node2 entries left in override_
+        ExperimentVariables made a Node1 run fail, so the dictionary had to be
+        emptied by hand to switch nodes.
+        """
+        populated = {
+            "override_ExperimentVariables_Node1": "{'f_FORT_Node1': 241.0}",
+            "override_ExperimentVariables_Node2": "{'f_FORT_Node2': 242.0}",
+        }
+        for node, expected in (
+            ("Node1", {"f_FORT_Node1": 241.0}),
+            ("Node2", {"f_FORT_Node2": 242.0}),
+        ):
+            scan = self._make_override_scan(node)
+            for name, value in populated.items():
+                setattr(scan, name, value)
+            self.assertEqual(
+                scan._collect_authoritative_overrides(), expected,
+                f"{node} run did not apply exactly its own overrides",
+            )
+
+    def test_idle_node_overrides_are_never_evaluated(self):
+        """Skipped before eval, not merely excused after a failed resolve.
+
+        In single_node mode the idle node's attributes are never loaded, so an
+        override that reads one cannot even be evaluated. The positive control
+        below runs the same text on the node that owns it and does fail, which
+        is what makes the negative case evidence of a skipped branch rather
+        than of a harmless expression.
+        """
+        reads_node2 = "{'f_FORT_Node2': self.f_FORT_Node2}"
+
+        scan = self._make_override_scan("Node1")
+        scan.override_ExperimentVariables_Node2 = reads_node2
+        self.assertEqual(scan._collect_authoritative_overrides(), {})
+        # Nothing from the idle dictionary reached the resolver either.
+        self.assertEqual(scan.base.resolve_calls, [])
+
+        scan = self._make_override_scan("Node2")
+        scan.override_ExperimentVariables_Node2 = reads_node2
+        with self.assertRaisesRegex(ValueError, "Could not evaluate"):
+            scan._collect_authoritative_overrides()
+
+    def test_globals_and_bare_names_resolve_inside_the_node_dictionary(self):
+        """There is no shared field, so globals go in the node's dictionary.
+
+        A global resolves to itself and a bare name to the running node's
+        suffixed attribute, both from the same dictionary.
+        """
+        scan = self._make_override_scan("Node2")
+        scan.override_ExperimentVariables_Node2 = (
+            "{'n_measurements': 5, 'f_FORT': 243.0}"
+        )
+        self.assertEqual(
+            scan._collect_authoritative_overrides(),
+            {"n_measurements": 5, "f_FORT_Node2": 243.0},
+        )
+
+    def test_wrong_node_name_inside_a_node_dictionary_still_raises(self):
+        """The exemption is per-field, not blanket.
+
+        The Node1 field IS read on a Node1 run, so a Node2 name written there
+        is a genuine mistake and must not be silently dropped.
+        """
+        scan = self._make_override_scan("Node1")
+        scan.override_ExperimentVariables_Node1 = "{'f_FORT_Node2': 242.0}"
+        with self.assertRaisesRegex(ValueError, "other node"):
+            scan._collect_authoritative_overrides()
+
+    def test_one_variable_overridden_twice_raises(self):
+        """Key order must not quietly decide which value wins.
+
+        Two spellings of one variable resolve to the same target: on a Node2
+        run 'f_FORT' and 'f_FORT_Node2' are the same attribute.
+        """
+        scan = self._make_override_scan("Node2")
+        scan.override_ExperimentVariables_Node2 = (
+            "{'f_FORT': 243.0, 'f_FORT_Node2': 244.0}"
+        )
+        with self.assertRaisesRegex(ValueError, "overridden twice"):
+            scan._collect_authoritative_overrides()
+
+    def test_blank_override_field_means_no_overrides(self):
+        scan = self._make_override_scan("Node1")
+        scan.override_ExperimentVariables_Node1 = "   "
+        self.assertEqual(scan._collect_authoritative_overrides(), {})
+
+    def test_two_nodes_mode_applies_both_per_node_dictionaries(self):
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        scan.base = FakeBase("two_nodes", None)
+        scan.base.experiment = scan
+        scan.override_ExperimentVariables_Node1 = "{'f_FORT_Node1': 241.0}"
+        scan.override_ExperimentVariables_Node2 = "{'f_FORT_Node2': 242.0}"
+        self.assertEqual(
+            scan._collect_authoritative_overrides(),
+            {"f_FORT_Node1": 241.0, "f_FORT_Node2": 242.0},
+        )
+
+    def test_both_public_gvs_classes_declare_the_per_node_fields(self):
+        for experiment_class in (
+            GeneralVariableScan_master_satellite_single_node,
+            GeneralVariableScan_master_satellite_two_nodes,
+        ):
+            scan = self._make_repository_examination_experiment(
+                experiment_class
+            )
+            scan.build()
+            for node in ("Node1", "Node2"):
+                self.assertTrue(
+                    hasattr(scan, f"override_ExperimentVariables_{node}"),
+                    f"{experiment_class.__name__} does not declare "
+                    f"override_ExperimentVariables_{node}",
+                )
+            # The node-agnostic field was removed deliberately: with per-node
+            # dictionaries it is never read, and leaving it on the dashboard
+            # invites overrides that silently do nothing.
+            self.assertFalse(
+                hasattr(scan, "override_ExperimentVariables"),
+                f"{experiment_class.__name__} still declares the removed "
+                "node-agnostic override_ExperimentVariables field",
+            )
+
     def test_magnetometer_append_names_resolve_to_selected_node(self):
         for node in ("Node1", "Node2"):
             base = FakeBase("single_node", node)
@@ -691,7 +825,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         scan.scan_sequence1 = "np.array([self.f_FORT])"
         scan.scan_variable2_name = ""
         scan.scan_sequence2 = "np.zeros(1)"
-        scan.override_ExperimentVariables = "{}"
+        scan.override_ExperimentVariables_Node1 = "{}"
+        scan.override_ExperimentVariables_Node2 = "{}"
         scan.experiment_function = "atom_loading_experiment"
         scan.scheduler = types.SimpleNamespace(get_status=lambda: {}, rid=0)
         # Single-node prepare() now builds the laser stabilizer so the reused

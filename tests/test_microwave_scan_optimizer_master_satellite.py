@@ -357,7 +357,7 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         experiment = self.make_experiment({
             "which_node": "Node2",
             "Time_00_Scan": True,
-            "override_ExperimentVariables": "{'p_cooling_DP_MOT': -10.0}",
+            "override_ExperimentVariables_Node2": "{'p_cooling_DP_MOT': -10.0}",
         })
         self.assertAlmostEqual(
             experiment.ampl_cooling_DP_MOT, dB_to_V(-10.0)
@@ -473,6 +473,11 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
             "which_node": "Node2",
             "Frequency_01_Scan": True,
             "n_measurements": 6,
+            # Both dictionaries populated. The resubmitted expid is the only
+            # carrier of the idle node's, so dropping it here would silently
+            # empty that field for every later run of the resubmitted chain.
+            "override_ExperimentVariables_Node1": "{'f_FORT_Node1': 241.0}",
+            "override_ExperimentVariables_Node2": "{'p_cooling_DP_MOT': -9.0}",
         })
         experiment.submit_opt_exp_general()
 
@@ -490,6 +495,58 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         self.assertTrue(expid["arguments"]["Frequency_01_Scan"])
         self.assertFalse(expid["arguments"]["run_health_check_and_optimize"])
         self.assertEqual(expid["arguments"]["n_measurements"], 6)
+        self.assertEqual(
+            expid["arguments"]["override_ExperimentVariables_Node1"],
+            "{'f_FORT_Node1': 241.0}",
+        )
+        self.assertEqual(
+            expid["arguments"]["override_ExperimentVariables_Node2"],
+            "{'p_cooling_DP_MOT': -9.0}",
+        )
+        self.assertNotIn(
+            "override_ExperimentVariables", expid["arguments"],
+            "the removed node-agnostic field is still being submitted",
+        )
+
+    def test_idle_node_overrides_do_not_block_the_running_node(self):
+        """The optimizer had the same failure GeneralVariableScan did.
+
+        Node1 entries left in place must not break a Node2 run. The Node1
+        dictionary here reads self.p_cooling_DP_MOT_Node1, which does not
+        exist in single_node Node2 mode, so the run only succeeds if that
+        dictionary is never evaluated.
+        """
+        experiment = self.make_experiment({
+            "which_node": "Node2",
+            "Time_00_Scan": True,
+            "override_ExperimentVariables_Node1": (
+                "{'p_cooling_DP_MOT_Node1': self.p_cooling_DP_MOT_Node1}"
+            ),
+            "override_ExperimentVariables_Node2": "{'p_cooling_DP_MOT': -10.0}",
+        })
+        self.assertEqual(
+            experiment._user_authoritative_overrides,
+            {"p_cooling_DP_MOT_Node2": -10.0},
+        )
+        self.assertAlmostEqual(
+            experiment.ampl_cooling_DP_MOT, dB_to_V(-10.0)
+        )
+
+    def test_no_node_agnostic_override_field_remains(self):
+        """The shared field was removed: with per-node ones it is never read."""
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Time_00_Scan": True,
+        })
+        self.assertFalse(
+            hasattr(experiment, "override_ExperimentVariables"),
+            "the removed node-agnostic override field is still declared",
+        )
+        for node in ("Node1", "Node2"):
+            self.assertTrue(
+                hasattr(experiment, f"override_ExperimentVariables_{node}"),
+                f"override_ExperimentVariables_{node} is not declared",
+            )
 
     def test_min_step_displacement_uses_khz_units_in_both_sources(self):
         import re
