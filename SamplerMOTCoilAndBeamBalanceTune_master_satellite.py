@@ -5,6 +5,47 @@ functionalities by using an external switch to toggle between the two
 during the same run of this experiment. At the time of writing this, this is
 done using ttl14 set to high, and a switch to toggle the connection of ttl14
 to ttl3, the state of which we read to determine the which variables to tune.
+
+MASTER-SATELLITE
+----------------
+selected_node picks Node1 or Node2 in the GUI; exactly one node is tuned per
+run, which is how this experiment is used anyway (one potentiometer box, one
+set of coils). Base runs in single_node mode, so every device and variable
+below keeps its familiar unsuffixed name: dds_AOM_A1, sampler1, coil_channels
+and AZ_bottom_volts_MOT all resolve to the selected node's hardware, and the
+values persist to that node's suffixed datasets.
+
+Two things worth knowing before running this on Node2:
+
+* The canonical SPCMs are master-local on BOTH nodes (SPCM_H1/V1/H2/V2 live
+  on the Node1 crate), so the four counters read the same detectors whichever
+  node is selected. Only the coils, beams and samplers follow the node.
+* ttl3/ttl14 are ordinary per-node TTLs, so they resolve to the selected
+  node's crate. The physical toggle switch has to be wired to that crate for
+  the beams/coils mode toggle to work.
+
+WHY THIS IS A SEPARATE FILE
+---------------------------
+MOT_experiments/SamplerMOTCoilAndBeamBalanceTune.py was converted in place to
+master-satellite (a5e685b, then 21f6392). It is now reverted to the standalone
+version it had at 70dd16c and keeps serving the standalone systems unchanged;
+this file carries the master-satellite conversion, next to the other
+*_master_satellite experiments. The class is renamed to match the filename so
+ARTIQ lists the two separately instead of seeing one name twice.
+
+SLACK AROUND THE FEEDBACK
+-------------------------
+Every laser_stabilizer.run() that is followed by an RTIO event is now followed
+by core.break_realtime(). A run returns roughly 6 ms behind the wall clock,
+because it advances the timeline only by its coded delays while spending real
+time on sampler reads and host RPCs, and subroutines/aom_feedback.py manages
+no slack of its own. The warm-up loop underflowed on channel 39 (dds_FORT) at
+-6.38 ms for exactly that reason: the pre-loop break_realtime covered only the
+first iteration.
+
+The feedback call inside the tuning loop is deliberately left alone -- the
+delay(100*ms) immediately after it already more than covers the deficit, and
+that delay is a real settling time, not slack management.
 """
 
 from artiq.experiment import *
@@ -18,17 +59,38 @@ cwd = os.getcwd() + "\\"
 sys.path.append(cwd)
 sys.path.append(cwd+"\\repository\\qn_artiq_routines")
 
-from utilities.BaseExperiment import BaseExperiment
+from utilities.BaseExperiment_master_satellite import (
+    BaseExperimentMasterSatellite,
+    _DatasetRedirectMixin,
+)
 
 
-class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
+class SamplerMOTCoilAndBeamBalanceTune_master_satellite(
+    _DatasetRedirectMixin, EnvExperiment
+):
+    """SamplerMOTCoilAndBeamBalanceTune_master_satellite
+
+    Tune the selected node's MOT coils and beam balance from the Sampler.
+    """
+
+    VALID_NODES = ("Node1", "Node2")
 
     def build(self):
         """
         declare hardware and user-configurable independent variables
         """
-        self.base = BaseExperiment(experiment=self)
+        self.base = BaseExperimentMasterSatellite(experiment=self)
         self.base.build()
+
+        # Exactly one node per run: the potentiometer box and the coils being
+        # tuned belong to one crate. two_nodes is deliberately unsupported.
+        self.setattr_argument(
+            "selected_node",
+            EnumerationValue(self.VALID_NODES),
+            "Node selection",
+            tooltip="Node1 = alice, Node2 = bob. Only one node is tuned per "
+                    "run; its coils, beams and samplers are used.",
+        )
 
         self.setattr_argument("FORT_AOM_on", BooleanValue(False))
 
@@ -83,7 +145,20 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.setattr_argument("AOM_feedback_period_cycles", NumberValue(500), "Laser feedback")
         self.setattr_argument("monitor_only", BooleanValue(False), "Laser feedback")
 
-        self.base.set_datasets_from_gui_args()
+        self.setattr_argument(
+            "show_shared_applets",
+            BooleanValue(True),
+            "Applets",
+            tooltip="Ask the dashboard for the node-independent applets: "
+                    "Microwaves Health Check and feedback RF, one of each per "
+                    "node. They live in their own group and are never "
+                    "retired, so this only re-asserts them.",
+        )
+
+        # The standalone Base archived the GUI arguments here with
+        # set_datasets_from_gui_args(). The master-satellite Base has no such
+        # method, and ARTIQ already stores the submitted arguments in the HDF5
+        # under expid, so nothing is lost by dropping it.
         print("build - done")
 
     def prepare(self):
@@ -94,7 +169,20 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         any conversions from human-readable units to machine units (mu) are done here
         """
 
+        node = str(self.selected_node)
+        if node not in self.VALID_NODES:
+            raise ValueError(
+                f"Unsupported selected_node {self.selected_node!r}; expected "
+                "'Node1' or 'Node2'."
+            )
+
+        self.base.configure_execution("single_node", node)
+        # The shared feedback code branches on the alice/bob presentation.
+        self.which_node = self.base.NODE_LEGACY_NAMES[node]
         self.base.prepare()
+        # Publishes laser_stabilizer and the per-channel stabilizer_AOM_A*
+        # objects read in run(); single-node only.
+        self.base.prepare_laser_stabilizer()
 
         self.beam_tuning_disabled = not (self.what_to_tune == self.beam_mode or self.what_to_tune == self.both_mode)
 
@@ -117,11 +205,39 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.set_dataset(self.SPCM1_OtherNode_rate_dataset, [0.0], broadcast=True)
         self.set_dataset(self.AllSPCMs_rate_dataset, [0.0], broadcast=True)
 
+        self._create_shared_applets()
+
         print("prepare - done")
+
+    def _create_shared_applets(self):
+        """Keep the node-independent applets up, if enabled.
+
+        Microwaves Health Check and feedback RF, one of each per node. This
+        experiment runs laser feedback, so the feedback RF plot is exactly
+        what one wants on screen while tuning. Only the shared applets: it
+        does not take over the per-node applet set or retire the idle node's
+        group, which is what create_applets_for would do.
+
+        Never fatal: an applet is a convenience, and the CCB is a
+        dashboard-side service. In particular nothing is created when no
+        dashboard is connected.
+        """
+        if not self.show_shared_applets:
+            return
+        try:
+            from applets_master_satellite import create_shared_applets_for
+
+            created = create_shared_applets_for(self, self.base)
+        except Exception as error:  # noqa: BLE001 - convenience only
+            logging.warning("could not create shared applets: %s", error)
+        else:
+            logging.info("requested %d shared applets", len(created))
 
     @kernel
     def run(self):
-        self.core.reset()
+        # base.initialize_hardware() owns the core reset in the
+        # master-satellite stack, and waits for the satellite when Node2 is
+        # the selected node.
         self.base.initialize_hardware()
 
         self.core.break_realtime()
@@ -150,8 +266,22 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
         self.core.break_realtime()
 
         # warm up to get make sure we get to the setpoints
+        #
+        # break_realtime AFTER every run, not only once before the loop.
+        # laser_stabilizer.run() advances the timeline by its coded delays
+        # while spending real time on sampler reads and host RPCs, and
+        # subroutines/aom_feedback.py manages no slack of its own, so a run
+        # RETURNS roughly 6 ms behind the wall clock. The very next RTIO event
+        # is then submitted in the past: observed as RTIOUnderflow on channel
+        # 39 (dds_FORT) at -6.38 ms, on the dds_FORT.sw.on() just below. The
+        # pre-loop break_realtime above only ever covered iteration 0.
+        #
+        # Safe here because warm-up measures nothing: it just drives the AOMs
+        # to their set points, so moving the cursor changes no interval that
+        # matters.
         for i in range(10):
             self.laser_stabilizer.run(monitor_only=self.monitor_only)
+            self.core.break_realtime()
             if self.FORT_AOM_on:
                 self.dds_FORT.sw.on()
 
@@ -383,6 +513,11 @@ class SamplerMOTCoilAndBeamBalanceTune(EnvExperiment):
                         self.set_dataset(self.volt_datasets[i], volts, broadcast=True, persist=True)
 
         delay(10 * ms)
+        # The finishing block above may have run feedback (monitor_only) and
+        # then written several persistent datasets -- a feedback run returns
+        # ~6 ms behind, and each blocking set_dataset RPC erodes more. This is
+        # the first RTIO event after all of that, so re-arm before it.
+        self.core.break_realtime()
         self.zotino0.set_dac([0.0], self.UV_trig_channel)
         delay(1 * ms)
         print("Experiment finished.")
