@@ -111,6 +111,37 @@ APPLET_SPECS = (
           ("Atom_loading_time", "n_measurements"), group=_MON),
 )
 
+#: Asked for by GeneralVariableScan only:
+#:
+#:     create_applets_for(self, self.base,
+#:                        specs=APPLET_SPECS + GVS_APPLET_SPECS)
+#:
+#: Deliberately NOT in APPLET_SPECS. AllSPCMs_atom_check_in_loading is seeded
+#: by initialize_single_node_result_state on every experiment, so putting it
+#: there would open an empty histogram on every run that never loads an atom.
+GVS_APPLET_SPECS = (
+    # Written by load_MOT_and_FORT_until_atom and its relatives, two values
+    # per loaded atom: the count that crossed the threshold, and the first
+    # try's count, which did not. So the histogram shows BOTH populations --
+    # which is the point, since the experiment function's own comment says it
+    # exists "to find a good single_atom_threshold_for_loading".
+    #
+    # The counts are over t_atom_check_time (10 ms by default), summed across
+    # all four SPCMs, and the threshold they are compared against is
+    # single_atom_threshold_for_loading (44000 c/s on Node1) -- NOT
+    # single_atom_threshold, which discriminates the readout shots.
+    #
+    # No --iteration: unlike the RO1/RO2 histograms this dataset accumulates
+    # over the whole run rather than per scan point, so a per-iteration title
+    # would be misleading. plot_hist_autosize.py treats it as optional.
+    _spec("AllSPCMs atom check in loading histogram",
+          "plot_hist_autosize.py",
+          ("AllSPCMs_atom_check_in_loading",),
+          (("--x", "photocount_bins"),
+           ("--t_exposure", "t_atom_check_time")),
+          group=_GVS),
+)
+
 #: Applets that were defined but not enabled on Node1 (several were enabled
 #: on Node2). Pass them explicitly when you want them:
 #:     create_applets_for(self, self.base,

@@ -427,9 +427,20 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             return
         try:
             if self.EXPERIMENT_MODE == "single_node":
-                from applets_master_satellite import create_applets_for
+                from applets_master_satellite import (
+                    APPLET_SPECS,
+                    GVS_APPLET_SPECS,
+                    create_applets_for,
+                )
 
-                created = create_applets_for(self, self.base)
+                # GVS_APPLET_SPECS is the atom-check loading histogram, asked
+                # for here rather than living in APPLET_SPECS: the dataset is
+                # seeded on every experiment, so a default entry would open an
+                # empty histogram on runs that never load an atom.
+                created = create_applets_for(
+                    self, self.base,
+                    specs=APPLET_SPECS + GVS_APPLET_SPECS,
+                )
             else:
                 from applets_master_satellite import create_shared_applets_for
 
