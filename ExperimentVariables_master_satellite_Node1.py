@@ -154,7 +154,6 @@ NODE1_VARIABLES = (
     Variable('monitors_for_atom_loading_Node1', False, BooleanValue, {}, 'Booleans'),
     Variable('PGC_and_RO_with_on_chip_beams_Node1', True, BooleanValue, {}, 'Booleans'),
     Variable('tune_shims_when_loading_is_bad_Node1', False, BooleanValue, {}, 'Booleans'),
-    Variable('tune_852_waveplates_to_target_in_experiment_Node1', False, BooleanValue, {}, 'Booleans'),
     Variable('single_atom_threshold_Node1', 14000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
     Variable('single_atom_threshold_for_loading_Node1', 44000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
     # two_atom_threshold and two_atom_threshold_for_loading moved to
