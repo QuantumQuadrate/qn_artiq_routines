@@ -240,6 +240,25 @@ class SamplerMOTCoilAndBeamBalanceTune_master_satellite(
         # the selected node.
         self.base.initialize_hardware()
 
+        # Drive the idle node dark, exactly as GVS and the three other
+        # single-node master-satellite experiments do. single_node mode only
+        # REMOVES the other node from the initialization lifecycle
+        # (_deactivate_node_hardware_groups rebinds seven lists to [] and
+        # emits no hardware operation), so without this its beams stay on and
+        # its coils stay energised from whatever the previous run left --
+        # which is what running Node2 after Node1 back to back showed.
+        #
+        # Called once, here, not per tuning step: it costs three CPLD inits,
+        # twelve TTL writes and a Zotino init plus sixteen DAC writes, over
+        # remote SPI when the other node is the satellite. Safe to do once
+        # because core.reset() can only drive TTLs low and cannot change a
+        # Zotino's held output.
+        #
+        # 21f6392 added force_other_node_off to the GVS mixin and both
+        # optimizers but gave this experiment only the shared applets, so it
+        # was the one single-node experiment still leaving the other crate hot.
+        self.base.force_other_node_off()
+
         self.core.break_realtime()
 
         # Turn on AOMs to load the MOT.
