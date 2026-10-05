@@ -448,6 +448,57 @@ def ms_scan_label(source):
             to_close.close()
 
 
+def ms_overrides(source):
+    """Each node's submitted override dictionary, as {node: text}.
+
+    The experiments declare one override dictionary PER NODE --
+    override_ExperimentVariables_Node1 and override_ExperimentVariables_Node2
+    -- so a run records BOTH, the running node's and the idle node's. Read
+    them by those two names; there is deliberately no unsuffixed
+    override_ExperimentVariables to fall back on, because with two
+    dictionaries present a bare name cannot say which node it describes.
+
+    Runs from before each node got its own dictionary carry a single
+    unsuffixed override_ExperimentVariables instead. Those come back under the
+    key "unsuffixed", so one notebook cell reads both generations: of the
+    node-tagged GVS files on disk, 18 are of the older shape and 12 of the
+    newer, so this is not a transitional nicety.
+
+    Returns {} for a run that recorded no override argument at all.
+    """
+    handle, to_close = _ms_handle(source)
+    try:
+        arguments = _ms_expid_arguments(handle)
+        found = {
+            node: arguments[f"override_ExperimentVariables_{node}"]
+            for node in MASTER_SATELLITE_NODES
+            if f"override_ExperimentVariables_{node}" in arguments
+        }
+        if found:
+            return found
+        if "override_ExperimentVariables" in arguments:
+            return {"unsuffixed": arguments["override_ExperimentVariables"]}
+        return {}
+    finally:
+        if to_close is not None:
+            to_close.close()
+
+
+def ms_print_overrides(source, label="override"):
+    """Print each node's submitted override dictionary, one line per node.
+
+    Replaces the `print("override:", override_ExperimentVariables)` line the
+    ported notebooks carried. That name no longer exists: each node has its
+    own dictionary now, and this prints both.
+    """
+    found = ms_overrides(source)
+    if not found:
+        print(f"{label}: (none recorded)")
+    for key in sorted(found):
+        print(f"{label} {key}:", found[key])
+    return found
+
+
 def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
                                       node=None):
     """Master-satellite loader. Same signature as the standalone one.
