@@ -3658,6 +3658,37 @@ def end_measurement(self):
         self.append_to_dataset('AllSPCMs_RO1_in_health_check', self.AllSPCMs_RO1)
         self.append_to_dataset('AllSPCMs_RO2_in_health_check', self.AllSPCMs_RO2)
 
+    ### Re-arm the timeline for the next measurement.
+    ###
+    ### This function spends real time on 25 host RPCs: 24 append_to_dataset
+    ### calls, which are async, plus the measurements_progress set_dataset,
+    ### which is NOT -- it returns a value, so it blocks for a full round
+    ### trip, every measurement -- while advancing the timeline by only ~10 ms
+    ### of delay(). When the host is busy (every broadcast dataset also goes
+    ### out to the dashboard and to every subscribed applet) the real time
+    ### spent exceeds the timeline advanced, and the loop wraps with the
+    ### cursor BEHIND the wall clock. The next RTIO event then underflows,
+    ### inside whatever the caller does first rather than here, which is why
+    ### this reads as a bug in the atom loading routine:
+    ###
+    ###   RTIOUnderflow ... channel 36, slack -6144984 mu
+    ###     load_MOT_and_FORT_until_atom_recycle, at the dds_FORT.set that
+    ###     lowers the FORT to the science setpoint
+    ###
+    ### -6.14 ms there, after the delay(10 * ms) at the top of
+    ### atom_loading_2_experiment's measurement loop, means this function
+    ### returned about 16 ms behind.
+    ###
+    ### Placed here rather than at the 47 call sites. core.break_realtime()
+    ### only ever moves the cursor FORWARD -- "if the time cursor is already
+    ### after that position, this function does nothing" -- so on a healthy
+    ### run, standalone included, this is a no-op, and it only acts in the
+    ### case that would otherwise have raised. It also makes the dozen
+    ### hand-placed `delay(5 * ms) ### hopefully to avoid underflow.` lines
+    ### after other end_measurement calls redundant; they are left alone
+    ### because they now serve as plain inter-measurement spacing.
+    self.core.break_realtime()
+
 @kernel
 def FORT_ramp1_smoothstep(self, direction="down"):
     """
