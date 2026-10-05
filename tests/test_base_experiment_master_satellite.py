@@ -343,6 +343,42 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 }.issubset(written_names)
             )
 
+    def test_n_measurements_is_broadcast_and_persisted_for_applets(self):
+        """n_measurements has to reach applets as a DATASET, and stay persistent.
+
+        Applets read broadcast datasets, never experiment attributes, and
+        applets/plot_retention_and_loading.py subscripts
+        data["n_measurements"] directly. A KeyError there lands in a bare
+        `except:` that calls self.clear(), so the dataset going missing shows
+        up as a permanently blank applet rather than as any error -- which is
+        how it was found.
+
+        persist must stay True as well. n_measurements is a DECLARED global
+        that _load_experiment_variables requires to exist, so a
+        broadcast-without-persist write would clear its persist flag and the
+        master's next flush would drop it from dataset_db.pyon, breaking every
+        master-satellite experiment at the following restart. That is exactly
+        what the standalone Base does at utilities/BaseExperiment.py:786, and
+        it is why the dataset vanished on 2026-10-05.
+        """
+        experiment, base = self.build_and_prepare("single_node", "Node1")
+        # Stand in for the submitted GUI value, which every master-satellite
+        # experiment re-asserts over the loaded global before this runs.
+        experiment.n_measurements = 37
+        experiment.dataset_writes.clear()
+
+        base.initialize_single_node_result_state()
+
+        writes = [
+            write for write in experiment.dataset_writes
+            if write[0] == "n_measurements"
+        ]
+        self.assertEqual(len(writes), 1)
+        _, value, kwargs = writes[0]
+        self.assertEqual(value, 37)
+        self.assertTrue(kwargs.get("broadcast"))
+        self.assertTrue(kwargs.get("persist"))
+
     def test_two_node_bindings(self):
         experiment, _ = self.build_and_prepare("two_nodes")
         self.assertEqual(experiment.dds_FORT_Node1.name, "urukul0_ch0")

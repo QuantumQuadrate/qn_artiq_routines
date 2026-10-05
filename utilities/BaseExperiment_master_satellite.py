@@ -1124,7 +1124,8 @@ class BaseExperimentMasterSatellite:
         (load_MOT_and_FORT_until_atom, end_measurement, record_chopped_*,
         health checks): every dataset those functions append to must exist,
         plus the per-measurement accumulator lists the standalone Base built
-        in prepare. Broadcast, never persisted.
+        in prepare. Broadcast, never persisted -- with exactly one exception,
+        n_measurements, explained where it is written below.
         """
         if not self._prepared:
             raise RuntimeError(
@@ -1136,6 +1137,45 @@ class BaseExperimentMasterSatellite:
             )
 
         experiment = self.experiment
+
+        # The one persisted write in this method, and the one dataset here that
+        # is not a result.
+        #
+        # Applets can only read broadcast DATASETS, and three of the five
+        # inputs to "retention and loading AllSPCMs" are read that way:
+        # AllSPCMs_RO1/RO2 are seeded below, single_atom_threshold and
+        # t_SPCM_first_shot are persistent per-node variables -- and
+        # n_measurements was nothing at all. The master-satellite stack kept it
+        # as an experiment ATTRIBUTE only (it reaches an h5 through `archive`,
+        # never `datasets`), where the standalone Base broadcasts it in
+        # initialize_datasets. So plot_retention_and_loading.py raised KeyError
+        # on data["n_measurements"], its bare `except:` called self.clear(),
+        # and the applet sat there blank.
+        #
+        # It had been running on borrowed time: a stale PERSISTENT
+        # n_measurements in dataset_db.pyon was answering the subscription.
+        # That copy disappeared on 2026-10-05 -- the standalone Base writes
+        # set_dataset("n_measurements", ..., broadcast=True) with no
+        # persist=True, so any standalone run on this master clears the global's
+        # persist flag and the next flush drops it from the file -- and the
+        # applet went dark. _load_experiment_variables needs the name to exist
+        # too, so that same deletion would have broken EVERY master-satellite
+        # experiment at the next master restart.
+        #
+        # persist=True therefore, against this method's rule: it both keeps the
+        # declared global present in dataset_db.pyon and gives the applet the
+        # value that actually ran. Writing the submitted GUI value over the
+        # stored default costs nothing, because every master-satellite
+        # experiment that reads n_measurements declares it as a GUI argument
+        # (GeneralVariableScan does so in its mixin's build) and overwrites the
+        # loaded value for the run regardless -- the stored one is a default
+        # that is never consumed.
+        experiment.set_dataset(
+            "n_measurements",
+            experiment.n_measurements,
+            broadcast=True,
+            persist=True,
+        )
 
         detector_names = (
             "SPCM0_RO1", "SPCM0_RO2", "SPCM1_RO1", "SPCM1_RO2",
