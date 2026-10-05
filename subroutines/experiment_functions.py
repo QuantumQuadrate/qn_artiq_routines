@@ -9379,15 +9379,15 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
 
     #### recording DMA
     record_CW_optical_pumping_node1(self)
-    # record_CW_optical_pumping_node2(self)
-    record_CW_optical_pumping_node2_without_coil(self)
+    record_CW_optical_pumping_node2(self)
+    # record_CW_optical_pumping_node2_without_coil(self)
     record_recooling(self)
     record_excitation_and_photon_collection(self)
 
     #### getting DMA handles
     CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
-    # CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
-    CW_OP_node2_without_coil_handle = self.core_dma.get_handle("CW_optical_pumping_node2_without_coil")
+    CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
+    # CW_OP_node2_without_coil_handle = self.core_dma.get_handle("CW_optical_pumping_node2_without_coil")
     recooling_dma_handle = self.core_dma.get_handle("recooling")
     excitation_dma_handle = self.core_dma.get_handle("excitation_and_photon_collection")
 
@@ -9481,7 +9481,8 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
                     # CW_optical_pumping_node1(self)
                     self.core_dma.playback_handle(CW_OP_node1_handle)
                 else:
-                    self.core_dma.playback_handle(CW_OP_node2_without_coil_handle)
+                    self.core_dma.playback_handle(CW_OP_node2_handle)
+                    # self.core_dma.playback_handle(CW_OP_node2_without_coil_handle)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             for excitation_attempt in range(self.n_excitation_attempts):
