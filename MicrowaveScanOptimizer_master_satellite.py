@@ -353,9 +353,20 @@ class MicrowaveScanOptimizer_master_satellite(
         if not self.show_shared_applets:
             return
         try:
-            from applets_master_satellite import create_shared_applets_for
+            from applets_master_satellite import (
+                SCAN_APPLET_SPECS,
+                SHARED_APPLET_SPECS,
+                create_shared_applets_for,
+            )
 
-            created = create_shared_applets_for(self, self.base)
+            # SCAN_APPLET_SPECS adds "Time without atom (s)". It rides the
+            # shared path rather than the per-node one so this experiment and
+            # GVS create one applet between them, not one each under different
+            # groups -- applet identity is (name, group).
+            created = create_shared_applets_for(
+                self, self.base,
+                shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
+            )
         except Exception as error:  # noqa: BLE001 - convenience only
             logging.warning("could not create shared applets: %s", error)
         else:

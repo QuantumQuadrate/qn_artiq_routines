@@ -142,6 +142,28 @@ GVS_APPLET_SPECS = (
           group=_GVS),
 )
 
+#: Asked for by GeneralVariableScan AND MicrowaveScanOptimizer, as
+#: shared_specs rather than per-node specs:
+#:
+#:     create_applets_for(self, self.base,
+#:                        shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS)
+#:
+#: Passed through the SHARED path on purpose. time_without_atom is NOT in the
+#: dataset-redirect set, so both nodes write that one unsuffixed name: there is
+#: a single dataset, so a single applet is correct, and SHARED_APPLET_GROUP is
+#: never retired. Routing it through `specs` instead would put it under the
+#: running node's group for GVS and under the shared group for the optimizer
+#: -- and applet identity is (name, group), so the dashboard would grow two
+#: applets with the same title showing the same number.
+#:
+#: Not in SHARED_APPLET_SPECS itself, which the FORT optimizer and
+#: SamplerMOTCoilAndBeamBalanceTune also create: neither loads atoms, so the
+#: number would sit there stale.
+SCAN_APPLET_SPECS = (
+    _spec("Time without atom (s)", ("builtin", "big_number"),
+          ("time_without_atom",), group=_GVS),
+)
+
 #: Applets that were defined but not enabled on Node1 (several were enabled
 #: on Node2). Pass them explicitly when you want them:
 #:     create_applets_for(self, self.base,
@@ -155,14 +177,15 @@ OPTIONAL_APPLET_SPECS = (
     # work looks at it, so it should not come up on every run.
     _spec("n_excitation_cycles", "plot_xyline.py", ("n_excitation_cycles",),
           (("--pts", "applet_plot_points_short"),), group=_PHOTON),
-    _spec("Time without atom (s)", ("builtin", "big_number"),
-          ("time_without_atom",), group=_GVS),
+    # "Time without atom (s)" moved to SCAN_APPLET_SPECS, which GVS and
+    # MicrowaveScanOptimizer both ask for, so it is no longer opt-in.
     _spec("optimization cost", ("builtin", "plot_xy"), ("cost",), group=_OPT),
     # The unsuffixed "feedback RF" that used to live here is superseded by the
     # two per-node entries in SHARED_APPLET_SPECS below, which are always
     # created and show both nodes at once.
-    _spec("waveplate trajectory", ("builtin", "plot_xy"), ("HWP_angle",),
-          (("--x", "QWP_angle"),), group=_K10),
+    # "waveplate trajectory" moved to K10CR1_APPLET_SPECS, which the FORT
+    # polarization optimizer asks for: one per node, with the suffixed dataset
+    # names those angles are actually written under.
     _spec("FORT MM (normalized and accounted for power)",
           "plot_FORT_MM_norm_to_power.py", ("FORT_MM_monitor",),
           (("--y0", "best_852_power_ref"), ("--y1", "FORT_APD_monitor"),
@@ -225,7 +248,7 @@ _FEEDBACK_RF_OPTIONS = (
 )
 
 
-def _per_node_specs(title, script, args, options=()):
+def _per_node_specs(title, script, args, options=(), group=None):
     """One spec per node, with every dataset name pinned to that node.
 
     Every entry in ``args`` and every VALUE in ``options`` must be a dataset
@@ -238,6 +261,7 @@ def _per_node_specs(title, script, args, options=()):
             script,
             tuple(f"{name}_{node}" for name in args),
             tuple((flag, f"{value}_{node}") for flag, value in options),
+            group=group,
         )
         for node in ("Node1", "Node2")
     )
@@ -257,6 +281,28 @@ def _per_node_specs(title, script, args, options=()):
 #: the feedback histories are per-node result datasets. Note the suffix goes
 #: on the END of the whole legacy name -- p_AOM_A1_history_Node1, not
 #: p_AOM_A1_Node1_history -- which is what feedback_dataset_map produces.
+#: Asked for by FORT_Polarization_Optimizer_master_satellite, as shared_specs:
+#:
+#:     create_shared_applets_for(
+#:         self, self.base,
+#:         shared_specs=SHARED_APPLET_SPECS + K10CR1_APPLET_SPECS)
+#:
+#: One per node, because HWP_angle and QWP_angle are in
+#: POLARIZATION_RESULT_DATASETS and so are written node-suffixed: there really
+#: are two trajectories, and a single unsuffixed applet could only ever show
+#: whichever node ran last.
+#:
+#: Not in SHARED_APPLET_SPECS itself, which GVS, both optimizers and
+#: SamplerMOT all create: this is the only experiment that moves waveplates
+#: and writes those datasets, so anywhere else the plot would sit stale.
+K10CR1_APPLET_SPECS = _per_node_specs(
+    "waveplate trajectory",
+    ("builtin", "plot_xy"),
+    ("HWP_angle",),
+    (("--x", "QWP_angle"),),
+    group=_K10,
+)
+
 SHARED_APPLET_SPECS = (
     _per_node_specs(
         "Microwaves Health Check",

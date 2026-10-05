@@ -430,6 +430,8 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 from applets_master_satellite import (
                     APPLET_SPECS,
                     GVS_APPLET_SPECS,
+                    SCAN_APPLET_SPECS,
+                    SHARED_APPLET_SPECS,
                     create_applets_for,
                 )
 
@@ -437,14 +439,27 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 # for here rather than living in APPLET_SPECS: the dataset is
                 # seeded on every experiment, so a default entry would open an
                 # empty histogram on runs that never load an atom.
+                #
+                # SCAN_APPLET_SPECS ("Time without atom") goes through
+                # shared_specs instead, so GVS and MicrowaveScanOptimizer both
+                # create the SAME applet rather than one each under different
+                # groups. See its note in applets_master_satellite.
                 created = create_applets_for(
                     self, self.base,
                     specs=APPLET_SPECS + GVS_APPLET_SPECS,
+                    shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
                 )
             else:
-                from applets_master_satellite import create_shared_applets_for
+                from applets_master_satellite import (
+                    SCAN_APPLET_SPECS,
+                    SHARED_APPLET_SPECS,
+                    create_shared_applets_for,
+                )
 
-                created = create_shared_applets_for(self, self.base)
+                created = create_shared_applets_for(
+                    self, self.base,
+                    shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
+                )
         except Exception as error:  # noqa: BLE001 - convenience only
             logging.warning("could not create applets: %s", error)
         else:

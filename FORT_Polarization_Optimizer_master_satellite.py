@@ -204,9 +204,20 @@ class FORT_Polarization_Optimizer_master_satellite(
         if not self.show_shared_applets:
             return
         try:
-            from applets_master_satellite import create_shared_applets_for
+            from applets_master_satellite import (
+                K10CR1_APPLET_SPECS,
+                SHARED_APPLET_SPECS,
+                create_shared_applets_for,
+            )
 
-            created = create_shared_applets_for(self, self.base)
+            # K10CR1_APPLET_SPECS is the waveplate trajectory, one per node:
+            # HWP_angle/QWP_angle are node-suffixed, so there are genuinely two
+            # trajectories. Asked for here rather than in SHARED_APPLET_SPECS
+            # because this is the only experiment that moves the waveplates.
+            created = create_shared_applets_for(
+                self, self.base,
+                shared_specs=SHARED_APPLET_SPECS + K10CR1_APPLET_SPECS,
+            )
         except Exception as error:  # noqa: BLE001 - convenience only
             logging.warning("could not create shared applets: %s", error)
         else:
@@ -238,6 +249,14 @@ class FORT_Polarization_Optimizer_master_satellite(
         self.core.break_realtime()
         if self.enable_laser_feedback:
             self.stabilizer_FORT.run(setpoint_index=0)  # FORT loading setpoint
+            # AFTER the run, not only before it. A feedback run advances the
+            # timeline by its coded delays while spending real time on sampler
+            # reads and host RPCs, and subroutines/aom_feedback.py manages no
+            # slack of its own, so it RETURNS about 6 ms behind the wall clock.
+            # The break_realtime above covers entry; without this one the next
+            # RTIO event is submitted in the past -- observed as RTIOUnderflow
+            # on channel 36 at -6.19 ms, on the dds_FORT.set() just below.
+            self.core.break_realtime()
 
         ### turning FORT on in the beginning to give enough time to stabilize.
         self.dds_FORT.set(
@@ -424,6 +443,10 @@ class FORT_Polarization_Optimizer_master_satellite(
 
         delay(0.1 * ms)
         self.stabilizer_FORT.run(setpoint_index=0)  # FORT loading setpoint
+        # Same reason as in optimization_routine_zigzag_power_normalized: the
+        # run returns ~6 ms behind, and the 0.1 ms below is nowhere near
+        # enough to absorb that before the dds_FORT.set().
+        self.core.break_realtime()
         delay(0.1 * ms)
         self.dds_FORT.set(
             frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitude
