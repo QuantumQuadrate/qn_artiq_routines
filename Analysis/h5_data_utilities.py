@@ -499,6 +499,50 @@ def ms_print_overrides(source, label="override"):
     return found
 
 
+def ms_show_node(source, size_px=26):
+    """Show, prominently, which node a result file came from.
+
+    The node decides which half of the apparatus every number in the file
+    describes, so it belongs ABOVE the run's details rather than among them.
+    Rendered as large HTML in a notebook and as a plain banner anywhere else,
+    so the same call works from a script.
+
+    Returns the node, or None for a file carrying no node information -- which
+    is what a standalone run looks like.
+    """
+    handle, to_close = _ms_handle(source)
+    try:
+        try:
+            node = ms_node_of(handle)
+        except Exception:
+            node = None
+    finally:
+        if to_close is not None:
+            to_close.close()
+
+    label = node or "no node recorded"
+    # Distinct hues so the two nodes are told apart at a glance. Both are
+    # mid-tone, which keeps them legible on a light or a dark notebook theme.
+    color = {"Node1": "#1a7ae0", "Node2": "#d2452e"}.get(node, "#8a8a8a")
+
+    try:
+        from IPython import get_ipython
+        from IPython.display import display, HTML
+        in_notebook = get_ipython() is not None
+    except Exception:
+        in_notebook = False
+
+    if not in_notebook:
+        print(f"===== {label} =====")
+        return node
+
+    display(HTML(
+        f"<div style='font-size:{size_px}px; font-weight:700; color:{color};"
+        f" letter-spacing:0.5px; margin:6px 0 2px'>{label}</div>"
+    ))
+    return node
+
+
 def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
                                       node=None):
     """Master-satellite loader. Same signature as the standalone one.

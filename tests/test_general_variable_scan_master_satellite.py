@@ -192,11 +192,23 @@ class FakeBase:
         self.result_resets = 0
         self.force_off_calls = 0
 
-    def resolve_experiment_variable_target(self, name):
+    def resolve_experiment_variable_target(self, name, node=None):
+        """Mirror the real resolver, including its node-aware override path.
+
+        node is the node that OWNS the name -- the per-node override
+        dictionary it was written in -- and makes a bare node-specific name
+        unambiguous. A scan variable passes no node, so a bare name stays
+        ambiguous in two_nodes mode there.
+        """
         self.resolve_calls.append(name)
         globals_ = {"n_measurements", "t_delay_in_bob_mu", "parallel_AOM_feedback"}
         if name in globals_:
             return name
+        if node is not None:
+            if name.endswith(f"_{node}"):
+                return name
+            if name == "f_FORT":
+                return f"f_FORT_{node}"
         if self.mode == "single_node":
             other = "Node1" if self.node == "Node2" else "Node2"
             if name.endswith(f"_{other}"):
@@ -681,6 +693,38 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             scan._collect_authoritative_overrides(),
             {"f_FORT_Node1": 241.0, "f_FORT_Node2": 242.0},
         )
+
+    def test_two_nodes_mode_suffixes_bare_names_per_dictionary(self):
+        """A bare name in two_nodes mode takes the suffix of its own field.
+
+        The field says which node the entry belongs to, so nothing is
+        ambiguous -- unlike a scan variable, which carries no node and is
+        still rejected (see the resolver's two_nodes branch). This is what
+        lets the same dictionary text be moved between the two fields, and
+        between single_node and two_nodes, without editing every key.
+        """
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        scan.base = FakeBase("two_nodes", None)
+        scan.base.experiment = scan
+        # Bare on one side, already spelled out on the other, plus a global.
+        scan.override_ExperimentVariables_Node1 = (
+            "{'f_FORT': 241.0, 'n_measurements': 7}"
+        )
+        scan.override_ExperimentVariables_Node2 = "{'f_FORT_Node2': 242.0}"
+        self.assertEqual(
+            scan._collect_authoritative_overrides(),
+            {"f_FORT_Node1": 241.0, "f_FORT_Node2": 242.0, "n_measurements": 7},
+        )
+
+    def test_two_nodes_mode_still_catches_one_target_named_twice(self):
+        """Bare and suffixed spellings must collide, not silently merge."""
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        scan.base = FakeBase("two_nodes", None)
+        scan.base.experiment = scan
+        scan.override_ExperimentVariables_Node1 = "{'f_FORT': 241.0}"
+        scan.override_ExperimentVariables_Node2 = "{'f_FORT_Node1': 242.0}"
+        with self.assertRaisesRegex(ValueError, "overridden twice"):
+            scan._collect_authoritative_overrides()
 
     def test_both_public_gvs_classes_declare_the_per_node_fields(self):
         for experiment_class in (

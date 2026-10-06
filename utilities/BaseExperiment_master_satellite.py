@@ -48,6 +48,13 @@ def merge_per_node_override_dictionaries(
     So an entry written as {'f_FORT_Node2': self.f_FORT_Node2} fails inside
     eval, before resolution is ever reached.
 
+    Names may be written BARE or already suffixed, in either mode: the owning
+    node is handed to resolve_experiment_variable_target, so {'t_pumping': ...}
+    in override_ExperimentVariables_Node1 means t_pumping_Node1 and
+    {'t_pumping_Node1': ...} means the same thing. This is why two_nodes mode
+    accepts a bare name here while still rejecting one for a scan variable:
+    the field names the node, so nothing is ambiguous.
+
     There is deliberately no node-agnostic field. Globals such as
     n_measurements resolve to themselves, so put them in the running node's
     dictionary; in two_nodes mode name a global in one node's dictionary
@@ -84,7 +91,12 @@ def merge_per_node_override_dictionaries(
             )
 
         for name, value in overrides.items():
-            target = resolve_target(str(name))
+            # The owning node is passed so a BARE node-specific name resolves
+            # against this dictionary's node. In single_node that was already
+            # the behaviour, via the compatibility map; in two_nodes a bare
+            # name used to raise "ambiguous", which it is not here -- the
+            # field itself says which node the entry belongs to.
+            target = resolve_target(str(name), node)
             if target in merged:
                 raise ValueError(
                     f"Experiment variable {target!r} is overridden twice: "
@@ -766,8 +778,20 @@ class BaseExperimentMasterSatellite:
                 ) from error
             setattr(self.experiment, compatibility_name, value)
 
-    def resolve_experiment_variable_target(self, name):
-        """Resolve a GVS-facing name to its authoritative attribute name."""
+    def resolve_experiment_variable_target(self, name, node=None):
+        """Resolve a GVS-facing name to its authoritative attribute name.
+
+        ``node``, when given, is the node that OWNS the name: the per-node
+        override dictionary the entry was written in. It makes a bare
+        node-specific name unambiguous, so override_ExperimentVariables_Node1
+        may say {'t_pumping': 30*us} and mean t_pumping_Node1 even in
+        two_nodes mode. A scan variable passes no node -- the field it comes
+        from names no node either, so there is nothing to disambiguate it with
+        and the ambiguity error below is still the right answer there.
+
+        Globals are resolved before this, so naming n_measurements in a node's
+        dictionary keeps working and still returns the bare global name.
+        """
         if not isinstance(name, str) or not name:
             raise ValueError(
                 "Experiment-variable target name must be a non-empty string."
@@ -775,6 +799,23 @@ class BaseExperimentMasterSatellite:
 
         if name in self.global_variable_names:
             return name
+
+        if node is not None:
+            if node not in self.VALID_NODES:
+                raise ValueError(
+                    f"Unknown owning node {node!r}; expected one of "
+                    f"{', '.join(self.VALID_NODES)}."
+                )
+            owned_names = self.node_variable_names[node]
+            # Already spelled out, e.g. {'t_pumping_Node1': ...}.
+            if name in owned_names:
+                return name
+            # Bare, e.g. {'t_pumping': ...} in that node's dictionary.
+            suffixed_name = f"{name}_{node}"
+            if suffixed_name in owned_names:
+                return suffixed_name
+            # Anything else falls through, so the wrong node's name and an
+            # unknown name keep producing the specific errors below.
 
         if self.experiment_mode == "single_node":
             selected_names = self.node_variable_names[self.which_node]
