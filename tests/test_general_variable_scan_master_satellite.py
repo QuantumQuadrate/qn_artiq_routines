@@ -121,6 +121,7 @@ from GeneralVariableScan_master_satellite_two_nodes import (  # noqa: E402
 )
 from subroutines.experiment_functions_two_nodes import (  # noqa: E402
     MASTER_SATELLITE_SANITY_ATTRIBUTES,
+    Two_nodes_atom_loading_experiment,
     master_satellite_namespace_sanity_experiment,
 )
 from AOMsCoils_master_satellite_Node1 import (  # noqa: E402
@@ -201,7 +202,8 @@ class FakeBase:
         ambiguous in two_nodes mode there.
         """
         self.resolve_calls.append(name)
-        globals_ = {"n_measurements", "t_delay_in_bob_mu", "parallel_AOM_feedback"}
+        globals_ = {"n_measurements", "t_Node2_excitation_delay_mu",
+                    "t_Node2_rtio_offset_mu", "parallel_AOM_feedback"}
         if name in globals_:
             return name
         if node is not None:
@@ -255,7 +257,7 @@ class FakeBase:
     def initialize_result_datasets(self):
         self.result_initializations += 1
 
-    def initialize_single_node_result_state(self):
+    def initialize_result_state(self):
         # Single-node GVS also builds the full atom-physics result surface,
         # not just the magnetometer datasets.
         self.single_node_result_initializations += 1
@@ -412,8 +414,23 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         )
         self.assertEqual(
             set(two_registry),
-            {"master_satellite_namespace_sanity_experiment"},
+            {
+                "master_satellite_namespace_sanity_experiment",
+                # Keeps the legacy name: the two-node migration preserves the
+                # original sequence shape rather than renaming it.
+                "Two_nodes_atom_loading_experiment",
+                # The alternating readout is its own entry point, not a flag:
+                # two_node_alternating_shot is reachable from nothing else, and
+                # ARTIQ only type-checks what an entry point reaches, so
+                # without this it would never be compiled by anything.
+                "Two_nodes_alternating_shot_experiment",
+            },
         )
+        # The two registries must stay disjoint: the single-node one is built
+        # from experiment_functions.py and the two-node one from
+        # experiment_functions_two_nodes.py, so an overlap means something
+        # landed in the wrong file.
+        self.assertEqual(set(single_registry) & set(two_registry), set())
 
     def test_public_gvs_envexperiment_classes_match_the_split_files(self):
         expected = {
@@ -507,16 +524,49 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             {"local_experiment": local_experiment},
         )
 
-    def test_native_registry_contains_only_native_sanity_function(self):
+    def test_native_registry_contains_exactly_the_native_experiments(self):
+        """An exact inventory, so adding a two-node entry point is deliberate.
+
+        The registry is built by name matching -- every locally defined function
+        whose name CONTAINS "experiment" -- so a helper that picked up that
+        substring would silently appear in the dashboard dropdown as something
+        runnable. This is what catches that.
+        """
         registry = build_two_node_function_registry()
         self.assertEqual(
-            registry,
+            set(registry),
             {
-                "master_satellite_namespace_sanity_experiment":
-                    master_satellite_namespace_sanity_experiment
+                "master_satellite_namespace_sanity_experiment",
+                # Keeps the legacy name: the two-node migration preserves the
+                # original sequence shape rather than renaming it.
+                "Two_nodes_atom_loading_experiment",
+                # The alternating readout is its own entry point, not a flag:
+                # two_node_alternating_shot is reachable from nothing else, and
+                # ARTIQ only type-checks what an entry point reaches, so
+                # without this it would never be compiled by anything.
+                "Two_nodes_alternating_shot_experiment",
             },
         )
+        self.assertIs(
+            registry["master_satellite_namespace_sanity_experiment"],
+            master_satellite_namespace_sanity_experiment,
+        )
+        # HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS keeps the old
+        # two-independent-Kasli functions out of the SINGLE-node registry (see
+        # test_single_node_registry_uses_current_functions_and_exclusions);
+        # it is not a blanket ban on the names. The master-satellite rewrite of
+        # the atom loading sequence deliberately keeps the legacy name, so the
+        # same string is both excluded from single-node mode -- where the old
+        # body in experiment_functions.py would otherwise be reachable and
+        # would drive one crate only -- and present here, where it resolves to
+        # the new body in experiment_functions_two_nodes.py.
+        self.assertIs(
+            registry["Two_nodes_atom_loading_experiment"],
+            Two_nodes_atom_loading_experiment,
+        )
         for name in HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS:
+            if name == "Two_nodes_atom_loading_experiment":
+                continue
             self.assertNotIn(name, registry)
 
     def test_wrong_mode_or_unknown_function_fails_clearly(self):
