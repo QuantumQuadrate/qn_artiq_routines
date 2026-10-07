@@ -22,7 +22,7 @@ DDS/Zotino/TTL hardware base.initialize_hardware() touches, and which node's
 ExperimentVariables are loaded -- including t_SPCM_exposure, see prepare().
 
 Base still has to run in single_node mode: the *_rate_dataset name attributes
-used below are published by _install_single_node_wiring_metadata, which
+used below are published by _install_wiring_metadata, which
 returns early in two_nodes mode.
 """
 

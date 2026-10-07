@@ -150,11 +150,13 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
 
         globals_experiment = self.initialize(
             global_module.ExperimentVariablesMasterSatelliteGlobal,
-            {"t_delay_in_bob_mu": 211},
+            {"t_Node2_excitation_delay_mu": 211},
         )
-        self.assertEqual(globals_experiment.t_delay_in_bob_mu, 211)
         self.assertEqual(
-            globals_experiment.datasets["t_delay_in_bob_mu"], 211
+            globals_experiment.t_Node2_excitation_delay_mu, 211
+        )
+        self.assertEqual(
+            globals_experiment.datasets["t_Node2_excitation_delay_mu"], 211
         )
 
     def test_node_values_are_independent(self):
@@ -177,17 +179,48 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         # MASTER_SATELLITE_VARIABLES: adding a global should be a conscious
         # decision, and this is what forces it to be one. The two-atom
         # thresholds joined it on 2026-09-17, moving out of the per-node
-        # files because they describe the joint two-node readout.
+        # files because they describe the joint two-node readout. The
+        # two-node joint timing joined on 2026-10-06 for the same reason: a
+        # two-node run opens ONE gate across all four master-local SPCM
+        # counters, so there is one duration, and the thresholds above are
+        # rates compared against counts/t, so gate and threshold must be the
+        # same joint quantity.
         self.assertEqual(
             experiment.datasets,
             {
                 "n_measurements": 100,
-                "t_delay_in_bob_mu": 189,
+                # Layer 1 (electrical) and Layer 2 (optical) cross-node
+                # timing. t_Node2_excitation_delay_mu was t_delay_in_bob_mu,
+                # renamed because that name collided with the standalone
+                # declaration of the same dataset.
+                "t_Node2_rtio_offset_mu": 0,
+                "t_Node2_excitation_delay_mu": 189,
                 "parallel_AOM_feedback": True,
+                # A scratch scan target: no physical meaning, so no per-node
+                # meaning either. Was dummy_variable_Node1/_Node2 until
+                # 2026-10-07, which made scanning it in two_nodes mode raise
+                # "Ambiguous node-specific experiment-variable target".
+                "dummy_variable": 0.0,
                 "two_atom_threshold": 39000.0,
                 "two_atom_threshold_for_loading": 89000.0,
+                "t_atom_check_time_two_node": 0.01,
+                "t_SPCM_first_shot_two_node": 0.01,
+                "t_SPCM_second_shot_two_node": 0.01,
+                "t_delay_between_shots_two_node": 0.0,
+                "t_MOT_dissipation_two_node": 0.05,
+                "max_atom_check_tries_two_node": 100,
+                "max_loading_rounds_two_node": 20,
+                "n_alternating_RO_windows_per_node": 10,
+                # Seconds, not milliseconds: the unit kwarg is display only.
+                "t_alternating_RO_window": 0.001,
+                "t_alternating_RO_pad": 0.0001,
             },
         )
+        # The two Node2 timing globals name the node they apply TO, in the
+        # middle of the name; they are not node-OWNED variables and must not
+        # pick up the per-node suffix treatment. Both end in _mu, so this
+        # still holds -- and it is the assertion that would catch a future
+        # global accidentally named with a trailing _Node2.
         self.assertFalse(
             any(
                 name.endswith(("_Node1", "_Node2"))
@@ -207,6 +240,47 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         }
         self.assertTrue(forbidden.isdisjoint(node1.datasets))
         self.assertTrue(forbidden.isdisjoint(node2.datasets))
+
+    def test_two_atom_thresholds_are_global_and_never_suffixed(self):
+        """Both nodes' fluorescence lands on the SAME four SPCMs.
+
+        All four detectors see both traps through the beamsplitter fan-out, so
+        the two-atom criterion is one joint number, not one per node. These
+        were per-node until 2026-09-17 and carried identical values on both --
+        the duplication this removed. Being global is also what makes the bare
+        name exist in two-node mode, which is how the sequence reads it.
+
+        Pinned because a per-node copy would be invisible until the two nodes'
+        values drifted apart, at which point the atom-check criterion would
+        depend on which node's copy happened to win.
+        """
+        thresholds = {"two_atom_threshold", "two_atom_threshold_for_loading"}
+
+        globals_written = self.initialize(
+            global_module.ExperimentVariablesMasterSatelliteGlobal
+        ).datasets
+        for name in thresholds:
+            self.assertIn(
+                name, globals_written,
+                f"{name} must be declared in the GLOBAL variable file",
+            )
+
+        node1 = self.initialize(
+            node1_module.ExperimentVariablesMasterSatelliteNode1
+        ).datasets
+        node2 = self.initialize(
+            node2_module.ExperimentVariablesMasterSatelliteNode2
+        ).datasets
+        for name in thresholds:
+            for node, written in (("Node1", node1), ("Node2", node2)):
+                self.assertNotIn(
+                    name, written,
+                    f"{name} must not be declared per node",
+                )
+                self.assertNotIn(
+                    f"{name}_{node}", written,
+                    f"{name}_{node} must not exist -- the criterion is joint",
+                )
 
     def test_all_dds_defaults_have_authoritative_node_variables(self):
         names_by_node = {

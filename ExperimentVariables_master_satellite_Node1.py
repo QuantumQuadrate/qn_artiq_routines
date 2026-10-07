@@ -14,7 +14,6 @@ NODE1_VARIABLES = (
     Variable('atom_check_every_n_Node1', 50, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1}, 'single photon experiment'),
     Variable('recool_every_n_OP_Node1', 1, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1}, 'single photon experiment'),
     Variable('record_every_shot_Node1', False, BooleanValue, {}, 'single photon experiment'),
-    Variable('dummy_variable_Node1', 0.0, NumberValue, {'type': 'float'}, 'debugging'),
     Variable('monitor_magnetometer_in_end_measurement_Node1', False, BooleanValue, {}, 'debugging'),
     Variable('f_FORT_Node1', 245000000.0, NumberValue, {'type': 'float', 'unit': 'MHz'}, 'FORT AOM'),
     Variable('p_FORT_loading_Node1', -5.2170281158889775, NumberValue, {'type': 'float', 'unit': 'dBm', 'scale': 1, 'ndecimals': 1}, 'FORT AOM'),

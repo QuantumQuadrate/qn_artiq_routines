@@ -60,6 +60,7 @@ if _experiment_stub is not None:
 from utilities.BaseExperiment_master_satellite import (  # noqa: E402
     BaseExperimentMasterSatellite,
 )
+from utilities.conversions import dB_to_V  # noqa: E402
 from ExperimentVariables_master_satellite_Node1 import NODE1_VARIABLES  # noqa: E402
 from ExperimentVariables_master_satellite_Node2 import NODE2_VARIABLES  # noqa: E402
 from ExperimentVariables_master_satellite_global import (  # noqa: E402
@@ -220,7 +221,8 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         )
         self.assertFalse(hasattr(experiment, "f_FORT_Node2"))
         self.assertEqual(experiment.n_measurements, 100)
-        self.assertEqual(experiment.t_delay_in_bob_mu, 189)
+        self.assertEqual(experiment.t_Node2_excitation_delay_mu, 189)
+        self.assertEqual(experiment.t_Node2_rtio_offset_mu, 0)
         self.assertTrue(experiment.parallel_AOM_feedback)
         self.assertEqual(
             base.compatibility_variable_map["f_FORT"], "f_FORT_Node1"
@@ -367,7 +369,7 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         experiment.n_measurements = 37
         experiment.dataset_writes.clear()
 
-        base.initialize_single_node_result_state()
+        base.initialize_result_state()
 
         writes = [
             write for write in experiment.dataset_writes
@@ -386,7 +388,16 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(experiment.sampler0_Node1.name, "sampler0")
         self.assertEqual(experiment.sampler0_Node2.name, "sampler3")
         self.assertEqual(experiment.SPCM_H1.name, "ttl0")
-        self.assertFalse(hasattr(experiment, "ttl_SPCM0"))
+        # ttl_SPCM0 IS published in two-node mode, deliberately: all four
+        # canonical detectors are master-local and already see both nodes
+        # through the beamsplitter fan-out, so the legacy bare name is the one
+        # real counter rather than anything node-specific. It was absent until
+        # 2026-10-07, when two-node mode gained the broadcast aliases.
+        self.assertIs(experiment.ttl_SPCM0, experiment.SPCM_H1)
+        self.assertIs(
+            experiment.ttl_SPCM1_OtherNode_counter,
+            experiment.SPCM_V2_counter,
+        )
         self.assertTrue(hasattr(experiment, "f_FORT_Node1"))
         self.assertTrue(hasattr(experiment, "f_FORT_Node2"))
         self.assertFalse(hasattr(experiment, "f_FORT"))
@@ -412,6 +423,372 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertFalse(hasattr(experiment, "f_FORT"))
         self.assertEqual(experiment.f_FORT_Node1, 245e6)
         self.assertEqual(experiment.f_FORT_Node2, 240e6)
+
+    def test_two_node_mode_publishes_per_node_wiring_metadata(self):
+        """Two-node code must say which crate it means, and the crates differ.
+
+        The absent bare name is the assertion that matters: if coil_channels
+        existed in two_nodes mode it would silently be one node's, and the
+        other node's coils would be driven through the wrong DAC channels.
+        """
+        experiment, _ = self.build_and_prepare("two_nodes")
+
+        self.assertEqual(experiment.coil_channels_Node1, [0, 1, 13, 14])
+        self.assertEqual(experiment.coil_channels_Node2, [0, 1, 2, 3])
+        self.assertEqual(experiment.AX_Zotino_channel_Node1, 13)
+        self.assertEqual(experiment.AX_Zotino_channel_Node2, 2)
+        self.assertEqual(experiment.UV_trig_channel_Node1, [8])
+
+        self.assertFalse(hasattr(experiment, "coil_channels"))
+        self.assertFalse(hasattr(experiment, "AX_Zotino_channel"))
+
+        # Run-global dataset NAMES stay unsuffixed in both modes: they name run
+        # state, not a node's wiring.
+        self.assertEqual(
+            experiment.measurements_progress, "measurements_progress"
+        )
+        self.assertEqual(experiment.scan_var_dataset, "scan_variables")
+
+    def test_two_node_mode_computes_per_node_derived_amplitudes(self):
+        """ampl_* are required in two_nodes, not merely convenient.
+
+        The obvious alternative for a readout amplitude is the stabilizer's
+        science setpoint, but prepare_laser_stabilizer refuses outside
+        single_node AND FeedbackChannel.amplitudes[1] is 0.0 until feedback has
+        run, so reaching for it open-loop would turn the FORT off.
+        """
+        experiment, _ = self.build_and_prepare("two_nodes")
+
+        for node in ("Node1", "Node2"):
+            loading = getattr(experiment, f"ampl_FORT_loading_{node}")
+            self.assertAlmostEqual(
+                loading,
+                dB_to_V(getattr(experiment, f"p_FORT_loading_{node}")),
+            )
+            self.assertAlmostEqual(
+                getattr(experiment, f"ampl_FORT_RO_{node}"),
+                loading * getattr(experiment, f"p_FORT_RO_{node}"),
+            )
+            mot = getattr(experiment, f"ampl_cooling_DP_MOT_{node}")
+            self.assertAlmostEqual(
+                getattr(experiment, f"ampl_cooling_DP_RO_{node}"),
+                mot * getattr(experiment, f"p_cooling_DP_RO_{node}"),
+            )
+            self.assertAlmostEqual(
+                getattr(experiment, f"ampl_AOM_A1_{node}"),
+                dB_to_V(getattr(experiment, f"p_AOM_A1_{node}")),
+            )
+
+        # The two nodes are genuinely calibrated differently; identical values
+        # would mean the suffixing silently read one node twice.
+        self.assertNotAlmostEqual(
+            experiment.ampl_FORT_loading_Node1,
+            experiment.ampl_FORT_loading_Node2,
+        )
+        self.assertFalse(hasattr(experiment, "ampl_FORT_loading"))
+        self.assertFalse(hasattr(experiment, "ampl_cooling_DP_RO"))
+
+    def test_each_stabilizer_binds_only_its_own_nodes_ambient_devices(self):
+        """A per-node stabilizer must not touch the other node's hardware.
+
+        AOMPowerStabilizer.run() switches devices that are not feedback
+        channels: it blocks both repumps so their light does not contaminate
+        the cooling PD reading, opens the cooling DP that the MOT channels
+        need, and restores the six MOT AOMs at the end. Those were read as
+        bare self.exp.<name> inside the kernel, which is right in standalone
+        and single-node mode but wrong in two-node mode, where Base publishes
+        the bare names as BROADCAST aliases -- so laser_stabilizer_Node2.run()
+        drove Node1's repump, cooling DP and all six fiber AOMs, and vice
+        versa.
+
+        Found on hardware 2026-10-07: an RTIOUnderflow traceback inside
+        laser_stabilizer_Node2.run() ran through _BroadcastTTLOut.on() ->
+        self.node1.on() on channel 5, which is Node1's repump switch. The
+        underflow itself was unrelated (slack erosion); it just happened to
+        print the misbinding.
+
+        It survived sequential feedback because the two runs leave the same
+        end state, and because the broadcast DDS objects expose only .sw -- so
+        no amplitude was ever written to the wrong crate. It would be actively
+        destructive once the two nodes' feedback runs in parallel, which is
+        planned.
+        """
+        import subroutines.aom_feedback as aom_feedback
+
+        experiment, base = self.build_and_prepare("two_nodes")
+
+        # aom_feedback captures cwd at import time and expects the artiq-master
+        # directory; the suite runs from the repository root.
+        artiq_master = Path(__file__).resolve().parents[3]
+        self.assertTrue(
+            (artiq_master / "repository" / "qn_artiq_routines" / "utilities"
+             / "config" / "alice" / "feedback_channels.json").is_file(),
+            "feedback config not found; adjust the artiq-master path",
+        )
+        original_cwd = aom_feedback.cwd
+        aom_feedback.cwd = str(artiq_master) + "\\"
+        try:
+            for node, legacy_name in (("Node1", "alice"), ("Node2", "bob")):
+                suffix = f"_{node}"
+                other_suffix = "_Node2" if node == "Node1" else "_Node1"
+                experiment.dds_defaults = base.node_resolvers[node].dds_defaults
+                stabilizer = aom_feedback.AOMPowerStabilizer(
+                    experiment=experiment,
+                    dds_names=["dds_AOM_A1"],
+                    iterations=1,
+                    averages=1,
+                    leave_AOMs_on=False,
+                    leave_MOT_AOMs_on=True,
+                    node_suffix=suffix,
+                    config_node=legacy_name,
+                )
+                for attribute, device_name in (
+                    ("ttl_repump_switch", "ttl_repump_switch"),
+                    ("ttl_pumping_repump_switch", "ttl_pumping_repump_switch"),
+                    ("dds_cooling_DP", "dds_cooling_DP"),
+                    ("GRIN1and2_dds", "GRIN1and2_dds"),
+                    ("ttl_exc0_switch", "ttl_exc0_switch"),
+                    ("ttl_GRIN1_switch", "ttl_GRIN1_switch"),
+                    ("mot_aom_1", "dds_AOM_A1"),
+                    ("mot_aom_6", "dds_AOM_A6"),
+                ):
+                    bound = getattr(stabilizer, attribute)
+                    self.assertIs(
+                        bound,
+                        getattr(experiment, device_name + suffix),
+                        f"{node} stabilizer bound the wrong {attribute}",
+                    )
+                    self.assertIsNot(
+                        bound,
+                        getattr(experiment, device_name + other_suffix),
+                        f"{node} stabilizer bound the OTHER node's "
+                        f"{attribute}",
+                    )
+                    self.assertNotIn(
+                        type(bound).__name__,
+                        ("_BroadcastTTLOut", "_BroadcastDDS"),
+                        f"{node} stabilizer bound a broadcast {attribute}, "
+                        f"which drives both crates",
+                    )
+        finally:
+            aom_feedback.cwd = original_cwd
+
+    def test_agreeing_scalars_are_rederived_after_overrides(self):
+        """The bare shared scalars must follow the per-node values.
+
+        They used to be published only from prepare(), which broke two things
+        at once, because the sequence reads the BARE name:
+
+          * overriding or scanning an agreeing scalar had NO EFFECT -- the bare
+            name stayed frozen at its pre-override value;
+          * an ASYMMETRIC override did not raise, because prepare() compared
+            the two still-equal dataset values, and the later setattr of the
+            suffixed names left the bare name holding Node1's value. Node2 then
+            silently ran with Node1's exposure time, which is the single
+            failure _publish_agreeing_scalars exists to prevent.
+
+        refresh_variable_dependent_state is the one hook both the override path
+        and the per-scan-point path run through, so the re-derivation belongs
+        there and this test pins it.
+        """
+        experiment, base = self.build_and_prepare("two_nodes")
+
+        # Agreeing override: the bare name must pick the new value up.
+        experiment.t_SPCM_first_shot_Node1 = 0.042
+        experiment.t_SPCM_first_shot_Node2 = 0.042
+        base.refresh_variable_dependent_state()
+        self.assertAlmostEqual(experiment.t_SPCM_first_shot, 0.042)
+
+        # Asymmetric override of a JOINT scalar: one gate cannot have two
+        # durations, so this must raise and name the offender.
+        experiment.t_SPCM_first_shot_Node2 = 0.043
+        with self.assertRaises(RuntimeError) as caught:
+            base.refresh_variable_dependent_state()
+        self.assertIn("t_SPCM_first_shot", str(caught.exception))
+
+    def test_per_node_flags_are_not_forced_to_agree(self):
+        """Genuinely per-node names must stay OFF the agreeing list.
+
+        PGC_and_RO_with_on_chip_beams selects A5/A6, a per-node AOM pair;
+        do_PGC_after_loading gates a per-node stage whose duration already
+        differs between the nodes (t_PGC_after_loading is 0.6 vs 1.0 ms); and
+        t_FORT_drop is a per-node duration and the knob retention is measured
+        against. Sharing any of them would hand Node2 Node1's setting, so the
+        two-node sequence addresses all three explicitly and they must not
+        appear as bare names.
+        """
+        per_node_only = (
+            "PGC_and_RO_with_on_chip_beams",
+            "do_PGC_after_loading",
+            "t_FORT_drop",
+        )
+        for name in per_node_only:
+            self.assertNotIn(
+                name,
+                BaseExperimentMasterSatellite.TWO_NODE_AGREEING_SCALARS,
+                f"{name} is per node; sharing it would make Node2 follow "
+                f"Node1 silently.",
+            )
+
+        experiment, base = self.build_and_prepare("two_nodes")
+
+        # Diverging them is legal and must not raise.
+        experiment.PGC_and_RO_with_on_chip_beams_Node1 = True
+        experiment.PGC_and_RO_with_on_chip_beams_Node2 = False
+        experiment.do_PGC_after_loading_Node1 = True
+        experiment.do_PGC_after_loading_Node2 = False
+        experiment.t_FORT_drop_Node1 = 1e-6
+        experiment.t_FORT_drop_Node2 = 0.0
+        base.refresh_variable_dependent_state()
+
+        for name in per_node_only:
+            self.assertFalse(hasattr(experiment, name), name)
+            for node in ("Node1", "Node2"):
+                self.assertTrue(hasattr(experiment, f"{name}_{node}"))
+
+    def test_single_node_wiring_and_amplitudes_are_unchanged(self):
+        """Regression lock on the three extensions.
+
+        _compute_derived_amplitudes and _install_wiring_metadata both became
+        per-node by routing through _presentation_name, which returns the BARE
+        name in single_node mode. If that ever stops being true, single-node
+        physics changes silently, so pin the exact values here.
+        """
+        experiment, _ = self.build_and_prepare("single_node", "Node1")
+
+        self.assertEqual(experiment.coil_channels, [0, 1, 13, 14])
+        self.assertEqual(experiment.UV_trig_channel, [8])
+        self.assertEqual(experiment.Magnetometer_X_ch, 1)
+        self.assertAlmostEqual(
+            experiment.ampl_FORT_loading, dB_to_V(experiment.p_FORT_loading)
+        )
+        self.assertAlmostEqual(
+            experiment.ampl_FORT_RO,
+            experiment.ampl_FORT_loading * experiment.p_FORT_RO,
+        )
+
+        # Nothing suffixed leaks into the single-node presentation.
+        for name in ("coil_channels_Node1", "ampl_FORT_loading_Node1",
+                     "ampl_FORT_RO_Node1"):
+            self.assertFalse(hasattr(experiment, name), name)
+
+    def test_two_node_result_state_seeds_the_shared_unsuffixed_surface(self):
+        """A two-node run's results describe the JOINT measurement.
+
+        One atom per trap, read out through one gate of the four master-local
+        SPCMs, so there is no per-node quantity to suffix -- which is why this
+        is the same method single_node uses rather than a parallel copy.
+        """
+        experiment, base = self.build_and_prepare("two_nodes")
+        experiment.dataset_writes.clear()
+
+        base.initialize_result_state()
+
+        written = {name for name, _, _ in experiment.dataset_writes}
+
+        # MEASUREMENT RESULTS are joint and unsuffixed -- one atom per trap
+        # read out through one gate of the four master-local SPCMs, so there is
+        # no per-node quantity to suffix.
+        #
+        # HARDWARE MONITORS are the exception, and must be suffixed: each node
+        # has its own FORT, its own pickoff and its own photodiode, and the
+        # applets read FORT_MM_monitor_Node1 / _Node2 separately
+        # (applets_master_satellite.py:321). Seeding only the bare name left
+        # both suffixed names absent and killed a two-node run on hardware with
+        # "Cannot mutate nonexistent dataset 'FORT_MM_monitor_Node1'", after
+        # the feedback had already run.
+        per_node_monitors = {
+            f"{monitor}_{node}"
+            for monitor in ("FORT_MM_monitor", "FORT_APD_monitor")
+            for node in ("Node1", "Node2")
+        }
+        self.assertEqual(
+            {name for name in written if name.endswith(("_Node1", "_Node2"))},
+            per_node_monitors,
+            "two-node measurement results are joint and must not be "
+            "node-suffixed; the only suffixed names here are the per-node "
+            "hardware monitors",
+        )
+        # Seeded empty and broadcast, which is what makes the first
+        # append_to_dataset legal rather than a KeyError.
+        seeded = {name: value for name, value, _ in experiment.dataset_writes}
+        for name in sorted(per_node_monitors):
+            self.assertEqual(
+                seeded.get(name), [],
+                f"{name} must be seeded as an empty broadcast list, or the "
+                f"first append_to_dataset raises",
+            )
+        for required in (
+            "AllSPCMs_RO1", "AllSPCMs_RO2", "AllSPCMs_atom_check_in_loading",
+            "Atom_loading_time", "time_without_atom", "atom_loading_wall_clock",
+            "photocount_bins", "AllSPCMs_alternating_RO_alice",
+            "AllSPCMs_alternating_RO_bob",
+        ):
+            self.assertIn(required, written, required)
+
+        # The host scalars and per-measurement buffers the kernels index. These
+        # must EXIST before compilation, not merely before running.
+        for required in ("AllSPCMs_RO1", "SPCM0_RO1", "SPCM1_OtherNode_RO2",
+                        "measurement", "atom_loading_time", "in_health_check"):
+            self.assertTrue(hasattr(experiment, required), required)
+        self.assertEqual(
+            len(experiment.AllSPCMs_RO1_list), experiment.n_measurements
+        )
+
+    def test_progress_resets_in_both_modes_but_magnetometers_do_not(self):
+        """measurements_progress is run-global; the magnetometers are not.
+
+        In two_nodes mode resolve_result_dataset_name is the identity, so both
+        nodes would resolve to one unsuffixed Magnetometer_MOT_X and the last
+        writer would win. The two-node loader samples no magnetometers anyway.
+        """
+        for mode, node in (("single_node", "Node1"), ("two_nodes", None)):
+            with self.subTest(mode=mode):
+                experiment, base = self.build_and_prepare(mode, node)
+                experiment.dataset_writes.clear()
+                base.reset_result_state_for_scan_point()
+                written = [name for name, _, _ in experiment.dataset_writes]
+
+                self.assertIn("measurements_progress", written)
+                magnetometer_writes = [
+                    name for name in written if name.startswith("Magnetometer_")
+                ]
+                if mode == "single_node":
+                    self.assertTrue(magnetometer_writes)
+                else:
+                    self.assertEqual(magnetometer_writes, [])
+
+    def test_every_sampler_gets_a_deterministic_gain_latched(self):
+        """Sampler.init() never writes the PGIA, so gain must be asserted.
+
+        Node2's samplers used to get no gain write at all and inherited
+        whatever the previous run latched. Gain code 0 is x1, which is what
+        every channel already ran at -- the standalone idiom
+        set_gain_mu(channel, 8) wrote 0b1000 into the NEXT channel's two-bit
+        field and the next iteration's mask cleared it, so the word actually
+        sent was 0x0000. So this changes no measured voltage; it removes
+        inherited state.
+        """
+        for mode, node, expected_samplers in (
+            ("single_node", "Node1", 3),
+            ("single_node", "Node2", 3),
+            ("two_nodes", None, 6),
+        ):
+            with self.subTest(mode=mode, node=node):
+                experiment, base = self.build_and_prepare(mode, node)
+                experiment.log.clear()
+                base.initialize_hardware()
+
+                gain_writes = [
+                    name for name, operation in experiment.log
+                    if operation == "set_gain_mu"
+                ]
+                # Eight channels on every sampler in the run, and no more.
+                self.assertEqual(len(gain_writes), 8 * expected_samplers)
+                self.assertEqual(
+                    len(set(gain_writes)), expected_samplers,
+                    "every sampler in the active node(s) must be written",
+                )
 
     def test_missing_dataset_identifies_owner_and_name(self):
         experiment = FakeExperiment()

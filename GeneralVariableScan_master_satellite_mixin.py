@@ -264,10 +264,15 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         # touches feedback fails to COMPILE, not merely to run. AOMsCoils and
         # the microwave optimizer already do this; two-node mode must not,
         # because master-satellite feedback is single-node only for now.
-        if self.EXPERIMENT_MODE == "single_node":
-            self.base.prepare_laser_stabilizer(
-                stabilizer_factory=self._stabilizer_factory
-            )
+        # Both modes now. In two_nodes mode prepare_laser_stabilizer delegates
+        # to prepare_laser_stabilizers_both_nodes, which builds one
+        # AOMPowerStabilizer per crate writing the same per-node datasets a
+        # single-node run writes -- so the applets and analysis notebooks are
+        # unaffected. It used to be skipped here, which is why a two-node run
+        # could only ever be open loop.
+        self.base.prepare_laser_stabilizer(
+            stabilizer_factory=self._stabilizer_factory
+        )
 
         self.scan_variable1 = self.base.resolve_experiment_variable_target(
             str(self.scan_variable1_name)
@@ -377,29 +382,43 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
 
         self._apply_run_wide_overrides()
         self.base.initialize_result_datasets()
-        if self.EXPERIMENT_MODE == "single_node":
-            # initialize_result_datasets() only covers the magnetometer
-            # results. The reused atom-physics functions also need the full
-            # single-node result surface (SPCM datasets, per-measurement
-            # buffers and the host scalars they read in kernels), which the
-            # microwave optimizer already sets up this way.
-            self.base.initialize_single_node_result_state()
 
-            # Scan labels, exactly as the standalone GeneralVariableScan
-            # publishes them; the retention applet reads these for its axis.
-            # Single-node only: Base publishes scan_var_dataset and friends
-            # as part of the legacy-compatibility namespace, which two-node
-            # mode does not have.
-            scan_names = [
-                name for name in (str(self.scan_variable1_name),
-                                  str(self.scan_variable2_name)) if name
-            ]
-            self.set_dataset(self.scan_var_dataset, ",".join(scan_names),
-                             broadcast=True)
-            self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1,
-                             broadcast=True)
-            self.set_dataset(self.scan_sequence2_dataset, self.scan_sequence2,
-                             broadcast=True)
+        # initialize_result_datasets() only covers the magnetometer results.
+        # The atom-physics functions also need the full result surface (SPCM
+        # datasets, per-measurement buffers and the host scalars they read in
+        # kernels), which the microwave optimizer already sets up this way.
+        #
+        # Both modes now. The names are the same unsuffixed ones either way,
+        # because a two-node run's results describe the JOINT measurement --
+        # one atom per trap, read out through one gate of the four
+        # master-local SPCMs -- so there is nothing per-node to suffix. Until
+        # 2026-10-06 this was single_node-only and the method refused outside
+        # it, which is what stopped any two-node sequence from compiling: the
+        # host scalars have to EXIST before compilation, not merely before
+        # running.
+        self.base.initialize_result_state()
+
+        # Scan labels, exactly as the standalone GeneralVariableScan publishes
+        # them; the retention applet reads these for its axis.
+        #
+        # Both modes. These used to be single_node-only on the grounds that
+        # Base publishes scan_var_dataset as part of the legacy-compatibility
+        # namespace -- but it is now published unsuffixed in both modes,
+        # because it names run-global state rather than a node's wiring. The
+        # omission mattered more than it looks: a scan point mutates
+        # ATTRIBUTES, not datasets, so the archived per-node values are the
+        # pre-scan ones and these three were the only record of what a
+        # two-node run actually scanned. There was none.
+        scan_names = [
+            name for name in (str(self.scan_variable1_name),
+                              str(self.scan_variable2_name)) if name
+        ]
+        self.set_dataset(self.scan_var_dataset, ",".join(scan_names),
+                         broadcast=True)
+        self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1,
+                         broadcast=True)
+        self.set_dataset(self.scan_sequence2_dataset, self.scan_sequence2,
+                         broadcast=True)
 
         self._create_node_applets()
 

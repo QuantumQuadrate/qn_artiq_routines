@@ -373,7 +373,7 @@ class MicrowaveScanOptimizer_master_satellite(
             logging.info("requested %d shared applets", len(created))
 
     def initialize_datasets(self):
-        self.base.initialize_single_node_result_state()
+        self.base.initialize_result_state()
 
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
         self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1, broadcast=True)

@@ -117,7 +117,7 @@ APPLET_SPECS = (
 #:                        specs=APPLET_SPECS + GVS_APPLET_SPECS)
 #:
 #: Deliberately NOT in APPLET_SPECS. AllSPCMs_atom_check_in_loading is seeded
-#: by initialize_single_node_result_state on every experiment, so putting it
+#: by initialize_result_state on every experiment, so putting it
 #: there would open an empty histogram on every run that never loads an atom.
 GVS_APPLET_SPECS = (
     # Written by load_MOT_and_FORT_until_atom and its relatives, two values

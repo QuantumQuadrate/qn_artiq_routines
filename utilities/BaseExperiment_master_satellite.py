@@ -455,7 +455,7 @@ class BaseExperimentMasterSatellite:
             self._bind_node_ttl_aliases(self.which_node)
             self._publish_shared_spcm_compatibility()
         self._publish_resolver_attributes()
-        self._install_single_node_wiring_metadata()
+        self._install_wiring_metadata()
 
     def _deactivate_node_hardware_groups(self, node):
         """Keep bound devices registered but exclude a node from lifecycle.
@@ -611,7 +611,7 @@ class BaseExperimentMasterSatellite:
 
         self._bind_shared_spcms()
         self._publish_resolver_attributes()
-        self._install_single_node_wiring_metadata()
+        self._install_wiring_metadata()
         self._built = True
 
     def _publish_single_node_physical_presentations(self):
@@ -630,20 +630,45 @@ class BaseExperimentMasterSatellite:
                 getattr(self.experiment, f"{standalone_name}_{node}"),
             )
 
-    def _install_single_node_wiring_metadata(self):
-        """Expose fixed legacy wiring metadata for the selected node."""
-        if self.experiment_mode != "single_node":
-            return
+    def _install_wiring_metadata(self):
+        """Expose the fixed wiring metadata, and the run-global dataset names.
 
-        for name, value in self.SINGLE_NODE_WIRING_METADATA[
-            self.which_node
-        ].items():
-            # Copy lists so experiment code cannot mutate the class constant.
-            setattr(
-                self.experiment,
-                name,
-                list(value) if isinstance(value, list) else value,
-            )
+        Two different kinds of thing live here, and they are published
+        differently:
+
+        * PER-NODE WIRING -- coil channels, Zotino channel assignments, the
+          sampler channels a monitor reads. These go through
+          _presentation_name, so single_node mode gets the bare names it
+          always had and two_nodes mode gets coil_channels_Node1 /
+          coil_channels_Node2. Two-node code must say which crate it means,
+          and the two nodes genuinely differ: Node1's coils are Zotino
+          channels [0, 1, 13, 14], Node2's are [0, 1, 2, 3].
+
+          The alternative -- hardcoding those two lists into the two-node
+          experiment file -- would duplicate the wiring table, which is
+          precisely the mechanism by which Node2 silently gets Node1's
+          channels. MonitorMagnetometer_master_satellite already reads
+          SINGLE_NODE_WIRING_METADATA per node for the same reason.
+
+        * RUN-GLOBAL DATASET NAMES -- measurements_progress and the
+          *_rate_dataset / scan_* name strings. These are unsuffixed in both
+          modes: they name run state, not one node's hardware, and
+          plan_codex_detail.md already fixes that policy for
+          measurements_progress.
+
+        Was _install_single_node_wiring_metadata, which returned immediately
+        outside single_node mode and so left two-node code with no coil
+        channels at all.
+        """
+        for node in self.active_nodes:
+            for name, value in self.SINGLE_NODE_WIRING_METADATA[node].items():
+                # Copy lists so experiment code cannot mutate the class
+                # constant.
+                setattr(
+                    self.experiment,
+                    self._presentation_name(name, node),
+                    list(value) if isinstance(value, list) else value,
+                )
 
         self.experiment.measurements_progress = "measurements_progress"
         # Fixed legacy dataset-name attributes used by the reused scan code.
@@ -664,9 +689,7 @@ class BaseExperimentMasterSatellite:
         self.experiment.scan_sequence2_dataset = "scan_sequence2"
 
     def initialize_result_datasets(self):
-        """Create the minimal transient single-node magnetometer results."""
-        if self.experiment_mode != "single_node":
-            return
+        """Create the minimal transient per-scan-point results."""
         self.reset_result_state_for_scan_point()
 
     def resolve_result_dataset_name(self, name):
@@ -680,20 +703,33 @@ class BaseExperimentMasterSatellite:
         return name
 
     def reset_result_state_for_scan_point(self):
-        """Clear transient magnetometer results for one scan point.
+        """Clear transient per-scan-point results.
 
         This method deliberately does not read ExperimentVariables, touch the
         core, bind devices, or reset any variable-dependent cached state.
-        """
-        if self.experiment_mode != "single_node":
-            return
 
+        The progress reset runs in BOTH modes -- measurements_progress names
+        run-global state and the applet reading it does not care which mode
+        produced it.
+
+        The magnetometer reset stays single_node-only. In two_nodes mode
+        resolve_result_dataset_name is the identity function, so both nodes
+        would resolve to one unsuffixed Magnetometer_MOT_X and whichever wrote
+        last would win -- and the two-node loader deliberately samples no
+        magnetometers anyway (measure_Magnetometer is alice-flavoured and
+        measure_GRIN1's sampler channel is a Node2 placeholder, so neither is
+        carried into the two-node path).
+        """
         self.experiment.set_dataset(
             self.experiment.measurements_progress,
             0.0,
             broadcast=True,
             persist=False,
         )
+
+        if self.experiment_mode != "single_node":
+            return
+
         for legacy_dataset_name in self.MAGNETOMETER_RESULT_DATASETS:
             dataset_name = self.resolve_result_dataset_name(
                 legacy_dataset_name
@@ -882,8 +918,25 @@ class BaseExperimentMasterSatellite:
             resolver.dds_frequencies[:] = frequencies
             resolver.dds_powers[:] = powers
 
-        if self.experiment_mode == "single_node":
-            self._compute_derived_amplitudes()
+        for node in self.active_nodes:
+            self._compute_derived_amplitudes(node)
+
+        if self.experiment_mode == "two_nodes":
+            # Re-derive the shared bare scalars from the per-node values AFTER
+            # overrides and scan points have been applied. Publishing them only
+            # from prepare() made this method's guard useless and silently
+            # broke two things:
+            #   * an asymmetric override of an agreeing scalar did NOT raise --
+            #     prepare() compared the two equal dataset values, published
+            #     the bare name, and the later setattr of the suffixed names
+            #     left it stale, so Node2 ran with Node1's value. That is the
+            #     exact failure _publish_agreeing_scalars exists to prevent.
+            #   * scanning or overriding an agreeing scalar had NO EFFECT, for
+            #     the same reason: the sequence reads the bare name and the
+            #     bare name was frozen at its pre-override value.
+            # This is the one hook the override path and the per-scan-point
+            # path both run through, so it is the correct place.
+            self._publish_agreeing_scalars()
 
     def reload_experiment_variables(self):
         """Reload active authoritative/global datasets without side effects."""
@@ -1115,50 +1168,224 @@ class BaseExperimentMasterSatellite:
             setattr(self.experiment, all_dds_attribute, list(resolver.dds_list))
 
         self._prepared = True
-        if self.experiment_mode == "single_node":
-            self._compute_derived_amplitudes()
+        for node in self.active_nodes:
+            self._compute_derived_amplitudes(node)
 
-    def _compute_derived_amplitudes(self):
-        """Recompute the standalone in-memory RF amplitudes (single-node).
+        if self.experiment_mode == "two_nodes":
+            self._publish_broadcast_aliases()
+
+    def _publish_broadcast_aliases(self):
+        """Publish bare names that act on BOTH crates at once.
+
+        Two-node runs were historically "the same code running on both nodes":
+        each standalone crate ran its own kernel against its own copy of the
+        variables, so a line reading `self.dds_AOM_A1.sw.off()` turned off A1
+        on whichever node was executing it. Under one kernel the faithful
+        equivalent is for that same line to turn off BOTH nodes' A1, which is
+        what these aliases do. The sequence code then reads as it always did.
+
+        SWITCHING ONLY, and that restriction is the point. A broadcast .set()
+        would have to send ONE frequency to both crates, and the two nodes
+        disagree on nearly every setting that matters -- f_FORT is 245 vs 240
+        MHz, f_cooling_DP_RO is 120.37 vs 130 MHz, every coil voltage differs.
+        Silently giving Node2 Node1's frequency is the worst available
+        outcome, so the broadcast objects simply have no set(): a
+        value-carrying call on a bare name fails to COMPILE and has to be
+        written per node. Loud beats wrong.
+
+        The same reasoning applies even more strongly to durations.
+        t_PGC_after_loading is 0.6 ms on Node1 and 1.0 ms on Node2, and
+        t_recooling_after_first_shot is 0 and 1.0 ms -- so the two nodes'
+        sequences are different LENGTHS. One kernel cannot delay() two amounts
+        at once; those stages have to be placed from a common t0 with at_mu.
+        No alias can paper over that.
+
+        The canonical SPCMs are deliberately NOT broadcast: all four are
+        master-local and all four already see both nodes' fluorescence through
+        the beamsplitter fan-out, so ttl_SPCM0_counter and friends resolve to
+        the single real counter exactly as in single-node mode.
+        """
+        experiment = self.experiment
+
+        # NO BARE DEVICE ALIASES. Every device in a two-node sequence names its
+        # node, so `self.dds_FORT` simply does not exist here and a bare device
+        # name fails to COMPILE.
+        #
+        # This used to publish broadcast objects -- one AD9910/TTLOut-shaped
+        # wrapper per logical alias that fanned .sw.on() out to both crates --
+        # so the sequence could keep the single-node line it always had. The
+        # sequence did read more like the legacy code. The cost was higher: a
+        # bare device name became LEGAL throughout the stack, so reaching for
+        # one by mistake silently drove both crates instead of raising.
+        # aom_feedback.py did exactly that, and laser_stabilizer_Node2.run()
+        # spent an unknown number of runs driving NODE1's repump, cooling DP
+        # and all six fiber AOMs. It was found only because an unrelated
+        # RTIOUnderflow printed a stack through _BroadcastTTLOut.on().
+        #
+        # Two sequential per-node writes land at the same now_mu, which is what
+        # the broadcast methods did internally, so nothing about the hardware
+        # timing changed when the sequence was made explicit -- only what a
+        # mistake costs.
+
+        # Shared master-local detectors, same bare names single-node code uses.
+        self._publish_shared_spcm_compatibility()
+
+        self._publish_agreeing_scalars()
+
+        # which_node has no meaning here, but end_measurement's magnetometer
+        # branch mentions it, and the ARTIQ compiler types every branch it can
+        # reach whether or not it executes. Publishing the master's legacy name
+        # lets that function be imported unchanged; the branch itself is dead
+        # because monitor_magnetometer_in_end_measurement gates it and the
+        # two-node sequence samples no magnetometers.
+        experiment.which_node = self.NODE_LEGACY_NAMES["Node1"]
+
+    #: Per-node scalars that a two-node sequence reads BARE, because they are
+    #: scalars rather than per-node hardware settings: they end up in an `if`,
+    #: or in a delay() both nodes share, or in a threshold comparison. The
+    #: legacy two-node code read them bare on both crates and the imported
+    #: single-node subroutines still do.
+    #:
+    #: Published bare ONLY while the two nodes agree. _publish_agreeing_scalars
+    #: raises if one diverges, rather than silently handing the sequence one
+    #: node's value -- divergence means that quantity has become genuinely
+    #: per-node and the sequence has to say which node it means.
+    #:
+    #: Deliberately NOT here: anything the nodes already disagree about.
+    #: single_atom_threshold is 14000 vs 17000, t_PGC_after_loading 0.6 vs
+    #: 1.0 ms, every f_* and coil voltage differs. Those are explicit at the
+    #: call site.
+    # Deliberately NOT in this tuple, because they are genuinely per node and
+    # the two-node sequence addresses them explicitly:
+    #   PGC_and_RO_with_on_chip_beams -- selects A5/A6, a per-node AOM pair
+    #   do_PGC_after_loading          -- gates a per-node stage whose duration
+    #                                    (t_PGC_after_loading) already differs
+    #   t_FORT_drop                   -- a per-node duration, and the knob
+    #                                    retention is measured against
+    # Sharing a duration that differs between the nodes is the failure this
+    # whole mechanism is here to catch, so a duration only belongs below when
+    # one joint hardware event consumes it.
+    TWO_NODE_AGREEING_SCALARS = (
+        "monitor_magnetometer_in_end_measurement",
+        "monitors_for_atom_loading",
+        "use_chopped_readout",
+        "no_first_shot",
+        "require_D1_lock_to_advance",
+        "enable_laser_feedback",
+        # Read by aom_feedback.run(), which a two-node run now calls per node.
+        "Luca_trigger_for_feedback_verification",
+        # These four are joint because ONE hardware event consumes each: a
+        # single gate of all four master-local SPCMs, and a single interval on
+        # the one shared timeline between two joint shots.
+        "t_SPCM_first_shot",
+        "t_SPCM_second_shot",
+        "t_atom_check_time",
+        "t_delay_between_shots",
+        "t_FORT_loading",
+        "t_MOT_dissipation",
+    )
+
+    def _publish_agreeing_scalars(self):
+        """Publish the bare scalars a two-node sequence shares, or raise.
+
+        See TWO_NODE_AGREEING_SCALARS. The equality check is the whole point:
+        it converts "Node2 silently ran with Node1's exposure time" into an
+        error naming the variable.
+
+        Called from prepare() AND from refresh_variable_dependent_state, so it
+        sees overridden and scanned values too -- which is what makes the check
+        meaningful. Publishing only from prepare() compared two still-equal
+        dataset values and left the bare name stale behind every override.
+        """
+        experiment = self.experiment
+        diverged = []
+        for base_name in self.TWO_NODE_AGREEING_SCALARS:
+            value1 = getattr(experiment, f"{base_name}_Node1")
+            value2 = getattr(experiment, f"{base_name}_Node2")
+            if value1 != value2:
+                diverged.append(f"{base_name} (Node1={value1!r}, Node2={value2!r})")
+                continue
+            setattr(experiment, base_name, value1)
+
+        if diverged:
+            raise RuntimeError(
+                "Two-node mode publishes these as one shared bare name, but "
+                "the nodes no longer agree: " + "; ".join(diverged) + ". "
+                "These are shared because ONE hardware event consumes each -- "
+                "a single gate of all four master-local SPCMs, or a single "
+                "interval on the one shared timeline -- so there is no way to "
+                "honour two values. If an override dictionary set this, put "
+                "the SAME value in both override_ExperimentVariables_Node1 "
+                "and _Node2. If a scan set it, scan it on both nodes. If the "
+                "two nodes genuinely need different values, it does not belong "
+                "in TWO_NODE_AGREEING_SCALARS: take it out and address the two "
+                "nodes explicitly at the call site, the way the sequence "
+                "already does for t_FORT_drop and t_PGC_after_loading."
+            )
+
+    def _compute_derived_amplitudes(self, node):
+        """Recompute one node's in-memory RF amplitudes.
 
         Mirrors the standalone BaseExperiment: absolute amplitudes from the
         dBm calibrations, and the fractional RO/PGC/blowaway/OP levels from
         them. In-memory only; scans and overrides recompute these through
         refresh_variable_dependent_state().
+
+        Every name goes through _presentation_name, so single_node mode gets
+        the bare names it always had and two_nodes mode gets ampl_*_Node1 and
+        ampl_*_Node2. The inputs exist suffixed on both nodes already.
+
+        two_nodes mode NEEDS these, and not merely for convenience. The
+        obvious alternative for a readout amplitude is the stabilizer's
+        science setpoint, as first_shot uses
+        (subroutines/experiment_functions.py: self.stabilizer_FORT.amplitudes[1]).
+        That is unavailable two ways over: prepare_laser_stabilizer refuses
+        outside single_node, and FeedbackChannel.amplitudes is
+        np.zeros(len(set_points)) with only [0] seeded
+        (subroutines/aom_feedback.py), so amplitudes[1] reads 0.0 until
+        feedback has run at least once -- an open-loop two-node run reaching
+        for it would turn the FORT OFF. ampl_FORT_loading * p_FORT_RO, which
+        this computes, is the open-loop equivalent.
         """
         experiment = self.experiment
-        experiment.ampl_FORT_loading = dB_to_V(experiment.p_FORT_loading)
-        experiment.ampl_cooling_DP_MOT = dB_to_V(experiment.p_cooling_DP_MOT)
-        experiment.ampl_MW_RF_dds = dB_to_V(experiment.p_MW_RF_dds)
-        experiment.ampl_excitation = dB_to_V(experiment.p_excitation)
-        experiment.ampl_microwaves = dB_to_V(experiment.p_microwaves)
+
+        def source(base_name):
+            return getattr(experiment, self._presentation_name(base_name, node))
+
+        def publish(base_name, value):
+            setattr(experiment, self._presentation_name(base_name, node), value)
+
+        publish("ampl_FORT_loading", dB_to_V(source("p_FORT_loading")))
+        publish("ampl_cooling_DP_MOT", dB_to_V(source("p_cooling_DP_MOT")))
+        publish("ampl_MW_RF_dds", dB_to_V(source("p_MW_RF_dds")))
+        publish("ampl_excitation", dB_to_V(source("p_excitation")))
+        publish("ampl_microwaves", dB_to_V(source("p_microwaves")))
         for fiber_index in range(1, 7):
-            setattr(
-                experiment,
+            publish(
                 f"ampl_AOM_A{fiber_index}",
-                dB_to_V(getattr(experiment, f"p_AOM_A{fiber_index}")),
+                dB_to_V(source(f"p_AOM_A{fiber_index}")),
             )
 
-        experiment.ampl_FORT_RO = (
-            experiment.ampl_FORT_loading * experiment.p_FORT_RO
+        ampl_FORT_loading = source("ampl_FORT_loading")
+        publish("ampl_FORT_RO", ampl_FORT_loading * source("p_FORT_RO"))
+        publish("ampl_FORT_PGC", ampl_FORT_loading * source("p_FORT_PGC"))
+        publish(
+            "ampl_FORT_blowaway",
+            ampl_FORT_loading * source("p_FORT_blowaway"),
         )
-        experiment.ampl_FORT_PGC = (
-            experiment.ampl_FORT_loading * experiment.p_FORT_PGC
+        publish("ampl_FORT_OP", ampl_FORT_loading * source("p_FORT_OP"))
+
+        ampl_cooling_DP_MOT = source("ampl_cooling_DP_MOT")
+        publish(
+            "ampl_cooling_DP_RO",
+            ampl_cooling_DP_MOT * source("p_cooling_DP_RO"),
         )
-        experiment.ampl_FORT_blowaway = (
-            experiment.ampl_FORT_loading * experiment.p_FORT_blowaway
-        )
-        experiment.ampl_FORT_OP = (
-            experiment.ampl_FORT_loading * experiment.p_FORT_OP
-        )
-        experiment.ampl_cooling_DP_RO = (
-            experiment.ampl_cooling_DP_MOT * experiment.p_cooling_DP_RO
-        )
-        experiment.ampl_cooling_DP_PGC = (
-            experiment.ampl_cooling_DP_MOT * experiment.p_cooling_DP_PGC
+        publish(
+            "ampl_cooling_DP_PGC",
+            ampl_cooling_DP_MOT * source("p_cooling_DP_PGC"),
         )
 
-    def initialize_single_node_result_state(self):
+    def initialize_result_state(self):
         """Create the datasets and buffers the reused atom-physics code needs.
 
         The set was traced from the microwave experiment chain
@@ -1167,14 +1394,27 @@ class BaseExperimentMasterSatellite:
         plus the per-measurement accumulator lists the standalone Base built
         in prepare. Broadcast, never persisted -- with exactly one exception,
         n_measurements, explained where it is written below.
+
+        Runs in BOTH execution modes, and the names it seeds are the same
+        unsuffixed ones in both. That is not laziness: a two-node run loads one
+        atom per trap and reads them out through one gate of the four
+        master-local SPCMs, so its results describe the JOINT measurement and
+        there is no per-node quantity to suffix. A two-node-specific copy of
+        this method would therefore be a copy, not a variant.
+
+        Was initialize_single_node_result_state, which refused outside
+        single_node mode and so blocked any two-node sequence from compiling.
+
+        The seeded set is deliberately NOT trimmed for two-node mode. The
+        compiler types kernel attribute access from the host object, so a
+        missing host scalar fails to COMPILE, not merely to run (see the
+        comment on the scalars below). Seeding a name a two-node run never
+        touches costs one set_dataset; omitting one the kernel mentions costs
+        a dashboard crash.
         """
         if not self._prepared:
             raise RuntimeError(
                 "prepare() must complete before initializing result state."
-            )
-        if self.experiment_mode != "single_node":
-            raise RuntimeError(
-                "Single-node result state requires single_node mode."
             )
 
         experiment = self.experiment
@@ -1383,8 +1623,24 @@ class BaseExperimentMasterSatellite:
         # run therefore satisfies get() while append_to_dataset() still raises
         # KeyError. Every other dataset here is seeded unconditionally for the
         # same reason.
+        #
+        # Per NODE, not once. These are per-node measurements and the applets
+        # read FORT_MM_monitor_Node1 / _Node2 (applets_master_satellite.py
+        # :321). Single-node mode gets the suffix from the redirection map, so
+        # _presentation_name returns the bare name there and set_dataset
+        # rewrites it exactly as before. Two-node mode has an EMPTY redirection
+        # map -- resolve_result_dataset_name is the identity -- so seeding the
+        # bare name there created FORT_MM_monitor and left both suffixed names
+        # absent, and record_FORT_powers_both_nodes (which writes the suffixed
+        # names explicitly, because it measures both crates in one call) died
+        # with "Cannot mutate nonexistent dataset 'FORT_MM_monitor_Node1'".
         for monitor_name in ("FORT_MM_monitor", "FORT_APD_monitor"):
-            experiment.set_dataset(monitor_name, [], broadcast=True)
+            for node in self.active_nodes:
+                experiment.set_dataset(
+                    self._presentation_name(monitor_name, node),
+                    [],
+                    broadcast=True,
+                )
 
         experiment.set_dataset("photocount_bins", [50], broadcast=True)
 
@@ -1424,21 +1680,27 @@ class BaseExperimentMasterSatellite:
     def prepare_laser_stabilizer(self, stabilizer_factory=None):
         """Build the selected node's AOMPowerStabilizer with suffixed persistence.
 
-        subroutines/aom_feedback.py is unchanged from the standalone stack:
-        every dataset it touches goes through the experiment object, so this
-        method installs a name map that routes those reads and writes to the
-        node-suffixed authoritative datasets before construction. The
-        stabilizer itself sees the ordinary projected legacy namespace
-        (samplers, DDS aliases, set points, dds_defaults, which_node).
+        Every dataset subroutines/aom_feedback.py touches goes through the
+        experiment object, so this method installs a name map that routes
+        those reads and writes to the node-suffixed authoritative datasets
+        before construction. The stabilizer itself sees the ordinary projected
+        legacy namespace (samplers, DDS aliases, set points, dds_defaults,
+        which_node).
+
+        In SINGLE-node mode that projection is bare, so aom_feedback behaves
+        exactly as it does standalone and this path is unchanged. Two-node
+        mode cannot use the map -- it is one dict on the experiment and two
+        stabilizers need two suffixes at once -- so aom_feedback itself takes
+        a node_suffix; see prepare_laser_stabilizers_both_nodes.
         """
         if not self._prepared:
             raise RuntimeError(
                 "prepare() must complete before preparing the laser "
                 "stabilizer."
             )
-        if self.experiment_mode != "single_node":
-            raise RuntimeError(
-                "Master-satellite laser feedback is single-node only for now."
+        if self.experiment_mode == "two_nodes":
+            return self.prepare_laser_stabilizers_both_nodes(
+                stabilizer_factory
             )
 
         suffix = f"_{self.which_node}"
@@ -1496,6 +1758,85 @@ class BaseExperimentMasterSatellite:
                     broadcast=True,
                 )
         return experiment.laser_stabilizer
+
+    def prepare_laser_stabilizers_both_nodes(self, stabilizer_factory=None):
+        """Build ONE AOMPowerStabilizer per crate, for a two-node run.
+
+        Two-node feedback works the way single-node feedback does, and writes
+        the SAME per-node datasets -- p_AOM_A1_Node1, FORT_monitor_Node2 and
+        so on -- so every applet and every analysis notebook keeps working
+        unchanged. That is the whole requirement; nothing here invents a
+        two-node dataset vocabulary.
+
+        It cannot go through feedback_dataset_map the way single-node does,
+        because that map is one dict on the experiment and two stabilizers
+        need two different suffixes at the same time. Instead each stabilizer
+        is constructed with node_suffix, and aom_feedback appends it to every
+        device, set-point, default and dataset name it looks up. So the map
+        stays empty here and resolve_result_dataset_name keeps passing names
+        through untouched.
+
+        Publishes laser_stabilizer_Node1 / _Node2 and, via aom_feedback,
+        stabilizer_FORT_Node1, stabilizer_AOM_A1_Node2 and the rest.
+        """
+        if stabilizer_factory is None:
+            stabilizer_factory = AOMPowerStabilizer
+
+        experiment = self.experiment
+        stabilizers = {}
+
+        for node in self.active_nodes:
+            suffix = f"_{node}"
+            # aom_feedback reads dds_defaults[ch_name] for the bare channel
+            # name and then suffixes the VARIABLE it names, so one shared map
+            # of bare channel -> bare variable names serves both nodes.
+            experiment.dds_defaults = self.node_resolvers[node].dds_defaults
+
+            fast_feedback_dds_names = eval(
+                getattr(experiment, f"fast_feedback_dds_list{suffix}")
+            )
+            stabilizer = stabilizer_factory(
+                experiment=experiment,
+                dds_names=fast_feedback_dds_names,
+                iterations=getattr(
+                    experiment, f"aom_feedback_iterations{suffix}"
+                ),
+                averages=getattr(
+                    experiment, f"aom_feedback_averages{suffix}"
+                ),
+                leave_AOMs_on=False,
+                leave_MOT_AOMs_on=True,
+                node_suffix=suffix,
+                config_node=self.NODE_LEGACY_NAMES[node],
+            )
+            setattr(experiment, f"laser_stabilizer{suffix}", stabilizer)
+            stabilizers[node] = stabilizer
+
+            channels = stabilizer.all_channels
+            experiment.set_dataset(
+                f"feedbackchannels{suffix}",
+                [channel.dB_dataset for channel in channels],
+                broadcast=True,
+                persist=True,
+            )
+            initial = np.zeros(len(channels))
+            for index, channel in enumerate(channels):
+                initial[index] = experiment.get_dataset(
+                    channel.dB_dataset, archive=False
+                )
+                try:
+                    experiment.append_to_dataset(
+                        channel.dB_history_dataset, float(initial[index])
+                    )
+                except KeyError:
+                    experiment.set_dataset(
+                        channel.dB_history_dataset,
+                        [float(initial[index])],
+                        broadcast=True,
+                    )
+            setattr(experiment, f"initial_RF_dB_values{suffix}", initial)
+
+        return stabilizers
 
     @kernel
     def _wait_for_satellite(self):
@@ -1568,8 +1909,8 @@ class BaseExperimentMasterSatellite:
             self._ttl_safe_off_node2,
         )
 
-        self._initialize_sampler_group(self._samplers_node1, True)
-        self._initialize_sampler_group(self._samplers_node2, False)
+        self._initialize_sampler_group(self._samplers_node1)
+        self._initialize_sampler_group(self._samplers_node2)
 
         self._initialize_zotino_group(
             self._zotinos_node1, turn_off_zotinos
@@ -1625,16 +1966,41 @@ class BaseExperimentMasterSatellite:
         self.experiment.core.break_realtime()
 
     @kernel
-    def _initialize_sampler_group(self, samplers, configure_node1_gains):
+    def _initialize_sampler_group(self, samplers):
+        """Init every sampler in the group and latch a known PGIA gain.
+
+        Sampler.init() configures the two SPI channels and NOTHING else -- it
+        never writes the PGIA shift register -- so without an explicit write a
+        sampler keeps whatever gain the previous experiment latched. Node2's
+        samplers used to get no write at all (the old configure_node1_gains
+        flag was False for them), so they inherited state across runs. That is
+        the bug being closed here: determinism, not scale.
+
+        Gain code 0 is gain x1, and that is deliberately what every channel
+        already runs at, so this write changes no measured voltage:
+        set_gain_mu packs a TWO-bit field --
+            gains &= ~(0b11 << channel*2);  gains |= gain << channel*2
+        -- so the standalone idiom set_gain_mu(channel, 8) wrote 0b1000 into
+        the NEXT channel's field, which the next iteration's mask then
+        cleared. After all eight channels bits 0-15 were zero, and the PGIA
+        transfer is 16 bits wide, so the word actually sent was 0x0000: gain
+        x1 on every channel, on both nodes. Every PD setpoint and dB value in
+        utilities/config/*/feedback_channels.json was therefore calibrated at
+        x1.
+
+        Do NOT "fix" that 8 to a valid 3 to get the gain the name suggests.
+        Valid codes are 0, 1, 2, 3 for gains 1, 10, 100, 1000, so 3 would
+        multiply every Node1 photodiode reading by 1000 and invalidate the
+        entire feedback calibration. Changing the gain is a separate decision
+        with a recalibration attached.
+        """
         for sampler in samplers:
             self.experiment.core.break_realtime()
             sampler.init()
-        if configure_node1_gains and len(samplers) >= 2:
+        for sampler in samplers:
+            self.experiment.core.break_realtime()
             for channel in range(8):
-                samplers[0].set_gain_mu(channel, 8)
-                delay(100 * us)
-            for channel in range(8):
-                samplers[1].set_gain_mu(channel, 0)
+                sampler.set_gain_mu(channel, 0)
                 delay(100 * us)
 
     @kernel

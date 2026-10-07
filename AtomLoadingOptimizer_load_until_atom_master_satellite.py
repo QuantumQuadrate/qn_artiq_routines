@@ -315,10 +315,10 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
         ### only THIS worker's local and broadcaster dicts, while get() falls
         ### through to the master's database -- so a leftover dataset from an
         ### earlier run satisfies get() and still fails the append. Base says
-        ### the same thing at initialize_single_node_result_state().
+        ### the same thing at initialize_result_state().
         ###
         ### Only these two, rather than calling
-        ### base.initialize_single_node_result_state(): that method also sets
+        ### base.initialize_result_state(): that method also sets
         ### atom_loading_time_list to a PYTHON LIST, and get_cost takes
         ### TArray(TFloat, 1), so it would undo the numpy array assigned just
         ### above. FORT_Polarization_Optimizer_master_satellite seeds exactly
