@@ -457,6 +457,18 @@ def recooling_after_first_shot(self):
     ### "both nodes from a common t0, then resync past the longer". So no
     ### now_mu() anchor and no t_longest bookkeeping -- and no way for that
     ### arithmetic to drift out of step with what the block actually contains.
+    ###
+    ### WORTH IT ONLY BECAUSE THE BRANCHES CONTAIN delay(). The manual: "the
+    ### statements in a parallel block are actually executed sequentially,
+    ### only the RTIO events are SCHEDULED in parallel". Two switch calls with
+    ### nothing between them already share a timestamp, so wrapping THOSE in
+    ### parallel changes no timing and just spends CPU -- an at_mu, a now_mu,
+    ### a compare and a select per statement.
+    ###
+    ### And the rewind is not free: wall clock advances across a branch even
+    ### though the cursor is reset, so a branch that emits many events can put
+    ### the NEXT branch into negative slack. Two or three events per branch,
+    ### as here, is nowhere near that.
     with parallel:
         if self.t_recooling_after_first_shot_Node1 > 0.0:
             self.ttl_repump_switch_Node1.off()  ### turn on MOT RP
