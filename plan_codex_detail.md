@@ -383,9 +383,26 @@ Confirmed values and rules:
 t_coil_relaxation_time_OP_Node1 = 1 ms seed
 t_coil_relaxation_time_OP_Node2 = 0.4 ms seed
 n_measurements = 100 global
-t_delay_in_bob_mu = 189 global, exact name
+t_Node2_excitation_delay_mu = 189 global   (was t_delay_in_bob_mu)
+t_Node2_rtio_offset_mu = 0 global          (new 2026-10-06)
 parallel_AOM_feedback = True global
 ```
+
+Superseded 2026-10-06: `t_delay_in_bob_mu` was specified above as a global
+with that exact name, but `standalone/ExperimentVariables.py` declares the
+same dataset name with a different default, so the two initializers collided
+and the live value was whichever ran last. The rename resolves the collision
+and separates two things the old name conflated:
+
+- `t_Node2_rtio_offset_mu` -- ELECTRICAL. The offset applied to Node2-crate
+  events so both crates' output pins move together on the shared timeline.
+  Measured by `tests/measure_drtio_ttl_skew.py`. Replaces the concept behind
+  `alice_extra_offset_mu`, whose scope-calibrated value belonged to the
+  retired two-crate TTL handshake.
+- `t_Node2_excitation_delay_mu` -- OPTICAL. The fine delay that brings the two
+  emitted photons into coincidence at the SPCM, compensating differing fibre
+  and free-space path lengths and AOM turn-on. Not measurable by TTL
+  loopback; it needs a photon coincidence measurement.
 
 Keep historical D1 variables but do not invent `set_point_D1_DP`. Active
 feedback is AOM1-AOM6 plus FORT. Preserve independent loading/science/holding

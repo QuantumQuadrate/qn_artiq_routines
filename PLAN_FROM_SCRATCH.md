@@ -136,8 +136,13 @@ ExperimentVariables_Node2.py             owns *_Node2
 ExperimentVariables_master_satellite.py  owns globals only
 ```
 
-Approved globals include unsuffixed `n_measurements`, `t_delay_in_bob_mu`, and
+Approved globals include unsuffixed `n_measurements`,
+`t_Node2_excitation_delay_mu`, `t_Node2_rtio_offset_mu` and
 `parallel_AOM_feedback`. Execution selections are GVS arguments, not datasets.
+
+(`t_Node2_excitation_delay_mu` was `t_delay_in_bob_mu` until 2026-10-06. That
+name collided with the standalone declaration of the same dataset; see
+`plan_codex_detail.md` for the rename and for the electrical/optical split.)
 
 Code defaults seed missing datasets only. Running an ExperimentVariables file
 must not overwrite an existing persistent calibration. Normal experiments
