@@ -384,7 +384,12 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             return False
 
         def advances_cursor(stmt):
-            if isinstance(stmt, ast.With):
+            # NOT ast.With: `with parallel:` restarts every branch at the
+            # block's entry time, so each branch's FIRST event shares one
+            # timestamp with every other branch's first event. Treating the
+            # block as opaque would hide exactly the collision this guard
+            # exists to find. Handled explicitly in walk() instead.
+            if False:
                 return True
             if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
                 func = stmt.value.func
@@ -392,11 +397,46 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                     func.id if isinstance(func, ast.Name)
                     else getattr(func, "attr", "")
                 )
-                # at_mu is deliberately NOT counted: at_mu(t) where t is the
-                # CURRENT cursor separates nothing, and whether it advances is
-                # data-dependent. Counting it would make this guard lie.
-                return name in ("delay", "delay_mu", "break_realtime")
+                # at_mu COUNTS as advancing. That is an assumption, and it
+                # holds because every at_mu left in this file targets a
+                # computed FORWARD offset (the alternating readout's window
+                # grid). What would break it is the no-op pattern -- capture
+                # `x = now_mu()` while the cursor still sits on an event's
+                # timestamp, then at_mu(x) -- which separates nothing. The
+                # per-node stages that used to do exactly that now use
+                # `with parallel` instead, and
+                # test_no_now_mu_anchor_captures_a_live_timestamp keeps it so.
+                return name in ("delay", "delay_mu", "at_mu", "break_realtime")
             return False
+
+        def first_statements(stmts):
+            """Statements that can execute first -- an unguarded `if` may be
+            skipped, so it falls through to whatever follows it."""
+            reachable = []
+            for stmt in stmts:
+                if isinstance(stmt, ast.If):
+                    reachable += first_statements(stmt.body)
+                    if stmt.orelse:
+                        reachable += first_statements(stmt.orelse)
+                        break
+                    continue
+                reachable.append(stmt)
+                break
+            return reachable
+
+        def first_statements_that_are_events(stmts):
+            """Branch-entry statements that put an event on the timeline.
+
+            In a `with parallel:` block each top-level statement is its own
+            branch and every branch restarts at the block's entry time, so
+            these all land on ONE timestamp.
+            """
+            return [
+                stmt
+                for branch in stmts
+                for stmt in first_statements([branch])
+                if is_event(stmt)
+            ]
 
         offenders = []
 
@@ -420,6 +460,21 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                         )
                     else:
                         counts = taken | counts
+                    continue
+                if isinstance(stmt, ast.With):
+                    # Every branch starts at the block's entry timestamp, so
+                    # their first events collide with each other and with
+                    # whatever already shares that timestamp.
+                    entry = max(counts)
+                    starters = len(first_statements_that_are_events(stmt.body))
+                    if entry + starters > self.MAX_EVENTS_PER_TIMESTAMP:
+                        offenders.append(
+                            (function_name, stmt.lineno, entry + starters)
+                        )
+                    outgoing = set()
+                    for branch in stmt.body:
+                        outgoing |= walk([branch], set(counts), function_name)
+                    counts = outgoing or {0}
                     continue
                 if isinstance(stmt, (ast.For, ast.While)):
                     exits = walk(stmt.body, set(counts), function_name)
@@ -515,6 +570,66 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             "are not comparable and the retention ratio is meaningless. "
             f"only in first_shot: {only_first}; only in second_shot: "
             f"{only_second}",
+        )
+
+    def test_no_now_mu_anchor_captures_a_live_timestamp(self):
+        """`x = now_mu()` must not sit on an event's timestamp.
+
+        The pattern that breaks the same-timestamp guard is: emit an event,
+        capture `x = now_mu()` while the cursor is still ON that event's
+        timestamp, then at_mu(x) -- which separates nothing, so every event
+        placed at that anchor piles onto the original. It reads like clean
+        anchored code and the guard's "at_mu advances" assumption hides it.
+
+        Found by an audit on 2026-10-07 as a 3-event pile-up in the loader's
+        PGC block. The fix was structural rather than a pad: `with parallel`
+        gives a common start and a resync past the longest branch for free, so
+        the per-node stages need no anchor at all.
+
+        Allowed: a capture preceded by something that ADVANCES the cursor, so
+        the anchor lands on fresh time.
+        """
+        def is_event(stmt):
+            return (
+                isinstance(stmt, ast.Expr)
+                and isinstance(stmt.value, ast.Call)
+                and isinstance(stmt.value.func, ast.Attribute)
+                and stmt.value.func.attr in ("on", "off", "set", "set_dac",
+                                             "set_att")
+            )
+
+        def is_now_mu_capture(stmt):
+            return (
+                isinstance(stmt, ast.Assign)
+                and isinstance(stmt.value, ast.Call)
+                and isinstance(stmt.value.func, ast.Name)
+                and stmt.value.func.id == "now_mu"
+            )
+
+        offenders = []
+
+        def scan(stmts, function_name):
+            previous = None
+            for stmt in stmts:
+                if is_now_mu_capture(stmt) and previous is not None:
+                    if is_event(previous):
+                        offenders.append((function_name, stmt.lineno))
+                for attribute in ("body", "orelse", "finalbody"):
+                    inner = getattr(stmt, attribute, None)
+                    if isinstance(inner, list) and inner:
+                        scan(inner, function_name)
+                previous = stmt
+
+        for node in self.tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                scan(node.body, node.name)
+
+        self.assertFalse(
+            offenders,
+            "now_mu() captured while the cursor still sits on an event's "
+            f"timestamp (function, line): {offenders}. Every at_mu to that "
+            f"anchor piles onto that event. Put a delay before the capture, "
+            f"or use `with parallel` and drop the anchor.",
         )
 
     def test_every_amplitude_index_read_is_an_index_fed_back(self):

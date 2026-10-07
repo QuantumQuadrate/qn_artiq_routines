@@ -629,36 +629,53 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertIn("single_atom_threshold_Node1", node1_arguments)
         self.assertNotIn("two_atom_threshold", node1_arguments)
 
-    def test_each_mode_retires_the_other_modes_applet_groups(self):
-        """Starting one mode must close the other mode's retention applet.
+    def test_each_mode_retires_only_the_conflicting_applet(self):
+        """Starting one mode closes the other mode's retention applet -- and
+        nothing else.
 
         "retention and loading AllSPCMs" exists in both spec sets under the
         SAME title, reading the same unsuffixed AllSPCMs_RO1/RO2, differing
         only in the threshold. Different top-level groups means the dashboard
-        will happily keep both -- create_applet replaces by name WITHIN a
-        group.
+        keeps both, because create_applet replaces by name only WITHIN a
+        group. A leftover copy does not go blank -- it keeps plotting live
+        data under the wrong criterion, which is the dangerous failure.
 
-        A leftover copy does not go blank, which is what makes it dangerous:
-        it keeps plotting live data under the wrong criterion. A single-node
-        copy left open during a two-node run judges joint counts against
-        single_atom_threshold and reads high; a two-node copy left open during
-        a single-node run judges one-atom counts against two_atom_threshold
-        and reads ~0. Either sits next to the correct plot looking plausible.
+        But ONLY that one. The readout histograms and the atom loading time
+        are just as meaningful during a two-node run, so retiring the whole
+        idle group to fix one applet would throw away plots the owner wants
+        to keep watching.
         """
         import applets_master_satellite as applets
 
         class RecordingCCB:
             def __init__(self):
-                self.retired = []
+                self.disabled_applets = []
+                self.disabled_groups = []
                 self.created = []
 
             def issue(self, action, *args, **kwargs):
-                if action == "disable_applet_group":
-                    self.retired.append(args[0])
+                if action == "disable_applet":
+                    self.disabled_applets.append((args[0], args[1]))
+                elif action == "disable_applet_group":
+                    self.disabled_groups.append(args[0])
                 elif action == "create_applet":
                     self.created.append((args[0], kwargs.get("group")))
 
-        # single-node run retires the idle node AND the two-node group
+        conflicting = applets.conflicting_applet_titles()
+        self.assertEqual(conflicting, {"retention and loading AllSPCMs"})
+
+        # Applets that must survive a mode change, because they mean the same
+        # thing either way.
+        keep_open = {
+            "All SPCMs RO1 histogram",
+            "All SPCMs RO2 histogram",
+            "Atom loading time (s)",
+        }
+        self.assertTrue(
+            keep_open.isdisjoint(conflicting),
+            "these must never be retired on a mode change",
+        )
+
         experiment, base = self.build_and_prepare("single_node", "Node1")
         ccb = RecordingCCB()
         experiment.ccb = ccb
@@ -667,12 +684,15 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             specs=applets.APPLET_SPECS,
             shared_specs=applets.SHARED_APPLET_SPECS,
         )
-        self.assertIn("Node2", ccb.retired)
-        self.assertIn(applets.TWO_NODE_APPLET_GROUP, ccb.retired)
-        self.assertNotIn("Node1", ccb.retired)
-        self.assertNotIn(applets.SHARED_APPLET_GROUP, ccb.retired)
+        self.assertEqual(
+            ccb.disabled_groups, [],
+            "no whole group may be retired -- that takes the histograms with it",
+        )
+        self.assertIn(
+            ("retention and loading AllSPCMs", applets.TWO_NODE_APPLET_GROUP),
+            ccb.disabled_applets,
+        )
 
-        # two-node run retires BOTH per-node groups
         experiment, base = self.build_and_prepare("two_nodes")
         ccb = RecordingCCB()
         experiment.ccb = ccb
@@ -681,10 +701,16 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             specs=applets.TWO_NODE_APPLET_SPECS,
             shared_specs=applets.SHARED_APPLET_SPECS,
         )
-        self.assertIn("Node1", ccb.retired)
-        self.assertIn("Node2", ccb.retired)
-        self.assertNotIn(applets.TWO_NODE_APPLET_GROUP, ccb.retired)
-        self.assertNotIn(applets.SHARED_APPLET_GROUP, ccb.retired)
+        self.assertEqual(ccb.disabled_groups, [])
+        for node in ("Node1", "Node2"):
+            self.assertIn(
+                ("retention and loading AllSPCMs", node), ccb.disabled_applets
+            )
+        # and nothing else was closed
+        self.assertEqual(
+            {title for title, _ in ccb.disabled_applets},
+            {"retention and loading AllSPCMs"},
+        )
 
         groups = dict(ccb.created)
         self.assertEqual(

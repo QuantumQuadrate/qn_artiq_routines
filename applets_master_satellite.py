@@ -256,27 +256,49 @@ TWO_NODE_APPLET_GROUP = "TwoNodes"
 
 
 def execution_applet_groups(base):
-    """Every top-level group that belongs to ONE execution mode.
-
-    Exactly one of these is live at a time, so whichever is not running must
-    be retired -- its applets stay subscribed otherwise, and the result
-    datasets they read are NOT mode-suffixed. AllSPCMs_RO1/RO2 carry the same
-    names in both modes, so a leftover single-node retention applet keeps
-    plotting during a two-node run and judges JOINT counts against
-    single_atom_threshold. It does not go blank, which is the dangerous part:
-    it shows a plausible, wrong retention next to the right one.
-
-    SHARED_APPLET_GROUP is deliberately absent: those applets name their
-    datasets per node and are meaningful in either mode.
-    """
+    """Every top-level group that belongs to ONE execution mode."""
     return tuple(base.VALID_NODES) + (TWO_NODE_APPLET_GROUP,)
 
 
-def _retire_other_execution_groups(ccb, live_group, base):
-    """Disable every execution group except the one now running."""
+def conflicting_applet_titles():
+    """Titles that exist in BOTH spec sets meaning DIFFERENT things.
+
+    Derived, not listed: the intersection of the single-node and two-node spec
+    titles. Today that is "retention and loading AllSPCMs", which appears in
+    each set with a different threshold -- single_atom_threshold_NodeX for one
+    atom, two_atom_threshold for both. Same title, same unsuffixed
+    AllSPCMs_RO1/RO2, different criterion.
+
+    Only THESE need retiring when the mode changes. The rest of the idle
+    group's applets stay up on purpose: readout histograms and the atom
+    loading time are just as meaningful during a two-node run, and the owner
+    wants to keep watching them. Closing a whole group to fix one applet
+    throws those away.
+    """
+    single = {spec.title for spec in APPLET_SPECS}
+    two_node = {spec.title for spec in TWO_NODE_APPLET_SPECS}
+    return single & two_node
+
+
+def _retire_conflicting_applets(ccb, live_group, base):
+    """Close the other mode's copy of each conflicting applet, and only that.
+
+    A leftover copy does not go blank, which is what makes it dangerous: it
+    keeps plotting live data under the wrong criterion. A single-node copy
+    left open during a two-node run judges joint counts against
+    single_atom_threshold and reads high; a two-node copy left open during a
+    single-node run judges one-atom counts against two_atom_threshold and
+    reads ~0. Either sits beside the correct plot looking plausible.
+
+    Per-applet rather than per-group because disable_applet_group would also
+    retire the histograms, the loading-time plot and everything else in the
+    idle node's group, which stay useful in either mode.
+    """
     for group in execution_applet_groups(base):
-        if group != live_group:
-            ccb.issue("disable_applet_group", group)
+        if group == live_group:
+            continue
+        for title in conflicting_applet_titles():
+            ccb.issue("disable_applet", title, group)
 
 _HEALTH_CHECK_DATASETS = (
     "health_check_uw_freq00",
@@ -511,7 +533,7 @@ def create_two_node_applets_for(experiment, base,
 
     issued.extend(create_shared_applets_for(experiment, base, shared_specs))
 
-    _retire_other_execution_groups(ccb, group_name, base)
+    _retire_conflicting_applets(ccb, group_name, base)
     return issued
 
 
@@ -554,10 +576,9 @@ def create_applets_for(experiment, base, specs=APPLET_SPECS,
     # disable pass below cannot retire them along with the idle node.
     issued.extend(create_shared_applets_for(experiment, base, shared_specs))
 
-    # One execution at a time, so retire every other execution group -- the
-    # idle node AND the two-node group. The two-node retention applet reads
-    # the same unsuffixed AllSPCMs_RO1/RO2 this run writes, so left open it
-    # would judge single-node counts against two_atom_threshold and read ~0
-    # retention.
-    _retire_other_execution_groups(ccb, node_group, base)
+    # Close ONLY the other mode's conflicting applets -- the retention plot
+    # that shares this one's title and reads the same unsuffixed
+    # AllSPCMs_RO1/RO2 under a different threshold. Everything else in the
+    # idle group stays up; histograms and loading time are useful either way.
+    _retire_conflicting_applets(ccb, node_group, base)
     return issued

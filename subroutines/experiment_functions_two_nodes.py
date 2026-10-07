@@ -452,29 +452,26 @@ def recooling_after_first_shot(self):
                                   amplitude=self.ampl_cooling_DP_PGC_Node2)
     delay(0.1 * ms)
 
-    t_start = now_mu()
+    ### Each branch of a `with parallel` starts at the block's entry time and
+    ### the cursor afterwards is the MAXIMUM of the branches, which is exactly
+    ### "both nodes from a common t0, then resync past the longer". So no
+    ### now_mu() anchor and no t_longest bookkeeping -- and no way for that
+    ### arithmetic to drift out of step with what the block actually contains.
+    with parallel:
+        if self.t_recooling_after_first_shot_Node1 > 0.0:
+            self.ttl_repump_switch_Node1.off()  ### turn on MOT RP
+            self.dds_cooling_DP_Node1.sw.on()
+            delay(self.t_recooling_after_first_shot_Node1)
+            self.dds_cooling_DP_Node1.sw.off()
+            self.ttl_repump_switch_Node1.on()  ### turn off MOT RP
 
-    if self.t_recooling_after_first_shot_Node1 > 0.0:
-        at_mu(t_start)
-        self.ttl_repump_switch_Node1.off()  ### turn on MOT RP
-        self.dds_cooling_DP_Node1.sw.on()
-        delay(self.t_recooling_after_first_shot_Node1)
-        self.dds_cooling_DP_Node1.sw.off()
-        self.ttl_repump_switch_Node1.on()  ### turn off MOT RP
+        if self.t_recooling_after_first_shot_Node2 > 0.0:
+            self.ttl_repump_switch_Node2.off()
+            self.dds_cooling_DP_Node2.sw.on()
+            delay(self.t_recooling_after_first_shot_Node2)
+            self.dds_cooling_DP_Node2.sw.off()
+            self.ttl_repump_switch_Node2.on()
 
-    if self.t_recooling_after_first_shot_Node2 > 0.0:
-        at_mu(t_start)
-        self.ttl_repump_switch_Node2.off()
-        self.dds_cooling_DP_Node2.sw.on()
-        delay(self.t_recooling_after_first_shot_Node2)
-        self.dds_cooling_DP_Node2.sw.off()
-        self.ttl_repump_switch_Node2.on()
-
-    ### resync past whichever node recooled for longer
-    t_longest = self.t_recooling_after_first_shot_Node1
-    if self.t_recooling_after_first_shot_Node2 > t_longest:
-        t_longest = self.t_recooling_after_first_shot_Node2
-    at_mu(t_start + self.core.seconds_to_mu(t_longest))
     delay(10 * us)
 
 
@@ -690,29 +687,32 @@ def load_until_atom_in_both_nodes_recycle(self):
             self.dds_AOM_A6_Node2.sw.on()
             delay(5 * us)
 
-        t_pgc_start = now_mu()
-        t_pgc_longest = 0.0
+        ### `with parallel` does BOTH jobs the at_mu bookkeeping used to do:
+        ### every statement in the block starts at the block's entry time, and
+        ### the cursor afterwards is the MAXIMUM of the branches' end times. So
+        ### the common t0 and the resync-past-the-longer are both automatic and
+        ### t_pgc_longest is gone -- along with the bug class where that
+        ### arithmetic drifts out of step with the block's contents.
+        ###
+        ### Note it is a timeline construct, not concurrency: the CPU still
+        ### submits both branches' events one after another, and both branches'
+        ### FIRST events land on the same timestamp. Two events here, so well
+        ### inside the four-per-timestamp budget.
+        with parallel:
+            if self.do_PGC_after_loading_Node1:
+                self.ttl_repump_switch_Node1.off()  ### turn on MOT RP
+                self.dds_cooling_DP_Node1.sw.on()
+                delay(self.t_PGC_after_loading_Node1)
+                self.dds_cooling_DP_Node1.sw.off()
+                self.ttl_repump_switch_Node1.on()
 
-        if self.do_PGC_after_loading_Node1:
-            at_mu(t_pgc_start)
-            self.ttl_repump_switch_Node1.off()  ### turn on MOT RP
-            self.dds_cooling_DP_Node1.sw.on()
-            delay(self.t_PGC_after_loading_Node1)
-            self.dds_cooling_DP_Node1.sw.off()
-            self.ttl_repump_switch_Node1.on()
-            t_pgc_longest = self.t_PGC_after_loading_Node1
+            if self.do_PGC_after_loading_Node2:
+                self.ttl_repump_switch_Node2.off()
+                self.dds_cooling_DP_Node2.sw.on()
+                delay(self.t_PGC_after_loading_Node2)
+                self.dds_cooling_DP_Node2.sw.off()
+                self.ttl_repump_switch_Node2.on()
 
-        if self.do_PGC_after_loading_Node2:
-            at_mu(t_pgc_start)
-            self.ttl_repump_switch_Node2.off()
-            self.dds_cooling_DP_Node2.sw.on()
-            delay(self.t_PGC_after_loading_Node2)
-            self.dds_cooling_DP_Node2.sw.off()
-            self.ttl_repump_switch_Node2.on()
-            if self.t_PGC_after_loading_Node2 > t_pgc_longest:
-                t_pgc_longest = self.t_PGC_after_loading_Node2
-
-        at_mu(t_pgc_start + self.core.seconds_to_mu(t_pgc_longest))
         delay(10 * us)
 
 
@@ -1028,29 +1028,21 @@ def Two_nodes_atom_loading_experiment(self):
 
         ### The FORT drop is the knob retention is measured against, and
         ### t_FORT_drop is per node: the two drops are placed from a common t0
-        ### and the cursor resynced past the longer, so a node with a 0 drop
-        ### simply has no gap. Sharing one bare value here would hand Node2
+        ### and the cursor resynced past the longer by `with parallel`, so a
+        ### node with a 0 drop simply has no gap and each node still gets
+        ### exactly its own t_FORT_drop. Sharing one bare value would hand Node2
         ### Node1's drop and quietly make the two nodes' retention numbers
         ### incomparable -- the one thing a two-node run exists to compare.
-        t_drop_start = now_mu()
-        t_drop_longest = 0.0
+        with parallel:
+            if self.t_FORT_drop_Node1 > 0.0:
+                self.dds_FORT_Node1.sw.off()
+                delay(self.t_FORT_drop_Node1)
+                self.dds_FORT_Node1.sw.on()
 
-        if self.t_FORT_drop_Node1 > 0.0:
-            at_mu(t_drop_start)
-            self.dds_FORT_Node1.sw.off()
-            delay(self.t_FORT_drop_Node1)
-            self.dds_FORT_Node1.sw.on()
-            t_drop_longest = self.t_FORT_drop_Node1
-
-        if self.t_FORT_drop_Node2 > 0.0:
-            at_mu(t_drop_start)
-            self.dds_FORT_Node2.sw.off()
-            delay(self.t_FORT_drop_Node2)
-            self.dds_FORT_Node2.sw.on()
-            if self.t_FORT_drop_Node2 > t_drop_longest:
-                t_drop_longest = self.t_FORT_drop_Node2
-
-        at_mu(t_drop_start + self.core.seconds_to_mu(t_drop_longest))
+            if self.t_FORT_drop_Node2 > 0.0:
+                self.dds_FORT_Node2.sw.off()
+                delay(self.t_FORT_drop_Node2)
+                self.dds_FORT_Node2.sw.on()
 
         delay(self.t_delay_between_shots)
 
