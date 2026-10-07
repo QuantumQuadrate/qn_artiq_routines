@@ -573,6 +573,62 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         finally:
             aom_feedback.cwd = original_cwd
 
+    def test_two_node_retention_applet_thresholds_on_both_atoms(self):
+        """The two-node retention applet must discriminate TWO atoms.
+
+        plot_retention_and_loading computes cutoff = t_exposure * threshold
+        and then calls RO1 above cutoff "loaded" and RO2 above cutoff
+        "retained". In two-node mode loading is JOINT -- all four SPCMs see
+        both traps through the beamsplitter fan-out -- so "loaded" has to mean
+        an atom in BOTH traps, which is two_atom_threshold. Handing it
+        single_atom_threshold would count one-atom events as loaded and make
+        the retention denominator wrong.
+
+        The exposure must also be the SUFFIXED name. Bare t_SPCM_first_shot
+        still exists in dataset_db as a standalone leftover, so a two-node
+        applet pointed at the bare name would scale a live threshold by a
+        stale standalone value -- the same collision class as n_measurements.
+        """
+        from applets_master_satellite import (
+            APPLET_SPECS,
+            TWO_NODE_APPLET_SPECS,
+            build_applet_command,
+        )
+
+        title = "retention and loading AllSPCMs"
+        two_node_spec = [
+            spec for spec in TWO_NODE_APPLET_SPECS if spec.title == title
+        ]
+        self.assertEqual(len(two_node_spec), 1, title)
+
+        _, base = self.build_and_prepare("two_nodes")
+        arguments = build_applet_command(two_node_spec[0], base).split()
+
+        self.assertIn("two_atom_threshold", arguments)
+        self.assertNotIn("single_atom_threshold", arguments)
+        for argument in arguments:
+            self.assertFalse(
+                argument.startswith("single_atom_threshold"),
+                "the joint criterion must not use a per-node single-atom "
+                f"threshold: {argument}",
+            )
+        self.assertIn(
+            "t_SPCM_first_shot_Node1", arguments,
+            "the exposure must be the suffixed name; the bare one is a "
+            "standalone leftover in dataset_db",
+        )
+        self.assertNotIn("t_SPCM_first_shot", arguments)
+
+        # Single-node keeps the one-atom criterion. Pinned so a shared edit
+        # cannot quietly change what single-node retention means.
+        single_spec = [
+            spec for spec in APPLET_SPECS if spec.title == title
+        ][0]
+        _, node1_base = self.build_and_prepare("single_node", "Node1")
+        node1_arguments = build_applet_command(single_spec, node1_base).split()
+        self.assertIn("single_atom_threshold_Node1", node1_arguments)
+        self.assertNotIn("two_atom_threshold", node1_arguments)
+
     def test_agreeing_scalars_are_rederived_after_overrides(self):
         """The bare shared scalars must follow the per-node values.
 

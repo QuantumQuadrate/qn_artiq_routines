@@ -472,12 +472,18 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 from applets_master_satellite import (
                     SCAN_APPLET_SPECS,
                     SHARED_APPLET_SPECS,
+                    TWO_NODE_APPLET_SPECS,
                     create_shared_applets_for,
                 )
 
+                # TWO_NODE_APPLET_SPECS rides with the shared ones because it
+                # has the same property: it names datasets that resolve
+                # unchanged in two-node mode. The per-node APPLET_SPECS cannot,
+                # which is why create_applets_for still refuses.
                 created = create_shared_applets_for(
                     self, self.base,
-                    shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
+                    shared_specs=(SHARED_APPLET_SPECS + SCAN_APPLET_SPECS
+                                  + TWO_NODE_APPLET_SPECS),
                 )
         except Exception as error:  # noqa: BLE001 - convenience only
             logging.warning("could not create applets: %s", error)

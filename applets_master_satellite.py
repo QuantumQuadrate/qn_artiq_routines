@@ -164,6 +164,29 @@ SCAN_APPLET_SPECS = (
           ("time_without_atom",), group=_GVS),
 )
 
+#: Two-node results. Loading is a JOINT measurement -- all four SPCMs see both
+#: traps through the beamsplitter fan-out -- so these read the same unsuffixed
+#: AllSPCMs_RO1/RO2 the sequence writes, and the discriminator is the JOINT
+#: two_atom_threshold, not single_atom_threshold. That is the whole difference
+#: from the single-node retention applet: "loaded" here means an atom in BOTH
+#: traps, and "retained" means both survived.
+#:
+#: t_SPCM_first_shot is named WITH Node1's suffix on purpose. The bare name
+#: resolves to a leftover STANDALONE dataset in two-node mode (it is 0.01 in
+#: dataset_db today, which merely happens to match), and reading a stale
+#: standalone value to scale a live threshold is the n_measurements trap over
+#: again. Node1's copy is provably equal to Node2's: t_SPCM_first_shot is in
+#: TWO_NODE_AGREEING_SCALARS, so prepare and every scan point RAISE if the two
+#: ever diverge.
+TWO_NODE_APPLET_SPECS = (
+    _spec("retention and loading AllSPCMs", "plot_retention_and_loading.py",
+          ("AllSPCMs_RO1", "AllSPCMs_RO2", "n_measurements",
+           "two_atom_threshold", "t_SPCM_first_shot_Node1"),
+          (("--scan_vars", "scan_variables"),
+           ("--scan_sequence1", "scan_sequence1")),
+          group=_GVS),
+)
+
 #: Applets that were defined but not enabled on Node1 (several were enabled
 #: on Node2). Pass them explicitly when you want them:
 #:     create_applets_for(self, self.base,
@@ -441,12 +464,14 @@ def create_applets_for(experiment, base, specs=APPLET_SPECS,
     """
     if base.experiment_mode != "single_node":
         raise NotImplementedError(
-            "Applet creation is single-node only. In two-node mode "
+            "create_applets_for is single-node only: APPLET_SPECS names "
+            "PER-NODE result datasets, and in two-node mode "
             "resolve_result_dataset_name does not suffix at all, so both "
-            "nodes write the same result datasets and there is nothing for "
-            "per-node applets to point at. Decide how two-node results are "
-            "stored first. (The old dashboard's two-node retention applet "
-            "differed only by using two_atom_threshold.)"
+            "nodes write the same names and a per-node applet has nothing to "
+            "point at. Two-node runs go through create_shared_applets_for "
+            "with SHARED_APPLET_SPECS + SCAN_APPLET_SPECS + "
+            "TWO_NODE_APPLET_SPECS, whose datasets resolve unchanged in "
+            "either mode."
         )
 
     ccb = _dashboard_ccb(experiment)
