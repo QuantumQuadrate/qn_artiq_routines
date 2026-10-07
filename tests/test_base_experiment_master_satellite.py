@@ -629,6 +629,69 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertIn("single_atom_threshold_Node1", node1_arguments)
         self.assertNotIn("two_atom_threshold", node1_arguments)
 
+    def test_each_mode_retires_the_other_modes_applet_groups(self):
+        """Starting one mode must close the other mode's retention applet.
+
+        "retention and loading AllSPCMs" exists in both spec sets under the
+        SAME title, reading the same unsuffixed AllSPCMs_RO1/RO2, differing
+        only in the threshold. Different top-level groups means the dashboard
+        will happily keep both -- create_applet replaces by name WITHIN a
+        group.
+
+        A leftover copy does not go blank, which is what makes it dangerous:
+        it keeps plotting live data under the wrong criterion. A single-node
+        copy left open during a two-node run judges joint counts against
+        single_atom_threshold and reads high; a two-node copy left open during
+        a single-node run judges one-atom counts against two_atom_threshold
+        and reads ~0. Either sits next to the correct plot looking plausible.
+        """
+        import applets_master_satellite as applets
+
+        class RecordingCCB:
+            def __init__(self):
+                self.retired = []
+                self.created = []
+
+            def issue(self, action, *args, **kwargs):
+                if action == "disable_applet_group":
+                    self.retired.append(args[0])
+                elif action == "create_applet":
+                    self.created.append((args[0], kwargs.get("group")))
+
+        # single-node run retires the idle node AND the two-node group
+        experiment, base = self.build_and_prepare("single_node", "Node1")
+        ccb = RecordingCCB()
+        experiment.ccb = ccb
+        applets.create_applets_for(
+            experiment, base,
+            specs=applets.APPLET_SPECS,
+            shared_specs=applets.SHARED_APPLET_SPECS,
+        )
+        self.assertIn("Node2", ccb.retired)
+        self.assertIn(applets.TWO_NODE_APPLET_GROUP, ccb.retired)
+        self.assertNotIn("Node1", ccb.retired)
+        self.assertNotIn(applets.SHARED_APPLET_GROUP, ccb.retired)
+
+        # two-node run retires BOTH per-node groups
+        experiment, base = self.build_and_prepare("two_nodes")
+        ccb = RecordingCCB()
+        experiment.ccb = ccb
+        applets.create_two_node_applets_for(
+            experiment, base,
+            specs=applets.TWO_NODE_APPLET_SPECS,
+            shared_specs=applets.SHARED_APPLET_SPECS,
+        )
+        self.assertIn("Node1", ccb.retired)
+        self.assertIn("Node2", ccb.retired)
+        self.assertNotIn(applets.TWO_NODE_APPLET_GROUP, ccb.retired)
+        self.assertNotIn(applets.SHARED_APPLET_GROUP, ccb.retired)
+
+        groups = dict(ccb.created)
+        self.assertEqual(
+            groups["retention and loading AllSPCMs"],
+            [applets.TWO_NODE_APPLET_GROUP, "GVS and Cycler"],
+        )
+
     def test_agreeing_scalars_are_rederived_after_overrides(self):
         """The bare shared scalars must follow the per-node values.
 

@@ -473,17 +473,17 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                     SCAN_APPLET_SPECS,
                     SHARED_APPLET_SPECS,
                     TWO_NODE_APPLET_SPECS,
-                    create_shared_applets_for,
+                    create_two_node_applets_for,
                 )
 
-                # TWO_NODE_APPLET_SPECS rides with the shared ones because it
-                # has the same property: it names datasets that resolve
-                # unchanged in two-node mode. The per-node APPLET_SPECS cannot,
-                # which is why create_applets_for still refuses.
-                created = create_shared_applets_for(
+                # NOT create_shared_applets_for: that deliberately runs no
+                # retirement pass, so a single-node run's "retention and
+                # loading AllSPCMs" would stay open through this run and plot
+                # the same live AllSPCMs_RO1/RO2 against single_atom_threshold.
+                created = create_two_node_applets_for(
                     self, self.base,
-                    shared_specs=(SHARED_APPLET_SPECS + SCAN_APPLET_SPECS
-                                  + TWO_NODE_APPLET_SPECS),
+                    specs=TWO_NODE_APPLET_SPECS,
+                    shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
                 )
         except Exception as error:  # noqa: BLE001 - convenience only
             logging.warning("could not create applets: %s", error)

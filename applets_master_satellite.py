@@ -251,6 +251,33 @@ SPCM_MONITOR_APPLET_SPECS = (
 #: it alone -- which is what keeps these up no matter which node is running.
 SHARED_APPLET_GROUP = "Both nodes"
 
+#: Top-level group for applets that only make sense during a TWO-NODE run.
+TWO_NODE_APPLET_GROUP = "TwoNodes"
+
+
+def execution_applet_groups(base):
+    """Every top-level group that belongs to ONE execution mode.
+
+    Exactly one of these is live at a time, so whichever is not running must
+    be retired -- its applets stay subscribed otherwise, and the result
+    datasets they read are NOT mode-suffixed. AllSPCMs_RO1/RO2 carry the same
+    names in both modes, so a leftover single-node retention applet keeps
+    plotting during a two-node run and judges JOINT counts against
+    single_atom_threshold. It does not go blank, which is the dangerous part:
+    it shows a plausible, wrong retention next to the right one.
+
+    SHARED_APPLET_GROUP is deliberately absent: those applets name their
+    datasets per node and are meaningful in either mode.
+    """
+    return tuple(base.VALID_NODES) + (TWO_NODE_APPLET_GROUP,)
+
+
+def _retire_other_execution_groups(ccb, live_group, base):
+    """Disable every execution group except the one now running."""
+    for group in execution_applet_groups(base):
+        if group != live_group:
+            ccb.issue("disable_applet_group", group)
+
 _HEALTH_CHECK_DATASETS = (
     "health_check_uw_freq00",
     "health_check_uw_freq01",
@@ -405,7 +432,7 @@ def applet_group_for(base):
     """Top-level dashboard group for the currently configured execution."""
     if base.experiment_mode == "single_node":
         return base.which_node
-    return "TwoNodes"
+    return TWO_NODE_APPLET_GROUP
 
 
 def _dashboard_ccb(experiment):
@@ -449,6 +476,45 @@ def create_shared_applets_for(experiment, base,
     return issued
 
 
+def create_two_node_applets_for(experiment, base,
+                                specs=TWO_NODE_APPLET_SPECS,
+                                shared_specs=SHARED_APPLET_SPECS):
+    """Create the two-node applets, the shared ones, and retire both nodes.
+
+    The two-node counterpart of create_applets_for. It exists rather than
+    being a mode branch inside that function because the two SPEC SETS are
+    different -- APPLET_SPECS names per-node result datasets that two-node
+    mode does not suffix -- but the RETIREMENT rule is identical and shared.
+
+    Retiring Node1 and Node2 is the point. "retention and loading AllSPCMs"
+    exists in both spec sets under the same title, reading the same
+    unsuffixed AllSPCMs_RO1/RO2, and differing only in the threshold. Without
+    this pass a single-node run's copy stays open through a two-node run and
+    plots a confidently wrong retention, judging two-atom counts against
+    single_atom_threshold, right beside the correct one.
+    """
+    if base.experiment_mode == "single_node":
+        raise NotImplementedError(
+            "create_two_node_applets_for is for two-node runs; single-node "
+            "runs go through create_applets_for."
+        )
+
+    ccb = _dashboard_ccb(experiment)
+    group_name = applet_group_for(base)
+    issued = []
+    for spec in specs:
+        command = build_applet_command(spec, base)
+        group = ([group_name] if spec.group is None
+                 else [group_name, spec.group])
+        ccb.issue("create_applet", spec.title, command, group=group)
+        issued.append((spec.title, command))
+
+    issued.extend(create_shared_applets_for(experiment, base, shared_specs))
+
+    _retire_other_execution_groups(ccb, group_name, base)
+    return issued
+
+
 def create_applets_for(experiment, base, specs=APPLET_SPECS,
                        shared_specs=SHARED_APPLET_SPECS):
     """Create this node's applets and retire the other node's group.
@@ -488,9 +554,10 @@ def create_applets_for(experiment, base, specs=APPLET_SPECS,
     # disable pass below cannot retire them along with the idle node.
     issued.extend(create_shared_applets_for(experiment, base, shared_specs))
 
-    # Only one node runs at a time, so retire the other node's applets rather
-    # than leaving them subscribed to datasets nothing is updating.
-    for other in base.VALID_NODES:
-        if other != node_group:
-            ccb.issue("disable_applet_group", other)
+    # One execution at a time, so retire every other execution group -- the
+    # idle node AND the two-node group. The two-node retention applet reads
+    # the same unsuffixed AllSPCMs_RO1/RO2 this run writes, so left open it
+    # would judge single-node counts against two_atom_threshold and read ~0
+    # retention.
+    _retire_other_execution_groups(ccb, node_group, base)
     return issued
