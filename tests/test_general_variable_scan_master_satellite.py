@@ -424,6 +424,9 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 # ARTIQ only type-checks what an entry point reaches, so
                 # without this it would never be compiled by anything.
                 "Two_nodes_alternating_shot_experiment",
+                # Reads the pedestal an alternating window sits on, so the
+                # per-node thresholds can be set on top of it.
+                "Two_nodes_alternating_FORT_background_experiment",
             },
         )
         # The two registries must stay disjoint: the single-node one is built
@@ -545,6 +548,9 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 # ARTIQ only type-checks what an entry point reaches, so
                 # without this it would never be compiled by anything.
                 "Two_nodes_alternating_shot_experiment",
+                # Reads the pedestal an alternating window sits on, so the
+                # per-node thresholds can be set on top of it.
+                "Two_nodes_alternating_FORT_background_experiment",
             },
         )
         self.assertIs(

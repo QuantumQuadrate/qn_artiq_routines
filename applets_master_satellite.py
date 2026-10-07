@@ -185,6 +185,29 @@ TWO_NODE_APPLET_SPECS = (
           (("--scan_vars", "scan_variables"),
            ("--scan_sequence1", "scan_sequence1")),
           group=_GVS),
+
+    # ONE HISTOGRAM PER NODE, and they are the measurement, not decoration.
+    # The alternating readout opens only one node's light per window, so each
+    # of these is that node's own fluorescence distribution -- which is the
+    # whole point of alternating, and what the joint AllSPCMs_RO1 histogram
+    # structurally cannot show. Read alternating_atom_threshold_NodeX off the
+    # gap between the two populations here.
+    #
+    # --t_exposure is t_alternating_RO_exposure, NOT t_SPCM_first_shot: the
+    # counts are accumulated over n_alternating_RO_windows_per_node windows,
+    # and the two are equal today only by coincidence.
+    _spec("Node1 alternating RO histogram", "plot_hist_autosize.py",
+          ("AllSPCMs_alternating_RO_Node1_current_iteration",),
+          (("--x", "photocount_bins"), ("--iteration", "iteration"),
+           ("--t_exposure", "t_alternating_RO_exposure")),
+          group=_GVS),
+    _spec("Node2 alternating RO histogram", "plot_hist_autosize.py",
+          ("AllSPCMs_alternating_RO_Node2_current_iteration",),
+          (("--x", "photocount_bins"),
+           ("--color", "second_shot_hist_color_Node2"),
+           ("--iteration", "iteration"),
+           ("--t_exposure", "t_alternating_RO_exposure")),
+          group=_GVS),
 )
 
 #: Applets that were defined but not enabled on Node1 (several were enabled

@@ -938,6 +938,16 @@ class BaseExperimentMasterSatellite:
             # path both run through, so it is the correct place.
             self._publish_agreeing_scalars()
 
+            # Same reasoning for the alternating readout's exposure: it is
+            # derived from two scannable variables, so a scan over either
+            # would leave the applets scaling histograms by a stale exposure.
+            self.experiment.set_dataset(
+                "t_alternating_RO_exposure",
+                (int(self.experiment.n_alternating_RO_windows_per_node)
+                 * float(self.experiment.t_alternating_RO_window)),
+                broadcast=True,
+            )
+
     def reload_experiment_variables(self):
         """Reload active authoritative/global datasets without side effects."""
         if not self._built or not self._prepared:
@@ -1480,6 +1490,14 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_RO1_in_health_check",
                 "AllSPCMs_RO2_in_health_check",
                 "AllSPCMs_parity_RO",
+                # TWO vocabularies on purpose. The two-node sequence writes
+                # _Node1/_Node2; experiment_functions.py -- which single-node
+                # mode uses -- still writes the legacy _alice/_bob. Seeding
+                # only one set makes the other path raise KeyError on its
+                # first append, which is how a run died this week. Seeding is
+                # one set_dataset; omitting is a crash.
+                "AllSPCMs_alternating_RO_Node1",
+                "AllSPCMs_alternating_RO_Node2",
                 "AllSPCMs_alternating_RO_alice",
                 "AllSPCMs_alternating_RO_bob",
                 "SPCM0_test_RO", "SPCM1_test_RO",
@@ -1513,8 +1531,19 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_RO1", "AllSPCMs_RO2",
                 "AllSPCMs_RO1_in_health_check",
                 "AllSPCMs_RO2_in_health_check",
+                "AllSPCMs_alternating_RO_Node1",
+                "AllSPCMs_alternating_RO_Node2",
                 "AllSPCMs_alternating_RO_alice",
                 "AllSPCMs_alternating_RO_bob",
+                # Four configurations of
+                # Two_nodes_alternating_FORT_background_experiment: the
+                # pedestal an alternating window sits on, which is what
+                # alternating_atom_threshold_NodeX has to clear on top of the
+                # single-node calibration.
+                "AllSPCMs_FORT_background_dark",
+                "AllSPCMs_FORT_background_Node1",
+                "AllSPCMs_FORT_background_Node2",
+                "AllSPCMs_FORT_background_both",
                 "AllSPCMs_RO_atom_check",
                 "AllSPCMs_atom_check_in_loading",
                 "n_feedback_per_iteration",
@@ -1534,6 +1563,8 @@ class BaseExperimentMasterSatellite:
             + [
                 "AllSPCMs_RO1_current_iteration",
                 "AllSPCMs_RO2_current_iteration",
+                "AllSPCMs_alternating_RO_Node1_current_iteration",
+                "AllSPCMs_alternating_RO_Node2_current_iteration",
                 "AllSPCMs_alternating_RO_alice_current_iteration",
                 "AllSPCMs_alternating_RO_bob_current_iteration",
                 "test_dataset",
@@ -1643,6 +1674,24 @@ class BaseExperimentMasterSatellite:
                 )
 
         experiment.set_dataset("photocount_bins", [50], broadcast=True)
+
+        # The alternating readout's exposure, as its own dataset. The applets
+        # convert a counts/s threshold with cutoff = t_exposure * threshold,
+        # so they need the time the counts were actually accumulated over.
+        #
+        # It is NOT t_SPCM_first_shot. Those are equal today only by
+        # arithmetic coincidence -- 10 windows x 1 ms happens to be the same
+        # 10 ms -- and the coincidence breaks the moment anyone scans
+        # n_alternating_RO_windows_per_node or t_alternating_RO_window, at
+        # which point a histogram would be scaled by the wrong exposure and a
+        # threshold read off it would be wrong without looking wrong.
+        if self.experiment_mode == "two_nodes":
+            experiment.set_dataset(
+                "t_alternating_RO_exposure",
+                (int(experiment.n_alternating_RO_windows_per_node)
+                 * float(experiment.t_alternating_RO_window)),
+                broadcast=True,
+            )
 
         n_measurements = int(experiment.n_measurements)
         for list_name in (
