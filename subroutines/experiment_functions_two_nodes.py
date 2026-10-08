@@ -1174,6 +1174,24 @@ def Two_nodes_alternating_shot_experiment(self):
 
         delay(self.t_delay_between_shots)
 
+        ### The FORT drop is the knob retention is measured against, and
+        ### t_FORT_drop is per node: the two drops are placed from a common t0
+        ### and the cursor resynced past the longer by `with parallel`, so a
+        ### node with a 0 drop simply has no gap and each node still gets
+        ### exactly its own t_FORT_drop. Sharing one bare value would hand Node2
+        ### Node1's drop and quietly make the two nodes' retention numbers
+        ### incomparable -- the one thing a two-node run exists to compare.
+        with parallel:
+            if self.t_FORT_drop_Node1 > 0.0:
+                self.dds_FORT_Node1.sw.off()
+                delay(self.t_FORT_drop_Node1)
+                self.dds_FORT_Node1.sw.on()
+
+            if self.t_FORT_drop_Node2 > 0.0:
+                self.dds_FORT_Node2.sw.off()
+                delay(self.t_FORT_drop_Node2)
+                self.dds_FORT_Node2.sw.on()
+
         ### the attribution step, in place of a joint second shot
         two_node_alternating_shot(self)
         delay(1 * ms)
