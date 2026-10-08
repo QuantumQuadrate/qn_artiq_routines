@@ -472,9 +472,21 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 from applets_master_satellite import (
                     SCAN_APPLET_SPECS,
                     SHARED_APPLET_SPECS,
+                    TWO_NODE_ALTERNATING_APPLET_SPECS,
+                    TWO_NODE_ALTERNATING_EXPERIMENTS,
                     TWO_NODE_APPLET_SPECS,
                     create_two_node_applets_for,
                 )
+
+                # The per-node atom-check histograms are asked for only by the
+                # experiments whose loader actually writes those datasets.
+                # Putting them in TWO_NODE_APPLET_SPECS would open two empty
+                # histograms on every run that uses the joint loader instead --
+                # the same reason GVS_APPLET_SPECS exists rather than growing
+                # APPLET_SPECS.
+                specs = TWO_NODE_APPLET_SPECS
+                if self.experiment_name in TWO_NODE_ALTERNATING_EXPERIMENTS:
+                    specs = specs + TWO_NODE_ALTERNATING_APPLET_SPECS
 
                 # NOT create_shared_applets_for: that deliberately runs no
                 # retirement pass, so a single-node run's "retention and
@@ -482,7 +494,7 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 # the same live AllSPCMs_RO1/RO2 against single_atom_threshold.
                 created = create_two_node_applets_for(
                     self, self.base,
-                    specs=TWO_NODE_APPLET_SPECS,
+                    specs=specs,
                     shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
                 )
         except Exception as error:  # noqa: BLE001 - convenience only

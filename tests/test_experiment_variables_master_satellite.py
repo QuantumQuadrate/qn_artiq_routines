@@ -241,6 +241,64 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         self.assertTrue(forbidden.isdisjoint(node1.datasets))
         self.assertTrue(forbidden.isdisjoint(node2.datasets))
 
+    def test_alternating_thresholds_are_per_node_and_never_global(self):
+        """The alternating criterion is per node, so its thresholds must be.
+
+        The mirror image of the two-atom thresholds below. Those are global
+        because one joint gate of all four SPCMs yields one number; these are
+        per node because the alternating check darkens one node per window, so
+        each count belongs to a trap and each trap has its own cut.
+
+        TWO pairs because the two stages run under different light. The
+        _for_loading pair is measured with the MOT on, during the loading
+        check; the plain pair under readout light. They are NOT
+        interchangeable -- 51000/45000 against 20000/21000 -- so a single
+        shared pair would silently use the wrong cut in one of the two stages.
+        """
+        pairs = ("alternating_shot_threshold",
+                 "alternating_shot_threshold_for_loading")
+
+        globals_written = self.initialize(
+            global_module.ExperimentVariablesMasterSatelliteGlobal
+        ).datasets
+        node1 = self.initialize(
+            node1_module.ExperimentVariablesMasterSatelliteNode1
+        ).datasets
+        node2 = self.initialize(
+            node2_module.ExperimentVariablesMasterSatelliteNode2
+        ).datasets
+
+        for base_name in pairs:
+            self.assertNotIn(
+                base_name, globals_written,
+                f"{base_name} must not be global: the alternating criterion "
+                f"is per node",
+            )
+            self.assertIn(f"{base_name}_Node1", node1)
+            self.assertIn(f"{base_name}_Node2", node2)
+            # and never the bare name on either node
+            self.assertNotIn(base_name, node1)
+            self.assertNotIn(base_name, node2)
+
+        # The loading pair is the brighter one -- it is measured with the MOT
+        # light on. If this ever inverts, the two have been swapped.
+        for node, written in (("Node1", node1), ("Node2", node2)):
+            self.assertGreater(
+                written[f"alternating_shot_threshold_for_loading_{node}"],
+                written[f"alternating_shot_threshold_{node}"],
+                f"{node}: the MOT-light loading threshold must exceed the "
+                f"readout-light one",
+            )
+
+        # The loading pair must also clear the joint threshold it replaces,
+        # which is what makes a joint pre-check a safe filter: a per-node pass
+        # always implies a joint pass.
+        self.assertGreater(
+            node1["alternating_shot_threshold_for_loading_Node1"]
+            + node2["alternating_shot_threshold_for_loading_Node2"],
+            globals_written["two_atom_threshold_for_loading"],
+        )
+
     def test_two_atom_thresholds_are_global_and_never_suffixed(self):
         """Both nodes' fluorescence lands on the SAME four SPCMs.
 

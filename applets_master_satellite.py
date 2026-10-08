@@ -255,6 +255,49 @@ SHARED_APPLET_GROUP = "Both nodes"
 TWO_NODE_APPLET_GROUP = "TwoNodes"
 
 
+#: Asked for ONLY when the selected experiment_function uses the alternating
+#: atom check. Deliberately not in TWO_NODE_APPLET_SPECS, which is created on
+#: every two-node run: the datasets are seeded on every run, so a default
+#: entry would open two empty histograms whenever the joint loader is used.
+#: Same reasoning as GVS_APPLET_SPECS, which exists for exactly this.
+#:
+#: These ARE the calibration. load_until_atom_in_both_nodes_alternating_shot
+#: _recycle appends two values per loaded round per node -- the count that
+#: crossed and the first try's count that did not -- so each histogram is
+#: bimodal and alternating_shot_threshold_for_loading_NodeX is read off the
+#: valley between the two populations.
+#:
+#: --t_exposure is t_alternating_RO_exposure, which Base derives and
+#: broadcasts. NOT t_atom_check_time: that is the joint gate's duration, and
+#: in two-node mode it resolves to a bare name this stack never declares as a
+#: dataset, so the applet would be answered by a leftover STANDALONE value of
+#: 20 ms -- twice the real exposure.
+#:
+#: No --iteration: like the joint atom-check histogram, these accumulate over
+#: the whole run and are never reset per scan point, so a per-iteration title
+#: would be misleading.
+TWO_NODE_ALTERNATING_APPLET_SPECS = (
+    _spec("Node1 atom check in loading histogram", "plot_hist_autosize.py",
+          ("AllSPCMs_atom_check_in_loading_Node1",),
+          (("--x", "photocount_bins"),
+           ("--t_exposure", "t_alternating_RO_exposure")),
+          group=_GVS),
+    _spec("Node2 atom check in loading histogram", "plot_hist_autosize.py",
+          ("AllSPCMs_atom_check_in_loading_Node2",),
+          (("--x", "photocount_bins"),
+           ("--color", "second_shot_hist_color_Node2"),
+           ("--t_exposure", "t_alternating_RO_exposure")),
+          group=_GVS),
+)
+
+#: Two-node experiment_functions whose loader writes the per-node atom-check
+#: datasets. Keyed by name because the applet set is chosen in prepare(),
+#: where the selected function is already known.
+TWO_NODE_ALTERNATING_EXPERIMENTS = (
+    "Two_nodes_alternating_shot_experiment",
+)
+
+
 def execution_applet_groups(base):
     """Every top-level group that belongs to ONE execution mode."""
     return tuple(base.VALID_NODES) + (TWO_NODE_APPLET_GROUP,)

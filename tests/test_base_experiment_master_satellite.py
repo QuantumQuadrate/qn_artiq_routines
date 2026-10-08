@@ -856,6 +856,12 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         per_node_readouts = {
             f"AllSPCMs_alternating_RO_{node}"
             for node in ("Node1", "Node2")
+        } | {
+            # Written by the alternating LOADING check. Per node for the same
+            # reason: the check darkens one node per window, so each count
+            # belongs to a trap by construction.
+            f"AllSPCMs_atom_check_in_loading_{node}"
+            for node in ("Node1", "Node2")
         }
         self.assertEqual(
             {name for name in written if name.endswith(("_Node1", "_Node2"))},

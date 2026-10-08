@@ -729,6 +729,382 @@ def load_until_atom_in_both_nodes_recycle(self):
 
 
 @kernel
+def load_until_atom_in_both_nodes_alternating_shot_recycle(self):
+    """
+    Two-node combined loading, with a PER-NODE atom check.
+
+    Identical to load_until_atom_in_both_nodes_recycle except for the check.
+    That one opens ONE gate of all four SPCMs and compares the sum against the
+    joint two_atom_threshold_for_loading -- and because every detector sees
+    both traps through the beamsplitter fan-out, that sum structurally cannot
+    tell "one atom in each trap" from "one bright atom plus background".
+
+    Here the check alternates instead: each window darkens the OTHER node, so
+    the four shared counters see only the active node's trap, and each node
+    gets its own number compared against its own threshold. Both must pass.
+
+    UNDER MOT LIGHT, not readout light. The loader is already in its MOT state
+    when the check runs and stays there; only which node's cooling DP + repump
+    is open alternates. So the thresholds are the _for_loading pair (brighter),
+    not the readout pair.
+
+    COST, measured against RID 38710 (joint loader, median load 0.85 s ~ 84
+    tries): a try goes from 10.1 ms to 2*n*(window + 3*pad) = 26 ms at the
+    defaults, so expect the median to land near 2 s. On top of that each node's
+    MOT light is off for half the grid, so loading runs at ~50% duty WHILE
+    checking -- trapped atoms are not lost, since the FORT holds them
+    throughout, but new loading pauses. Expect the upper end of 2-3x.
+
+    If that is too slow, the cheapest lever is a joint pre-check before this
+    one: 51000 + 45000 = 96000 > 89000, so a per-node pass ALWAYS implies a
+    joint pass and the old 10 ms gate is a filter that cannot reject a real
+    load.
+    """
+
+    ### Validate the window geometry BEFORE touching hardware, so a bad knob
+    ### cannot leave the MOT on. All three are scannable from the dashboard
+    ### and every event in the grid below is placed absolutely with at_mu, so
+    ### a pad too small to cover the Node2 offset turns an at_mu into a
+    ### BACKWARDS jump and underflows mid-check rather than merely running a
+    ### short pad.
+    if self.t_alternating_RO_pad <= 0.0:
+        raise ValueError(
+            "t_alternating_RO_pad must be > 0: it is the guard band that "
+            "keeps one node's MOT light out of the other node's counted "
+            "window, and the check places every event absolutely from it.")
+    if self.t_alternating_RO_window <= 0.0:
+        raise ValueError("t_alternating_RO_window must be > 0.")
+    if (self.t_Node2_rtio_offset_mu
+            >= self.core.seconds_to_mu(self.t_alternating_RO_pad)
+            or -self.t_Node2_rtio_offset_mu
+            >= self.core.seconds_to_mu(self.t_alternating_RO_pad)):
+        raise ValueError(
+            "|t_Node2_rtio_offset_mu| must be smaller than "
+            "t_alternating_RO_pad, or the Node2 shift eats the guard band "
+            "separating the two nodes' light.")
+
+    ### First check if there are already atoms based on RO2
+    delay(100 * us)
+    atom_loaded = False
+    if self.measurement > 0:
+        if self.AllSPCMs_RO2/self.t_SPCM_second_shot > self.two_atom_threshold:
+            atom_loaded = True
+
+    if not atom_loaded:
+        ### Set the coils to MOT loading setting
+        self.zotino0_Node1.set_dac(
+            [self.AZ_bottom_volts_MOT_Node1, self.AZ_top_volts_MOT_Node1,
+             self.AX_volts_MOT_Node1, self.AY_volts_MOT_Node1],
+            channels=self.coil_channels_Node1)
+        self.zotino0_Node2.set_dac(
+            [self.AZ_bottom_volts_MOT_Node2, self.AZ_top_volts_MOT_Node2,
+             self.AX_volts_MOT_Node2, self.AY_volts_MOT_Node2],
+            channels=self.coil_channels_Node2)
+        delay(1 * ms)
+
+        ### set the cooling DP AOM to the MOT settings
+        self.dds_cooling_DP_Node1.set(frequency=self.f_cooling_DP_MOT_Node1,
+                                      amplitude=self.ampl_cooling_DP_MOT_Node1)
+        self.dds_cooling_DP_Node2.set(frequency=self.f_cooling_DP_MOT_Node2,
+                                      amplitude=self.ampl_cooling_DP_MOT_Node2)
+
+        self.ttl_repump_switch_Node1.off()  ### turn on MOT RP
+        self.ttl_repump_switch_Node2.off()
+        delay(5 * us)
+        self.dds_cooling_DP_Node1.sw.on()  ### turn on cooling
+        self.dds_cooling_DP_Node2.sw.on()
+
+        self.dds_AOM_A1_Node1.sw.on()
+        self.dds_AOM_A1_Node2.sw.on()
+        delay(5 * us)
+        self.dds_AOM_A2_Node1.sw.on()
+        self.dds_AOM_A2_Node2.sw.on()
+        self.dds_AOM_A3_Node1.sw.on()
+        self.dds_AOM_A3_Node2.sw.on()
+        delay(5 * us)
+        self.dds_AOM_A4_Node1.sw.on()
+        self.dds_AOM_A4_Node2.sw.on()
+        self.dds_AOM_A5_Node1.sw.on()
+        self.dds_AOM_A5_Node2.sw.on()
+        delay(5 * us)
+        self.dds_AOM_A6_Node1.sw.on()
+        self.dds_AOM_A6_Node2.sw.on()
+        delay(0.1 * ms)
+
+        ### turn on the FORTs at their loading setpoints
+        self.dds_FORT_Node1.set(frequency=self.f_FORT_Node1,
+                                amplitude=self.stabilizer_FORT_Node1.amplitude)
+        self.dds_FORT_Node2.set(frequency=self.f_FORT_Node2,
+                                amplitude=self.stabilizer_FORT_Node2.amplitude)
+        self.dds_FORT_Node1.sw.on()
+        self.dds_FORT_Node2.sw.on()
+        delay(5 * us)
+
+        ### UV trigger is Node1 only; there is no Node2 UV pulse
+        self.zotino0_Node1.set_dac([3.5], self.UV_trig_channel_Node1)
+        delay(1 * ms)
+
+        t_before_atom = now_mu()
+        t_after_atom = now_mu()
+        max_tries = self.max_atom_check_tries_two_node
+        max_rounds = self.max_loading_rounds_two_node
+
+        ### The same window geometry the readout uses, so the two stages stay
+        ### comparable and there is one set of knobs to tune.
+        n_windows = self.n_alternating_RO_windows_per_node
+        pad_mu = self.core.seconds_to_mu(self.t_alternating_RO_pad)
+        window_mu = self.core.seconds_to_mu(self.t_alternating_RO_window)
+        node2_offset_mu = self.t_Node2_rtio_offset_mu
+        period_mu = window_mu + 3 * pad_mu
+
+        ### Per-node counting time. NOT t_atom_check_time -- that is the joint
+        ### gate's duration and does not apply here.
+        exposure = n_windows * self.t_alternating_RO_window
+
+        AllSPCMs_atom_check = 0
+        AllSPCMs_atom_check_not_loaded = 0
+        AllSPCMs_atom_check_Node1 = 0
+        AllSPCMs_atom_check_Node2 = 0
+        AllSPCMs_atom_check_not_loaded_Node1 = 0
+        AllSPCMs_atom_check_not_loaded_Node2 = 0
+        rounds = 0
+
+        while not atom_loaded and rounds < max_rounds:
+            rounds += 1
+            ### try_n is reset EVERY round. In the legacy version it was set
+            ### once outside the loop and reset only inside the laser-feedback
+            ### branch, so with feedback off the inner loop stopped checking
+            ### after max_tries and the outer loop spun doing nothing.
+            try_n = 0
+
+            while not atom_loaded and try_n < max_tries:
+                ### ALTERNATING ATOM CHECK, under MOT light.
+                ###
+                ### Both nodes' MOT light is ON when we arrive here. Each
+                ### window darkens the OTHER node so the four shared,
+                ### master-local counters see only the active node's trap,
+                ### then puts it back. Everything is placed absolutely from
+                ### one t_grid, exactly as two_node_alternating_shot does.
+                self.core.break_realtime()
+                t_grid = now_mu()
+
+                for i in range(2 * n_windows):
+                    t_window = t_grid + i * period_mu
+                    node1_window = (i % 2) == 0
+
+                    ### dark the OTHER node for this window
+                    if node1_window:
+                        at_mu(t_window - node2_offset_mu)
+                        self.ttl_repump_switch_Node2.on()
+                        self.dds_cooling_DP_Node2.sw.off()
+                    else:
+                        at_mu(t_window)
+                        self.ttl_repump_switch_Node1.on()
+                        self.dds_cooling_DP_Node1.sw.off()
+
+                    ### the counters are master-local, so never offset
+                    at_mu(t_window + pad_mu)
+                    with parallel:
+                        self.ttl_SPCM0_counter.gate_rising_mu(window_mu)
+                        self.ttl_SPCM1_counter.gate_rising_mu(window_mu)
+                        self.ttl_SPCM0_OtherNode_counter.gate_rising_mu(window_mu)
+                        self.ttl_SPCM1_OtherNode_counter.gate_rising_mu(window_mu)
+
+                    ### TRAILING PAD, and it is not cosmetic. gate_rising_mu
+                    ### emits a CLOSE event as well as an open one, so all
+                    ### four counters close at t_window + pad + window.
+                    ### Restoring the light at that same instant would put SIX
+                    ### events on one timestamp -- past the four-event rule,
+                    ### and two short of the eight SED FIFOs beyond which
+                    ### events are silently DISCARDED.
+                    if node1_window:
+                        at_mu(t_window + 2 * pad_mu + window_mu - node2_offset_mu)
+                        self.ttl_repump_switch_Node2.off()
+                        self.dds_cooling_DP_Node2.sw.on()
+                    else:
+                        at_mu(t_window + 2 * pad_mu + window_mu)
+                        self.ttl_repump_switch_Node1.off()
+                        self.dds_cooling_DP_Node1.sw.on()
+
+                at_mu(t_grid + 2 * n_windows * period_mu)
+                delay(0.1 * ms)
+
+                ### Deferred fetches, in emission order. The parity of the
+                ### FETCH index reproduces the parity of the gate, which is
+                ### what attributes the counts to a node. 2*n totals per
+                ### counter against the 64-deep input FIFO, so this is safe to
+                ### n = 32; past that the failure is a loud RTIOOverflow.
+                AllSPCMs_atom_check_Node1 = 0
+                AllSPCMs_atom_check_Node2 = 0
+                for i in range(2 * n_windows):
+                    window_count = (
+                        self.ttl_SPCM0_counter.fetch_count()
+                        + self.ttl_SPCM1_counter.fetch_count()
+                        + self.ttl_SPCM0_OtherNode_counter.fetch_count()
+                        + self.ttl_SPCM1_OtherNode_counter.fetch_count())
+                    if (i % 2) == 0:
+                        AllSPCMs_atom_check_Node1 += window_count
+                    else:
+                        AllSPCMs_atom_check_Node2 += window_count
+
+                ### kept so the joint histogram stays comparable with every
+                ### run taken before this function existed
+                AllSPCMs_atom_check = (AllSPCMs_atom_check_Node1
+                                       + AllSPCMs_atom_check_Node2)
+
+                try_n += 1
+                if try_n == 1:
+                    AllSPCMs_atom_check_not_loaded = AllSPCMs_atom_check
+                    AllSPCMs_atom_check_not_loaded_Node1 = AllSPCMs_atom_check_Node1
+                    AllSPCMs_atom_check_not_loaded_Node2 = AllSPCMs_atom_check_Node2
+
+                ### BOTH nodes, each against its own threshold. This is the
+                ### whole point: the joint sum could be satisfied by one
+                ### bright trap, this cannot.
+                if (AllSPCMs_atom_check_Node1/exposure
+                        > self.alternating_shot_threshold_for_loading_Node1
+                        and AllSPCMs_atom_check_Node2/exposure
+                        > self.alternating_shot_threshold_for_loading_Node2):
+                    atom_loaded = True
+                    t_after_atom = now_mu()
+
+            if atom_loaded:
+                self.set_dataset("time_without_atom", 0.0, broadcast=True)
+                ### Two values per loaded round, as the joint loader does:
+                ### the count that crossed, and the first try's count that did
+                ### not. That pairing is what makes the histogram bimodal and
+                ### lets the threshold be read off the valley.
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_not_loaded)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading_Node1", AllSPCMs_atom_check_Node1)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading_Node1", AllSPCMs_atom_check_not_loaded_Node1)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading_Node2", AllSPCMs_atom_check_Node2)
+                self.append_to_dataset("AllSPCMs_atom_check_in_loading_Node2", AllSPCMs_atom_check_not_loaded_Node2)
+            else:
+                #### how long has passed since the previous atom loading
+                self.set_dataset(
+                    "time_without_atom",
+                    self.core.mu_to_seconds(now_mu() - t_before_atom),
+                    broadcast=True)
+
+            ### the dataset writes above are host RPCs: they advance wall
+            ### clock while the timeline cursor stands still, so without this
+            ### the next RTIO event is eventually submitted in the past.
+            self.core.break_realtime()
+
+            if not atom_loaded and self.enable_laser_feedback:
+                ### reset cooling DP to MOT settings, run feedback, carry on
+                self.dds_cooling_DP_Node1.set(frequency=self.f_cooling_DP_MOT_Node1,
+                                              amplitude=self.ampl_cooling_DP_MOT_Node1)
+                self.dds_cooling_DP_Node2.set(frequency=self.f_cooling_DP_MOT_Node2,
+                                              amplitude=self.ampl_cooling_DP_MOT_Node2)
+                run_feedback_and_record_FORT_MM_power(self, record_power=False)
+                self.n_feedback_per_iteration += 1
+                self.dds_FORT_Node1.sw.on()
+                self.dds_FORT_Node2.sw.on()
+                delay(5 * us)
+
+        if not atom_loaded:
+            self.print_async(
+                "two-node loading gave up after rounds =", rounds,
+                "-- skipping this measurement. Check both MOTs and "
+                "alternating_shot_threshold_for_loading_Node1/_Node2 against "
+                "the per-node atom-check histograms.")
+
+        ### UV off, MOTs away
+        self.zotino0_Node1.set_dac([0.0], self.UV_trig_channel_Node1)
+        delay(1 * ms)
+        self.ttl_repump_switch_Node1.on()  ### turn off MOT RP
+        self.ttl_repump_switch_Node2.on()
+        self.dds_cooling_DP_Node1.sw.off()  ### turn off cooling
+        self.dds_cooling_DP_Node2.sw.off()
+        delay(5 * us)
+        delay(self.t_MOT_dissipation)
+
+        ### set the coils to PGC settings; effectively turns the coils off
+        self.zotino0_Node1.set_dac(
+            [self.AZ_bottom_volts_PGC_Node1, -self.AZ_bottom_volts_PGC_Node1,
+             self.AX_volts_PGC_Node1, self.AY_volts_PGC_Node1],
+            channels=self.coil_channels_Node1)
+        self.zotino0_Node2.set_dac(
+            [self.AZ_bottom_volts_PGC_Node2, -self.AZ_bottom_volts_PGC_Node2,
+             self.AX_volts_PGC_Node2, self.AY_volts_PGC_Node2],
+            channels=self.coil_channels_Node2)
+        delay(1 * ms)
+
+        self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
+        self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
+        self.append_to_dataset("atom_loading_wall_clock", now_mu())
+        if atom_loaded:
+            self.n_atom_loaded_per_iteration += 1
+        delay(1 * ms)
+        self.core.break_realtime()
+
+    ###########  PGC on the trapped atoms  #############
+    ### do_PGC_after_loading is per node, not shared: each node's PGC window is
+    ### its own stage, and t_PGC_after_loading already differs between them
+    ### (0.6 vs 1.0 ms). A node that is not doing PGC simply has no window.
+    if self.do_PGC_after_loading_Node1 or self.do_PGC_after_loading_Node2:
+        ### THE OTHER STAGE THAT CANNOT BE A SINGLE LINE: t_PGC_after_loading
+        ### is 0.6 ms on Node1 and 1.0 ms on Node2, so each node's PGC window
+        ### is placed from a common t0 and the cursor resynced past the longer.
+        self.dds_cooling_DP_Node1.set(frequency=self.f_cooling_DP_PGC_Node1,
+                                      amplitude=self.ampl_cooling_DP_PGC_Node1)
+        self.dds_cooling_DP_Node2.set(frequency=self.f_cooling_DP_PGC_Node2,
+                                      amplitude=self.ampl_cooling_DP_PGC_Node2)
+
+        self.dds_AOM_A1_Node1.sw.on()
+        self.dds_AOM_A1_Node2.sw.on()
+        delay(5 * us)
+        self.dds_AOM_A2_Node1.sw.on()
+        self.dds_AOM_A2_Node2.sw.on()
+        self.dds_AOM_A3_Node1.sw.on()
+        self.dds_AOM_A3_Node2.sw.on()
+        delay(5 * us)
+        self.dds_AOM_A4_Node1.sw.on()
+        self.dds_AOM_A4_Node2.sw.on()
+        delay(0.1 * ms)
+        ### on-chip beams: each node's own pair, on its own flag
+        if (self.do_PGC_after_loading_Node1
+                and not self.PGC_and_RO_with_on_chip_beams_Node1):
+            self.dds_AOM_A5_Node1.sw.on()
+            self.dds_AOM_A6_Node1.sw.on()
+        if (self.do_PGC_after_loading_Node2
+                and not self.PGC_and_RO_with_on_chip_beams_Node2):
+            self.dds_AOM_A5_Node2.sw.on()
+            self.dds_AOM_A6_Node2.sw.on()
+            delay(5 * us)
+
+        ### `with parallel` does BOTH jobs the at_mu bookkeeping used to do:
+        ### every statement in the block starts at the block's entry time, and
+        ### the cursor afterwards is the MAXIMUM of the branches' end times. So
+        ### the common t0 and the resync-past-the-longer are both automatic and
+        ### t_pgc_longest is gone -- along with the bug class where that
+        ### arithmetic drifts out of step with the block's contents.
+        ###
+        ### Note it is a timeline construct, not concurrency: the CPU still
+        ### submits both branches' events one after another, and both branches'
+        ### FIRST events land on the same timestamp. Two events here, so well
+        ### inside the four-per-timestamp budget.
+        with parallel:
+            if self.do_PGC_after_loading_Node1:
+                self.ttl_repump_switch_Node1.off()  ### turn on MOT RP
+                self.dds_cooling_DP_Node1.sw.on()
+                delay(self.t_PGC_after_loading_Node1)
+                self.dds_cooling_DP_Node1.sw.off()
+                self.ttl_repump_switch_Node1.on()
+
+            if self.do_PGC_after_loading_Node2:
+                self.ttl_repump_switch_Node2.off()
+                self.dds_cooling_DP_Node2.sw.on()
+                delay(self.t_PGC_after_loading_Node2)
+                self.dds_cooling_DP_Node2.sw.off()
+                self.ttl_repump_switch_Node2.on()
+
+        delay(10 * us)
+
+
+@kernel
 def two_node_alternating_shot(self):
     """
     Alternating two-node readout: even windows Node1, odd windows Node2.
@@ -1145,7 +1521,15 @@ def Two_nodes_alternating_shot_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        load_until_atom_in_both_nodes_recycle(self)
+        ### The PER-NODE loading check, which is what makes this experiment
+        ### the alternating one end to end: the atom check and the readout now
+        ### use the same attribution. Two_nodes_atom_loading_experiment keeps
+        ### the joint loader, so the two remain comparable.
+        ###
+        ### Swap back to load_until_atom_in_both_nodes_recycle to get the
+        ### joint 10 ms check -- faster per try, but it cannot tell one atom
+        ### in each trap from one bright atom plus background.
+        load_until_atom_in_both_nodes_alternating_shot_recycle(self)
 
         delay(1 * ms)
 

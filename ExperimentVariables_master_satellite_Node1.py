@@ -156,6 +156,22 @@ NODE1_VARIABLES = (
     Variable('tune_852_waveplates_to_target_in_experiment_Node1', False, BooleanValue, {}, 'Booleans'),
     Variable('single_atom_threshold_Node1', 14000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
     Variable('single_atom_threshold_for_loading_Node1', 44000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
+    # ALTERNATING per-node thresholds. The joint two_atom_threshold* pair
+    # above cannot tell "one atom in each trap" from "one bright atom plus
+    # background" -- all four SPCMs see both traps through the beamsplitter
+    # fan-out, so their sum is structurally ambiguous. The alternating
+    # readout opens only one node's light per window, which makes each node's
+    # counts its own, and these are the thresholds those counts are compared
+    # against.
+    #
+    # TWO pairs because the two stages run under DIFFERENT LIGHT. _for_loading
+    # is measured with the MOT light on, during the loading check, and is the
+    # brighter of the two; the plain one is measured under readout light, with
+    # the cooling DP at its RO setting and the FORT at science amplitude. Read
+    # each off the valley of its own per-node histogram -- these values came
+    # from RID 38710, where both nodes were cleanly bimodal with a wide gap.
+    Variable('alternating_shot_threshold_Node1', 20000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
+    Variable('alternating_shot_threshold_for_loading_Node1', 51000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
     # two_atom_threshold and two_atom_threshold_for_loading moved to
     # ExperimentVariables_master_satellite_global.py on 2026-09-17: they
     # describe the joint two-node readout, so both nodes share one value.

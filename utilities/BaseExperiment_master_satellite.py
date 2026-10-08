@@ -938,6 +938,16 @@ class BaseExperimentMasterSatellite:
             # path both run through, so it is the correct place.
             self._publish_agreeing_scalars()
 
+            # Same reasoning for the alternating exposure: it is derived from
+            # two scannable variables, so a scan over either would otherwise
+            # leave the applets scaling histograms by a stale value.
+            self.experiment.set_dataset(
+                "t_alternating_RO_exposure",
+                (int(self.experiment.n_alternating_RO_windows_per_node)
+                 * float(self.experiment.t_alternating_RO_window)),
+                broadcast=True,
+            )
+
     def reload_experiment_variables(self):
         """Reload active authoritative/global datasets without side effects."""
         if not self._built or not self._prepared:
@@ -1527,6 +1537,13 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO_bob",
                 "AllSPCMs_RO_atom_check",
                 "AllSPCMs_atom_check_in_loading",
+                # Per-node counterparts, written by
+                # load_until_atom_in_both_nodes_alternating_shot_recycle.
+                # The joint one above is still written alongside them, so a
+                # run using the alternating check stays comparable with every
+                # run taken before it existed.
+                "AllSPCMs_atom_check_in_loading_Node1",
+                "AllSPCMs_atom_check_in_loading_Node2",
                 "n_feedback_per_iteration",
                 "n_atom_loaded_per_iteration",
             ]
@@ -1655,6 +1672,29 @@ class BaseExperimentMasterSatellite:
                 )
 
         experiment.set_dataset("photocount_bins", [50], broadcast=True)
+
+        # The alternating stages' per-node counting time, DERIVED and
+        # broadcast rather than declared -- no ExperimentVariable, so no
+        # initializer to run. The histogram applets convert a counts/s
+        # threshold with cutoff = t_exposure * threshold, so they need the
+        # time the counts were actually accumulated over.
+        #
+        # It is NOT t_SPCM_first_shot and NOT t_atom_check_time. Both happen
+        # to equal 10 ms today by arithmetic coincidence, and the coincidence
+        # breaks the moment anyone scans n_alternating_RO_windows_per_node or
+        # t_alternating_RO_window -- at which point a histogram would be
+        # scaled by the wrong exposure and a threshold read off it would be
+        # wrong without looking wrong. (t_atom_check_time is worse still: in
+        # two-node mode it resolves to a bare name this stack never declares
+        # as a dataset, so an applet would be answered by a leftover
+        # STANDALONE value of 20 ms.)
+        if self.experiment_mode == "two_nodes":
+            experiment.set_dataset(
+                "t_alternating_RO_exposure",
+                (int(experiment.n_alternating_RO_windows_per_node)
+                 * float(experiment.t_alternating_RO_window)),
+                broadcast=True,
+            )
 
         n_measurements = int(experiment.n_measurements)
         for list_name in (
