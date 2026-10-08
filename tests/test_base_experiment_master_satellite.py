@@ -847,12 +847,22 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             for monitor in ("FORT_MM_monitor", "FORT_APD_monitor")
             for node in ("Node1", "Node2")
         }
+        # PER-NODE READOUTS: the alternating shot opens only one node's
+        # readout light per window, so its counts belong to that node by
+        # construction. The first two-node RESULT datasets that are
+        # legitimately per node -- the joint shots stay unsuffixed, because
+        # one gate of all four SPCMs cannot be attributed to a trap. Seeded
+        # as an appendable integer series, [0], not [].
+        per_node_readouts = {
+            f"AllSPCMs_alternating_RO_{node}"
+            for node in ("Node1", "Node2")
+        }
         self.assertEqual(
             {name for name in written if name.endswith(("_Node1", "_Node2"))},
-            per_node_monitors,
+            per_node_monitors | per_node_readouts,
             "two-node measurement results are joint and must not be "
             "node-suffixed; the only suffixed names here are the per-node "
-            "hardware monitors",
+            "hardware monitors and the per-node alternating readouts",
         )
         # Seeded empty and broadcast, which is what makes the first
         # append_to_dataset legal rather than a KeyError.
@@ -862,6 +872,11 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 seeded.get(name), [],
                 f"{name} must be seeded as an empty broadcast list, or the "
                 f"first append_to_dataset raises",
+            )
+        for name in sorted(per_node_readouts):
+            self.assertEqual(
+                seeded.get(name), [0],
+                f"{name} must be seeded as a broadcast integer series",
             )
         for required in (
             "AllSPCMs_RO1", "AllSPCMs_RO2", "AllSPCMs_atom_check_in_loading",

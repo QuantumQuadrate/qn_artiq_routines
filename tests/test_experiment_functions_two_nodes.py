@@ -144,7 +144,7 @@ _ALLOWED_NON_DEVICE = {
     "in_health_check",
     "AllSPCMs_RO1", "AllSPCMs_RO2",
     "AllSPCMs_RO1_list", "AllSPCMs_RO2_list",
-    "AllSPCMs_alternating_RO_alice", "AllSPCMs_alternating_RO_bob",
+    "AllSPCMs_alternating_RO_Node1", "AllSPCMs_alternating_RO_Node2",
     "print_async", "append_to_dataset", "set_dataset", "get_dataset",
     "write_results",
 }

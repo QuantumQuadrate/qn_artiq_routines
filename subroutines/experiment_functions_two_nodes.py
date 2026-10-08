@@ -810,11 +810,38 @@ def two_node_alternating_shot(self):
     self.dds_cooling_DP_Node2.sw.off()
     delay(5 * us)
 
+    ### The pads are the only headroom this loop has, and every knob that
+    ### eats them is scannable from the dashboard. Every event below is placed
+    ### ABSOLUTELY with at_mu, so a pad too small to cover the Node2 offset
+    ### turns an at_mu into a BACKWARDS jump and the kernel underflows
+    ### mid-loop rather than merely running a short pad; a pad of 0 collapses
+    ### the window structure outright. Fail here, naming the knob.
+    if self.t_alternating_RO_pad <= 0.0:
+        raise ValueError(
+            "t_alternating_RO_pad must be > 0: it is the guard band that "
+            "keeps one node's readout light out of the other node's counted "
+            "window, and the loop places every event absolutely from it."
+        )
+    if self.t_alternating_RO_window <= 0.0:
+        raise ValueError("t_alternating_RO_window must be > 0.")
+
     n_windows = self.n_alternating_RO_windows_per_node
     pad_mu = self.core.seconds_to_mu(self.t_alternating_RO_pad)
     window_mu = self.core.seconds_to_mu(self.t_alternating_RO_window)
     node2_offset_mu = self.t_Node2_rtio_offset_mu
     period_mu = window_mu + 3 * pad_mu
+
+    ### One pad now sits BEFORE the gate and one AFTER it, leaving the third
+    ### as the dark band between nodes. Node2's events shift by the RTIO
+    ### offset, eating that band from one side, so the offset must stay
+    ### smaller than a pad or Node2's light can still be on when Node1's
+    ### window opens.
+    if node2_offset_mu >= pad_mu or -node2_offset_mu >= pad_mu:
+        raise ValueError(
+            "|t_Node2_rtio_offset_mu| must be smaller than "
+            "t_alternating_RO_pad, or the Node2 shift eats the guard band "
+            "separating the two nodes' readout light."
+        )
 
     self.core.break_realtime()
     t0 = now_mu()
@@ -841,12 +868,20 @@ def two_node_alternating_shot(self):
             self.ttl_SPCM0_OtherNode_counter.gate_rising_mu(window_mu)
             self.ttl_SPCM1_OtherNode_counter.gate_rising_mu(window_mu)
 
+        ### TRAILING PAD, and it is not cosmetic. gate_rising_mu emits a
+        ### CLOSE event as well as an open one, so all four counters close at
+        ### t_window + pad + window. Switching the light off at that same
+        ### instant put SIX events on one timestamp -- past the four-event
+        ### rule, and only two short of the eight SED FIFOs beyond which
+        ### events are silently DISCARDED. One pad later splits that into
+        ### four and two, leaves the 3-pad period untouched, and guarantees
+        ### the whole counted window is lit instead of racing the light-off.
         if alice_window:
-            at_mu(t_window + pad_mu + window_mu)
+            at_mu(t_window + 2 * pad_mu + window_mu)
             self.dds_cooling_DP_Node1.sw.off()
             self.ttl_repump_switch_Node1.on()
         else:
-            at_mu(t_window + pad_mu + window_mu - node2_offset_mu)
+            at_mu(t_window + 2 * pad_mu + window_mu - node2_offset_mu)
             self.dds_cooling_DP_Node2.sw.off()
             self.ttl_repump_switch_Node2.on()
 
@@ -854,17 +889,17 @@ def two_node_alternating_shot(self):
     delay(1 * ms)
 
     ### deferred fetches, in emission order
-    self.AllSPCMs_alternating_RO_alice = 0
-    self.AllSPCMs_alternating_RO_bob = 0
+    self.AllSPCMs_alternating_RO_Node1 = 0
+    self.AllSPCMs_alternating_RO_Node2 = 0
     for i in range(2 * n_windows):
         window_count = (self.ttl_SPCM0_counter.fetch_count()
                         + self.ttl_SPCM1_counter.fetch_count()
                         + self.ttl_SPCM0_OtherNode_counter.fetch_count()
                         + self.ttl_SPCM1_OtherNode_counter.fetch_count())
         if (i % 2) == 0:
-            self.AllSPCMs_alternating_RO_alice += window_count
+            self.AllSPCMs_alternating_RO_Node1 += window_count
         else:
-            self.AllSPCMs_alternating_RO_bob += window_count
+            self.AllSPCMs_alternating_RO_Node2 += window_count
     self.core.break_realtime()
 
 
@@ -911,8 +946,8 @@ def end_measurement(self):
     self.append_to_dataset('AllSPCMs_RO2_current_iteration', self.AllSPCMs_RO2)
     delay(1 * ms)
     ### Alternating RO
-    self.append_to_dataset('AllSPCMs_alternating_RO_alice_current_iteration', self.AllSPCMs_alternating_RO_alice)
-    self.append_to_dataset('AllSPCMs_alternating_RO_bob_current_iteration', self.AllSPCMs_alternating_RO_bob)
+    self.append_to_dataset('AllSPCMs_alternating_RO_Node1_current_iteration', self.AllSPCMs_alternating_RO_Node1)
+    self.append_to_dataset('AllSPCMs_alternating_RO_Node2_current_iteration', self.AllSPCMs_alternating_RO_Node2)
     delay(1*ms)
 
     self.SPCM0_RO1_list[self.measurement] = self.SPCM0_RO1
@@ -931,8 +966,8 @@ def end_measurement(self):
 
     delay(1*ms)
 
-    self.append_to_dataset('AllSPCMs_alternating_RO_alice', self.AllSPCMs_alternating_RO_alice)
-    self.append_to_dataset('AllSPCMs_alternating_RO_bob', self.AllSPCMs_alternating_RO_bob)
+    self.append_to_dataset('AllSPCMs_alternating_RO_Node1', self.AllSPCMs_alternating_RO_Node1)
+    self.append_to_dataset('AllSPCMs_alternating_RO_Node2', self.AllSPCMs_alternating_RO_Node2)
     delay(1*ms)
 
     self.measurement += 1
@@ -1148,7 +1183,7 @@ def Two_nodes_alternating_shot_experiment(self):
         ### the alternating counts are recorded alongside it.
         second_shot(self)
 
-        ### end_measurement already appends AllSPCMs_alternating_RO_alice and
+        ### end_measurement already appends AllSPCMs_alternating_RO_Node1 and
         ### _bob, and their _current_iteration variants, so do NOT append them
         ### here: that would put two entries per measurement into datasets the
         ### applets and analysis zip against the one-per-measurement ones.

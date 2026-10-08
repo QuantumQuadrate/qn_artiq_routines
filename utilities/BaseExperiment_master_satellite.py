@@ -1480,6 +1480,14 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_RO1_in_health_check",
                 "AllSPCMs_RO2_in_health_check",
                 "AllSPCMs_parity_RO",
+                # TWO vocabularies on purpose. The two-node sequence writes
+                # _Node1/_Node2; experiment_functions.py -- which single-node
+                # mode uses -- still writes the legacy _alice/_bob. Seeding
+                # only one set makes the other path raise KeyError on its
+                # first append. Seeding is one set_dataset; omitting is a
+                # crash mid-run.
+                "AllSPCMs_alternating_RO_Node1",
+                "AllSPCMs_alternating_RO_Node2",
                 "AllSPCMs_alternating_RO_alice",
                 "AllSPCMs_alternating_RO_bob",
                 "SPCM0_test_RO", "SPCM1_test_RO",
@@ -1513,6 +1521,8 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_RO1", "AllSPCMs_RO2",
                 "AllSPCMs_RO1_in_health_check",
                 "AllSPCMs_RO2_in_health_check",
+                "AllSPCMs_alternating_RO_Node1",
+                "AllSPCMs_alternating_RO_Node2",
                 "AllSPCMs_alternating_RO_alice",
                 "AllSPCMs_alternating_RO_bob",
                 "AllSPCMs_RO_atom_check",
@@ -1534,6 +1544,8 @@ class BaseExperimentMasterSatellite:
             + [
                 "AllSPCMs_RO1_current_iteration",
                 "AllSPCMs_RO2_current_iteration",
+                "AllSPCMs_alternating_RO_Node1_current_iteration",
+                "AllSPCMs_alternating_RO_Node2_current_iteration",
                 "AllSPCMs_alternating_RO_alice_current_iteration",
                 "AllSPCMs_alternating_RO_bob_current_iteration",
                 "test_dataset",
