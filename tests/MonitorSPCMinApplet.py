@@ -14,16 +14,26 @@ The four SPCMs are canonical, master-local detectors on BOTH nodes:
     SPCM_H2 -> Node1 ttl8 / ttl8_counter   (was ttl_SPCM0_OtherNode)
     SPCM_V2 -> Node1 ttl9 / ttl9_counter   (was ttl_SPCM1_OtherNode)
 
-so selected_node does NOT change which detectors are read, and the count-rate
-datasets are not node-suffixed either (they are absent from
-_single_node_redirect_names), so the same four dataset names are written
-whichever node is selected. What selected_node does change is which crate's
-DDS/Zotino/TTL hardware base.initialize_hardware() touches, and which node's
-ExperimentVariables are loaded -- including t_SPCM_exposure, see prepare().
+THERE IS NO NODE SELECTION, and there is nothing for one to select. The
+detectors above are the same four whichever node is "chosen"; the five
+count-rate datasets are unsuffixed (they are absent from
+_single_node_redirect_names), so the same names are written either way; and
+run() below touches no per-node device and no per-node value. Base is
+configured single_node/Node1 because Node1 IS the crate the detectors live
+on, which makes initializing it both correct and sufficient.
 
-Base still has to run in single_node mode: the *_rate_dataset name attributes
-used below are published by _install_wiring_metadata, which
-returns early in two_nodes mode.
+It used to offer Node1/Node2, and the option was worse than useless:
+selecting Node2 made base.initialize_hardware() wait for the satellite and
+initialize the wrong crate's DDS/Zotino/TTL, for a measurement that reads
+neither. The one thing it genuinely changed was which t_SPCM_exposure_<node>
+loaded -- and that is 0.01 on both nodes, and the GUI value overrides it
+anyway (see prepare()).
+
+Nothing here needs two_nodes mode either. The *_rate_dataset name attributes
+come from _install_wiring_metadata, which published them only in single_node
+mode until 2026-10-07 and now publishes them in both; single_node/Node1 is
+kept because it initializes one crate instead of two and never waits on the
+fibre.
 """
 
 from artiq.experiment import *
@@ -46,25 +56,12 @@ class MonitorSPCMinApplet(_DatasetRedirectMixin, EnvExperiment):
     Monitor the four master-local SPCMs and publish their count rates.
     """
 
-    VALID_NODES = ("Node1", "Node2")
-
     def build(self):
         """
         declare hardware and user-configurable independent variables
         """
         self.base = BaseExperimentMasterSatellite(experiment=self)
         self.base.build()
-
-        # The detectors are master-local either way; this selects whose
-        # hardware is initialized and whose ExperimentVariables are loaded.
-        self.setattr_argument(
-            "selected_node",
-            EnumerationValue(self.VALID_NODES),
-            "Node selection",
-            tooltip="Node1 = alice, Node2 = bob. All four SPCMs are read "
-                    "whichever node is selected; this picks which crate is "
-                    "initialized and whose variables are loaded.",
-        )
 
         self.setattr_argument("run_time_minutes", NumberValue(1))
         self.setattr_argument("t_SPCM_exposure", NumberValue(0.05))
@@ -73,7 +70,7 @@ class MonitorSPCMinApplet(_DatasetRedirectMixin, EnvExperiment):
             "create_applets",
             BooleanValue(True),
             "Applets",
-            tooltip="Ask the dashboard to show this node's applets, including "
+            tooltip="Ask the dashboard to show the SPCM applets, including "
                     "the five SPCM count-rate plots under Optimization. Untick "
                     "to leave the dashboard exactly as it is. Requires the "
                     "applet dock's CCB policy to be 'Create and enable/disable "
@@ -102,16 +99,15 @@ class MonitorSPCMinApplet(_DatasetRedirectMixin, EnvExperiment):
         # this run. run_time_minutes has no such collision.
         submitted_t_SPCM_exposure = self.t_SPCM_exposure
 
-        node = str(self.selected_node)
-        if node not in self.VALID_NODES:
-            raise ValueError(
-                f"Unsupported selected_node {self.selected_node!r}; expected "
-                "'Node1' or 'Node2'."
-            )
-
-        self.base.configure_execution("single_node", node)
-        # The shared record helpers branch on the alice/bob presentation.
-        self.which_node = self.base.NODE_LEGACY_NAMES[node]
+        # NODE1, ALWAYS. There is nothing for a node selection to select:
+        # all four SPCMs are master-local on both nodes, the five count-rate
+        # datasets are unsuffixed, and run() below touches no per-node device
+        # or value. Node1 is simply the crate the detectors physically live
+        # on, so initializing it is both correct and sufficient.
+        self.base.configure_execution("single_node", "Node1")
+        # Published for the shared helpers that branch on the alice/bob
+        # presentation; Base only sets it itself on the two-node path.
+        self.which_node = self.base.NODE_LEGACY_NAMES["Node1"]
         self.base.prepare()
 
         self.t_SPCM_exposure = submitted_t_SPCM_exposure
