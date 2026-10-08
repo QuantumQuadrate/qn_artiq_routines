@@ -604,6 +604,47 @@ class AOMPowerStabilizer:
             ch.dds_obj.sw.off()
             delay(100*us)
 
+        # DESIGN NOTE, 2026-10-08 -- NOT IMPLEMENTED, recorded so the dormant
+        # machinery below is not deleted as dead code.
+        #
+        # The reason this block has never been used is in the comment under
+        # it: no channel is flagged parallel, because every entry in
+        # feedback_channels.json carries "series": true. That is not a
+        # property of the code, it is a property of the OPTICS -- two beams
+        # can only be fed back at once if neither disturbs the other's
+        # photodiode reading.
+        #
+        # The lab owner's grouping (2026-10-08), which is the physics fact
+        # this file has no way to know:
+        #
+        #     group 1   A1, A2, A5     mutually non-disturbing
+        #     group 2   A3, A4, A6     mutually non-disturbing
+        #     group 3   FORT           alone, and repeated per setpoint
+        #
+        # and both nodes' members of a group go together, so group 1 means
+        # Node1 A1/A2/A5 AND Node2 A1/A2/A5 simultaneously.
+        #
+        # WHY IT IS WORTH MORE THAN IT LOOKS. measure() reads every card in
+        # sampler_list whatever it is measuring, so the cost of a measure is
+        # the same whether one channel or six is being adjusted. Today the
+        # seven fast channels each get their own measure loop; grouped, there
+        # would be three. That is ~57% fewer measures, it needs NO rewiring,
+        # and it applies per node -- it does not depend on the two nodes
+        # sharing sampler cards.
+        #
+        # WHAT WOULD HAVE TO CHANGE. The existing flag is a boolean, which
+        # can express "one parallel set plus a series remainder" but not
+        # three ordered groups. It would become a group id --
+        # "feedback_group": 1|2|3 -- with run() looping the groups in order
+        # and, within a group, turning on that group's DDSs, measuring ONCE,
+        # and feeding back to every member from the same measurement array.
+        # The block below is the single-group version of exactly that.
+        #
+        # Measure before building it: iterations is a CAP broken by in_tol
+        # (200 on Node1, 100 on Node2, against 15 in standalone). If the
+        # loops are not converging early, the grouping multiplies a number
+        # that is already the wrong size, and the setpoints are the problem.
+        #
         # for ch in self.parallel_channels:
         #     ch.dds_obj.sw.on()
         #     delay(100 * us)
