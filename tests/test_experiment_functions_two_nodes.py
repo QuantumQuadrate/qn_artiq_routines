@@ -144,7 +144,7 @@ _ALLOWED_NON_DEVICE = {
     "in_health_check",
     "AllSPCMs_RO1", "AllSPCMs_RO2",
     "AllSPCMs_RO1_list", "AllSPCMs_RO2_list",
-    "AllSPCMs_alternating_RO_Node1", "AllSPCMs_alternating_RO_Node2",
+    "AllSPCMs_alternating_RO_alice", "AllSPCMs_alternating_RO_bob",
     "print_async", "append_to_dataset", "set_dataset", "get_dataset",
     "write_results",
 }
@@ -273,9 +273,6 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 "master_satellite_namespace_sanity_experiment",
                 "Two_nodes_atom_loading_experiment",
                 "Two_nodes_alternating_shot_experiment",
-                # Reads the pedestal an alternating window sits on, so the
-                # per-node thresholds can be set on top of it.
-                "Two_nodes_alternating_FORT_background_experiment",
             },
         )
         module_functions = [

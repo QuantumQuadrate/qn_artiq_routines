@@ -196,10 +196,6 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 "t_Node2_rtio_offset_mu": 0,
                 "t_Node2_excitation_delay_mu": 189,
                 "parallel_AOM_feedback": True,
-                # Global rather than per node because the readout alternates
-                # BETWEEN the nodes: one node cannot have it while the other
-                # does not.
-                "use_alternating_readout_diagnostic": False,
                 # A scratch scan target: no physical meaning, so no per-node
                 # meaning either. Was dummy_variable_Node1/_Node2 until
                 # 2026-10-07, which made scanning it in two_nodes mode raise

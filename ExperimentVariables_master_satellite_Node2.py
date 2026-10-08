@@ -155,16 +155,6 @@ NODE2_VARIABLES = (
     Variable('tune_shims_when_loading_is_bad_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('tune_852_waveplates_to_target_in_experiment_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('single_atom_threshold_Node2', 17000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
-    # ALTERNATING READOUT. Deliberately NOT single_atom_threshold_Node2: during
-    # an alternating window the OTHER node's FORT is still on, trapping its
-    # atom, and that light scatters into the same four shared SPCMs. The
-    # single-node calibration never saw that pedestal, so the alternating
-    # threshold is single_atom_threshold_Node2 plus the other node's FORT
-    # background. Measure the background with
-    # measure_alternating_FORT_background_experiment and read the threshold
-    # off the per-node histogram applet; the value below is only a starting
-    # point copied from single_atom_threshold_Node2.
-    Variable('alternating_atom_threshold_Node2', 17000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
     Variable('single_atom_threshold_for_loading_Node2', 40000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
     # two_atom_threshold and two_atom_threshold_for_loading moved to
     # ExperimentVariables_master_satellite_global.py on 2026-09-17: they

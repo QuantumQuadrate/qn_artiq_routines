@@ -810,39 +810,11 @@ def two_node_alternating_shot(self):
     self.dds_cooling_DP_Node2.sw.off()
     delay(5 * us)
 
-    ### The pads are the only headroom this loop has, and both of the
-    ### quantities that eat them are scannable from the dashboard. Every event
-    ### below is placed ABSOLUTELY with at_mu, so a pad too small to cover the
-    ### Node2 offset turns an at_mu into a BACKWARDS jump and the kernel
-    ### underflows mid-loop instead of merely running a short pad. A pad of 0
-    ### collapses the window structure entirely. Fail here, naming the
-    ### numbers, rather than from inside the loop.
-    if self.t_alternating_RO_pad <= 0.0:
-        raise ValueError(
-            "t_alternating_RO_pad must be > 0: it is the guard band that "
-            "keeps one node's readout light out of the other node's counted "
-            "window, and the loop places every event absolutely from it."
-        )
-    if self.t_alternating_RO_window <= 0.0:
-        raise ValueError("t_alternating_RO_window must be > 0.")
-
     n_windows = self.n_alternating_RO_windows_per_node
     pad_mu = self.core.seconds_to_mu(self.t_alternating_RO_pad)
     window_mu = self.core.seconds_to_mu(self.t_alternating_RO_window)
     node2_offset_mu = self.t_Node2_rtio_offset_mu
     period_mu = window_mu + 3 * pad_mu
-
-    ### One pad now sits BEFORE the gate and one AFTER it, leaving the third
-    ### as the dark band between nodes. Node2's events are shifted by the RTIO
-    ### offset, which eats into that band from one side, so the offset must
-    ### stay smaller than a pad or Node2's light can still be on when Node1's
-    ### window opens.
-    if node2_offset_mu >= pad_mu or -node2_offset_mu >= pad_mu:
-        raise ValueError(
-            "|t_Node2_rtio_offset_mu| must be smaller than "
-            "t_alternating_RO_pad, or the Node2 shift eats the guard band "
-            "that separates the two nodes' readout light."
-        )
 
     self.core.break_realtime()
     t0 = now_mu()
@@ -869,21 +841,12 @@ def two_node_alternating_shot(self):
             self.ttl_SPCM0_OtherNode_counter.gate_rising_mu(window_mu)
             self.ttl_SPCM1_OtherNode_counter.gate_rising_mu(window_mu)
 
-        ### TRAILING PAD, and it is not cosmetic. gate_rising_mu emits a close
-        ### event as well as an open one, so all four counters close at
-        ### t_window + pad + window. Switching the light off at that same
-        ### instant put SIX events on one timestamp -- over the four-event
-        ### rule, and only two short of the eight SED FIFOs past which events
-        ### are silently DISCARDED. Moving the light-off one pad later splits
-        ### that into four and two, leaves the 3-pad period untouched, and
-        ### guarantees the whole counted window is illuminated instead of
-        ### racing the light-off. The legacy standalone code did the same.
         if alice_window:
-            at_mu(t_window + 2 * pad_mu + window_mu)
+            at_mu(t_window + pad_mu + window_mu)
             self.dds_cooling_DP_Node1.sw.off()
             self.ttl_repump_switch_Node1.on()
         else:
-            at_mu(t_window + 2 * pad_mu + window_mu - node2_offset_mu)
+            at_mu(t_window + pad_mu + window_mu - node2_offset_mu)
             self.dds_cooling_DP_Node2.sw.off()
             self.ttl_repump_switch_Node2.on()
 
@@ -891,17 +854,17 @@ def two_node_alternating_shot(self):
     delay(1 * ms)
 
     ### deferred fetches, in emission order
-    self.AllSPCMs_alternating_RO_Node1 = 0
-    self.AllSPCMs_alternating_RO_Node2 = 0
+    self.AllSPCMs_alternating_RO_alice = 0
+    self.AllSPCMs_alternating_RO_bob = 0
     for i in range(2 * n_windows):
         window_count = (self.ttl_SPCM0_counter.fetch_count()
                         + self.ttl_SPCM1_counter.fetch_count()
                         + self.ttl_SPCM0_OtherNode_counter.fetch_count()
                         + self.ttl_SPCM1_OtherNode_counter.fetch_count())
         if (i % 2) == 0:
-            self.AllSPCMs_alternating_RO_Node1 += window_count
+            self.AllSPCMs_alternating_RO_alice += window_count
         else:
-            self.AllSPCMs_alternating_RO_Node2 += window_count
+            self.AllSPCMs_alternating_RO_bob += window_count
     self.core.break_realtime()
 
 
@@ -948,8 +911,8 @@ def end_measurement(self):
     self.append_to_dataset('AllSPCMs_RO2_current_iteration', self.AllSPCMs_RO2)
     delay(1 * ms)
     ### Alternating RO
-    self.append_to_dataset('AllSPCMs_alternating_RO_Node1_current_iteration', self.AllSPCMs_alternating_RO_Node1)
-    self.append_to_dataset('AllSPCMs_alternating_RO_Node2_current_iteration', self.AllSPCMs_alternating_RO_Node2)
+    self.append_to_dataset('AllSPCMs_alternating_RO_alice_current_iteration', self.AllSPCMs_alternating_RO_alice)
+    self.append_to_dataset('AllSPCMs_alternating_RO_bob_current_iteration', self.AllSPCMs_alternating_RO_bob)
     delay(1*ms)
 
     self.SPCM0_RO1_list[self.measurement] = self.SPCM0_RO1
@@ -968,8 +931,8 @@ def end_measurement(self):
 
     delay(1*ms)
 
-    self.append_to_dataset('AllSPCMs_alternating_RO_Node1', self.AllSPCMs_alternating_RO_Node1)
-    self.append_to_dataset('AllSPCMs_alternating_RO_Node2', self.AllSPCMs_alternating_RO_Node2)
+    self.append_to_dataset('AllSPCMs_alternating_RO_alice', self.AllSPCMs_alternating_RO_alice)
+    self.append_to_dataset('AllSPCMs_alternating_RO_bob', self.AllSPCMs_alternating_RO_bob)
     delay(1*ms)
 
     self.measurement += 1
@@ -1095,25 +1058,9 @@ def Two_nodes_atom_loading_experiment(self):
 
         delay(self.t_delay_between_shots)
 
-        ### DIAGNOSTIC, between the two joint shots on purpose. The joint
-        ### shots stay exactly as they are, so AllSPCMs_RO1/RO2, the retention
-        ### applet and the loader's already-loaded fast path all keep working
-        ### and stay comparable with every previous run. The alternating
-        ### readout just writes two extra per-node numbers alongside them,
-        ### which is what the per-node histograms need in order to show where
-        ### alternating_atom_threshold_NodeX should sit.
-        ###
-        ### Cost, and it is real: this is a THIRD readout, so each atom sees
-        ### roughly 26 ms more light and the RO1 -> RO2 hold stretches by the
-        ### same amount. Retention measured in this configuration is therefore
-        ### NOT comparable with a run that has it off -- compare like with
-        ### like. Once the per-node thresholds are read off the histograms,
-        ### the alternating readout replaces first_shot and second_shot rather
-        ### than sitting between them, and the extra illumination goes away.
-        if self.use_alternating_readout_diagnostic:
-            delay(1 * ms)
-            two_node_alternating_shot(self)
-            delay(1 * ms)
+        # delay(1*ms)
+        # two_node_alternating_shot(self)
+        # delay(1 * ms)
 
         second_shot(self)
 
@@ -1121,132 +1068,6 @@ def Two_nodes_atom_loading_experiment(self):
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
-
-
-@kernel
-def Two_nodes_alternating_FORT_background_experiment(self):
-    """
-    ** master-satellite **
-    Measure how much each node's FORT alone contributes to an alternating
-    readout window. No atoms, no MOT, no readout light -- just the four shared
-    SPCMs gated while the FORTs are switched in the four combinations.
-
-    WHY THIS IS NEEDED, and why the single-node thresholds cannot be reused.
-    single_atom_threshold_NodeX was calibrated with only THAT node's FORT on;
-    the other crate was idle. In an alternating window Node2's FORT is still
-    lit, holding its own atom, and that light scatters into the same four
-    master-local SPCMs that are counting Node1. So every per-node window sits
-    on a pedestal the single-node calibration never saw, and
-
-        alternating_atom_threshold_Node1
-            ~ single_atom_threshold_Node1 + (Node2's FORT contribution)
-
-    This measures that contribution directly rather than leaving it to be
-    absorbed into a threshold read off a histogram, so the number has a
-    meaning and can be checked against the histogram instead of replacing it.
-
-    FOUR CONFIGURATIONS, each for the same exposure the alternating readout
-    uses, so the numbers are directly comparable with its histograms:
-        both FORTs off   -> ambient + dark counts
-        Node1 FORT only  -> ambient + Node1 scatter
-        Node2 FORT only  -> ambient + Node2 scatter
-        both FORTs on    -> what an alternating window actually sits on
-    The cross term is worth having: scatter need not add linearly, and
-    "both" minus the two singles minus ambient says whether it does.
-    """
-
-    self.core.reset()
-
-    ### Everything dark. No MOT, no readout, no repump -- the only light that
-    ### may reach a detector here is FORT scatter.
-    self.dds_cooling_DP_Node1.sw.off()
-    self.dds_cooling_DP_Node2.sw.off()
-    self.ttl_repump_switch_Node1.on()  ### blocks RF to the repump AOM
-    self.ttl_repump_switch_Node2.on()
-    delay(5 * us)
-    self.dds_FORT_Node1.sw.off()
-    self.dds_FORT_Node2.sw.off()
-    self.dds_AOM_A1_Node1.sw.off()
-    self.dds_AOM_A1_Node2.sw.off()
-    delay(5 * us)
-    self.dds_AOM_A2_Node1.sw.off()
-    self.dds_AOM_A2_Node2.sw.off()
-    self.dds_AOM_A3_Node1.sw.off()
-    self.dds_AOM_A3_Node2.sw.off()
-    delay(5 * us)
-    self.dds_AOM_A4_Node1.sw.off()
-    self.dds_AOM_A4_Node2.sw.off()
-    self.dds_AOM_A5_Node1.sw.off()
-    self.dds_AOM_A5_Node2.sw.off()
-    delay(5 * us)
-    self.dds_AOM_A6_Node1.sw.off()
-    self.dds_AOM_A6_Node2.sw.off()
-    delay(1 * ms)
-
-    ### the FORTs at their science amplitude, which is what they sit at
-    ### during a readout window
-    self.dds_FORT_Node1.set(frequency=self.f_FORT_Node1,
-                            amplitude=self.stabilizer_FORT_Node1.amplitudes[1])
-    self.dds_FORT_Node2.set(frequency=self.f_FORT_Node2,
-                            amplitude=self.stabilizer_FORT_Node2.amplitudes[1])
-    delay(1 * ms)
-
-    exposure = (self.n_alternating_RO_windows_per_node
-                * self.t_alternating_RO_window)
-
-    self.measurement = 0
-    while self.measurement < self.n_measurements:
-        self.core.break_realtime()
-
-        for configuration in range(4):
-            node1_on = (configuration == 1) or (configuration == 3)
-            node2_on = (configuration == 2) or (configuration == 3)
-
-            if node1_on:
-                self.dds_FORT_Node1.sw.on()
-            else:
-                self.dds_FORT_Node1.sw.off()
-            delay(5 * us)
-            if node2_on:
-                self.dds_FORT_Node2.sw.on()
-            else:
-                self.dds_FORT_Node2.sw.off()
-
-            ### let the AOM settle before counting
-            delay(1 * ms)
-
-            with parallel:
-                self.ttl_SPCM0_counter.gate_rising(exposure)
-                self.ttl_SPCM1_counter.gate_rising(exposure)
-                self.ttl_SPCM0_OtherNode_counter.gate_rising(exposure)
-                self.ttl_SPCM1_OtherNode_counter.gate_rising(exposure)
-
-            counts = (self.ttl_SPCM0_counter.fetch_count()
-                      + self.ttl_SPCM1_counter.fetch_count()
-                      + self.ttl_SPCM0_OtherNode_counter.fetch_count()
-                      + self.ttl_SPCM1_OtherNode_counter.fetch_count())
-
-            if configuration == 0:
-                self.append_to_dataset("AllSPCMs_FORT_background_dark", counts)
-            elif configuration == 1:
-                self.append_to_dataset("AllSPCMs_FORT_background_Node1", counts)
-            elif configuration == 2:
-                self.append_to_dataset("AllSPCMs_FORT_background_Node2", counts)
-            else:
-                self.append_to_dataset("AllSPCMs_FORT_background_both", counts)
-
-            delay(1 * ms)
-
-        self.measurement += 1
-        self.set_dataset(self.measurements_progress,
-                         100 * self.measurement / self.n_measurements,
-                         broadcast=True)
-        self.core.break_realtime()
-
-    ### leave both FORTs on, as every other sequence here does
-    self.dds_FORT_Node1.sw.on()
-    self.dds_FORT_Node2.sw.on()
-    self.core.break_realtime()
 
 
 @kernel
@@ -1327,7 +1148,7 @@ def Two_nodes_alternating_shot_experiment(self):
         ### the alternating counts are recorded alongside it.
         second_shot(self)
 
-        ### end_measurement already appends AllSPCMs_alternating_RO_Node1 and
+        ### end_measurement already appends AllSPCMs_alternating_RO_alice and
         ### _bob, and their _current_iteration variants, so do NOT append them
         ### here: that would put two entries per measurement into datasets the
         ### applets and analysis zip against the one-per-measurement ones.

@@ -84,25 +84,6 @@ MASTER_SATELLITE_VARIABLES = (
         {},
         "master-satellite feedback",
     ),
-    # Run the alternating readout as a DIAGNOSTIC between the two joint shots,
-    # writing AllSPCMs_alternating_RO_Node1/_Node2 alongside the unchanged
-    # joint AllSPCMs_RO1/RO2. The point is to see each node's own fluorescence
-    # distribution -- which the joint histogram structurally cannot show -- so
-    # alternating_atom_threshold_NodeX can be read off the gap between the two
-    # populations.
-    #
-    # OFF by default because it is a third readout: about 26 ms more light per
-    # atom, and the RO1 -> RO2 hold stretches by the same amount, so retention
-    # taken with it on is not comparable with retention taken with it off.
-    # Global rather than per node: the readout alternates BETWEEN the nodes,
-    # so one node cannot have it while the other does not.
-    Variable(
-        "use_alternating_readout_diagnostic",
-        False,
-        BooleanValue,
-        {},
-        "two-node alternating readout",
-    ),
     # A scratch scan target with no physical meaning, let alone a per-node one:
     # the point of it is to scan SOMETHING without having to declare a new
     # variable first. It was per-node until 2026-10-07, which made
