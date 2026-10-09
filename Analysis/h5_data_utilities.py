@@ -570,6 +570,7 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
         node = ms_node_of(f)
 
     resolved = {}
+    collisions = []
     if node is None:
         resolved.update(raw)
     else:
@@ -578,11 +579,25 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
             if key.endswith(tail):
                 bare = key[: -len(tail)]
                 if bare in raw:
-                    raise ValueError(
-                        f"both {bare!r} and {key!r} are present; stripping "
-                        "the suffix would overwrite one with the other"
-                    )
-                resolved[bare] = value
+                    # Both names are in this file, so stripping the suffix
+                    # would overwrite one with the other. Keep BOTH, each under
+                    # the name the file uses, and say so below. This used to
+                    # raise, which made such a run unloadable -- a worse
+                    # outcome than one name that has to be spelled out, since
+                    # the collision is almost always between a per-node series
+                    # and an unrelated joint one that a notebook wants anyway.
+                    #
+                    # The known cause: the two-node alternating loader wrote
+                    # AllSPCMs_atom_check_in_loading_NodeX beside the joint
+                    # AllSPCMs_atom_check_in_loading. Renamed 2026-10-09 to
+                    # AllSPCMs_alternating_RO_atom_check_in_loading_NodeX, so
+                    # only files written before then collide. The bare name
+                    # always comes from the file's own bare dataset here,
+                    # whatever order raw happens to iterate in.
+                    collisions.append((bare, key))
+                    resolved[key] = value
+                else:
+                    resolved[bare] = value
             else:
                 resolved[key] = value
 
@@ -596,6 +611,12 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
 
     if not quiet:
         print(f"loaded {node or 'un-noded'} run, {len(resolved)} names")
+    # Printed even when quiet: a name that did NOT get its suffix stripped is
+    # the one thing a ported notebook cannot discover on its own, and it will
+    # otherwise fail later with a bare NameError.
+    for bare, key in collisions:
+        print(f"  note: {key!r} kept its suffix -- {bare!r} is also in this "
+              f"file, so {bare!r} is the unsuffixed/joint series, not this one")
     return node
 
 
