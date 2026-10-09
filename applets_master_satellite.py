@@ -278,12 +278,12 @@ TWO_NODE_APPLET_GROUP = "TwoNodes"
 #: would be misleading.
 TWO_NODE_ALTERNATING_APPLET_SPECS = (
     _spec("Node1 atom check in loading histogram", "plot_hist_autosize.py",
-          ("AllSPCMs_atom_check_in_loading_Node1",),
+          ("AllSPCMs_alternating_RO_atom_check_in_loading_Node1",),
           (("--x", "photocount_bins"),
            ("--t_exposure", "t_alternating_RO_exposure")),
           group=_GVS),
     _spec("Node2 atom check in loading histogram", "plot_hist_autosize.py",
-          ("AllSPCMs_atom_check_in_loading_Node2",),
+          ("AllSPCMs_alternating_RO_atom_check_in_loading_Node2",),
           (("--x", "photocount_bins"),
            ("--color", "second_shot_hist_color_Node2"),
            ("--t_exposure", "t_alternating_RO_exposure")),
@@ -293,9 +293,16 @@ TWO_NODE_ALTERNATING_APPLET_SPECS = (
 #: Two-node experiment_functions whose loader writes the per-node atom-check
 #: datasets. Keyed by name because the applet set is chosen in prepare(),
 #: where the selected function is already known.
-TWO_NODE_ALTERNATING_EXPERIMENTS = (
-    "Two_nodes_alternating_shot_experiment",
-)
+#:
+#: EMPTY as of 2026-10-08. The only member was
+#: Two_nodes_alternating_shot_experiment, which has been swapped back to the
+#: joint loader because load_until_atom_in_both_nodes_alternating_shot_recycle
+#: does not load atoms (see its docstring). The joint loader never writes
+#: AllSPCMs_alternating_RO_atom_check_in_loading_Node1/_Node2, so leaving the name here would
+#: open two permanently empty histograms on every alternating run -- the exact
+#: thing this gate exists to prevent. Put the name back when the per-node
+#: loader works; nothing else needs changing.
+TWO_NODE_ALTERNATING_EXPERIMENTS = ()
 
 
 def execution_applet_groups(base):

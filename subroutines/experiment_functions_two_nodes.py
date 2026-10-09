@@ -733,6 +733,52 @@ def load_until_atom_in_both_nodes_alternating_shot_recycle(self):
     """
     Two-node combined loading, with a PER-NODE atom check.
 
+    ###################################################################
+    ### NOT WORKING -- DO NOT USE. NEEDS MORE MODIFICATION.         ###
+    ###################################################################
+    As of 2026-10-08 this loader does not load atoms. Use
+    load_until_atom_in_both_nodes_recycle (the joint check) instead;
+    that one works and is unchanged.
+
+    What is known so far, from RID 38718 (this loader) against RID 38710
+    (the joint loader, working):
+
+    * The atom is never loaded -- it is NOT lost after loading. The
+      readout saw 0 atoms in 100 shots on Node2 and 1 on Node1, while
+      the loader reported 100/100 loaded. So the check passes on
+      background and the sequence proceeds with empty traps.
+    * Part of it is threshold calibration. A window with one node dark
+      still collects the FULL common background (~39900 c/s of FORT
+      scatter plus dark counts, not gated by the cooling DP this grid
+      switches) and only HALF the MOT fluorescence (~16300 c/s total),
+      so the per-node no-atom floor is ~48050 c/s -- which is also what
+      you get by halving the joint 96100. Halving therefore puts the
+      threshold exactly on the floor. See the derivation beside
+      alternating_shot_threshold_for_loading_Node1 in
+      ExperimentVariables_master_satellite_Node1.py.
+    * Raising the thresholds was NOT sufficient: it still does not load.
+      So there is at least one further fault beyond calibration.
+    * Unverified suspicion, and the place to start next: the MOT beams
+      (dds_AOM_A1..A6 per node), the FORTs and the coils may not be
+      left in the right state by this loader's window grid. The grid
+      toggles each node's cooling DP and repump every window, which the
+      joint loader never does, and nothing here re-asserts the MOT AOMs
+      or the coil DACs afterwards.
+    * Separately, and true of BOTH two-node loaders: PGC runs at the
+      LOADING FORT depth. All four single-node loaders drop the FORT to
+      stabilizer_FORT.amplitudes[1] before PGC. Not the cause of the 0%
+      above, but a real porting gap.
+
+    Note for whoever picks this up: nothing calls this function any more, so
+    it is NOT on a compiled path and the ARTIQ compiler no longer type-checks
+    it. Re-point Two_nodes_alternating_shot_experiment at it before trusting
+    that it still compiles, and put "Two_nodes_alternating_shot_experiment"
+    back into TWO_NODE_ALTERNATING_EXPERIMENTS in applets_master_satellite.py
+    so the per-node atom-check histograms come up again.
+
+    Below is the original design intent, kept for whoever picks this up.
+    ###################################################################
+
     Identical to load_until_atom_in_both_nodes_recycle except for the check.
     That one opens ONE gate of all four SPCMs and compares the sum against the
     joint two_atom_threshold_for_loading -- and because every detector sees
@@ -961,6 +1007,24 @@ def load_until_atom_in_both_nodes_alternating_shot_recycle(self):
                 ### BOTH nodes, each against its own threshold. This is the
                 ### whole point: the joint sum could be satisfied by one
                 ### bright trap, this cannot.
+                ###
+                ### The thresholds are NOT the joint one halved, and getting
+                ### that wrong is silent -- it makes the loader report 100%
+                ### loading with 0% retention rather than raising. A window
+                ### with one node dark still collects the FULL common
+                ### background (FORT scatter + dark counts, ~39900 c/s, not
+                ### gated by the cooling DP this grid switches) and only HALF
+                ### the MOT fluorescence (~16300 c/s total), so the per-node
+                ### no-atom floor is ~48050 c/s while half the joint value is
+                ### ~48050 too -- i.e. halving puts the threshold exactly on
+                ### the floor. An atom adds ~25100 c/s; the valley is ~60600.
+                ### Full derivation beside the Variable in
+                ### ExperimentVariables_master_satellite_Node1.py.
+                ###
+                ### For the same reason two_atom_threshold_for_loading (89000)
+                ### must NOT be reused on AllSPCMs_atom_check below: the sum of
+                ### two single-lit windows double-counts the background, and
+                ### 91% of RID 38718's sums cleared 89000 with no atom present.
                 if (AllSPCMs_atom_check_Node1/exposure
                         > self.alternating_shot_threshold_for_loading_Node1
                         and AllSPCMs_atom_check_Node2/exposure
@@ -976,10 +1040,10 @@ def load_until_atom_in_both_nodes_alternating_shot_recycle(self):
                 ### lets the threshold be read off the valley.
                 self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check)
                 self.append_to_dataset("AllSPCMs_atom_check_in_loading", AllSPCMs_atom_check_not_loaded)
-                self.append_to_dataset("AllSPCMs_atom_check_in_loading_Node1", AllSPCMs_atom_check_Node1)
-                self.append_to_dataset("AllSPCMs_atom_check_in_loading_Node1", AllSPCMs_atom_check_not_loaded_Node1)
-                self.append_to_dataset("AllSPCMs_atom_check_in_loading_Node2", AllSPCMs_atom_check_Node2)
-                self.append_to_dataset("AllSPCMs_atom_check_in_loading_Node2", AllSPCMs_atom_check_not_loaded_Node2)
+                self.append_to_dataset("AllSPCMs_alternating_RO_atom_check_in_loading_Node1", AllSPCMs_atom_check_Node1)
+                self.append_to_dataset("AllSPCMs_alternating_RO_atom_check_in_loading_Node1", AllSPCMs_atom_check_not_loaded_Node1)
+                self.append_to_dataset("AllSPCMs_alternating_RO_atom_check_in_loading_Node2", AllSPCMs_atom_check_Node2)
+                self.append_to_dataset("AllSPCMs_alternating_RO_atom_check_in_loading_Node2", AllSPCMs_atom_check_not_loaded_Node2)
             else:
                 #### how long has passed since the previous atom loading
                 self.set_dataset(
@@ -1521,15 +1585,18 @@ def Two_nodes_alternating_shot_experiment(self):
     while self.measurement < self.n_measurements:
         delay(10 * ms)
 
-        ### The PER-NODE loading check, which is what makes this experiment
-        ### the alternating one end to end: the atom check and the readout now
-        ### use the same attribution. Two_nodes_atom_loading_experiment keeps
-        ### the joint loader, so the two remain comparable.
+        ### The JOINT loading check. This is the one that works.
         ###
-        ### Swap back to load_until_atom_in_both_nodes_recycle to get the
-        ### joint 10 ms check -- faster per try, but it cannot tell one atom
-        ### in each trap from one bright atom plus background.
-        load_until_atom_in_both_nodes_alternating_shot_recycle(self)
+        ### load_until_atom_in_both_nodes_alternating_shot_recycle -- the
+        ### per-node check, which would make this experiment the alternating
+        ### one end to end -- was wired in here and is NOT WORKING: it loads no
+        ### atoms. See its docstring for what was measured and what to try
+        ### next. Swapped back on 2026-10-08 so this experiment runs.
+        ###
+        ### The joint check's known limitation stands: it cannot tell one atom
+        ### in each trap from one bright atom plus background, which is the
+        ### whole reason the per-node version was attempted.
+        load_until_atom_in_both_nodes_recycle(self)
 
         delay(1 * ms)
 

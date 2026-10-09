@@ -1542,8 +1542,8 @@ class BaseExperimentMasterSatellite:
                 # The joint one above is still written alongside them, so a
                 # run using the alternating check stays comparable with every
                 # run taken before it existed.
-                "AllSPCMs_atom_check_in_loading_Node1",
-                "AllSPCMs_atom_check_in_loading_Node2",
+                "AllSPCMs_alternating_RO_atom_check_in_loading_Node1",
+                "AllSPCMs_alternating_RO_atom_check_in_loading_Node2",
                 "n_feedback_per_iteration",
                 "n_atom_loaded_per_iteration",
             ]

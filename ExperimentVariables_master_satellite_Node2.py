@@ -168,10 +168,22 @@ NODE2_VARIABLES = (
     # is measured with the MOT light on, during the loading check, and is the
     # brighter of the two; the plain one is measured under readout light, with
     # the cooling DP at its RO setting and the FORT at science amplitude. Read
-    # each off the valley of its own per-node histogram -- these values came
+    # each off the valley of its own per-node histogram. The plain one came
     # from RID 38710, where both nodes were cleanly bimodal with a wide gap.
+    #
+    # DO NOT derive _for_loading by halving the joint threshold -- see the long
+    # derivation beside alternating_shot_threshold_for_loading_Node1. A per-node
+    # window carries the FULL common background (39900 c/s of FORT scatter plus
+    # dark counts, not gated by the cooling DP the window switches) and only
+    # HALF the MOT fluorescence, so the per-node no-atom floor is ~48050 c/s,
+    # not half of the joint 96100. The first pass used 45000 here, BELOW that
+    # floor, and RID 38718 passed 72% of tries on pure background.
+    #
+    # Node2's measured background in RID 38718: median 45700, p95 49210, max
+    # 51900 c/s; an atom adds ~25100, so the valley is ~58000. 60000 sits in
+    # it and clears the background ceiling outright -- keep it.
     Variable('alternating_shot_threshold_Node2', 21000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
-    Variable('alternating_shot_threshold_for_loading_Node2', 45000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
+    Variable('alternating_shot_threshold_for_loading_Node2', 60000.0, NumberValue, {'type': 'float'}, 'Thresholds and cut-offs'),
     # two_atom_threshold and two_atom_threshold_for_loading moved to
     # ExperimentVariables_master_satellite_global.py on 2026-09-17: they
     # describe the joint two-node readout, so both nodes share one value.
