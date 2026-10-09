@@ -209,10 +209,12 @@ OPTIONAL_APPLET_SPECS = (
     # "waveplate trajectory" moved to K10CR1_APPLET_SPECS, which the FORT
     # polarization optimizer asks for: one per node, with the suffixed dataset
     # names those angles are actually written under.
-    _spec("FORT MM (normalized and accounted for power)",
-          "plot_FORT_MM_norm_to_power.py", ("FORT_MM_monitor",),
-          (("--y0", "best_852_power_ref"), ("--y1", "FORT_APD_monitor"),
-           ("--y2", "set_point_FORT_APD_loading")), group=_K10),
+    # "FORT MM (normalized and accounted for power)" moved to
+    # SHARED_APPLET_SPECS on 2026-10-08 as "FORT MM over APD normalized
+    # NodeX": same script and same arithmetic, but one applet per NODE with
+    # suffixed dataset names, and always up alongside the other two FORT
+    # monitors instead of opt-in under _K10. The unsuffixed version plotted a
+    # stale standalone dataset in two-node mode.
 )
 
 #: The SPCM count-rate applets. Deliberately NOT in APPLET_SPECS: they would
@@ -456,6 +458,31 @@ SHARED_APPLET_SPECS = (
         "plot_xyline_relative_y.py",
         ("FORT_MM_monitor",),
         (("--y0", "best_852_power_ref"),),
+    )
+    # The ratio of the two applets above: (MM / best_852_power_ref) divided by
+    # (APD / set_point_FORT_APD_loading). It divides out the FORT power the APD
+    # actually saw, so what is left is mode-matching alone -- a drop here is
+    # the fiber mode degrading rather than the 852 laser drifting, which the
+    # two separate traces cannot distinguish on their own.
+    #
+    # plot_FORT_MM_norm_to_power.py already does exactly this arithmetic
+    # (y /= y0; y1 /= y2; y = y/y1), so there is no new applet script. What was
+    # missing is that it was registered ONCE with legacy-unsuffixed names in
+    # the opt-in _K10 group, so it never came up per node -- and in two-node
+    # mode a bare per-node name resolves ambiguously and falls through to a
+    # stale STANDALONE dataset. That entry is gone; this is its replacement.
+    #
+    # Do NOT add --pts here. The script truncates x and y to the last pts
+    # points but not y1, and the zip then pairs the LAST pts MM values against
+    # the FIRST pts APD values. None of the FORT specs pass it, so the bug is
+    # unreachable; passing it would silently plot nonsense.
+    + _per_node_specs(
+        "FORT MM over APD normalized",
+        "plot_FORT_MM_norm_to_power.py",
+        ("FORT_MM_monitor",),
+        (("--y0", "best_852_power_ref"),
+         ("--y1", "FORT_APD_monitor"),
+         ("--y2", "set_point_FORT_APD_loading")),
     )
 )
 
