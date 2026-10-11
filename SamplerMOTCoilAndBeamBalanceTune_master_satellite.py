@@ -1,0 +1,542 @@
+"""
+This code is a combination of SamplerMOTCoilTune and SamplerMOTBeamBalance,
+as the name implies. With only one potentiometer box we can have both
+functionalities by using an external switch to toggle between the two
+during the same run of this experiment. At the time of writing this, this is
+done using ttl14 set to high, and a switch to toggle the connection of ttl14
+to ttl3, the state of which we read to determine the which variables to tune.
+
+MASTER-SATELLITE
+----------------
+selected_node picks Node1 or Node2 in the GUI; exactly one node is tuned per
+run, which is how this experiment is used anyway (one potentiometer box, one
+set of coils). Base runs in single_node mode, so every device and variable
+below keeps its familiar unsuffixed name: dds_AOM_A1, sampler1, coil_channels
+and AZ_bottom_volts_MOT all resolve to the selected node's hardware, and the
+values persist to that node's suffixed datasets.
+
+Two things worth knowing before running this on Node2:
+
+* The canonical SPCMs are master-local on BOTH nodes (SPCM_H1/V1/H2/V2 live
+  on the Node1 crate), so the four counters read the same detectors whichever
+  node is selected. Only the coils, beams and samplers follow the node.
+* ttl3/ttl14 are ordinary per-node TTLs, so they resolve to the selected
+  node's crate. The physical toggle switch has to be wired to that crate for
+  the beams/coils mode toggle to work.
+
+WHY THIS IS A SEPARATE FILE
+---------------------------
+MOT_experiments/SamplerMOTCoilAndBeamBalanceTune.py was converted in place to
+master-satellite (a5e685b, then 21f6392). It is now reverted to the standalone
+version it had at 70dd16c and keeps serving the standalone systems unchanged;
+this file carries the master-satellite conversion, next to the other
+*_master_satellite experiments. The class is renamed to match the filename so
+ARTIQ lists the two separately instead of seeing one name twice.
+
+SLACK AROUND THE FEEDBACK
+-------------------------
+Every laser_stabilizer.run() that is followed by an RTIO event is now followed
+by core.break_realtime(). A run returns roughly 6 ms behind the wall clock,
+because it advances the timeline only by its coded delays while spending real
+time on sampler reads and host RPCs, and subroutines/aom_feedback.py manages
+no slack of its own. The warm-up loop underflowed on channel 39 (dds_FORT) at
+-6.38 ms for exactly that reason: the pre-loop break_realtime covered only the
+first iteration.
+
+The feedback call inside the tuning loop is deliberately left alone -- the
+delay(100*ms) immediately after it already more than covers the deficit, and
+that delay is a real settling time, not slack management.
+"""
+
+from artiq.experiment import *
+import numpy as np
+import logging
+
+import sys, os
+# get the current working directory
+current_working_directory = os.getcwd()
+cwd = os.getcwd() + "\\"
+sys.path.append(cwd)
+sys.path.append(cwd+"\\repository\\qn_artiq_routines")
+
+from utilities.BaseExperiment_master_satellite import (
+    BaseExperimentMasterSatellite,
+    _DatasetRedirectMixin,
+)
+
+
+class SamplerMOTCoilAndBeamBalanceTune_master_satellite(
+    _DatasetRedirectMixin, EnvExperiment
+):
+    """SamplerMOTCoilAndBeamBalanceTune_master_satellite
+
+    Tune the selected node's MOT coils and beam balance from the Sampler.
+    """
+
+    VALID_NODES = ("Node1", "Node2")
+
+    def build(self):
+        """
+        declare hardware and user-configurable independent variables
+        """
+        self.base = BaseExperimentMasterSatellite(experiment=self)
+        self.base.build()
+
+        # Exactly one node per run: the potentiometer box and the coils being
+        # tuned belong to one crate. two_nodes is deliberately unsupported.
+        self.setattr_argument(
+            "selected_node",
+            EnumerationValue(self.VALID_NODES),
+            "Node selection",
+            tooltip="Node1 = alice, Node2 = bob. Only one node is tuned per "
+                    "run; its coils, beams and samplers are used.",
+        )
+
+        self.setattr_argument("FORT_AOM_on", BooleanValue(False))
+
+        # this can be used to modulate the FORT while atom loading in nothing mode, to find the
+        # trap frequencies by watching the atom loading go away
+        self.setattr_argument("FORT_modulation_switch_on", BooleanValue(False))
+
+        self.setattr_argument("set_current_parameters_at_finish", BooleanValue(False))
+        self.setattr_argument("leave_coils_on_at_finish", BooleanValue(True))
+
+        self.both_mode = "both"
+        self.beam_mode = "beams only"
+        self.coil_mode = "coils only"
+        self.nothing_mode = "nothing (for debugging)"
+        self.setattr_argument("what_to_tune", EnumerationValue([self.both_mode, self.coil_mode,
+                                                                self.beam_mode, self.nothing_mode]))
+
+        self.setattr_argument("run_time_minutes", NumberValue(10))
+
+        # if False, the beams are balanced pairwise, e.g. MOT1 goes up the same amount MOT3 goes down
+        # if True, all four potentiometer knobs are used to adjust MOT1-4 (hence disable_z_beam is
+        # ignored)
+        self.setattr_argument("individual_beam_mode",
+                              BooleanValue(False), "beam balance tune settings")
+        self.setattr_argument("max_setpoint_percent_deviation", # nominal
+                              NumberValue(0.1),"beam balance tune settings")
+
+        # we can balance the z beams with confidence by measuring the powers outside the chamber,
+        # so unless we are fine tuning loading, we may want trust our initial manual balancing.
+        # this has no effect if individual_beam_mode is True, which disallows z beam tuning anyway
+        self.setattr_argument("disable_z_beam_tuning",
+                              BooleanValue(True), "beam balance tune settings")
+        self.setattr_argument("coil_volts_multiplier",
+                              NumberValue(3.0),"coil tune settings")  # scales the value read by the Sampler
+        self.setattr_argument("differential_mode",
+                              BooleanValue(True),
+                              "coil tune settings")  # scan the coils with respect to the current settings
+
+        self.setattr_argument("differential_multiplier",
+                              NumberValue(0.5),
+                              "coil tune settings")  # scales the value read by the Sampler
+
+        self.setattr_argument("change_z_offset_and_grad_B_mode",
+                              BooleanValue(True),
+                              "coil tune settings")  # scan the coils with respect to the current settings
+
+        group = "SPCM settings"
+         # exposure time of the SPCM
+        self.setattr_argument("dt_exposure", NumberValue(15 * ms, unit='ms'), group)
+
+        # when to run the AOM feedback (after how many iterations in the for loops)
+        self.setattr_argument("AOM_feedback_period_cycles", NumberValue(500), "Laser feedback")
+        self.setattr_argument("monitor_only", BooleanValue(False), "Laser feedback")
+
+        self.setattr_argument(
+            "show_shared_applets",
+            BooleanValue(True),
+            "Applets",
+            tooltip="Ask the dashboard for the node-independent applets: "
+                    "Microwaves Health Check and feedback RF, one of each per "
+                    "node. They live in their own group and are never "
+                    "retired, so this only re-asserts them.",
+        )
+
+        # The standalone Base archived the GUI arguments here with
+        # set_datasets_from_gui_args(). The master-satellite Base has no such
+        # method, and ARTIQ already stores the submitted arguments in the HDF5
+        # under expid, so nothing is lost by dropping it.
+        print("build - done")
+
+    def prepare(self):
+        """
+        performs initial calculations and sets parameter values before
+        running the experiment. also sets data filename for now.
+
+        any conversions from human-readable units to machine units (mu) are done here
+        """
+
+        node = str(self.selected_node)
+        if node not in self.VALID_NODES:
+            raise ValueError(
+                f"Unsupported selected_node {self.selected_node!r}; expected "
+                "'Node1' or 'Node2'."
+            )
+
+        self.base.configure_execution("single_node", node)
+        # The shared feedback code branches on the alice/bob presentation.
+        self.which_node = self.base.NODE_LEGACY_NAMES[node]
+        self.base.prepare()
+        # Publishes laser_stabilizer and the per-channel stabilizer_AOM_A*
+        # objects read in run(); single-node only.
+        self.base.prepare_laser_stabilizer()
+
+        self.beam_tuning_disabled = not (self.what_to_tune == self.beam_mode or self.what_to_tune == self.both_mode)
+
+        self.n_steps = int(60*self.run_time_minutes/self.dt_exposure+0.5)
+        self.sampler_buffer = np.zeros(8)
+
+        self.setpoint_datasets = ["set_point_PD1_AOM_A1","set_point_PD2_AOM_A2","set_point_PD3_AOM_A3",
+                                  "set_point_PD4_AOM_A4","set_point_PD5_AOM_A5","set_point_PD6_AOM_A6"]
+        self.default_setpoints = [getattr(self,dataset) for dataset in self.setpoint_datasets]
+
+        self.sampler_channels = [0, 1, 2, 3]  # the sampler channels to read
+
+        self.default_volts = [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT,
+                              self.AX_volts_MOT, self.AY_volts_MOT]
+        self.volt_datasets = ["AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT", "AY_volts_MOT"]
+
+        self.set_dataset(self.SPCM0_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.SPCM1_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.SPCM0_OtherNode_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.SPCM1_OtherNode_rate_dataset, [0.0], broadcast=True)
+        self.set_dataset(self.AllSPCMs_rate_dataset, [0.0], broadcast=True)
+
+        self._create_shared_applets()
+
+        print("prepare - done")
+
+    def _create_shared_applets(self):
+        """Keep the node-independent applets up, if enabled.
+
+        Microwaves Health Check and feedback RF, one of each per node. This
+        experiment runs laser feedback, so the feedback RF plot is exactly
+        what one wants on screen while tuning. Only the shared applets: it
+        does not take over the per-node applet set or retire the idle node's
+        group, which is what create_applets_for would do.
+
+        Never fatal: an applet is a convenience, and the CCB is a
+        dashboard-side service. In particular nothing is created when no
+        dashboard is connected.
+        """
+        if not self.show_shared_applets:
+            return
+        try:
+            from applets_master_satellite import create_shared_applets_for
+
+            created = create_shared_applets_for(self, self.base)
+        except Exception as error:  # noqa: BLE001 - convenience only
+            logging.warning("could not create shared applets: %s", error)
+        else:
+            logging.info("requested %d shared applets", len(created))
+
+    @kernel
+    def run(self):
+        # base.initialize_hardware() owns the core reset in the
+        # master-satellite stack, and waits for the satellite when Node2 is
+        # the selected node.
+        self.base.initialize_hardware()
+
+        # Drive the idle node dark, exactly as GVS and the three other
+        # single-node master-satellite experiments do. single_node mode only
+        # REMOVES the other node from the initialization lifecycle
+        # (_deactivate_node_hardware_groups rebinds seven lists to [] and
+        # emits no hardware operation), so without this its beams stay on and
+        # its coils stay energised from whatever the previous run left --
+        # which is what running Node2 after Node1 back to back showed.
+        #
+        # Called once, here, not per tuning step: it costs three CPLD inits,
+        # twelve TTL writes and a Zotino init plus sixteen DAC writes, over
+        # remote SPI when the other node is the satellite. Safe to do once
+        # because core.reset() can only drive TTLs low and cannot change a
+        # Zotino's held output.
+        #
+        # 21f6392 added force_other_node_off to the GVS mixin and both
+        # optimizers but gave this experiment only the shared applets, so it
+        # was the one single-node experiment still leaving the other crate hot.
+        self.base.force_other_node_off()
+
+        self.core.break_realtime()
+
+        # Turn on AOMs to load the MOT.
+        self.dds_cooling_DP.sw.on()
+        self.dds_AOM_A1.sw.on()
+        self.dds_AOM_A2.sw.on()
+        self.dds_AOM_A3.sw.on()
+        delay(1*ms)
+
+        self.dds_AOM_A4.sw.on()
+        self.dds_AOM_A5.sw.on()
+        self.dds_AOM_A6.sw.on()
+
+        delay(1*ms)
+
+        if self.FORT_AOM_on:
+            self.dds_FORT.sw.on()
+
+            # wait for AOMs to thermalize
+            # delay(3000 * ms)
+            delay(1000 * ms)
+
+        # delay(1 * ms)
+        self.core.break_realtime()
+
+        # warm up to get make sure we get to the setpoints
+        #
+        # break_realtime AFTER every run, not only once before the loop.
+        # laser_stabilizer.run() advances the timeline by its coded delays
+        # while spending real time on sampler reads and host RPCs, and
+        # subroutines/aom_feedback.py manages no slack of its own, so a run
+        # RETURNS roughly 6 ms behind the wall clock. The very next RTIO event
+        # is then submitted in the past: observed as RTIOUnderflow on channel
+        # 39 (dds_FORT) at -6.38 ms, on the dds_FORT.sw.on() just below. The
+        # pre-loop break_realtime above only ever covered iteration 0.
+        #
+        # Safe here because warm-up measures nothing: it just drives the AOMs
+        # to their set points, so moving the cursor changes no interval that
+        # matters.
+        for i in range(10):
+            self.laser_stabilizer.run(monitor_only=self.monitor_only)
+            self.core.break_realtime()
+            if self.FORT_AOM_on:
+                self.dds_FORT.sw.on()
+
+        delay(1*ms)
+
+        self.zotino0.set_dac([self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
+                             channels=self.coil_channels)
+
+        self.core.break_realtime()
+
+        saturated_coils = [False] * 4
+        control_volts = [0.0] * 4
+        volts = 0.0
+
+        ampl1_factor = 1.0
+        ampl2_factor = 1.0
+        ampl3_factor = 1.0
+        ampl4_factor = 1.0
+        ampl5_factor = 1.0
+        ampl6_factor = 1.0
+
+        last_state = False
+
+        delay(1 * ms)
+        # if self.FORT_modulation_switch_on:
+        #     self.FORT_mod_switch.on()  # transmit the modulation to the VCA
+        #     delay(1 * ms)
+
+        print("ready!")
+        delay(20 * ms)
+        self.zotino0.set_dac([3.5], self.UV_trig_channel)
+        delay(1 * ms)
+
+        for i in range(self.n_steps):
+
+            if (i % self.AOM_feedback_period_cycles) == 0:
+                print("running feedback")
+                self.core.break_realtime()
+                self.laser_stabilizer.run(monitor_only=self.monitor_only)
+                delay(100*ms)
+                if self.FORT_AOM_on:
+                    self.dds_FORT.sw.on()
+                # if self.FORT_modulation_switch_on:
+                #     self.FORT_mod_switch.on()  # transmit the modulation to the VCA
+                #     delay(1 * ms)
+
+            else:
+                delay(10*ms)
+
+            # todo: probably want to some error handling here so we don't set the amplitude too high
+            self.dds_AOM_A1.set(amplitude=self.stabilizer_AOM_A1.amplitude * ampl1_factor,
+                                frequency=self.AOM_A1_freq)
+            self.dds_AOM_A2.set(amplitude=self.stabilizer_AOM_A2.amplitude * ampl2_factor,
+                                frequency=self.AOM_A2_freq)
+            self.dds_AOM_A3.set(amplitude=self.stabilizer_AOM_A3.amplitude * ampl3_factor,
+                                frequency=self.AOM_A3_freq)
+            self.dds_AOM_A4.set(amplitude=self.stabilizer_AOM_A4.amplitude * ampl4_factor,
+                                frequency=self.AOM_A4_freq)
+            self.dds_AOM_A5.set(amplitude=self.stabilizer_AOM_A5.amplitude * ampl5_factor,
+                                frequency=self.AOM_A5_freq)
+            self.dds_AOM_A6.set(amplitude=self.stabilizer_AOM_A6.amplitude * ampl6_factor,
+                                frequency=self.AOM_A6_freq)
+
+            edgecounter_enabled = True
+            if not edgecounter_enabled:
+                t_end = self.ttl0.gate_rising(self.dt_exposure)
+                counts = self.ttl0.count(t_end)
+                SPCM0_counts_per_s = counts / self.dt_exposure
+
+                delay(1 * ms)
+                self.append_to_dataset(self.SPCM0_rate_dataset, SPCM0_counts_per_s)
+            else:
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(self.dt_exposure)
+                    self.ttl_SPCM1_counter.gate_rising(self.dt_exposure)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(self.dt_exposure)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(self.dt_exposure)
+                SPCM0_count = self.ttl_SPCM0_counter.fetch_count()
+                SPCM1_count = self.ttl_SPCM1_counter.fetch_count()
+                SPCM0_OtherNode_count = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+                SPCM1_OtherNode_count = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+
+                AllSPCMs_count = SPCM0_count + SPCM1_count + SPCM0_OtherNode_count + SPCM1_OtherNode_count
+                AllSPCMs_counts_per_s = AllSPCMs_count / self.dt_exposure
+
+                delay(1 * ms)
+                self.append_to_dataset(self.AllSPCMs_rate_dataset, AllSPCMs_counts_per_s)
+
+            # check the current state of 14 read by ttl3
+            self.ttl3.sample_input()
+            delay(0.1 * ms)
+            tune_beam_balance = bool(self.ttl3.sample_get())
+
+            if self.what_to_tune == self.beam_mode:
+                if last_state != tune_beam_balance:
+                    if tune_beam_balance:
+                        self.print_async("beam balance mode")
+                    else:
+                        self.print_async("coil tune mode")
+                    last_state = tune_beam_balance
+
+            self.sampler1.sample(self.sampler_buffer)
+
+            if self.what_to_tune != self.nothing_mode:
+                # only defer to tune_beam_balance if the mode is 'both'
+
+                if (tune_beam_balance and self.what_to_tune == self.both_mode) or self.what_to_tune == self.beam_mode:
+                    # print("updating amplitudes") # todo remove
+                    if self.individual_beam_mode:
+                        ampl1_factor = 1.0 + self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
+                        ampl2_factor = 1.0 + self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+                        ampl3_factor = 1.0 + self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
+                        ampl4_factor = 1.0 + self.sampler_buffer[self.sampler_channels[3]] * self.max_setpoint_percent_deviation/3.5
+
+                    else:
+                        ampl1_factor = 1.0 + self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
+                        ampl3_factor = 1.0 - self.sampler_buffer[self.sampler_channels[0]] * self.max_setpoint_percent_deviation/3.5
+                        ampl2_factor = 1.0 + self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+                        ampl4_factor = 1.0 - self.sampler_buffer[self.sampler_channels[1]] * self.max_setpoint_percent_deviation/3.5
+
+                        if not self.disable_z_beam_tuning:
+                            ampl5_factor = 1.0 + self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
+                            ampl6_factor = 1.0 - self.sampler_buffer[self.sampler_channels[2]] * self.max_setpoint_percent_deviation/3.5
+                else:
+
+                    if self.differential_mode:
+                        if self.change_z_offset_and_grad_B_mode:
+                            # the anti-Helmholtz contribution
+                            control_volts[0] = self.sampler_buffer[0] * self.differential_multiplier + self.default_volts[0]
+                            control_volts[1] = self.sampler_buffer[0] * self.differential_multiplier + self.default_volts[1]
+
+                            # an offset to the Z coils. the -1 sign is because of how the Z coils are
+                            # wired. this is the Helmholtz contribution to shim the field
+                            control_volts[0] += self.sampler_buffer[1] * self.differential_multiplier
+                            control_volts[1] += -1 * self.sampler_buffer[1] * self.differential_multiplier
+
+                            control_volts[2:] = [self.sampler_buffer[ch] * self.differential_multiplier + self.default_volts[ch]
+                                                 for ch in self.sampler_channels[2:]]
+
+                        else:
+                            control_volts = [self.sampler_buffer[ch] * self.differential_multiplier + self.default_volts[ch]
+                                         for ch in self.sampler_channels]
+
+                    else:
+                        if self.change_z_offset_and_grad_B_mode:
+
+                            # the anti-Helmholtz contribution
+                            control_volts[0] = self.sampler_buffer[0] * self.coil_volts_multiplier
+                            control_volts[1] = self.sampler_buffer[0] * self.coil_volts_multiplier
+
+                            # an offset to the Z coils. the -1 sign is because of how the Z coils are
+                            # wired. this is the Helmholtz contribution to shim the field
+                            control_volts[0] += self.sampler_buffer[1] * self.coil_volts_multiplier
+                            control_volts[1] += -1 * self.sampler_buffer[1] * self.coil_volts_multiplier
+
+
+                            control_volts[2:] = [self.sampler_buffer[ch] * self.coil_volts_multiplier
+                                             for ch in self.sampler_channels[2:]]
+
+                        else:
+                            control_volts = [self.sampler_buffer[ch] * self.coil_volts_multiplier
+                                             for ch in self.sampler_channels]
+
+
+                    delay(1 * ms)
+
+                    for j in range(4):
+                        try:
+                            self.zotino0.write_dac(self.coil_channels[j], control_volts[j])
+                            if saturated_coils[j]:  # shouldn't get here unless we're no longer saturated
+                                self.print_async("no longer saturated")
+                                saturated_coils[j] = False
+                        except ValueError:
+                            if not saturated_coils[j]:
+                                self.print_async("warning: voltage saturated for", self.coil_names[j])
+                                saturated_coils[j] = True
+                            sign = control_volts[j] / (control_volts[j] ** 2) ** (1 / 2)
+                            self.zotino0.write_dac(self.coil_channels[j], sign * 9.9)
+                        self.zotino0.load()
+
+                delay(1*ms)
+
+        if not self.leave_coils_on_at_finish:
+            for ch in self.coil_channels:
+                self.zotino0.write_dac(ch, 0.0)
+                self.zotino0.load()
+                delay(1 * ms)
+
+        if self.what_to_tune != self.nothing_mode:
+            if self.set_current_parameters_at_finish:
+
+                if self.what_to_tune == self.both_mode or self.what_to_tune == self.beam_mode:
+                    # run with monitor only will update the values it read from the detectors
+                    # without doing feedback
+                    self.laser_stabilizer.run(monitor_only=True, defaults_at_start=False)
+
+                    current_power_setpoints = [
+                        self.stabilizer_AOM_A1.value,
+                        self.stabilizer_AOM_A2.value,
+                        self.stabilizer_AOM_A3.value,
+                        self.stabilizer_AOM_A4.value,
+                        self.stabilizer_AOM_A5.value,
+                        self.stabilizer_AOM_A6.value
+                    ]
+
+                    print("setting current laser setpoints")
+                    print(current_power_setpoints)
+
+                    if self.disable_z_beam_tuning:
+                        n_beams = 4
+                    else:
+                        n_beams = 6
+
+                    ampl_factors = [ampl1_factor,ampl2_factor,ampl3_factor,ampl4_factor,ampl5_factor,ampl6_factor]
+                    for i in range(n_beams):
+                        print("amplitude factor", i, ampl_factors[i])
+
+                    for i in range(n_beams):
+                        print("MOT ", i+1, "setpoint % change:", current_power_setpoints[i]/self.default_setpoints[i])
+                        self.set_dataset(self.setpoint_datasets[i], current_power_setpoints[i], broadcast=True, persist=True)
+
+                if self.what_to_tune == self.both_mode or self.what_to_tune == self.coil_mode:
+                    print("setting current coil values")
+                    for i in range(4):
+                        volts = control_volts[i]
+                        if (volts**2)**(1/2) > 10.0:
+                            sign = volts / (volts ** 2) ** (1 / 2)
+                            volts = sign * 9.9
+                        self.set_dataset(self.volt_datasets[i], volts, broadcast=True, persist=True)
+
+        delay(10 * ms)
+        # The finishing block above may have run feedback (monitor_only) and
+        # then written several persistent datasets -- a feedback run returns
+        # ~6 ms behind, and each blocking set_dataset RPC erodes more. This is
+        # the first RTIO event after all of that, so re-arm before it.
+        self.core.break_realtime()
+        self.zotino0.set_dac([0.0], self.UV_trig_channel)
+        delay(1 * ms)
+        print("Experiment finished.")

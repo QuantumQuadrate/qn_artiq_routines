@@ -1,7 +1,11 @@
 """Fit a decaying sinusoid with optional dead-time to data"""
 import numpy as np
 from scipy.signal import lombscargle
-from .FitBase import FitBase
+try:
+    from .FitBase import FitBase
+except ImportError:
+    # ARTIQ's repository scan imports this file without package context.
+    from FitBase import FitBase
 
 
 def fitting_function(t, p_dict):

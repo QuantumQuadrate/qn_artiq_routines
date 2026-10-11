@@ -218,6 +218,407 @@ def get_files_by_criteria(date_filters, name_filters, condition,
                         print(f"skipping {filename}, which is corrupt")
     return file_list
 
+def get_files_by_multiple_names(date_filters, name_filters, **kwargs):
+    """
+    Call get_files_by_criteria once for each name_filter
+    and merge the results without duplicates.
+
+    Useful now that result filenames carry a node tag: pass e.g.
+    ["_Node1_atom_loading", "_Node2_atom_loading"] to pull both nodes at once,
+    or a single tag to pull one node.
+    """
+    combined = set()
+    for nf in name_filters:
+        fnames = get_files_by_criteria(
+            date_filters=date_filters,
+            name_filters=[nf],   # single filter -> original logic unchanged
+            condition=kwargs.get("condition", lambda x: True),
+            start_dir=kwargs.get("start_dir", results),
+            include_path=kwargs.get("include_path", True),
+            print_filenames=kwargs.get("print_filenames", False),
+        )
+        combined.update(fnames)
+
+    return list(combined)
+
+
+###############################################################################
+###  master-satellite helpers, for Analysis/master_satellite/
+###
+###  Everything above is untouched: these are new functions, so the standalone
+###  notebooks in Analysis/standalone/ behave exactly as they always did.
+###
+###  The point of all this is that ONE notebook can analyse either node. A
+###  master-satellite run writes its ExperimentVariables node-suffixed
+###  (single_atom_threshold_Node2) while the bulk readouts stay plain
+###  (AllSPCMs_RO1). Strip the suffix on load and the notebook body can be
+###  written once, against unsuffixed names, exactly like the standalone code.
+###############################################################################
+
+MASTER_SATELLITE_NODES = ("Node1", "Node2")
+
+#: Default file filters, so a master-satellite query cannot accidentally pick
+#: up standalone runs -- "GeneralVariableScan" alone matches both.
+MASTER_SATELLITE_NAME_FILTERS = (
+    "GeneralVariableScan_master_satellite",
+    "MicrowaveScanOptimizer_master_satellite",
+    "AOMsCoils_master_satellite",
+)
+
+
+def _ms_expid_arguments(f):
+    """Submitted arguments from the h5's expid, or {} if unreadable."""
+    # Imported locally so the top of this module stays byte-identical to what
+    # the standalone notebooks have always imported.
+    import json
+
+    try:
+        return json.loads(f["expid"][()])["arguments"]
+    except Exception:
+        return {}
+
+
+def ms_node_of(f, filename=None):
+    """Return 'Node1' or 'Node2' for a master-satellite h5 file.
+
+    Three sources are tried, most reliable first:
+
+      1. expid arguments -- selected_node (GVS) or which_node (optimizers).
+         Recorded for every master-satellite run there has ever been, so this
+         works on old files too, not just ones with the node in the filename.
+      2. the node tag in the filename, present from 2026-09-17 onward.
+      3. the node suffix on the dataset/archive keys themselves.
+
+    Returns None if the file has no node information at all, which is what a
+    standalone file looks like.
+
+    Raises ValueError if BOTH node suffixes appear, because then stripping
+    them would collide and one node's data would silently overwrite the
+    other's. No such file exists today (all 89 checked carry exactly one
+    node), but a future two-node run would, and it must fail loudly.
+    """
+    arguments = _ms_expid_arguments(f)
+    # The equality below is EXACT on purpose, and it is load-bearing. The
+    # standalone stack also submits a which_node argument, but spells it in
+    # the legacy presentation: 2403 archived standalone runs carry
+    # which_node='alice' (2394) or 'bob' (9). Only the master-satellite stack
+    # says Node1/Node2 -- FORT_Polarization_Optimizer says node1/node2, hence
+    # the .lower(). Loosening this to something like `if value: return value`
+    # would quietly reclassify every one of those standalone runs as a
+    # master-satellite one.
+    for key in ("selected_node", "which_node"):
+        value = str(arguments.get(key) or "")
+        for node in MASTER_SATELLITE_NODES:
+            if value.lower() == node.lower():
+                return node
+
+    name = filename or getattr(f, "filename", "") or ""
+    name = str(name)
+    for node in MASTER_SATELLITE_NODES:
+        if f"_{node}_" in name or name.endswith(f"_{node}.h5"):
+            return node
+
+    seen = set()
+    for data_level in ("datasets", "archive"):
+        if data_level not in f:
+            continue
+        for key in f[data_level].keys():
+            for node in MASTER_SATELLITE_NODES:
+                if key.endswith("_" + node):
+                    seen.add(node)
+    if len(seen) > 1:
+        raise ValueError(
+            f"{name or 'file'} carries both {sorted(seen)} suffixes; "
+            "stripping them would collide. Analyse it with the plain "
+            "h5_archive_and_datasets_to_locals and address the nodes by "
+            "their suffixed names instead."
+        )
+    return seen.pop() if seen else None
+
+
+def ms_files(date_filters, node=None, name_filters=None, **kwargs):
+    """Find master-satellite result files and report each one's node.
+
+    Returns a list of (filename, node) pairs sorted by path, which for the
+    date-based results tree is effectively chronological. Pass node="Node1"
+    or "Node2" to keep only that node's runs.
+
+    name_filters defaults to MASTER_SATELLITE_NAME_FILTERS so standalone runs
+    are never mixed in.
+    """
+    if name_filters is None:
+        name_filters = list(MASTER_SATELLITE_NAME_FILTERS)
+
+    found = get_files_by_multiple_names(date_filters, name_filters, **kwargs)
+
+    pairs = []
+    for filename in sorted(found):
+        try:
+            with h5py.File(filename, "r") as handle:
+                this_node = ms_node_of(handle, filename=filename)
+        except Exception as error:
+            print(f"skipping {filename}: {error}")
+            continue
+        if node is not None and this_node != node:
+            continue
+        pairs.append((filename, this_node))
+    return pairs
+
+
+def _ms_decode(value):
+    """bytes -> str, 0-d array -> its scalar, anything else unchanged."""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    if isinstance(value, np.ndarray) and value.shape == ():
+        return _ms_decode(value[()])
+    return value
+
+
+def _ms_handle(source):
+    """(handle, handle_to_close) for either an open h5py.File or a path."""
+    if isinstance(source, (str, bytes, os.PathLike)):
+        opened = h5py.File(source, "r")
+        return opened, opened
+    return source, None
+
+
+def ms_get(source, key, default=None):
+    """Read one value from a master-satellite result file.
+
+    Resolves in the same precedence ms_archive_and_datasets_to_locals uses:
+    datasets, then archive, then the submitted expid arguments.
+
+    That last step is exactly what the direct h5py subscripts in these
+    notebooks were missing. GeneralVariableScan_master_satellite does NOT
+    archive scan_variable1_name as a dataset the way the standalone stack
+    does -- it survives only in expid["arguments"] -- and n_measurements
+    lives in archive rather than datasets. So ds['scan_variable1_name']
+    raises, and because the surrounding try wore a bare `except:`, every
+    master-satellite GVS run was reported as "oops... something wrong with"
+    rather than as a missing name. Nothing was wrong with those files.
+
+    Node suffixes are resolved, so the bare name works whichever node wrote
+    the file.
+
+    Strings come back DECODED. Do not wrap the result in str_from_h5: that is
+    a bytes-repr trick, str(np.array(x))[2:-1], and handed an already-decoded
+    str it silently returns a single character.
+
+    source may be an open h5py.File or a path.
+    """
+    handle, to_close = _ms_handle(source)
+    try:
+        try:
+            node = ms_node_of(handle)
+        except Exception:
+            node = None
+
+        names = [key] if node is None else [key, f"{key}_{node}"]
+        for container in ("datasets", "archive"):
+            if container not in handle:
+                continue
+            group = handle[container]
+            for name in names:
+                if name in group:
+                    return _ms_decode(group[name][()])
+
+        arguments = _ms_expid_arguments(handle)
+        for name in names:
+            if name in arguments:
+                return arguments[name]
+        return default
+    finally:
+        if to_close is not None:
+            to_close.close()
+
+
+def ms_scan_label(source):
+    """The "scanned over ..." label for a master-satellite result file.
+
+    Returns "f_FORT" or "f_FORT, t_FORT", or "" if the run recorded no scan
+    variable. Opens the file once, unlike reading the two names separately.
+    """
+    handle, to_close = _ms_handle(source)
+    try:
+        first = ms_get(handle, "scan_variable1_name", "") or ""
+        second = ms_get(handle, "scan_variable2_name", "") or ""
+        return f"{first}, {second}" if second else first
+    finally:
+        if to_close is not None:
+            to_close.close()
+
+
+def ms_overrides(source):
+    """Each node's submitted override dictionary, as {node: text}.
+
+    The experiments declare one override dictionary PER NODE --
+    override_ExperimentVariables_Node1 and override_ExperimentVariables_Node2
+    -- so a run records BOTH, the running node's and the idle node's. Read
+    them by those two names; there is deliberately no unsuffixed
+    override_ExperimentVariables to fall back on, because with two
+    dictionaries present a bare name cannot say which node it describes.
+
+    Runs from before each node got its own dictionary carry a single
+    unsuffixed override_ExperimentVariables instead. Those come back under the
+    key "unsuffixed", so one notebook cell reads both generations: of the
+    node-tagged GVS files on disk, 18 are of the older shape and 12 of the
+    newer, so this is not a transitional nicety.
+
+    Returns {} for a run that recorded no override argument at all.
+    """
+    handle, to_close = _ms_handle(source)
+    try:
+        arguments = _ms_expid_arguments(handle)
+        found = {
+            node: arguments[f"override_ExperimentVariables_{node}"]
+            for node in MASTER_SATELLITE_NODES
+            if f"override_ExperimentVariables_{node}" in arguments
+        }
+        if found:
+            return found
+        if "override_ExperimentVariables" in arguments:
+            return {"unsuffixed": arguments["override_ExperimentVariables"]}
+        return {}
+    finally:
+        if to_close is not None:
+            to_close.close()
+
+
+def ms_print_overrides(source, label="override"):
+    """Print each node's submitted override dictionary, one line per node.
+
+    Replaces the `print("override:", override_ExperimentVariables)` line the
+    ported notebooks carried. That name no longer exists: each node has its
+    own dictionary now, and this prints both.
+    """
+    found = ms_overrides(source)
+    if not found:
+        print(f"{label}: (none recorded)")
+    for key in sorted(found):
+        print(f"{label} {key}:", found[key])
+    return found
+
+
+def ms_show_node(source, size_px=26):
+    """Show, prominently, which node a result file came from.
+
+    The node decides which half of the apparatus every number in the file
+    describes, so it belongs ABOVE the run's details rather than among them.
+    Rendered as large HTML in a notebook and as a plain banner anywhere else,
+    so the same call works from a script.
+
+    Returns the node, or None for a file carrying no node information -- which
+    is what a standalone run looks like.
+    """
+    handle, to_close = _ms_handle(source)
+    try:
+        try:
+            node = ms_node_of(handle)
+        except Exception:
+            node = None
+    finally:
+        if to_close is not None:
+            to_close.close()
+
+    label = node or "no node recorded"
+    # Distinct hues so the two nodes are told apart at a glance. Both are
+    # mid-tone, which keeps them legible on a light or a dark notebook theme.
+    color = {"Node1": "#1a7ae0", "Node2": "#d2452e"}.get(node, "#8a8a8a")
+
+    try:
+        from IPython import get_ipython
+        from IPython.display import display, HTML
+        in_notebook = get_ipython() is not None
+    except Exception:
+        in_notebook = False
+
+    if not in_notebook:
+        print(f"===== {label} =====")
+        return node
+
+    display(HTML(
+        f"<div style='font-size:{size_px}px; font-weight:700; color:{color};"
+        f" letter-spacing:0.5px; margin:6px 0 2px'>{label}</div>"
+    ))
+    return node
+
+
+def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
+                                      node=None):
+    """Master-satellite loader. Same signature as the standalone one.
+
+    Swapping h5_archive_and_datasets_to_locals for this is the only change a
+    ported notebook needs. Two things happen beyond the standalone behaviour:
+
+      * Node suffixes are STRIPPED, so single_atom_threshold_Node2 arrives as
+        single_atom_threshold and FORT_MM_monitor_Node2 as FORT_MM_monitor.
+        Plain names (AllSPCMs_RO1, n_measurements, two_atom_threshold) pass
+        through untouched.
+      * The submitted arguments from expid are injected. The standalone stack
+        archives scan_variable1_name, experiment_function, parent_rid and the
+        like AS DATASETS; the master-satellite stack does not, and the plot
+        labelling in these notebooks reads them. Without this, a ported cell
+        raises NameError partway through for a cosmetic reason.
+
+    Also sets 'node' in the namespace, so a loaded file can say which node it
+    came from. Returns the node as well.
+    """
+    raw = {}
+    h5_archive_and_datasets_to_locals(f, raw, quiet=quiet)
+
+    if node is None:
+        node = ms_node_of(f)
+
+    resolved = {}
+    collisions = []
+    if node is None:
+        resolved.update(raw)
+    else:
+        tail = "_" + node
+        for key, value in raw.items():
+            if key.endswith(tail):
+                bare = key[: -len(tail)]
+                if bare in raw:
+                    # Both names are in this file, so stripping the suffix
+                    # would overwrite one with the other. Keep BOTH, each under
+                    # the name the file uses, and say so below. This used to
+                    # raise, which made such a run unloadable -- a worse
+                    # outcome than one name that has to be spelled out, since
+                    # the collision is almost always between a per-node series
+                    # and an unrelated joint one that a notebook wants anyway.
+                    #
+                    # The known cause: the two-node alternating loader wrote
+                    # AllSPCMs_atom_check_in_loading_NodeX beside the joint
+                    # AllSPCMs_atom_check_in_loading. Renamed 2026-10-09 to
+                    # AllSPCMs_alternating_RO_atom_check_in_loading_NodeX, so
+                    # only files written before then collide. The bare name
+                    # always comes from the file's own bare dataset here,
+                    # whatever order raw happens to iterate in.
+                    collisions.append((bare, key))
+                    resolved[key] = value
+                else:
+                    resolved[bare] = value
+            else:
+                resolved[key] = value
+
+    # Only fill in what the file itself did not record, so a dataset always
+    # beats the submitted argument if both exist.
+    for key, value in _ms_expid_arguments(f).items():
+        resolved.setdefault(key, value)
+
+    resolved["node"] = node
+    parent_locals.update(resolved)
+
+    if not quiet:
+        print(f"loaded {node or 'un-noded'} run, {len(resolved)} names")
+    # Printed even when quiet: a name that did NOT get its suffix stripped is
+    # the one thing a ported notebook cannot discover on its own, and it will
+    # otherwise fail later with a bare NameError.
+    for bare, key in collisions:
+        print(f"  note: {key!r} kept its suffix -- {bare!r} is also in this "
+              f"file, so {bare!r} is the unsuffixed/joint series, not this one")
+    return node
+
 
 
 
@@ -263,7 +664,15 @@ def h5_archive_and_datasets_to_locals(f, parent_locals, quiet=False):
                     value = f[data_level][key][:]
                     # locals().update({key: value})
 
-                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'AllSPCMs_RO1' or key == 'AllSPCMs_RO2':
+                if key in ('SPCM0_RO1', 'SPCM0_RO2',
+                           'SPCM1_RO1', 'SPCM1_RO2',
+                           'AllSPCMs_RO1', 'AllSPCMs_RO2',
+                           # AllSPCMs_* is the current name. BothSPCMs_* is
+                           # what files written before the rename carry, kept
+                           # so old data still gets its leading [0] dataset
+                           # seed stripped -- otherwise those arrays come back
+                           # off by one, silently.
+                           'BothSPCMs_RO1', 'BothSPCMs_RO2'):
                     value = value[1:]
                 
                 parent_locals.update({key: value})
@@ -313,7 +722,15 @@ def print_h5_archive_and_datasets(f, scalars_only=True, quiet=False):
                     value = f[data_level][key][:]
                     # locals().update({key: value})
 
-                if key == 'SPCM0_RO1' or key == 'SPCM0_RO2' or key == 'SPCM1_RO1' or key == 'SPCM1_RO2' or key == 'AllSPCMs_RO1' or key == 'AllSPCMs_RO2':
+                if key in ('SPCM0_RO1', 'SPCM0_RO2',
+                           'SPCM1_RO1', 'SPCM1_RO2',
+                           'AllSPCMs_RO1', 'AllSPCMs_RO2',
+                           # AllSPCMs_* is the current name. BothSPCMs_* is
+                           # what files written before the rename carry, kept
+                           # so old data still gets its leading [0] dataset
+                           # seed stripped -- otherwise those arrays come back
+                           # off by one, silently.
+                           'BothSPCMs_RO1', 'BothSPCMs_RO2'):
                     value = value[1:]
 
                 if scalars_only:

@@ -269,7 +269,7 @@ class AOMPowerStabilizer:
 
     def __init__(self, experiment, dds_names, iterations=10, averages=1, leave_AOMs_on=False,
                  update_dds_settings=True, dry_run=False, open_loop_monitor_names=[],
-                 leave_MOT_AOMs_on=True):
+                 leave_MOT_AOMs_on=True, node_suffix="", config_node=None):
         """
         An experiment subsequence for reading a Sampler and adjusting Urukul output power.
 
@@ -287,6 +287,13 @@ class AOMPowerStabilizer:
 
         # initialized by user
         self.exp = experiment
+        # "" for standalone and single-node callers, so every lookup below is
+        # unchanged for them. "_Node1"/"_Node2" in two-node mode, where one
+        # stabilizer is built per crate. config_node overrides the directory
+        # the channel map is read from, which two-node mode needs because
+        # exp.which_node is not a per-stabilizer notion there.
+        self.node_suffix = node_suffix
+        self.config_node = config_node
         self.iterations = iterations # number of times to adjust dds power per run() call
         self.dds_names = dds_names # the dds channels for the AOMs to stabilize
         self.averages = averages
@@ -305,10 +312,57 @@ class AOMPowerStabilizer:
         self.parallel_channels = []
         self.open_loop_monitor_channels = []
 
-        config_file = os.path.join(cwd, "repository\\qn_artiq_routines\\utilities\\config\\",self.exp.which_node,
+        # node_suffix is "" for every standalone and single-node caller, so
+        # every name below resolves exactly as it always has. Two-node mode
+        # passes "_Node1"/"_Node2" and builds ONE stabilizer per crate, which
+        # is what lets a two-node run feed back on both nodes while writing
+        # the same per-node datasets a single-node run writes -- so the
+        # applets and the analysis notebooks need no changes.
+        config_node = self.config_node or self.exp.which_node
+        config_file = os.path.join(cwd, "repository\\qn_artiq_routines\\utilities\\config\\", config_node,
                                    "feedback_channels.json")
         with open(config_file) as f:
             stabilizer_dict = json.load(f)
+
+        suffix = self.node_suffix
+
+        # AMBIENT DEVICES: bound here, once, through the SAME node suffix as
+        # the feedback channels themselves.
+        #
+        # run() switches a handful of devices that are not feedback channels --
+        # it blocks the repumps so their light does not contaminate the cooling
+        # PD reading, opens the cooling DP because the MOT channels need it, and
+        # restores the MOT AOMs at the end. Those used to be read as bare
+        # self.exp.<name> inside the kernel, which is correct in standalone and
+        # single-node mode but WRONG in two-node mode: Base publishes the bare
+        # names there as broadcast aliases, so laser_stabilizer_Node2.run() was
+        # switching Node1's repump, Node1's cooling DP and all six of Node1's
+        # fiber AOMs -- and vice versa. Each node's feedback disturbed the
+        # other's light mid-sequence. It survived sequential feedback because
+        # the two runs happen to leave the same end state, but it makes the two
+        # runs interfere, and it would be actively destructive the moment the
+        # two nodes' feedback runs in parallel, which is the plan.
+        #
+        # getattr cannot be used from a kernel, which is why these are bound at
+        # construction rather than resolved at the call site. With suffix "" --
+        # every standalone and single-node caller -- each name resolves to
+        # exactly the attribute the old code read, so their behaviour is
+        # unchanged.
+        def ambient(name):
+            return getattr(self.exp, name + suffix)
+
+        self.ttl_repump_switch = ambient("ttl_repump_switch")
+        self.ttl_pumping_repump_switch = ambient("ttl_pumping_repump_switch")
+        self.dds_cooling_DP = ambient("dds_cooling_DP")
+        self.GRIN1and2_dds = ambient("GRIN1and2_dds")
+        self.ttl_exc0_switch = ambient("ttl_exc0_switch")
+        self.ttl_GRIN1_switch = ambient("ttl_GRIN1_switch")
+        self.mot_aom_1 = ambient("dds_AOM_A1")
+        self.mot_aom_2 = ambient("dds_AOM_A2")
+        self.mot_aom_3 = ambient("dds_AOM_A3")
+        self.mot_aom_4 = ambient("dds_AOM_A4")
+        self.mot_aom_5 = ambient("dds_AOM_A5")
+        self.mot_aom_6 = ambient("dds_AOM_A6")
 
         # this block instantiates FeedbackChannel objects and groups them by series/parallel feedback flag
         for i, sampler_name in enumerate(stabilizer_dict):
@@ -319,7 +373,7 @@ class AOMPowerStabilizer:
             # check if any of the dds names is associated with this sampler
             if True in [dds_name in feedback_channels.keys() for dds_name in dds_names]:
 
-                self.sampler_list.append(getattr(self.exp, sampler_name))
+                self.sampler_list.append(getattr(self.exp, sampler_name + suffix))
 
                 # loop over the dds channels associated with this sampler,
                 for ch_name in feedback_channels.keys():
@@ -329,19 +383,20 @@ class AOMPowerStabilizer:
                     if ch_name in dds_names:
 
                         ch_params = feedback_channels[ch_name]
+                        defaults = self.exp.dds_defaults[ch_name]
 
                         fb_channel = FeedbackChannel(
                                             stabilizer=self,
-                                            name=ch_name,
-                                            dds_obj=getattr(self.exp, ch_name),
+                                            name=ch_name + suffix,
+                                            dds_obj=getattr(self.exp, ch_name + suffix),
                                             buffer_index=ch_params['sampler_ch'] + i*8,
-                                            set_points=[getattr(self.exp,sp) for sp in ch_params['set_points']],
+                                            set_points=[getattr(self.exp, sp + suffix) for sp in ch_params['set_points']],
                                             p=ch_params['p'],
                                             i=ch_params['i'],
-                                            frequency=getattr(self.exp,self.exp.dds_defaults[ch_name]["frequency"]),
-                                            amplitude=dB_to_V(getattr(self.exp,self.exp.dds_defaults[ch_name]["power"])),
-                                            dataset=ch_params['dataset'],
-                                            dB_dataset=ch_params['power_dataset'],
+                                            frequency=getattr(self.exp, defaults["frequency"] + suffix),
+                                            amplitude=dB_to_V(getattr(self.exp, defaults["power"] + suffix)),
+                                            dataset=ch_params['dataset'] + suffix,
+                                            dB_dataset=ch_params['power_dataset'] + suffix,
                                             t_measure_delay=ch_params['t_measure_delay'],
                                             error_history_length=self.iterations,
                                             max_dB=ch_params['max_dB']
@@ -349,7 +404,7 @@ class AOMPowerStabilizer:
 
                         # make the feedback channel an attribute of the AOMPowerStabilizer instance itself
                         # so we can conveniently access the updated dds amplitudes in our experiments
-                        stabilizer_ch_name = "stabilizer"+ch_name[3:]
+                        stabilizer_ch_name = "stabilizer"+ch_name[3:] + suffix
                         setattr(self.exp, stabilizer_ch_name, fb_channel)
                         # fb_channel_ref = getattr(self.exp, stabilizer_ch_name) # use this going forward
 
@@ -530,8 +585,9 @@ class AOMPowerStabilizer:
         delay(1*ms)
 
         # turn off the repumps which are mixed into the cooling light
-        self.exp.ttl_repump_switch.on() # block RF to the RP AOM
-        self.exp.ttl_pumping_repump_switch.on() # block RF to the Pumping Repump AOM
+        # (this stabilizer's own node only -- see "AMBIENT DEVICES" in __init__)
+        self.ttl_repump_switch.on() # block RF to the RP AOM
+        self.ttl_pumping_repump_switch.on() # block RF to the Pumping Repump AOM
 
         if defaults_at_start:
             for ch in self.all_channels:
@@ -548,6 +604,47 @@ class AOMPowerStabilizer:
             ch.dds_obj.sw.off()
             delay(100*us)
 
+        # DESIGN NOTE, 2026-10-08 -- NOT IMPLEMENTED, recorded so the dormant
+        # machinery below is not deleted as dead code.
+        #
+        # The reason this block has never been used is in the comment under
+        # it: no channel is flagged parallel, because every entry in
+        # feedback_channels.json carries "series": true. That is not a
+        # property of the code, it is a property of the OPTICS -- two beams
+        # can only be fed back at once if neither disturbs the other's
+        # photodiode reading.
+        #
+        # The lab owner's grouping (2026-10-08), which is the physics fact
+        # this file has no way to know:
+        #
+        #     group 1   A1, A2, A5     mutually non-disturbing
+        #     group 2   A3, A4, A6     mutually non-disturbing
+        #     group 3   FORT           alone, and repeated per setpoint
+        #
+        # and both nodes' members of a group go together, so group 1 means
+        # Node1 A1/A2/A5 AND Node2 A1/A2/A5 simultaneously.
+        #
+        # WHY IT IS WORTH MORE THAN IT LOOKS. measure() reads every card in
+        # sampler_list whatever it is measuring, so the cost of a measure is
+        # the same whether one channel or six is being adjusted. Today the
+        # seven fast channels each get their own measure loop; grouped, there
+        # would be three. That is ~57% fewer measures, it needs NO rewiring,
+        # and it applies per node -- it does not depend on the two nodes
+        # sharing sampler cards.
+        #
+        # WHAT WOULD HAVE TO CHANGE. The existing flag is a boolean, which
+        # can express "one parallel set plus a series remainder" but not
+        # three ordered groups. It would become a group id --
+        # "feedback_group": 1|2|3 -- with run() looping the groups in order
+        # and, within a group, turning on that group's DDSs, measuring ONCE,
+        # and feeding back to every member from the same measurement array.
+        # The block below is the single-group version of exactly that.
+        #
+        # Measure before building it: iterations is a CAP broken by in_tol
+        # (200 on Node1, 100 on Node2, against 15 in standalone). If the
+        # loops are not converging early, the grouping multiplies a number
+        # that is already the wrong size, and the setpoints are the problem.
+        #
         # for ch in self.parallel_channels:
         #     ch.dds_obj.sw.on()
         #     delay(100 * us)
@@ -581,7 +678,7 @@ class AOMPowerStabilizer:
 
 
         # need to have this on for MOT feedback
-        self.exp.dds_cooling_DP.sw.on() # todo: only turn this on if one of the FeedbackChannels depends on it
+        self.dds_cooling_DP.sw.on() # todo: only turn this on if one of the FeedbackChannels depends on it
         delay(1 * ms)
 
 
@@ -593,10 +690,10 @@ class AOMPowerStabilizer:
 
             if ch.name == 'GRIN1and2_dds':
                 # self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
-                self.exp.GRIN1and2_dds.sw.on()
+                self.GRIN1and2_dds.sw.on()
                 delay(1*ms)
-                self.exp.ttl_exc0_switch.off()
-                self.exp.ttl_GRIN1_switch.off()
+                self.ttl_exc0_switch.off()
+                self.ttl_GRIN1_switch.off()
                 delay(1*ms)
             #
             # todo: D1 feedback
@@ -632,10 +729,10 @@ class AOMPowerStabilizer:
 
             if ch.name == 'GRIN1and2_dds':
                 # self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
-                self.exp.GRIN1and2_dds.sw.off()
+                self.GRIN1and2_dds.sw.off()
                 delay(1 * ms)
-                self.exp.ttl_exc0_switch.on()
-                self.exp.ttl_GRIN1_switch.on()
+                self.ttl_exc0_switch.on()
+                self.ttl_GRIN1_switch.on()
 
                 delay(1 * ms)
 
@@ -652,8 +749,8 @@ class AOMPowerStabilizer:
                 self.exp.append_to_dataset(ch.dataset, ch.value_normalized)
 
         delay(1*ms)
-        self.exp.dds_cooling_DP.sw.on() # todo: only turn this on if the one of the FeedbackChannels depends on it
-        self.exp.ttl_repump_switch.off()  # enable RF to the RP AOM
+        self.dds_cooling_DP.sw.on() # todo: only turn this on if the one of the FeedbackChannels depends on it
+        self.ttl_repump_switch.off()  # enable RF to the RP AOM
 
         delay(0.1*ms)
 
@@ -662,14 +759,14 @@ class AOMPowerStabilizer:
                 ch.dds_obj.sw.on()
                 delay(10*us)
         elif self.leave_MOT_AOMs_on:
-            self.exp.dds_cooling_DP.sw.on()
-            self.exp.dds_AOM_A1.sw.on()
-            self.exp.dds_AOM_A2.sw.on()
-            self.exp.dds_AOM_A3.sw.on()
+            self.dds_cooling_DP.sw.on()
+            self.mot_aom_1.sw.on()
+            self.mot_aom_2.sw.on()
+            self.mot_aom_3.sw.on()
             delay(10 * us)
-            self.exp.dds_AOM_A4.sw.on()
-            self.exp.dds_AOM_A5.sw.on()
-            self.exp.dds_AOM_A6.sw.on()
+            self.mot_aom_4.sw.on()
+            self.mot_aom_5.sw.on()
+            self.mot_aom_6.sw.on()
             delay(100 * us)
 
         delay(0.1* ms)

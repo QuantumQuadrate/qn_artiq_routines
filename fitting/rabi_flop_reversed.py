@@ -1,7 +1,11 @@
 import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.signal import lombscargle
-from . import FitBase
+try:
+    from . import FitBase
+except ImportError:
+    # ARTIQ's repository scan imports this file without package context.
+    import FitBase
 """Fit a typical Rabi flop time scan with a decaying cosine curve, including
 initial dead time to account for AOM/... switching effects.
 
