@@ -2740,6 +2740,113 @@ def record_excitation_and_photon_collection(self):
                     self.ttl_SPCM1_OtherNode.gate_rising(self.t_photon_collection_time)
 
 @kernel
+def excitation_attempt_period_mu(self) -> TInt64:
+    """The period one attempt occupies inside the grouped excitation trace.
+
+    ONE formula, used by both record_excitation_group (which lays the attempts
+    out) and the experiment (which bins the timestamps back onto them). Two
+    copies would drift, and the failure is silent: photons attributed to the
+    wrong attempt still look like photons.
+
+    It must cover the LONGEST branch of one attempt, or the next attempt's
+    at_mu lands before the previous one has finished and the trace jumps
+    backwards. The three branches are the FORT drop, the excitation pulse and
+    the counter gate -- which of them is longest depends on the scanned knobs
+    (gate_start_offset_mu and t_photon_collection_time are both overridden per
+    run), so it is computed rather than assumed. The trailing 5 us reproduces
+    the `delay(5 * us)` that separated attempts in the ungrouped version.
+    """
+    collection_mu = self.core.seconds_to_mu(self.t_photon_collection_time)
+    excitation_pulse_mu = self.core.seconds_to_mu(self.t_excitation_pulse)
+
+    span_mu = int(self.gate_start_offset_mu) + collection_mu
+    if 50 + collection_mu > span_mu:
+        span_mu = 50 + collection_mu
+    excitation_end_mu = (int(self.t_excitation_offset_mu)
+                         + excitation_pulse_mu + 1000)
+    if excitation_end_mu > span_mu:
+        span_mu = excitation_end_mu
+
+    return (self.core.seconds_to_mu(5 * us) + span_mu
+            + self.core.seconds_to_mu(5 * us))
+
+
+@kernel
+def record_excitation_group(self, attempt_period_mu):
+    """ALL n_excitation_attempts attempts in ONE DMA trace.
+
+    The grouped counterpart of record_excitation_and_photon_collection. The
+    body of each attempt is byte-identical to that function -- same three
+    parallel branches, same ordering, same rewinds, all already proven on
+    hardware -- wrapped in a loop that anchors attempt k at
+    `t0 + k * attempt_period_mu`.
+
+    WHY. In the ungrouped version each attempt is followed by four blocking
+    timestamp_mu calls, and timestamp_mu "blocks" until its timeout while
+    NOT advancing the timeline cursor, so slack lands at ~0 after every
+    attempt. The `if slack < 1e5: break_realtime()` guard therefore fires on
+    EVERY attempt, and break_realtime jumps to wall clock + 125 us. Measured
+    against the trace geometry: t_end_SPCM falls on the end of the trace, so
+    slack after an attempt is only the trailing delay(5 * us). The result is
+    ~131 us of wall clock per attempt for ~11 us of sequence -- about 91%
+    dead time.
+
+    Grouped, the four playbacks become one, the reads happen once for the
+    whole group, and the per-attempt break disappears entirely: the
+    unconditional break_realtime already at the top of each excitation cycle
+    is enough. At n_excitation_attempts = 4 that is 4 x 125 us = ~500 us saved
+    per cycle, ~1.0 s per measurement at max_excitation_cycles = 2000.
+
+    WHAT IT DOES NOT CHANGE. The attempt loop never reacted to a click -- the
+    result was only recorded, never branched on -- so nothing downstream needs
+    the answer before the next attempt. Grouping is therefore physically
+    identical, not an approximation.
+
+    COST: the trace bakes in n_excitation_attempts, gate_start_offset_mu,
+    t_photon_collection_time, t_excitation_pulse and t_excitation_offset_mu at
+    record time. All of them are scannable, so the caller must re-record per
+    scan point; the caller does this in its own prologue.
+    """
+    collection_mu = self.core.seconds_to_mu(self.t_photon_collection_time)
+    excitation_pulse_mu = self.core.seconds_to_mu(self.t_excitation_pulse)
+
+    with self.core_dma.record("excitation_group"):
+        t0 = now_mu()
+        for attempt in range(self.n_excitation_attempts):
+            at_mu(t0 + attempt * attempt_period_mu)
+            self.ttl_exc0_switch.off()
+            delay(5 * us)
+
+            ### t1 for THIS attempt is located here during playback, i.e. at
+            ### t0 + attempt * attempt_period_mu + 5 us. The experiment
+            ### reconstructs exactly that to bin the timestamps.
+            with parallel:
+                with sequential:
+                    self.dds_FORT.sw.off()
+                    delay_mu(50 + collection_mu)
+                    self.dds_FORT.sw.on()
+
+                with sequential:
+                    delay_mu(int(self.t_excitation_offset_mu))
+                    self.ttl_GRIN2_switch.off()
+                    delay_mu(excitation_pulse_mu)
+                    self.ttl_GRIN2_switch.on()
+                    delay_mu(1000)
+                    self.ttl_exc0_switch.on()
+
+                with sequential:
+                    delay_mu(int(self.gate_start_offset_mu))
+                    with parallel:
+                        self.ttl_SPCM0.gate_rising(self.t_photon_collection_time)
+                        self.ttl_SPCM1.gate_rising(self.t_photon_collection_time)
+                        self.ttl_SPCM0_OtherNode.gate_rising(self.t_photon_collection_time)
+                        self.ttl_SPCM1_OtherNode.gate_rising(self.t_photon_collection_time)
+
+        ### Leave the cursor at a known group end, so the caller's
+        ### t_group_end_mu arithmetic matches the trace exactly.
+        at_mu(t0 + self.n_excitation_attempts * attempt_period_mu)
+
+@kernel
 def record_parity_mapping(self):
     with self.core_dma.record("parity_mapping"):
 
@@ -9464,12 +9571,12 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
 
         excitation_cycle = 1 ### just for initialization.
 
-        ### set coils for pumping
-        self.zotino0.set_dac(
-            [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-            channels=self.coil_channels)
-        # delay(5 * ms)
-        delay(0.4 * ms)
+        # ### set coils for pumping - this is inside the recorded optical pumping function
+        # self.zotino0.set_dac(
+        #     [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        #     channels=self.coil_channels)
+        # # delay(5 * ms)
+        # delay(0.4 * ms)
 
         for excitation_cycle in range(self.max_excitation_cycles):
             self.core.break_realtime()
@@ -9658,6 +9765,420 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
         self.core.break_realtime()
 
     # delay(15 * ms)
+    self.core.break_realtime()
+
+@kernel
+def _excitation_attempt_of(t_click, t_group_mu, lead_mu, gate_offset_mu,
+                           collection_mu, attempt_period_mu, n_attempts):
+    """Which attempt's gate window contains t_click, or -1 for none.
+
+    The grouped trace's geometry inverted. Attempt k's counter gate spans
+    [t1_k + gate_offset, t1_k + gate_offset + collection] with
+    t1_k = t_group + lead + k * attempt_period, so the attempt index is a
+    floor division and the remainder says whether the edge really fell inside
+    the gate rather than in the dark band after it.
+
+    Returning -1 rather than clamping is deliberate: an edge outside every
+    window means the geometry assumed here does not match the trace that ran,
+    and silently attributing it to attempt 0 would turn a timing bug into a
+    plausible-looking photon.
+    """
+    rel = t_click - (t_group_mu + lead_mu + gate_offset_mu)
+    if rel < 0:
+        return -1
+    k = int(rel // attempt_period_mu)
+    if k >= n_attempts:
+        return -1
+    if rel - k * attempt_period_mu > collection_mu:
+        return -1
+    return k
+
+
+@kernel
+def single_photon_experiment_10_atom_loading_advance_AllSPCM(self):
+    """
+    single_photon_experiment_9_atom_loading_advance_AllSPCM with the excitation
+    attempts GROUPED INTO ONE DMA TRACE and their timestamps read once for the
+    whole group, instead of one playback plus four blocking reads per attempt.
+
+    Everything else -- loading, first/second shot, the CW optical pumping
+    playback, the periodic atom check, the recorded datasets and their
+    meaning -- is identical to experiment 9, so the two can be run on the same
+    atom and compared directly.
+
+    WHY. timestamp_mu "blocks" until its timeout and does NOT advance the
+    timeline cursor, so in experiment 9 slack lands at ~0 after every attempt
+    and the `if slack < 1e5: break_realtime()` guard fires every time, each
+    firing costing ~125 us of dead timeline. The trace geometry makes that
+    unavoidable there: t_end_SPCM falls on the end of the trace, leaving only
+    the trailing delay(5 * us) of slack. Net ~131 us of wall clock per attempt
+    for ~11 us of sequence.
+
+    Grouped, the four per-attempt breaks become ONE after the read pass: the
+    reads still drive slack to ~0, because timestamp_mu has to wait for the
+    last gate to close before it can report that nothing more is coming. So
+    the budget is 2 breaks per cycle (top of cycle, plus after the reads)
+    against experiment 9's 5, saving 3 x 125 us = ~375 us per cycle, ~0.75 s
+    per measurement at max_excitation_cycles = 2000, ~2.5 minutes per
+    200-measurement scan point.
+
+    SAFE BECAUSE THE LOOP NEVER REACTED TO A CLICK. In experiment 9 the result
+    is recorded and never branched on, so nothing needs the answer before the
+    next attempt. This is the same physics, not an approximation.
+
+    WHY THE GROUP STAYS SMALL. Unlike EdgeCounter.gate_rising, which emits ONE
+    input event per gate, TTLInOut sensitivity emits one event per EDGE. Four
+    windows of t_photon_collection_time at the ~5% click rate is a fraction of
+    an edge, comfortably inside the 64-deep per-channel input FIFO -- but this
+    would NOT survive deferring across the excitation-cycle loop, where 8000
+    windows would queue hundreds of edges and overflow. The group is one
+    cycle's attempts and no more.
+
+    The periodic atom check is unaffected: it reads ttl_SPCM*_counter, which
+    are different RTIO channels from the ttl_SPCM* used here, so the two
+    never share a FIFO.
+
+    RE-RECORDED EVERY SCAN POINT, which matters: the trace bakes in
+    n_excitation_attempts, gate_start_offset_mu, t_photon_collection_time,
+    t_excitation_pulse and t_excitation_offset_mu, and all of them are
+    scannable. GVS calls this function once per scan point, so the recording
+    in the prologue below is re-made per point and can never be stale.
+    """
+
+    self.core.reset()
+    delay(1 * ms)
+
+    #### recording DMA
+    record_CW_optical_pumping_node1(self)
+    record_CW_optical_pumping_node2(self)
+    record_recooling(self)
+    ### ONE formula for the attempt layout, shared with the binning below
+    attempt_period_mu = excitation_attempt_period_mu(self)
+    record_excitation_group(self, attempt_period_mu)
+
+    #### getting DMA handles
+    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
+    CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
+    recooling_dma_handle = self.core_dma.get_handle("recooling")
+    excitation_group_handle = self.core_dma.get_handle("excitation_group")
+
+    ### the trace geometry, reconstructed once for the whole run
+    lead_mu = self.core.seconds_to_mu(5 * us)
+    gate_offset_mu = int(self.gate_start_offset_mu)
+    collection_mu = self.core.seconds_to_mu(self.t_photon_collection_time)
+
+    delay(1 * ms)
+    self.core.break_realtime()
+    AllSPCMs_RO_atom_check_array = [0]
+
+    ### short_timestamps_length is a fraction of the max_excitation_cycles. A photon is registered only in 5% of the
+    ### excitation cycles. So no need to keep a large array.
+    short_timestamps_length = int(self.max_excitation_cycles * 0.5)
+
+    if self.enable_laser_feedback:
+        delay(0.1 * ms)  ### necessary to avoid underflow
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        run_feedback_and_record_FORT_MM_power(self)
+
+    self.measurement = 0  # advances in end_measurement
+    delay(100*ms)
+
+    while self.measurement < self.n_measurements:
+        Any_SPCM_click_counter = 0
+
+        AllSPCMs_RO_atom_check_array = [0] * int(self.max_excitation_cycles/self.atom_check_every_n)
+        tStamps_t1 = [0.0]  * short_timestamps_length
+        SPCM0_timestamps = [-1.0]  * short_timestamps_length
+        SPCM1_timestamps = [-1.0]  * short_timestamps_length
+        SPCM0_OtherNode_timestamps = [-1.0]  * short_timestamps_length
+        SPCM1_OtherNode_timestamps = [-1.0]  * short_timestamps_length
+
+        ### FIRST click per attempt per channel, for one group of attempts.
+        ### -1 means no click, matching the convention of the arrays above.
+        group_SPCM0 = [np.int64(-1)] * self.n_excitation_attempts
+        group_SPCM1 = [np.int64(-1)] * self.n_excitation_attempts
+        group_SPCM0_OtherNode = [np.int64(-1)] * self.n_excitation_attempts
+        group_SPCM1_OtherNode = [np.int64(-1)] * self.n_excitation_attempts
+
+        self.core.break_realtime()
+        self.ttl_exc0_switch.on()  # turns off the excitation
+
+        load_until_atom_smooth_FORT_recycle(self)
+
+        first_shot(self)
+        delay(1 * ms)
+
+        if self.t_recooling_after_first_shot > 0:
+            recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(5 * us)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
+        self.ttl_GRIN2_switch.on()  # turns off excitation
+
+        if self.which_node == "alice":
+            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            delay(5 * us)
+            self.GRIN1and2_dds.sw.on()
+        else:
+            self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+            delay(5 * us)
+            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            delay(5 * us)
+            self.GRIN1and2_dds.sw.on()  # GRIN1 RF ON, external sw not activated yet
+            delay(5 * us)
+            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet
+            delay(5 * us)
+
+        excitation_cycle = 1 ### just for initialization.
+
+        for excitation_cycle in range(self.max_excitation_cycles):
+            self.core.break_realtime()
+
+            ############################### CW optical pumping phase - pumps atoms into F=1,m_F=0
+            if self.t_pumping > 0.0:
+                if self.which_node == "alice":
+                    self.core_dma.playback_handle(CW_OP_node1_handle)
+                else:
+                    self.core_dma.playback_handle(CW_OP_node2_handle)
+
+            ############################### excitation phase - ONE playback for all
+            ### n_excitation_attempts attempts, then ONE read pass. No
+            ### per-attempt break_realtime: see the docstring.
+            for attempt in range(self.n_excitation_attempts):
+                group_SPCM0[attempt] = np.int64(-1)
+                group_SPCM1[attempt] = np.int64(-1)
+                group_SPCM0_OtherNode[attempt] = np.int64(-1)
+                group_SPCM1_OtherNode[attempt] = np.int64(-1)
+
+            t_group_mu = now_mu()
+            self.core_dma.playback_handle(excitation_group_handle)
+            t_group_end_mu = (t_group_mu
+                              + self.n_excitation_attempts * attempt_period_mu)
+
+            ### Drain each channel completely, binning every edge onto the
+            ### attempt whose gate contained it. The first call blocks until
+            ### t_group_end_mu, which is the ONE wall-clock sync point for the
+            ### whole group -- that is the saving. Popping to -1 also replaces
+            ### the explicit .count() drain of experiment 9.
+            while True:
+                t_click = self.ttl_SPCM0.timestamp_mu(t_group_end_mu)
+                if t_click < 0:
+                    break
+                attempt = _excitation_attempt_of(
+                    t_click, t_group_mu, lead_mu, gate_offset_mu,
+                    collection_mu, attempt_period_mu,
+                    self.n_excitation_attempts)
+                if attempt >= 0 and group_SPCM0[attempt] < 0:
+                    group_SPCM0[attempt] = t_click
+
+            while True:
+                t_click = self.ttl_SPCM1.timestamp_mu(t_group_end_mu)
+                if t_click < 0:
+                    break
+                attempt = _excitation_attempt_of(
+                    t_click, t_group_mu, lead_mu, gate_offset_mu,
+                    collection_mu, attempt_period_mu,
+                    self.n_excitation_attempts)
+                if attempt >= 0 and group_SPCM1[attempt] < 0:
+                    group_SPCM1[attempt] = t_click
+
+            while True:
+                t_click = self.ttl_SPCM0_OtherNode.timestamp_mu(t_group_end_mu)
+                if t_click < 0:
+                    break
+                attempt = _excitation_attempt_of(
+                    t_click, t_group_mu, lead_mu, gate_offset_mu,
+                    collection_mu, attempt_period_mu,
+                    self.n_excitation_attempts)
+                if attempt >= 0 and group_SPCM0_OtherNode[attempt] < 0:
+                    group_SPCM0_OtherNode[attempt] = t_click
+
+            while True:
+                t_click = self.ttl_SPCM1_OtherNode.timestamp_mu(t_group_end_mu)
+                if t_click < 0:
+                    break
+                attempt = _excitation_attempt_of(
+                    t_click, t_group_mu, lead_mu, gate_offset_mu,
+                    collection_mu, attempt_period_mu,
+                    self.n_excitation_attempts)
+                if attempt >= 0 and group_SPCM1_OtherNode[attempt] < 0:
+                    group_SPCM1_OtherNode[attempt] = t_click
+
+            ### THE READ PASS IS A WALL-CLOCK SYNC POINT and leaves slack at
+            ### ~0: timestamp_mu blocks until t_group_end_mu without advancing
+            ### the cursor. Everything after this in the cycle issues RTIO --
+            ### the recooling playback, and a zotino0.set_dac burst on
+            ### spi_zotino1 -- so without rebuilding slack here the first SPI
+            ### transaction is scheduled at the current instant and underflows.
+            ### That is exactly what happened on the first hardware run:
+            ### "RTIO underflow at ... channel 65569", which is spi_zotino1,
+            ### Node2's coil DAC. Experiment 9 never hit it because every
+            ### attempt had just called break_realtime and the loop ended with
+            ### a delay(5 * us); removing the per-attempt break removed that
+            ### cover too.
+            ###
+            ### This is ONE break per cycle, against experiment 9's four, so
+            ### the saving stands -- it is 3 x 125 us per cycle rather than the
+            ### 4 x 125 us first estimated.
+            self.core.break_realtime()
+
+            ### One row per attempt that saw any click, exactly as experiment 9
+            ### writes it: per-channel time or the -1 left in place, and that
+            ### attempt's own t1 as the reference the analysis subtracts.
+            for attempt in range(self.n_excitation_attempts):
+                if (group_SPCM0[attempt] > 0 or group_SPCM1[attempt] > 0
+                        or group_SPCM0_OtherNode[attempt] > 0
+                        or group_SPCM1_OtherNode[attempt] > 0):
+                    if Any_SPCM_click_counter < short_timestamps_length:
+                        if group_SPCM0[attempt] > 0:
+                            SPCM0_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(group_SPCM0[attempt])
+
+                        if group_SPCM1[attempt] > 0:
+                            SPCM1_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(group_SPCM1[attempt])
+
+                        if group_SPCM0_OtherNode[attempt] > 0:
+                            SPCM0_OtherNode_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(group_SPCM0_OtherNode[attempt])
+
+                        if group_SPCM1_OtherNode[attempt] > 0:
+                            SPCM1_OtherNode_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(group_SPCM1_OtherNode[attempt])
+
+                        tStamps_t1[Any_SPCM_click_counter] = self.core.mu_to_seconds(
+                            t_group_mu + lead_mu + attempt * attempt_period_mu)
+                        Any_SPCM_click_counter += 1
+
+            ############################ atom cooling phase with PGC settings
+            if self.t_recooling > 0  and (excitation_cycle + 1) % self.recool_every_n_OP == 0:
+                self.core_dma.playback_handle(recooling_dma_handle)
+                delay(5*us)
+
+                ## set coils for pumping
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                    channels=self.coil_channels)
+                delay(0.4*ms)
+
+            ############################# readout to see if the atom survived every self.atom_check_every_n
+            if (excitation_cycle + 1) % self.atom_check_every_n == 0:
+                delay(5*us)
+
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_PGC, -self.AZ_bottom_volts_PGC, self.AX_volts_PGC, self.AY_volts_PGC],
+                    channels=self.coil_channels)
+                delay(0.4 * ms)
+
+                self.dds_cooling_DP.set(frequency=self.f_cooling_DP_RO, amplitude=self.ampl_cooling_DP_RO)
+
+                self.dds_cooling_DP.sw.on()
+                self.ttl_repump_switch.off()
+                delay(1 * us)
+
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.sw.on()
+                    self.dds_AOM_A6.sw.on()
+
+                delay(1 * us)
+
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM1_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(self.t_SPCM_recool_and_shot)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(self.t_SPCM_recool_and_shot)
+
+                SPCM0_RO_atom_check = self.ttl_SPCM0_counter.fetch_count()
+                SPCM1_RO_atom_check = self.ttl_SPCM1_counter.fetch_count()
+                SPCM0_OtherNode_RO_atom_check = self.ttl_SPCM0_OtherNode_counter.fetch_count()
+                SPCM1_OtherNode_RO_atom_check = self.ttl_SPCM1_OtherNode_counter.fetch_count()
+
+                AllSPCMs_RO_atom_check = int(SPCM0_RO_atom_check + SPCM1_RO_atom_check + SPCM0_OtherNode_RO_atom_check + SPCM1_OtherNode_RO_atom_check)
+                AllSPCMs_RO_atom_check_array[int(excitation_cycle / self.atom_check_every_n)] = AllSPCMs_RO_atom_check
+
+                ### stopping the excitation cycle after the atom is lost
+                if AllSPCMs_RO_atom_check / self.t_SPCM_recool_and_shot < self.single_atom_threshold:
+                    delay(100 * us)
+                    break
+
+                delay(10 * us)
+                self.dds_cooling_DP.sw.off()
+                self.ttl_repump_switch.on()
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
+                delay(1 * us)
+                if not self.PGC_and_RO_with_on_chip_beams:
+                    self.dds_AOM_A5.sw.off()
+                    self.dds_AOM_A6.sw.off()
+                delay(1 * us)
+
+                ### set coils for pumping
+                self.zotino0.set_dac(
+                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                    channels=self.coil_channels)
+                delay(0.4 * ms)
+
+            delay(5 * us)
+
+        delay(5*us)
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
+        self.core.break_realtime()
+
+        self.GRIN1and2_dds.sw.off()
+        self.dds_D1_pumping_DP.sw.off()
+        delay(0.1 * ms)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        delay(0.1 * ms)
+
+        end_measurement(self)
+
+        self.core.break_realtime()
+
+        ### only the elements in range [0:excitation_cycle + 1] contain non-zero values because the loop exits after
+        ### the atom is lost. +1 is because python stops the loop one count earlier.
+        for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle/self.atom_check_every_n)]:
+            self.append_to_dataset('AllSPCMs_RO_atom_check', val)
+
+        i = 0
+        while i < len(tStamps_t1) and tStamps_t1[i] > 0.0:
+            self.append_to_dataset('SPCM0_SinglePhoton_reduced_tStamps', SPCM0_timestamps[i])
+            self.append_to_dataset('SPCM1_SinglePhoton_reduced_tStamps', SPCM1_timestamps[i])
+            self.append_to_dataset('SPCM0_OtherNode_SinglePhoton_reduced_tStamps', SPCM0_OtherNode_timestamps[i])
+            self.append_to_dataset('SPCM1_OtherNode_SinglePhoton_reduced_tStamps', SPCM1_OtherNode_timestamps[i])
+            self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
+            i += 1
+
+        ### Number of compact timestamp rows saved during this measurement
+        self.append_to_dataset('n_photon_events', Any_SPCM_click_counter)
+
+        self.append_to_dataset('n_excitation_cycles', excitation_cycle)
+
+        self.core.break_realtime()
+
     self.core.break_realtime()
 
 @kernel
