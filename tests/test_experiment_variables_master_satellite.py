@@ -114,8 +114,8 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         )
         self.assertEqual(experiment.datasets["f_FORT_Node1"], 245e6)
         self.assertEqual(
-            experiment.datasets["t_coil_relaxation_time_OP_Node1"],
-            1e-3,
+            experiment.datasets["t_OP_coil_relax_time_Node1"],
+            0.4e-3,
         )
         self.assertTrue(
             all(
@@ -130,7 +130,7 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         )
         self.assertEqual(experiment.datasets["f_FORT_Node2"], 240e6)
         self.assertEqual(
-            experiment.datasets["t_coil_relaxation_time_OP_Node2"],
+            experiment.datasets["t_OP_coil_relax_time_Node2"],
             0.4e-3,
         )
         self.assertTrue(

@@ -261,7 +261,6 @@ NODE1_VARIABLES = (
     Variable('health_check_uw_freq11_Node1', 1.0, NumberValue, {'type': 'float', 'ndecimals': 5}, 'Microwaves Health Check'),
     Variable('health_check_uw_freqm10_Node1', 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, 'Microwaves Health Check'),
     Variable('health_check_uw_freqm11_Node1', 0.0, NumberValue, {'type': 'float', 'ndecimals': 5}, 'Microwaves Health Check'),
-    Variable('t_coil_relaxation_time_OP_Node1', 0.001, NumberValue, {"type": "float", "unit": "ms"}, "Timing"),
 )
 
 

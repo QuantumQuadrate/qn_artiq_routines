@@ -404,6 +404,20 @@ and separates two things the old name conflated:
   and free-space path lengths and AOM turn-on. Not measurable by TTL
   loopback; it needs a photon coincidence measurement.
 
+Superseded 2026-10-12: `t_coil_relaxation_time_OP_Node1/_Node2` were seeded by
+the two node initializers but never read by anything. Every optical-pumping
+sequence delays on `t_OP_coil_relax_time`
+(`subroutines/experiment_functions.py:2369`, `:2439`, `:2510`, `:2570`), and the
+two-node sequence takes the larger of `t_OP_coil_relax_time_Node1/_Node2`
+(`subroutines/experiment_functions_two_nodes.py:244-246`). Both dead variables
+are therefore removed from the node initializers; do not re-seed them from the
+block above. Values at removal, for the record: the dead
+`t_coil_relaxation_time_OP_Node1/_Node2` had each been tuned to 1.5 ms while the
+live `t_OP_coil_relax_time_Node1/_Node2` sit at 1 ms -- so if 1.5 ms was the
+intended OP coil relaxation, it is the live variable that needs raising. The
+stale datasets survive in `dataset_db.pyon` until deleted explicitly
+(`artiq_client del-dataset <name>`); nothing reads them.
+
 Keep historical D1 variables but do not invent `set_point_D1_DP`. Active
 feedback is AOM1-AOM6 plus FORT. Preserve independent loading/science/holding
 FORT setpoints for both nodes.
