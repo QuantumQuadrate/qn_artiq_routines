@@ -475,6 +475,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                     TWO_NODE_ALTERNATING_APPLET_SPECS,
                     TWO_NODE_ALTERNATING_EXPERIMENTS,
                     TWO_NODE_APPLET_SPECS,
+                    TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS,
+                    TWO_NODE_PER_NODE_RETENTION_EXPERIMENTS,
+                    TWO_NODE_PER_NODE_RETENTION_RETIRES,
                     create_two_node_applets_for,
                 )
 
@@ -485,8 +488,18 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 # the same reason GVS_APPLET_SPECS exists rather than growing
                 # APPLET_SPECS.
                 specs = TWO_NODE_APPLET_SPECS
+                retire_titles = ()
                 if self.experiment_name in TWO_NODE_ALTERNATING_EXPERIMENTS:
                     specs = specs + TWO_NODE_ALTERNATING_APPLET_SPECS
+                # The node-resolved SHOTS REPLACE the joint plots rather than
+                # adding to them: this experiment never calls first_shot or
+                # second_shot, so AllSPCMs_RO1/RO2 stay at zero all run. So
+                # swap in the six per-node plots and close the three joint
+                # ones -- creating the joint retention applet here only to
+                # disable it a line later would be worse than not asking.
+                if self.experiment_name in TWO_NODE_PER_NODE_RETENTION_EXPERIMENTS:
+                    specs = TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS
+                    retire_titles = TWO_NODE_PER_NODE_RETENTION_RETIRES
 
                 # NOT create_shared_applets_for: that deliberately runs no
                 # retirement pass, so a single-node run's "retention and
@@ -496,6 +509,7 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                     self, self.base,
                     specs=specs,
                     shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
+                    retire_titles=retire_titles,
                 )
         except Exception as error:  # noqa: BLE001 - convenience only
             logging.warning("could not create applets: %s", error)

@@ -249,6 +249,33 @@ class BaseExperimentMasterSatellite:
         },
     }
 
+    #: Per-detector readout scalars the reused experiment_functions read and
+    #: write. A class constant rather than a local because the per-iteration
+    #: display datasets below are derived from it, and those are needed in two
+    #: places that must not drift apart.
+    DETECTOR_RESULT_NAMES = (
+        "SPCM0_RO1", "SPCM0_RO2", "SPCM1_RO1", "SPCM1_RO2",
+        "SPCM0_OtherNode_RO1", "SPCM0_OtherNode_RO2",
+        "SPCM1_OtherNode_RO1", "SPCM1_OtherNode_RO2",
+    )
+
+    #: The non-detector per-iteration display datasets, appended to the
+    #: derived per-detector ones by current_iteration_dataset_names().
+    CURRENT_ITERATION_EXTRA_NAMES = (
+        "AllSPCMs_RO1_current_iteration",
+        "AllSPCMs_RO2_current_iteration",
+        "AllSPCMs_alternating_RO_Node1_current_iteration",
+        "AllSPCMs_alternating_RO_Node2_current_iteration",
+        "AllSPCMs_alternating_RO_alice_current_iteration",
+        "AllSPCMs_alternating_RO_bob_current_iteration",
+        # The four per-node readout histograms: two shots x two nodes.
+        "AllSPCMs_alternating_RO1_Node1_current_iteration",
+        "AllSPCMs_alternating_RO1_Node2_current_iteration",
+        "AllSPCMs_alternating_RO2_Node1_current_iteration",
+        "AllSPCMs_alternating_RO2_Node2_current_iteration",
+        "test_dataset",
+    )
+
     MAGNETOMETER_RESULT_DATASETS = (
         "Magnetometer_Zero_X",
         "Magnetometer_Zero_Y",
@@ -702,6 +729,20 @@ class BaseExperimentMasterSatellite:
                 return resolved_feedback_name
         return name
 
+    @classmethod
+    def current_iteration_dataset_names(cls):
+        """The per-iteration display datasets, in ONE place.
+
+        Shared by initialize_result_state, which seeds them, and
+        reset_result_state_for_scan_point, which clears them between scan
+        points. Two copies of this list would drift, and the failure is
+        silent: a histogram that keeps accumulating looks like a physics
+        result rather than a stale dataset.
+        """
+        return [
+            f"{name}_current_iteration" for name in cls.DETECTOR_RESULT_NAMES
+        ] + list(cls.CURRENT_ITERATION_EXTRA_NAMES)
+
     def reset_result_state_for_scan_point(self):
         """Clear transient per-scan-point results.
 
@@ -711,6 +752,18 @@ class BaseExperimentMasterSatellite:
         The progress reset runs in BOTH modes -- measurements_progress names
         run-global state and the applet reading it does not care which mode
         produced it.
+
+        THE PER-ITERATION DISPLAY DATASETS ARE CLEARED HERE, in both modes.
+        Without this they are seeded once by initialize_result_state and then
+        appended to for the whole run, so every "_current_iteration" histogram
+        shows the accumulated total and its "iteration N" title is a lie --
+        plot_hist_autosize.py uses --iteration only to label the plot, never
+        to slice the data. The standalone stack has always done this in
+        GeneralVariableScan.reset_datasets (":198"), and
+        MicrowaveScanOptimizer_master_satellite keeps its own copy (":424"),
+        but the master-satellite GVS mixin had no equivalent: it calls this
+        method once per scan point (_execute_scan_point, ":518") and nothing
+        else clears them.
 
         The magnetometer reset stays single_node-only. In two_nodes mode
         resolve_result_dataset_name is the identity function, so both nodes
@@ -726,6 +779,14 @@ class BaseExperimentMasterSatellite:
             broadcast=True,
             persist=False,
         )
+
+        for dataset_name in self.current_iteration_dataset_names():
+            self.experiment.set_dataset(
+                dataset_name,
+                [0],
+                broadcast=True,
+                persist=False,
+            )
 
         if self.experiment_mode != "single_node":
             return
@@ -1468,11 +1529,7 @@ class BaseExperimentMasterSatellite:
             persist=True,
         )
 
-        detector_names = (
-            "SPCM0_RO1", "SPCM0_RO2", "SPCM1_RO1", "SPCM1_RO2",
-            "SPCM0_OtherNode_RO1", "SPCM0_OtherNode_RO2",
-            "SPCM1_OtherNode_RO1", "SPCM1_OtherNode_RO2",
-        )
+        detector_names = self.DETECTOR_RESULT_NAMES
 
         # Host-side scalars the reused experiment_functions read and write.
         # The ARTIQ compiler types kernel attribute access from the host
@@ -1500,6 +1557,21 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO_Node2",
                 "AllSPCMs_alternating_RO_alice",
                 "AllSPCMs_alternating_RO_bob",
+                # Per-node FIRST and SECOND shots, written by
+                # alternating_first_shot / alternating_second_shot. Four
+                # numbers, so retention can be computed per node instead of
+                # from a joint sum that cannot tell one bright trap from two.
+                #
+                # NOT named AllSPCMs_RO1_NodeX: that strips to the existing
+                # joint AllSPCMs_RO1 in ms_archive_and_datasets_to_locals and
+                # collides with it. The "alternating" infix keeps the stripped
+                # form (AllSPCMs_alternating_RO1) a name nothing else writes.
+                # AllSPCMs_RO1_NodeX stays reserved for a node-resolving
+                # version of the ordinary shots.
+                "AllSPCMs_alternating_RO1_Node1",
+                "AllSPCMs_alternating_RO1_Node2",
+                "AllSPCMs_alternating_RO2_Node1",
+                "AllSPCMs_alternating_RO2_Node2",
                 "SPCM0_test_RO", "SPCM1_test_RO",
                 "SPCM0_OtherNode_test_RO", "SPCM1_OtherNode_test_RO",
                 "AllSPCMs_test_RO",
@@ -1535,6 +1607,12 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO_Node2",
                 "AllSPCMs_alternating_RO_alice",
                 "AllSPCMs_alternating_RO_bob",
+                # Per-node first and second shots; see the naming note beside
+                # these in integer_scalars above.
+                "AllSPCMs_alternating_RO1_Node1",
+                "AllSPCMs_alternating_RO1_Node2",
+                "AllSPCMs_alternating_RO2_Node1",
+                "AllSPCMs_alternating_RO2_Node2",
                 "AllSPCMs_RO_atom_check",
                 "AllSPCMs_atom_check_in_loading",
                 # Per-node counterparts, written by
@@ -1546,6 +1624,14 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO_atom_check_in_loading_Node2",
                 "n_feedback_per_iteration",
                 "n_atom_loaded_per_iteration",
+                # One entry per KEPT measurement of
+                # Two_nodes_atom_loading_2_experiment: how many
+                # load-plus-first-shot attempts that measurement needed.
+                # Loading probability is 1 / mean(this) -- the measurement the
+                # confirm loop would otherwise destroy, since it makes
+                # n_atom_loaded_per_iteration count loads across attempts
+                # rather than measurements.
+                "n_first_shot_confirm_tries",
             ]
         )
         for dataset_name in integer_series:
@@ -1556,19 +1642,7 @@ class BaseExperimentMasterSatellite:
         # node-suffixed because the applets plot them under these exact names.
         # end_measurement and the readout subroutines append to them, so they
         # must exist or append_to_dataset raises KeyError.
-        current_iteration_series = (
-            [f"{name}_current_iteration" for name in detector_names]
-            + [
-                "AllSPCMs_RO1_current_iteration",
-                "AllSPCMs_RO2_current_iteration",
-                "AllSPCMs_alternating_RO_Node1_current_iteration",
-                "AllSPCMs_alternating_RO_Node2_current_iteration",
-                "AllSPCMs_alternating_RO_alice_current_iteration",
-                "AllSPCMs_alternating_RO_bob_current_iteration",
-                "test_dataset",
-            ]
-        )
-        for dataset_name in current_iteration_series:
+        for dataset_name in self.current_iteration_dataset_names():
             experiment.set_dataset(dataset_name, [0], broadcast=True)
 
         # Remaining append targets the standalone BaseExperiment seeds. These

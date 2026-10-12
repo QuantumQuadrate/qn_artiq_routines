@@ -288,6 +288,14 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
 
         expected_names = {
             "measurements_progress",
+            # The per-iteration display datasets are cleared here too, in BOTH
+            # modes. Without that they are seeded once and appended to for the
+            # whole run, so every "_current_iteration" histogram shows the
+            # accumulated total while plot_hist_autosize.py labels it with the
+            # current iteration -- that flag only titles the plot, it never
+            # slices the data. Asserted from the same list Base seeds from, so
+            # the two cannot drift.
+            *base.current_iteration_dataset_names(),
             *(
                 f"{name}_Node2"
                 for name in base.MAGNETOMETER_RESULT_DATASETS
@@ -688,8 +696,16 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             ccb.disabled_groups, [],
             "no whole group may be retired -- that takes the histograms with it",
         )
+        # The FULL NESTED PATH, not the bare top-level group. create_applet
+        # places this applet at [top_level, "GVS and Cycler"], and
+        # ccb_disable_applet resolves its group with
+        # locate_applet(create_groups=False), which looks for the applet as a
+        # direct child of the last group named and silently does nothing when
+        # it is one level deeper. The bare form made the retirement a no-op for
+        # its whole existence; this assertion is what keeps it honest.
         self.assertIn(
-            ("retention and loading AllSPCMs", applets.TWO_NODE_APPLET_GROUP),
+            ("retention and loading AllSPCMs",
+             [applets.TWO_NODE_APPLET_GROUP, "GVS and Cycler"]),
             ccb.disabled_applets,
         )
 
@@ -704,13 +720,51 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(ccb.disabled_groups, [])
         for node in ("Node1", "Node2"):
             self.assertIn(
-                ("retention and loading AllSPCMs", node), ccb.disabled_applets
+                ("retention and loading AllSPCMs", [node, "GVS and Cycler"]),
+                ccb.disabled_applets,
             )
-        # and nothing else was closed
+        # The conflicting title, PLUS the single-experiment applets this run is
+        # not creating. The latter is derived from the spec tuples, so adding a
+        # new opt-in applet does not need this assertion edited -- which is the
+        # point: the six per-node retention plots have titles in NEITHER
+        # spec-set intersection, so conflicting_applet_titles could never see
+        # them and every other run left them up showing stale data.
         self.assertEqual(
             {title for title, _ in ccb.disabled_applets},
-            {"retention and loading AllSPCMs"},
+            {"retention and loading AllSPCMs"}
+            | applets.exclusive_applet_titles(applets.TWO_NODE_APPLET_SPECS),
         )
+        # What must NEVER be closed on a mode change still is not.
+        self.assertTrue(
+            keep_open.isdisjoint({t for t, _ in ccb.disabled_applets}),
+            "the histograms and loading-time plot must survive a mode change",
+        )
+        # Every retirement must name the path the CREATE side would use, or it
+        # resolves to nothing. Compared against the SPEC-derived group, not
+        # this run's created record: the retirements now deliberately include
+        # applets this run did not create, so the created record has no entry
+        # for them.
+        spec_group = dict(
+            applets.applet_paths_for_titles(
+                {title for title, _ in ccb.disabled_applets}
+            )
+        )
+        for title, group in ccb.disabled_applets:
+            self.assertIn(
+                title, spec_group,
+                f"{title!r} is retired but appears in no spec set, so nothing "
+                f"knows which functional group it lives in",
+            )
+            expected_tail = (
+                [] if spec_group[title] is None else [spec_group[title]]
+            )
+            self.assertEqual(
+                group[1:], expected_tail,
+                f"{title!r} is retired at {group!r} but its spec places it "
+                f"under {spec_group[title]!r}; disable_applet only matches a "
+                f"direct child of the last group named, so these must agree "
+                f"below the top level",
+            )
 
         groups = dict(ccb.created)
         self.assertEqual(
@@ -861,6 +915,20 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             # reason: the check darkens one node per window, so each count
             # belongs to a trap by construction.
             f"AllSPCMs_alternating_RO_atom_check_in_loading_{node}"
+            for node in ("Node1", "Node2")
+        } | {
+            # The alternating FIRST and SECOND shots, written by
+            # alternating_first_shot / alternating_second_shot. Per node for
+            # the same reason again, and the pair is what makes retention a
+            # per-node number rather than a joint ratio.
+            #
+            # The "alternating" infix is load-bearing, not decoration:
+            # AllSPCMs_RO1_NodeX would strip to the existing joint
+            # AllSPCMs_RO1 in ms_archive_and_datasets_to_locals and collide
+            # with it. AllSPCMs_RO1_NodeX stays reserved for a node-resolving
+            # version of the ordinary shots.
+            f"AllSPCMs_alternating_RO{shot}_{node}"
+            for shot in (1, 2)
             for node in ("Node1", "Node2")
         }
         self.assertEqual(

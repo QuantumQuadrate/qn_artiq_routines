@@ -192,6 +192,37 @@ MASTER_SATELLITE_VARIABLES = (
         {"type": "int", "ndecimals": 0, "step": 1, "scale": 1},
         "two-node joint timing",
     ),
+    # Selects between the two advance criteria inside
+    # Two_nodes_atom_loading_experiment, which is why there is no longer a
+    # separate _2_ experiment for it:
+    #
+    #   False -- advance as soon as the LOADING CHECK says both traps are
+    #            occupied. The historical behaviour, and still the only way to
+    #            MEASURE loading probability, since n_atom_loaded_per_iteration
+    #            then counts one load per measurement.
+    #   True  -- advance only once the FIRST SHOT really saw two atoms,
+    #            retrying load+first_shot up to max_loading_rounds_two_node
+    #            times. Gives a fixed number of confirmed two-atom events per
+    #            scan point, which matters when the loading rate itself depends
+    #            on the scanned parameter and would otherwise widen the error
+    #            bars unevenly. Costs the loading-probability measurement:
+    #            n_atom_loaded_per_iteration becomes a count of loads across
+    #            attempts and can exceed n_measurements, so the information
+    #            moves to n_first_shot_confirm_tries, where loading-plus-
+    #            survival probability is 1 / mean(that series).
+    #
+    # GLOBAL, not per-node, and that is load-bearing: the two-node sequence
+    # reads the BARE name, and a per-node declaration only ever produces
+    # advance_if_atom_in_first_shot_NodeX. It is also genuinely joint -- the
+    # criterion is one comparison against the joint two_atom_threshold, which
+    # is global for the same reason.
+    Variable(
+        "advance_if_atom_in_first_shot",
+        False,
+        BooleanValue,
+        {},
+        "two-node joint timing",
+    ),
     # Alternating-readout geometry. Replaces the literals at
     # subroutines/experiment_functions.py:14983 and ":14985", and the three
     # repeated 0.1 ms pads.

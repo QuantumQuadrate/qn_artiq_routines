@@ -423,7 +423,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 # two_node_alternating_shot is reachable from nothing else, and
                 # ARTIQ only type-checks what an entry point reaches, so
                 # without this it would never be compiled by anything.
-                "Two_nodes_alternating_shot_experiment",
+                # Both shots node-resolved, for per-node retention.
+                "Two_nodes_alternating_retention_experiment",
             },
         )
         # The two registries must stay disjoint: the single-node one is built
@@ -500,7 +501,15 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertIn("atom_loading_experiment", registry)
         self.assertIn("test_ttl_pulse_experiment", registry)
         self.assertIn("atom_photon_parity_11_AllSPCM_experiment", registry)
-        self.assertEqual(len(registry), 51)
+        # 52 since 2026-10-12: single_photon_experiment_10_atom_loading_advance
+        # _AllSPCM, the grouped-excitation variant of experiment 9. The helpers
+        # it added -- excitation_attempt_period_mu, record_excitation_group,
+        # _excitation_attempt_of -- deliberately contain no "experiment"
+        # substring, so none of them became dashboard-runnable.
+        self.assertIn(
+            "single_photon_experiment_10_atom_loading_advance_AllSPCM", registry
+        )
+        self.assertEqual(len(registry), 52)
         for name in HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS:
             self.assertNotIn(name, registry)
         self.assertNotIn("master_satellite_namespace_sanity_experiment", registry)
@@ -544,7 +553,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 # two_node_alternating_shot is reachable from nothing else, and
                 # ARTIQ only type-checks what an entry point reaches, so
                 # without this it would never be compiled by anything.
-                "Two_nodes_alternating_shot_experiment",
+                # Both shots node-resolved, for per-node retention.
+                "Two_nodes_alternating_retention_experiment",
             },
         )
         self.assertIs(

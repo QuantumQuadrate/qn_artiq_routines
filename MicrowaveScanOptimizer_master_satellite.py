@@ -338,12 +338,37 @@ class MicrowaveScanOptimizer_master_satellite(
         self.base.force_other_node_off()
 
     def _create_shared_applets(self):
-        """Keep the node-independent applets up, if enabled.
+        """Create this node's applets AND the node-independent ones, if enabled.
 
-        Microwaves Health Check and feedback RF, one of each per node. This
-        experiment deliberately does not take over the per-node applet set or
-        retire the idle node's group, which is what create_applets_for would
-        do -- it is these plots we want on screen, not the whole dashboard.
+        The name is now narrower than what this does -- it creates the per-node
+        set too -- and is kept only because FORT_Polarization_Optimizer and
+        SamplerMOTCoilAndBeamBalanceTune have same-named methods that still do
+        only the shared set.
+
+        Switched from create_shared_applets_for on 2026-10-12. That path
+        deliberately created ONLY the node-independent plots and ran no
+        retirement pass, so as not to take over the dashboard. Two things make
+        that the wrong trade for THIS experiment:
+
+          * Retention is the quantity it measures -- get_retention over
+            AllSPCMs_RO1/RO2 at ":531" and ":711" -- so "retention and loading
+            AllSPCMs" is the plot most worth having on screen. It lives in
+            APPLET_SPECS, which the shared path never requests, so it simply
+            never appeared.
+          * create_shared_applets_for runs NO retirement pass at all. A
+            retention applet left ticked by an earlier run in the other mode
+            therefore stayed open through this one, plotting the same live
+            AllSPCMs_RO1/RO2 against the wrong threshold -- reading high when a
+            single-node copy sees joint counts, and ~0 the other way round.
+
+        Safe because this experiment always runs single_node
+        (configure_execution at ":179"). create_applets_for raises
+        NotImplementedError in two-node mode, where APPLET_SPECS' per-node
+        result names do not resolve.
+
+        GVS_APPLET_SPECS is deliberately NOT requested: its atom-check
+        histogram is written by the GVS loaders, not by this experiment, so it
+        would come up empty.
 
         Never fatal: an applet is a convenience, and the CCB is a
         dashboard-side service that artiq_run and the offline compile check
@@ -354,23 +379,25 @@ class MicrowaveScanOptimizer_master_satellite(
             return
         try:
             from applets_master_satellite import (
+                APPLET_SPECS,
                 SCAN_APPLET_SPECS,
                 SHARED_APPLET_SPECS,
-                create_shared_applets_for,
+                create_applets_for,
             )
 
             # SCAN_APPLET_SPECS adds "Time without atom (s)". It rides the
             # shared path rather than the per-node one so this experiment and
             # GVS create one applet between them, not one each under different
             # groups -- applet identity is (name, group).
-            created = create_shared_applets_for(
+            created = create_applets_for(
                 self, self.base,
+                specs=APPLET_SPECS,
                 shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
             )
         except Exception as error:  # noqa: BLE001 - convenience only
-            logging.warning("could not create shared applets: %s", error)
+            logging.warning("could not create applets: %s", error)
         else:
-            logging.info("requested %d shared applets", len(created))
+            logging.info("requested %d applets", len(created))
 
     def initialize_datasets(self):
         self.base.initialize_result_state()

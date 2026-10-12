@@ -271,8 +271,12 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             set(registry),
             {
                 "master_satellite_namespace_sanity_experiment",
+                # Both advance criteria live here now, selected by the
+                # global advance_if_atom_in_first_shot. There is no separate
+                # _2_ entry point since 2026-10-12.
                 "Two_nodes_atom_loading_experiment",
-                "Two_nodes_alternating_shot_experiment",
+                # Both shots node-resolved, for per-node retention.
+                "Two_nodes_alternating_retention_experiment",
             },
         )
         module_functions = [
@@ -409,6 +413,25 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 return name in ("delay", "delay_mu", "at_mu", "break_realtime")
             return False
 
+        def is_parallel_block(stmt):
+            """True only for `with parallel:`.
+
+            Every OTHER `with` in a kernel is an ordinary context manager whose
+            body runs sequentially -- `with self.core_dma.record(...)` is the
+            one in this file, and `with sequential:` would be another. The
+            branch-collision model below is correct only for `parallel`:
+            applied to a DMA recording it counts every top-level statement in
+            the trace as sharing the block's entry timestamp, which reported
+            all 52 events of record_CW_optical_pumping_both_nodes as one
+            timestamp. Until that function existed every `with` here was
+            `with parallel`, so the distinction had never mattered.
+            """
+            for item in stmt.items:
+                expr = item.context_expr
+                if isinstance(expr, ast.Name) and expr.id == "parallel":
+                    return True
+            return False
+
         def first_statements(stmts):
             """Statements that can execute first -- an unguarded `if` may be
             skipped, so it falls through to whatever follows it."""
@@ -462,6 +485,11 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                         counts = taken | counts
                     continue
                 if isinstance(stmt, ast.With):
+                    if not is_parallel_block(stmt):
+                        # Ordinary context manager: the body is sequential, so
+                        # just carry the running count through it.
+                        counts = walk(stmt.body, set(counts), function_name)
+                        continue
                     # Every branch starts at the block's entry timestamp, so
                     # their first events collide with each other and with
                     # whatever already shares that timestamp.

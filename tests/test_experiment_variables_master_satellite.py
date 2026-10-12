@@ -210,6 +210,15 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 "t_MOT_dissipation_two_node": 0.05,
                 "max_atom_check_tries_two_node": 100,
                 "max_loading_rounds_two_node": 20,
+                # Joined on 2026-10-12, merging Two_nodes_atom_loading_2
+                # _experiment back into Two_nodes_atom_loading_experiment as a
+                # flag. GLOBAL because the two-node sequence reads the BARE
+                # name -- a per-node declaration would only ever produce
+                # advance_if_atom_in_first_shot_NodeX -- and because the
+                # criterion it selects is one comparison against the joint
+                # two_atom_threshold, which is global for the same reason.
+                # Default False preserves the historical advance behaviour.
+                "advance_if_atom_in_first_shot": False,
                 "n_alternating_RO_windows_per_node": 10,
                 # Seconds, not milliseconds: the unit kwarg is display only.
                 "t_alternating_RO_window": 0.001,
