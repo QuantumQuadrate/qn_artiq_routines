@@ -603,8 +603,32 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
 
     # Only fill in what the file itself did not record, so a dataset always
     # beats the submitted argument if both exist.
-    for key, value in _ms_expid_arguments(f).items():
+    arguments = _ms_expid_arguments(f)
+    for key, value in arguments.items():
         resolved.setdefault(key, value)
+
+    # The ONE submitted argument this stack does not spell the way the
+    # notebooks read it. GVS takes one override dictionary PER NODE and
+    # deliberately no shared one (see "deliberately no shared one" in
+    # GeneralVariableScan_master_satellite_mixin.py), so an expid carries
+    # override_ExperimentVariables_Node1 and _Node2 and no bare name -- while
+    # every ported notebook prints the bare one, and dozens of cells across a
+    # dozen notebooks do it. Injecting the arguments verbatim above therefore
+    # fixed experiment_function, scan_sequence1 and the rest but left this one
+    # raising NameError, which looks exactly like the bug that fix was for.
+    #
+    # The running node's dictionary IS the right value: a single-node run only
+    # ever applied its own node's overrides, and the other node's were not
+    # even evaluated. Two-node files never reach here -- ms_node_of raises on
+    # them first.
+    if node is not None:
+        per_node_override = arguments.get(
+            f"override_ExperimentVariables_{node}"
+        )
+        if per_node_override is not None:
+            resolved.setdefault(
+                "override_ExperimentVariables", per_node_override
+            )
 
     resolved["node"] = node
     parent_locals.update(resolved)
