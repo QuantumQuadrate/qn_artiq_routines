@@ -509,7 +509,21 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertIn(
             "single_photon_experiment_10_atom_loading_advance_AllSPCM", registry
         )
-        self.assertEqual(len(registry), 52)
+        # 53 since 2026-10-12: atom_photon_parity_12_AllSPCM_atom_loading
+        # _advance_experiment, parity 10 plus complete SPCM-edge draining and
+        # the confirm-by-first-shot advance.
+        self.assertIn(
+            "atom_photon_parity_12_AllSPCM_atom_loading_advance_experiment",
+            registry,
+        )
+        # 54 since 2026-10-13: parity 13, the same sequence as parity 12 with
+        # the per-measurement scaffolding and host RPCs moved out of the
+        # measurement loop.
+        self.assertIn(
+            "atom_photon_parity_13_AllSPCM_atom_loading_advance_experiment",
+            registry,
+        )
+        self.assertEqual(len(registry), 54)
         for name in HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS:
             self.assertNotIn(name, registry)
         self.assertNotIn("master_satellite_namespace_sanity_experiment", registry)
