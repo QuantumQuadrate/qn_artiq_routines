@@ -136,7 +136,7 @@ _ALLOWED_NON_DEVICE = {
     "measurement", "measurements_progress", "n_measurements",
     "two_atom_threshold", "two_atom_threshold_for_loading",
     "t_Node2_rtio_offset_mu", "t_Node2_excitation_delay_mu",
-    "max_atom_check_tries_two_node", "max_loading_rounds_two_node",
+    "max_atom_check_tries_two_node", "max_loading_rounds",
     "n_alternating_RO_windows_per_node",
     "t_alternating_RO_window", "t_alternating_RO_pad",
     "atom_loading_time", "atom_loading_time_list",

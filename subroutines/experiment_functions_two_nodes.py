@@ -761,7 +761,7 @@ def load_until_atom_in_both_nodes_recycle(self):
         t_before_atom = now_mu()
         t_after_atom = now_mu()
         max_tries = self.max_atom_check_tries_two_node
-        max_rounds = self.max_loading_rounds_two_node
+        max_rounds = self.max_loading_rounds
         atom_check_time = self.t_atom_check_time
         AllSPCMs_atom_check = 0
         AllSPCMs_atom_check_not_loaded = 0
@@ -1089,7 +1089,7 @@ def load_until_atom_in_both_nodes_alternating_shot_recycle(self):
         t_before_atom = now_mu()
         t_after_atom = now_mu()
         max_tries = self.max_atom_check_tries_two_node
-        max_rounds = self.max_loading_rounds_two_node
+        max_rounds = self.max_loading_rounds
 
         ### The same window geometry the readout uses, so the two stages stay
         ### comparable and there is one set of knobs to tune.
@@ -1872,7 +1872,7 @@ def Two_nodes_atom_loading_experiment(self):
 
       True
         Advance only once the first shot really saw two atoms, retrying
-        load+first_shot up to max_loading_rounds_two_node times and recording
+        load+first_shot up to max_loading_rounds times and recording
         the attempt count in n_first_shot_confirm_tries. Gives a FIXED number
         of confirmed two-atom events per scan point, which matters when the
         loading rate itself depends on the scanned parameter and would
@@ -1922,7 +1922,7 @@ def Two_nodes_atom_loading_experiment(self):
             atom_confirmed = False
             confirm_tries = 0
             while (not atom_confirmed
-                   and confirm_tries < self.max_loading_rounds_two_node):
+                   and confirm_tries < self.max_loading_rounds):
                 confirm_tries += 1
 
                 ### The loader's own already-loaded pre-check reads this. On a

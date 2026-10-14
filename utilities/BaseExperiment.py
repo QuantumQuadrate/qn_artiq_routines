@@ -890,6 +890,11 @@ class BaseExperiment:
         self.experiment.set_dataset("Magnetometer_Zero_Z", [0.0], broadcast=True)
         self.experiment.set_dataset("n_feedback_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
         self.experiment.set_dataset("n_atom_loaded_per_iteration", [0.0], broadcast=True) ### number of times the AOM feedback runs in each iteration
+        ### one entry per KEPT measurement of a confirm-by-first-shot run: how many
+        ### load + first_shot attempts it took, so loading probability is
+        ### 1 / mean(this). Must exist before the first append_to_dataset, which
+        ### raises KeyError otherwise. An int list, like the master-satellite seed.
+        self.experiment.set_dataset("n_first_shot_confirm_tries", [0], broadcast=True)
 
         self.experiment.set_dataset("atom_loading_wall_clock", [0.0], broadcast=True)
 

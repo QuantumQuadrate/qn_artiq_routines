@@ -185,8 +185,14 @@ MASTER_SATELLITE_VARIABLES = (
     # reaching this many rounds the loader gives up, records time_without_atom
     # and returns without an atom, so the caller skips a measurement instead
     # of hanging the dashboard.
+    #
+    # Also the retry bound of the confirm-by-first-shot advance
+    # (advance_if_atom_in_first_shot), in two-node AND single-node
+    # experiments. Renamed from max_loading_rounds_two_node on 2026-10-13
+    # when the single-node experiments started reading it; the old
+    # persistent dataset is orphaned, not read.
     Variable(
-        "max_loading_rounds_two_node",
+        "max_loading_rounds",
         20,
         NumberValue,
         {"type": "int", "ndecimals": 0, "step": 1, "scale": 1},
@@ -201,7 +207,7 @@ MASTER_SATELLITE_VARIABLES = (
     #            MEASURE loading probability, since n_atom_loaded_per_iteration
     #            then counts one load per measurement.
     #   True  -- advance only once the FIRST SHOT really saw two atoms,
-    #            retrying load+first_shot up to max_loading_rounds_two_node
+    #            retrying load+first_shot up to max_loading_rounds
     #            times. Gives a fixed number of confirmed two-atom events per
     #            scan point, which matters when the loading rate itself depends
     #            on the scanned parameter and would otherwise widen the error

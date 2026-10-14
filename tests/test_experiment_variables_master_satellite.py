@@ -209,7 +209,7 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 "t_delay_between_shots_two_node": 0.0,
                 "t_MOT_dissipation_two_node": 0.05,
                 "max_atom_check_tries_two_node": 100,
-                "max_loading_rounds_two_node": 20,
+                "max_loading_rounds": 20,
                 # Joined on 2026-10-12, merging Two_nodes_atom_loading_2
                 # _experiment back into Two_nodes_atom_loading_experiment as a
                 # flag. GLOBAL because the two-node sequence reads the BARE
