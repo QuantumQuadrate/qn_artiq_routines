@@ -11314,12 +11314,54 @@ def atom_photon_parity_4_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
-        self.ttl_microwave_switch.on()  ### close the switch
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+                self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+                self.ttl_microwave_switch.on()  ### close the switch
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+            self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+            self.ttl_microwave_switch.on()  ### close the switch
+
+            first_shot(self)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
@@ -11814,12 +11856,54 @@ def atom_photon_parity_5_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
-        self.ttl_microwave_switch.on()  ### close the switch
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+                self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+                self.ttl_microwave_switch.on()  ### close the switch
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+            self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+            self.ttl_microwave_switch.on()  ### close the switch
+
+            first_shot(self)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
@@ -12284,13 +12368,56 @@ def atom_photon_parity_6_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
-        self.ttl_microwave_switch.on()  ### close the switch
-        delay(20*us)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+                self.ttl_microwave_switch.on()  ### close the switch
+                delay(20*us)
+                self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+            self.ttl_microwave_switch.on()  ### close the switch
+            delay(20*us)
+            self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+            first_shot(self)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
@@ -13456,13 +13583,56 @@ def atom_photon_parity_7_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
-        self.ttl_microwave_switch.on()  ### close the switch
-        delay(20 * us)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+                self.ttl_microwave_switch.on()  ### close the switch
+                delay(20 * us)
+                self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+            self.ttl_microwave_switch.on()  ### close the switch
+            delay(20 * us)
+            self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+            first_shot(self)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
@@ -13942,15 +14112,60 @@ def atom_photon_parity_9_AllSPCM_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        # load_MOT_and_FORT_until_atom_recycle(self)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        delay(1 * ms)
-        self.ttl_microwave_switch.on()  ### close the switch
-        delay(20*us)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+                load_until_atom_smooth_FORT_recycle(self)
+                # load_MOT_and_FORT_until_atom_recycle(self)
 
-        first_shot(self)
+                delay(1 * ms)
+                self.ttl_microwave_switch.on()  ### close the switch
+                delay(20*us)
+                self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+
+            delay(1 * ms)
+            self.ttl_microwave_switch.on()  ### close the switch
+            delay(20*us)
+            self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+            first_shot(self)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
@@ -14393,15 +14608,60 @@ def atom_photon_parity_10_AllSPCM_experiment(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        # load_MOT_and_FORT_until_atom_recycle(self)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        delay(1 * ms)
-        self.ttl_microwave_switch.on()  ### close the switch
-        delay(20*us)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+                load_until_atom_smooth_FORT_recycle(self)
+                # load_MOT_and_FORT_until_atom_recycle(self)
 
-        first_shot(self)
+                delay(1 * ms)
+                self.ttl_microwave_switch.on()  ### close the switch
+                delay(20*us)
+                self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+
+            delay(1 * ms)
+            self.ttl_microwave_switch.on()  ### close the switch
+            delay(20*us)
+            self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+            first_shot(self)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
@@ -14692,14 +14952,58 @@ def atom_photon_parity_11_AllSPCM_experiment(self):
         delay(1 * ms)
 
         # load_until_atom_smooth_FORT_recycle(self)
-        load_MOT_and_FORT_until_atom_recycle(self)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        delay(1 * ms)
-        self.ttl_microwave_switch.on()  ### close the switch
-        delay(20*us)
-        self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+                load_MOT_and_FORT_until_atom_recycle(self)
 
-        first_shot(self)
+                delay(1 * ms)
+                self.ttl_microwave_switch.on()  ### close the switch
+                delay(20*us)
+                self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_MOT_and_FORT_until_atom_recycle(self)
+
+            delay(1 * ms)
+            self.ttl_microwave_switch.on()  ### close the switch
+            delay(20*us)
+            self.dds_microwaves.sw.on()  ### turns on the DDS not the switch
+
+            first_shot(self)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
