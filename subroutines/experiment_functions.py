@@ -5362,8 +5362,8 @@ def microwave_Rabi_2_and_EXC_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
 
-        load_until_atom_smooth_FORT_recycle(self)
-        # load_MOT_and_FORT_until_atom_recycle(self)
+        # load_until_atom_smooth_FORT_recycle(self)
+        load_MOT_and_FORT_until_atom_recycle(self)
 
         delay(1 * ms)
         first_shot(self)   # starts with FORT science setpoint;
