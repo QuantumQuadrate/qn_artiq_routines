@@ -14,15 +14,21 @@ The applet dock's CCB policy must be "Create and enable/disable applets"
 (``ccbp_global = 'enable'``), not merely "Create applets". Under the weaker
 ``'create'`` policy the dashboard creates each applet entry but leaves it
 UNCHECKED -- ``ccb_create_applet`` only ticks the box when the policy is
-``'enable'`` -- and ``disable_applet_group`` is ignored outright, so the
-other node's applets would never be retired. Set it once, from the applet
-dock's context menu.
+``'enable'`` -- and ``disable_applet`` is ignored outright, so stale applets
+would never be retired. Set it once, from the applet dock's context menu.
 
 The table below was reconstructed from the working dashboard backup
 (Backup - ARTIQ Dashboard/2026-09-10 Node2), keeping the applets that were
 actually ENABLED there and the functional groups they lived in. Applets are
-created under a nested group [<node>, <functional group>], so Node1's and
-Node2's sets stay separate while the familiar organisation is preserved.
+created under a nested group [<execution group>, <functional group>]:
+
+  * single-node runs -> SINGLE_NODE_APPLET_GROUP, whichever node is running
+  * two-node runs    -> TWO_NODE_APPLET_GROUP
+  * node-pinned ones -> SHARED_APPLET_GROUP, one applet per node, always up
+
+Single-node applets used to live under the running node's own group. Both
+nodes write the same result datasets, though, so that gave two copies of every
+histogram on screen; see SINGLE_NODE_APPLET_GROUP.
 
 Adding an applet
 ----------------
@@ -53,7 +59,7 @@ APPLET_DIRECTORY = Path(__file__).resolve().parent / "applets"
 #: script   - filename in applets/, or ("builtin", "<artiq.applets module>")
 #: args     - legacy dataset names, positional, in the applet's declared order
 #: options  - ((flag, dataset-or-literal), ...) for the applet's optional args
-#: group    - functional group, nested under the node group
+#: group    - functional group, nested under the execution group
 AppletSpec = namedtuple("AppletSpec", "title script args options group")
 
 
@@ -248,10 +254,29 @@ SPCM_MONITOR_APPLET_SPECS = (
 )
 
 
-#: Top-level group for applets that belong to NEITHER node. It is never one of
-#: base.VALID_NODES, so create_applets_for's disable_applet_group pass leaves
-#: it alone -- which is what keeps these up no matter which node is running.
+#: Top-level group for applets that belong to NEITHER node. It is not one of
+#: execution_applet_groups, so no retirement pass ever touches it -- which is
+#: what keeps these up no matter which node, or which mode, is running.
 SHARED_APPLET_GROUP = "Both nodes"
+
+#: Top-level group for every single-node applet, WHICHEVER node is running.
+#:
+#: Until 2026-10-13 each node had its own group (Node1 / Node2), and a run on
+#: one node after a run on the other left two copies of the progress bar, both
+#: readout histograms and the loading-time plot on screen -- each pair reading
+#: the SAME dataset, because none of them is in the per-node redirect set
+#: (BaseExperiment_master_satellite._single_node_redirect_names). One group
+#: removes the duplicates.
+#:
+#: What does differ per node is only the VARIABLES some applets take as
+#: options -- single_atom_threshold_NodeX for the retention plot,
+#: t_SPCM_*_NodeX and t_atom_check_time_NodeX for the histograms' exposure.
+#: Those need no special handling: every run re-issues every applet, and
+#: ccb_create_applet replaces an existing name+group whose command CHANGED and
+#: restarts it at its previous position. So switching node re-opens the
+#: retention plot against the right threshold, and a repeat run on the same
+#: node leaves it untouched.
+SINGLE_NODE_APPLET_GROUP = "Single node"
 
 #: Top-level group for applets that only make sense during a TWO-NODE run.
 TWO_NODE_APPLET_GROUP = "TwoNodes"
@@ -386,8 +411,13 @@ TWO_NODE_PER_NODE_RETENTION_RETIRES = (
 
 
 def execution_applet_groups(base):
-    """Every top-level group that belongs to ONE execution mode."""
-    return tuple(base.VALID_NODES) + (TWO_NODE_APPLET_GROUP,)
+    """Every top-level group that belongs to ONE execution mode.
+
+    ``base`` is unused now that single-node applets no longer live under a
+    per-node group; kept so callers need not change. The old per-node groups
+    are handled separately, by _retire_legacy_node_applets.
+    """
+    return (SINGLE_NODE_APPLET_GROUP, TWO_NODE_APPLET_GROUP)
 
 
 def conflicting_applet_titles():
@@ -452,6 +482,18 @@ EXCLUSIVE_APPLET_SPEC_SETS = (
     TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS,
 )
 
+#: The spec sets create_applets_for used to place under a PER-NODE group
+#: (Node1 / Node2) before SINGLE_NODE_APPLET_GROUP existed. Their old copies
+#: are still in the dashboard state, and nothing creates them any more, so
+#: _retire_legacy_node_applets closes them on every run. OPTIONAL_APPLET_SPECS
+#: has no caller today but is documented for that path, so it is covered too.
+LEGACY_PER_NODE_SPEC_SETS = (
+    APPLET_SPECS,
+    GVS_APPLET_SPECS,
+    OPTIONAL_APPLET_SPECS,
+    SPCM_MONITOR_APPLET_SPECS,
+)
+
 
 def exclusive_applet_titles(specs_in_use):
     """Titles of single-experiment applets this run is NOT creating.
@@ -482,7 +524,7 @@ def _retire_conflicting_applets(ccb, live_group, base):
 
     Per-applet rather than per-group because disable_applet_group would also
     retire the histograms, the loading-time plot and everything else in the
-    idle node's group, which stay useful in either mode.
+    idle execution group, which stay useful in either mode.
 
     THE GROUP MUST BE THE FULL NESTED PATH, and getting this wrong is silent.
     create_applet places an applet at [top_level, functional_group], so
@@ -503,6 +545,29 @@ def _retire_conflicting_applets(ccb, live_group, base):
                 group, functional_group
             ]
             ccb.issue("disable_applet", title, path)
+
+
+def _retire_legacy_node_applets(ccb, base):
+    """Close the old per-node copies of the single-node applets.
+
+    Before SINGLE_NODE_APPLET_GROUP, every single-node applet lived under the
+    running node's group. Those entries outlive the change in the dashboard
+    state and would otherwise sit beside the live ones showing the same data.
+
+    Per applet, by title -- not disable_applet_group -- so anything set up by
+    hand under Node1 or Node2 is left alone. And with the FULL nested path, for
+    the reason in _retire_conflicting_applets: ccb_disable_applet only matches
+    a direct child of the last group named. Harmless once they are closed, and
+    for entries that never existed: locate_applet then finds nothing.
+    """
+    paths = set()
+    for node in base.VALID_NODES:
+        for spec_set in LEGACY_PER_NODE_SPEC_SETS:
+            for spec in spec_set:
+                path = (node,) if spec.group is None else (node, spec.group)
+                paths.add((spec.title, path))
+    for title, path in sorted(paths):
+        ccb.issue("disable_applet", title, list(path))
 
 
 def _retire_named_applets(ccb, base, titles):
@@ -701,9 +766,14 @@ def build_applet_command(spec, base):
 
 
 def applet_group_for(base):
-    """Top-level dashboard group for the currently configured execution."""
+    """Top-level dashboard group for the currently configured execution.
+
+    The same group for both nodes in single-node mode -- see
+    SINGLE_NODE_APPLET_GROUP for why that is correct and how the per-node
+    options still follow the running node.
+    """
     if base.experiment_mode == "single_node":
-        return base.which_node
+        return SINGLE_NODE_APPLET_GROUP
     return TWO_NODE_APPLET_GROUP
 
 
@@ -726,9 +796,9 @@ def create_shared_applets_for(experiment, base,
     base.VALID_NODES, so no disable_applet_group pass can retire them.
 
     Use this instead of create_applets_for from an experiment that should
-    keep the shared applets up WITHOUT taking over the per-node applet set
-    and without retiring the idle node's group. Passing specs=() to
-    create_applets_for would not do: it still runs the disable pass.
+    keep the shared applets up WITHOUT taking over the single-node applet set
+    and without running any retirement. Passing specs=() to
+    create_applets_for would not do: it still runs the retirement passes.
 
     Works in either execution mode. The shared specs name their datasets
     node-suffixed, and suffixed names resolve unchanged in two_nodes too.
@@ -759,12 +829,12 @@ def create_two_node_applets_for(experiment, base,
     different -- APPLET_SPECS names per-node result datasets that two-node
     mode does not suffix -- but the RETIREMENT rule is identical and shared.
 
-    Retiring Node1 and Node2 is the point. "retention and loading AllSPCMs"
-    exists in both spec sets under the same title, reading the same
-    unsuffixed AllSPCMs_RO1/RO2, and differing only in the threshold. Without
-    this pass a single-node run's copy stays open through a two-node run and
-    plots a confidently wrong retention, judging two-atom counts against
-    single_atom_threshold, right beside the correct one.
+    Retiring the single-node retention plot is the point. "retention and
+    loading AllSPCMs" exists in both spec sets under the same title, reading
+    the same unsuffixed AllSPCMs_RO1/RO2, and differing only in the threshold.
+    Without this pass a single-node run's copy stays open through a two-node
+    run and plots a confidently wrong retention, judging two-atom counts
+    against single_atom_threshold, right beside the correct one.
     """
     if base.experiment_mode == "single_node":
         raise NotImplementedError(
@@ -793,17 +863,20 @@ def create_two_node_applets_for(experiment, base,
     _retire_named_applets(
         ccb, base, set(retire_titles) | exclusive_applet_titles(specs)
     )
+    _retire_legacy_node_applets(ccb, base)
     return issued
 
 
 def create_applets_for(experiment, base, specs=APPLET_SPECS,
                        shared_specs=SHARED_APPLET_SPECS):
-    """Create this node's applets and retire the other node's group.
+    """Create the single-node applets for whichever node is running.
 
-    ``specs`` are per-node: they are created under the running node's group
-    and the other node's group is disabled. ``shared_specs`` are created
-    under SHARED_APPLET_GROUP instead, which is never disabled, so they stay
-    up whichever node runs. Pass ``shared_specs=()`` to skip them.
+    ``specs`` go under SINGLE_NODE_APPLET_GROUP, the same group for both
+    nodes; their per-node options are resolved for the running node, so a node
+    switch re-issues the commands and the dashboard restarts only the applets
+    whose command changed. ``shared_specs`` go under SHARED_APPLET_GROUP, which
+    is never retired, so they stay up whichever node runs. Pass
+    ``shared_specs=()`` to skip them.
 
     Returns the (title, command) pairs issued. Safe to call on every run:
     create_applet replaces the spec of an existing applet with the same name
@@ -823,11 +896,11 @@ def create_applets_for(experiment, base, specs=APPLET_SPECS,
 
     ccb = _dashboard_ccb(experiment)
 
-    node_group = applet_group_for(base)
+    group_name = applet_group_for(base)
     issued = []
     for spec in specs:
         command = build_applet_command(spec, base)
-        group = [node_group] if spec.group is None else [node_group, spec.group]
+        group = [group_name] if spec.group is None else [group_name, spec.group]
         ccb.issue("create_applet", spec.title, command, group=group)
         issued.append((spec.title, command))
 
@@ -835,14 +908,18 @@ def create_applets_for(experiment, base, specs=APPLET_SPECS,
     # disable pass below cannot retire them along with the idle node.
     issued.extend(create_shared_applets_for(experiment, base, shared_specs))
 
-    # Close ONLY the other mode's conflicting applets -- the retention plot
-    # that shares this one's title and reads the same unsuffixed
-    # AllSPCMs_RO1/RO2 under a different threshold. Everything else in the
-    # idle group stays up; histograms and loading time are useful either way.
-    _retire_conflicting_applets(ccb, node_group, base)
+    # Close ONLY the other mode's conflicting applets -- the two-node
+    # retention plot that shares this one's title and reads the same
+    # unsuffixed AllSPCMs_RO1/RO2 under a different threshold. Everything else
+    # in the idle group stays up; histograms and loading time are useful
+    # either way.
+    _retire_conflicting_applets(ccb, group_name, base)
     # ... and the single-experiment applets this run writes nothing behind. A
     # single-node run writes no AllSPCMs_alternating_RO1/RO2_NodeX, so the six
     # per-node retention plots would otherwise stay up showing the last
     # two-node run's data.
     _retire_named_applets(ccb, base, exclusive_applet_titles(specs))
+    # ... and the old per-node copies of this applet set, from before both
+    # nodes shared SINGLE_NODE_APPLET_GROUP.
+    _retire_legacy_node_applets(ccb, base)
     return issued

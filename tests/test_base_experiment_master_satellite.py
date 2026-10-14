@@ -638,8 +638,8 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertNotIn("two_atom_threshold", node1_arguments)
 
     def test_each_mode_retires_only_the_conflicting_applet(self):
-        """Starting one mode closes the other mode's retention applet -- and
-        nothing else.
+        """Starting one mode closes the other mode's retention applet -- and,
+        among the live execution groups, nothing else.
 
         "retention and loading AllSPCMs" exists in both spec sets under the
         SAME title, reading the same unsuffixed AllSPCMs_RO1/RO2, differing
@@ -652,6 +652,12 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         are just as meaningful during a two-node run, so retiring the whole
         idle group to fix one applet would throw away plots the owner wants
         to keep watching.
+
+        The other kind of retirement is the LEGACY one, checked separately.
+        Single-node applets used to live under the running node's own group
+        (Node1 / Node2); since 2026-10-13 both nodes share
+        SINGLE_NODE_APPLET_GROUP, so every run closes the old per-node copies.
+        Those are obsolete duplicates, not the live histograms protected above.
         """
         import applets_master_satellite as applets
 
@@ -684,6 +690,32 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             "these must never be retired on a mode change",
         )
 
+        single = applets.SINGLE_NODE_APPLET_GROUP
+        two = applets.TWO_NODE_APPLET_GROUP
+        self.assertEqual(
+            set(applets.execution_applet_groups(None)), {single, two}
+        )
+        # Every spec set create_applets_for EVER placed under a per-node group,
+        # listed here independently of LEGACY_PER_NODE_SPEC_SETS, so dropping a
+        # set from that tuple fails this test instead of leaving its old
+        # copies open. Full nested paths, for the reason given below.
+        legacy_paths = {
+            (spec.title, (node,) if spec.group is None else (node, spec.group))
+            for node in ("Node1", "Node2")
+            for spec in (applets.APPLET_SPECS + applets.GVS_APPLET_SPECS
+                         + applets.SPCM_MONITOR_APPLET_SPECS
+                         + applets.OPTIONAL_APPLET_SPECS)
+        }
+
+        def split(disabled):
+            live = [(t, g) for t, g in disabled if g[0] in (single, two)]
+            legacy = {(t, tuple(g)) for t, g in disabled
+                      if g[0] in ("Node1", "Node2")}
+            stray = [(t, g) for t, g in disabled
+                     if g[0] not in (single, two, "Node1", "Node2")]
+            return live, legacy, stray
+
+        # ---- single-node run ------------------------------------------------
         experiment, base = self.build_and_prepare("single_node", "Node1")
         ccb = RecordingCCB()
         experiment.ccb = ccb
@@ -694,8 +726,17 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         )
         self.assertEqual(
             ccb.disabled_groups, [],
-            "no whole group may be retired -- that takes the histograms with it",
+            "no whole group may be retired -- that takes the histograms with "
+            "it, and would also close anything set up by hand under Node1/Node2",
         )
+        created = dict(ccb.created)
+        self.assertEqual(
+            created["retention and loading AllSPCMs"], [single, "GVS and Cycler"]
+        )
+        self.assertEqual(created["measurements progress"], [single])
+
+        live, legacy, stray = split(ccb.disabled_applets)
+        self.assertEqual(stray, [], "nothing outside the known groups is closed")
         # The FULL NESTED PATH, not the bare top-level group. create_applet
         # places this applet at [top_level, "GVS and Cycler"], and
         # ccb_disable_applet resolves its group with
@@ -704,11 +745,20 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         # it is one level deeper. The bare form made the retirement a no-op for
         # its whole existence; this assertion is what keeps it honest.
         self.assertIn(
-            ("retention and loading AllSPCMs",
-             [applets.TWO_NODE_APPLET_GROUP, "GVS and Cycler"]),
-            ccb.disabled_applets,
+            ("retention and loading AllSPCMs", [two, "GVS and Cycler"]), live
         )
+        # Two-node-only applets ARE closed under the single-node group too --
+        # _retire_named_applets deliberately covers every execution group, live
+        # one included -- but they never exist there, so that is a no-op. What
+        # must never happen is closing an applet this run just created.
+        self.assertFalse(
+            [entry for entry in live
+             if entry[1][0] == single and entry[0] in created],
+            "a single-node run must never close an applet it creates",
+        )
+        self.assertEqual(legacy, legacy_paths)
 
+        # ---- two-node run ---------------------------------------------------
         experiment, base = self.build_and_prepare("two_nodes")
         ccb = RecordingCCB()
         experiment.ccb = ccb
@@ -718,11 +768,11 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             shared_specs=applets.SHARED_APPLET_SPECS,
         )
         self.assertEqual(ccb.disabled_groups, [])
-        for node in ("Node1", "Node2"):
-            self.assertIn(
-                ("retention and loading AllSPCMs", [node, "GVS and Cycler"]),
-                ccb.disabled_applets,
-            )
+        live, legacy, stray = split(ccb.disabled_applets)
+        self.assertEqual(stray, [])
+        self.assertIn(
+            ("retention and loading AllSPCMs", [single, "GVS and Cycler"]), live
+        )
         # The conflicting title, PLUS the single-experiment applets this run is
         # not creating. The latter is derived from the spec tuples, so adding a
         # new opt-in applet does not need this assertion edited -- which is the
@@ -730,26 +780,26 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         # spec-set intersection, so conflicting_applet_titles could never see
         # them and every other run left them up showing stale data.
         self.assertEqual(
-            {title for title, _ in ccb.disabled_applets},
+            {title for title, _ in live},
             {"retention and loading AllSPCMs"}
             | applets.exclusive_applet_titles(applets.TWO_NODE_APPLET_SPECS),
         )
-        # What must NEVER be closed on a mode change still is not.
+        # What must NEVER be closed on a mode change still is not -- in the
+        # live groups. The legacy per-node copies are a different matter.
         self.assertTrue(
-            keep_open.isdisjoint({t for t, _ in ccb.disabled_applets}),
+            keep_open.isdisjoint({t for t, _ in live}),
             "the histograms and loading-time plot must survive a mode change",
         )
+        self.assertEqual(legacy, legacy_paths)
         # Every retirement must name the path the CREATE side would use, or it
         # resolves to nothing. Compared against the SPEC-derived group, not
-        # this run's created record: the retirements now deliberately include
+        # this run's created record: the retirements deliberately include
         # applets this run did not create, so the created record has no entry
         # for them.
         spec_group = dict(
-            applets.applet_paths_for_titles(
-                {title for title, _ in ccb.disabled_applets}
-            )
+            applets.applet_paths_for_titles({title for title, _ in live})
         )
-        for title, group in ccb.disabled_applets:
+        for title, group in live:
             self.assertIn(
                 title, spec_group,
                 f"{title!r} is retired but appears in no spec set, so nothing "
@@ -768,9 +818,69 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
 
         groups = dict(ccb.created)
         self.assertEqual(
-            groups["retention and loading AllSPCMs"],
-            [applets.TWO_NODE_APPLET_GROUP, "GVS and Cycler"],
+            groups["retention and loading AllSPCMs"], [two, "GVS and Cycler"]
         )
+
+    def test_single_node_applets_are_shared_between_nodes(self):
+        """Node1 and Node2 runs create the SAME applets, in the same group.
+
+        Every dataset these applets plot is the same unsuffixed name on both
+        nodes -- none is in the per-node redirect set -- so one copy is right
+        and two copies were clutter. Only commands that name a per-node
+        VARIABLE differ, and that difference is the mechanism:
+        ccb_create_applet restarts an existing applet exactly when its command
+        changed, so switching node re-opens the retention plot against the
+        running node's single_atom_threshold.
+        """
+        import applets_master_satellite as applets
+
+        class RecordingCCB:
+            def __init__(self):
+                self.created = []
+
+            def issue(self, action, *args, **kwargs):
+                if action == "create_applet":
+                    self.created.append(
+                        (args[0], tuple(kwargs.get("group")), args[1])
+                    )
+
+        runs = {}
+        for node in ("Node1", "Node2"):
+            experiment, base = self.build_and_prepare("single_node", node)
+            ccb = RecordingCCB()
+            experiment.ccb = ccb
+            applets.create_applets_for(
+                experiment, base,
+                specs=applets.APPLET_SPECS + applets.GVS_APPLET_SPECS,
+                shared_specs=(),
+            )
+            runs[node] = {
+                (title, group): command for title, group, command in ccb.created
+            }
+
+        self.assertEqual(
+            set(runs["Node1"]), set(runs["Node2"]),
+            "both nodes must create the same (title, group) set, or a node "
+            "switch leaves a second copy behind",
+        )
+        for title, group in runs["Node1"]:
+            self.assertEqual(
+                group[0], applets.SINGLE_NODE_APPLET_GROUP, title
+            )
+
+        def command(node, title):
+            return next(c for (t, _), c in runs[node].items() if t == title)
+
+        # Same data, no per-node variable: byte-identical, so no restart.
+        for title in ("measurements progress", "Atom loading time (s)"):
+            self.assertEqual(
+                command("Node1", title), command("Node2", title), title
+            )
+        # The retention plot follows the running node's threshold.
+        retention = "retention and loading AllSPCMs"
+        self.assertIn("single_atom_threshold_Node1", command("Node1", retention))
+        self.assertIn("single_atom_threshold_Node2", command("Node2", retention))
+        self.assertNotIn("single_atom_threshold_Node2", command("Node1", retention))
 
     def test_agreeing_scalars_are_rederived_after_overrides(self):
         """The bare shared scalars must follow the per-node values.
