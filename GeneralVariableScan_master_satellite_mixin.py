@@ -355,8 +355,45 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self.base.refresh_variable_dependent_state()
 
     def _apply_run_wide_overrides(self):
+        # A scanned variable takes its value from the scan at every point, so
+        # an override of it never actually runs; recording one would put a
+        # value in the h5 that was never used.
+        scanned = {getattr(self, "scan_variable1", None),
+                   getattr(self, "scan_variable2", None)}
         for target, value in self.authoritative_overrides.items():
             setattr(self, target, value)
+            if target in scanned:
+                continue
+            # Record the value this run actually used, as the standalone
+            # GeneralVariableScan has always done (initialize_datasets:
+            # self.set_dataset(var, val)). The h5 then holds the persistent
+            # value under `archive` and this one under `datasets`, and
+            # Analysis loads datasets after archive, so a notebook sees what
+            # ran. Without it, RID 38903 -- a Z-parity run, t_MW_RF_pulse
+            # overridden to 0 -- was analysed as X parity from the archived
+            # 69.6 us.
+            #
+            # LOCAL to this run, and spelled out: broadcast or persist would
+            # write the master's dataset DB, making the override the new
+            # default and clearing the persist flag -- the trap that once
+            # de-persisted n_measurements.
+            #
+            # `target` is the name the run read and archived: suffixed for a
+            # per-node variable (t_MW_RF_pulse_Node2), bare for a global. The
+            # bare per-node name is the STANDALONE stack's dataset, which
+            # this run never read, so it is not written.
+            #
+            # ORDER MATTERS. A local write to a key this run has already
+            # BROADCAST makes ARTIQ delete that key from the master DB
+            # (artiq/master/worker_db.py, DatasetManager.set: the
+            # `elif key in self._broadcaster.raw_view` branch). This pass runs
+            # before initialize_result_state, which broadcasts and persists
+            # n_measurements, and before any other broadcast of a variable
+            # name -- verified by replaying RID 38903 through the real
+            # DatasetManager, 2026-10-14 -- so nothing can be deleted. Keep it
+            # first in _initialize_run_state;
+            # test_override_records_precede_every_broadcast pins that.
+            self.set_dataset(target, value, broadcast=False, persist=False)
         self._refresh_runtime_variable_state()
 
     def _apply_scan_point(self, variable1_value, variable2_value=None):

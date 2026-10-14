@@ -640,6 +640,126 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(scan.f_FORT, 247.0)
         self.assertEqual(scan.base.dds_frequency_cache, 247.0)
 
+    def test_overrides_are_recorded_locally_like_standalone(self):
+        """Every applied override is written as a LOCAL dataset for the h5.
+
+        Standalone GeneralVariableScan has always done this
+        (initialize_datasets: self.set_dataset(var, val)), which is how its
+        analysis sees what a run actually used: the h5 keeps the persistent
+        value under `archive` and the override under `datasets`, and the
+        loader reads datasets last. Master-satellite GVS only used setattr, so
+        RID 38903 -- t_MW_RF_pulse overridden to 0, Z parity -- was analysed
+        as X parity from the archived 69.6 us.
+
+        Pinned: the name written is the one the run read (suffixed per-node,
+        bare global), never the bare per-node name; the write is local only,
+        never broadcast or persisted, so the master's dataset DB is untouched;
+        and an override of the scanned variable is not recorded, since the
+        scan sets that value per point.
+        """
+        scan = GeneralVariableScan_master_satellite_single_node()
+        scan.f_FORT_Node2 = 240.0
+        scan.f_FORT = 240.0
+        scan.base = FakeBase("single_node", "Node2")
+        scan.base.experiment = scan
+        scan.authoritative_overrides = {
+            "f_FORT_Node2": 245.0,
+            "t_MW_RF_pulse_Node2": 0.0,
+            "advance_if_atom_in_first_shot": True,
+            "target_780_HWP_Node2": 10.0,
+        }
+        scan.scan_variable1 = "target_780_HWP_Node2"
+        scan.scan_variable2 = None
+        scan.dataset_writes = []
+        scan.set_dataset = lambda name, value, **kwargs: scan.dataset_writes.append(
+            (name, value, kwargs)
+        )
+
+        scan._apply_run_wide_overrides()
+
+        written = {name: (value, kwargs)
+                   for name, value, kwargs in scan.dataset_writes}
+        self.assertEqual(
+            set(written),
+            {"f_FORT_Node2", "t_MW_RF_pulse_Node2",
+             "advance_if_atom_in_first_shot"},
+            "the scanned variable must not be recorded, and nothing bare "
+            "may be written for a per-node variable",
+        )
+        self.assertEqual(written["f_FORT_Node2"][0], 245.0)
+        self.assertEqual(written["t_MW_RF_pulse_Node2"][0], 0.0)
+        self.assertIs(written["advance_if_atom_in_first_shot"][0], True)
+        for name, (_, kwargs) in written.items():
+            self.assertIs(kwargs.get("broadcast"), False, name)
+            self.assertIs(kwargs.get("persist"), False, name)
+        # The attribute the sequence reads still follows the override.
+        self.assertEqual(scan.f_FORT_Node2, 245.0)
+        self.assertEqual(scan.f_FORT, 245.0)
+
+    def test_override_records_precede_every_broadcast(self):
+        """The local override records are written before ANY broadcast.
+
+        ARTIQ's DatasetManager.set deletes a key from the master DB when a
+        local write follows a broadcast of the same key within one run
+        (artiq/master/worker_db.py, the `elif key in
+        self._broadcaster.raw_view` branch). initialize_result_state
+        broadcasts and persists n_measurements, a valid override target, so
+        if the override pass ever moved after it, overriding n_measurements
+        would delete that dataset and every master-satellite experiment would
+        then fail in prepare() with "Missing required master-satellite
+        persistent datasets". The pass must stay first.
+        """
+        scan = GeneralVariableScan_master_satellite_single_node()
+        scan.f_FORT_Node2 = 240.0
+        scan.f_FORT = 240.0
+        scan.n_measurements = 12
+        scan.execution_n_measurements = 12
+        scan.base = FakeBase("single_node", "Node2")
+        scan.base.experiment = scan
+        scan.needs_experiment_variable_reload = True
+        scan.authoritative_overrides = {
+            "n_measurements": 7,
+            "t_MW_RF_pulse_Node2": 0.0,
+        }
+        scan.scan_variable1 = "f_FORT_Node2"
+        scan.scan_variable2 = None
+        scan.scan_sequence1 = [246.0]
+        scan.scan_sequence2 = [0.0]
+        scan.scan_variable1_name = "f_FORT"
+        scan.scan_variable2_name = ""
+        scan.scan_var_dataset = "scan_variables"
+        scan.scan_sequence1_dataset = "scan_sequence1"
+        scan.scan_sequence2_dataset = "scan_sequence2"
+        scan.create_applets = False
+
+        events = []
+        scan.set_dataset = lambda name, value, **kwargs: events.append(
+            ("broadcast" if kwargs.get("broadcast") or kwargs.get("persist")
+             else "local", name)
+        )
+        for method in ("initialize_result_datasets", "initialize_result_state"):
+            original = getattr(scan.base, method)
+
+            def marked(original=original, method=method):
+                events.append(("broadcasts", method))
+                return original()
+
+            setattr(scan.base, method, marked)
+
+        scan._initialize_run_state()
+
+        local = [i for i, (kind, _) in enumerate(events) if kind == "local"]
+        others = [i for i, (kind, _) in enumerate(events) if kind != "local"]
+        self.assertEqual(
+            {events[i][1] for i in local},
+            {"n_measurements", "t_MW_RF_pulse_Node2"},
+        )
+        self.assertTrue(others, "the harness must see the later broadcasts")
+        self.assertLess(
+            max(local), min(others),
+            f"an override record came after a broadcast: {events}",
+        )
+
     def _make_override_scan(self, node):
         """A single-node scan wired up just enough to collect overrides."""
         scan = GeneralVariableScan_master_satellite_single_node()

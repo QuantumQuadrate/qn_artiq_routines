@@ -543,12 +543,131 @@ def ms_show_node(source, size_px=26):
     return node
 
 
+def _artiq_unit_namespace():
+    """ARTIQ's unit names, as artiq/language/units.py defines them.
+
+    Rebuilt rather than imported: the base Python the notebooks may run in has
+    no ARTIQ, and override text such as {'t_FORT_drop': 0*us} needs these.
+    """
+    namespace = {}
+    for unit, prefixes in (("s", "pnum_"), ("Hz", "m_kMG"), ("dB", "_"),
+                           ("V", "um_k"), ("A", "um_"), ("W", "num_")):
+        for exponent, prefix in zip(range(-12, 12, 3), "pnum_kMG"):
+            if prefix in prefixes:
+                name = unit if prefix == "_" else prefix + unit
+                namespace[name] = 10.0 ** exponent
+    return namespace
+
+
+class _ArchivedAttributes:
+    """Stands in for `self` when override text is re-evaluated.
+
+    Override text may read the experiment, e.g.
+    {'gate_start_offset_mu_Node2': self.gate_start_offset_mu_Node2 + 280}.
+    The run evaluated it in prepare(), with {"self": experiment}
+    (merge_per_node_override_dictionaries), when every self.<name> still held
+    its persistent value -- which is exactly what the h5 archived. So each
+    lookup reads the ARCHIVE, never `datasets`: by the end of a run, datasets
+    can hold the overridden value, and the text must see the one before it.
+    The bare legacy spelling (self.f_microwaves_00_dds) resolves to the
+    running node's archived name, as the experiment's legacy presentation did.
+    """
+
+    def __init__(self, f, node):
+        self._f = f
+        self._tail = "_" + node
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        try:
+            archive = self._f["archive"]
+        except Exception:
+            raise AttributeError(name) from None
+        for key in (name, name + self._tail):
+            if key in archive:
+                value = archive[key][()]
+                return value.decode() if isinstance(value, bytes) else value
+        raise AttributeError(f"self.{name} is not in this file's archive")
+
+
+def _ms_unrecorded_overrides(f, node, arguments):
+    """Overrides a run APPLIED but never recorded as datasets.
+
+    Until 2026-10-14 master-satellite GVS applied each override with setattr
+    only, so the h5 kept nothing but the persistent value under `archive`, and
+    a notebook got a value the run never used: RID 38903, a Z parity run with
+    t_MW_RF_pulse overridden to 0, loaded as X parity from the archived
+    69.6 us. Runs since then record every override under `datasets`, as the
+    standalone GVS always has, and load like any other dataset. This recovers
+    the same values for the older files, from the submitted override text.
+
+    Returns (argument name, {bare name: value}, error text or None). Skipped:
+      * names already recorded in this file's `datasets` -- the file wins;
+      * the scanned variables -- the scan set those at every point, and the
+        override never ran;
+      * names suffixed for the other node -- never applied on this one.
+    """
+    source = f"override_ExperimentVariables_{node}"
+    if source not in arguments:
+        # Runs from before each node had its own dictionary.
+        source = "override_ExperimentVariables"
+    text = arguments.get(source)
+    if not isinstance(text, str) or not text.strip():
+        return source, {}, None
+
+    # The experiment evaluated this in a module that star-imports
+    # artiq.experiment and imports numpy as np and array, with self bound to
+    # the experiment.
+    namespace = _artiq_unit_namespace()
+    namespace.update({"np": np, "numpy": np, "array": np.array})
+    try:
+        overrides = eval(text, namespace,
+                         {"self": _ArchivedAttributes(f, node)})
+    except Exception as error:
+        return source, {}, f"{type(error).__name__}: {error}"
+    if not isinstance(overrides, dict):
+        return source, {}, f"evaluates to {type(overrides).__name__}, not dict"
+
+    tail = "_" + node
+    other_tails = tuple("_" + other for other in MASTER_SATELLITE_NODES
+                        if other != node)
+
+    def bare_name(name):
+        return name[: -len(tail)] if name.endswith(tail) else name
+
+    try:
+        recorded = set(f["datasets"].keys())
+    except Exception:
+        recorded = set()
+    scanned = {bare_name(str(arguments.get(key) or ""))
+               for key in ("scan_variable1_name", "scan_variable2_name")}
+
+    unrecorded = {}
+    for name, value in overrides.items():
+        if not isinstance(name, str) or name.endswith(other_tails):
+            continue
+        bare = bare_name(name)
+        if bare in scanned or bare in recorded or bare + tail in recorded:
+            continue
+        unrecorded[bare] = value
+    return source, unrecorded, None
+
+
+def _ms_format_value(value):
+    if isinstance(value, (bool, np.bool_)):
+        return str(bool(value))
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return f"{value:g}"
+    return repr(value)
+
+
 def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
                                       node=None):
     """Master-satellite loader. Same signature as the standalone one.
 
     Swapping h5_archive_and_datasets_to_locals for this is the only change a
-    ported notebook needs. Two things happen beyond the standalone behaviour:
+    ported notebook needs. Three things happen beyond the standalone behaviour:
 
       * Node suffixes are STRIPPED, so single_atom_threshold_Node2 arrives as
         single_atom_threshold and FORT_MM_monitor_Node2 as FORT_MM_monitor.
@@ -559,6 +678,10 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
         like AS DATASETS; the master-satellite stack does not, and the plot
         labelling in these notebooks reads them. Without this, a ported cell
         raises NameError partway through for a cosmetic reason.
+      * Overrides the run applied but did not record are applied here, so
+        an override always beats the archived persistent value, as it does in
+        standalone files. Only files written before 2026-10-14 need it; see
+        _ms_unrecorded_overrides. What was applied is in overrides_applied.
 
     Also sets 'node' in the namespace, so a loaded file can say which node it
     came from. Returns the node as well.
@@ -604,6 +727,39 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
     # Only fill in what the file itself did not record, so a dataset always
     # beats the submitted argument if both exist.
     arguments = _ms_expid_arguments(f)
+
+    # Overrides the run applied but did not record, so a file written before
+    # 2026-10-14 loads with what the run USED, not the archived persistent
+    # value. Before the expid arguments go in, so an override name is never
+    # mistaken for one of them.
+    applied = {}
+    applied_notes = []
+    override_error = None
+    source = None
+    if node is not None:
+        source, unrecorded, override_error = _ms_unrecorded_overrides(
+            f, node, arguments
+        )
+        for bare, value in unrecorded.items():
+            name = bare + tail if (bare, bare + tail) in collisions else bare
+            before = resolved.get(name)
+            resolved[name] = value
+            applied[name] = value
+            try:
+                unchanged = (before is not None
+                             and np.shape(before) == np.shape(value)
+                             and bool(np.all(np.asarray(before)
+                                             == np.asarray(value))))
+            except Exception:
+                unchanged = False
+            if not unchanged:
+                was = ("not archived" if before is None
+                       else _ms_format_value(before))
+                applied_notes.append(
+                    f"{name} {was} -> {_ms_format_value(value)}"
+                )
+    resolved["overrides_applied"] = applied
+
     for key, value in arguments.items():
         resolved.setdefault(key, value)
 
@@ -641,6 +797,14 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
     for bare, key in collisions:
         print(f"  note: {key!r} kept its suffix -- {bare!r} is also in this "
               f"file, so {bare!r} is the unsuffixed/joint series, not this one")
+    # Also printed even when quiet: these names now differ from the file's
+    # archive, and nothing else in the notebook would show it.
+    if applied_notes:
+        print(f"  note: {source} applied (file predates recording "
+              f"overrides): " + ", ".join(applied_notes))
+    if override_error is not None:
+        print(f"  note: could not evaluate {source} ({override_error}); "
+              f"variables keep their archived persistent values")
     return node
 
 
