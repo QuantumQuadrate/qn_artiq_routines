@@ -7233,11 +7233,52 @@ def single_photon_experiment_3_atom_loading_advance_node2_AllSPCMs(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         delay(1 * ms)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        # load_MOT_and_FORT_until_atom_recycle(self)
-        delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                # load_MOT_and_FORT_until_atom_recycle(self)
+                delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            # load_MOT_and_FORT_until_atom_recycle(self)
+            delay(1 * ms)
+
+            first_shot(self)
 
         if self.t_recooling_after_first_shot > 0:
             recooling_after_first_shot(self)
@@ -7606,10 +7647,50 @@ def single_photon_experiment_3_atom_loading_advance_AllSPCM(self):
         self.ttl_exc0_switch.on()  # turns off the excitation
         # delay(1 * ms)
 
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+
+            first_shot(self)
 
         delay(1 * ms)
 
@@ -8010,10 +8091,50 @@ def single_photon_experiment_3_atom_heat_test(self):
         delay(1 * ms)
 
         # load_MOT_and_FORT_until_atom(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+
+            first_shot(self)
 
         delay(1 * ms)
 
@@ -8286,10 +8407,50 @@ def single_photon_experiment_4_atom_loading_advance(self):
         # delay(1 * ms)
 
         # load_MOT_and_FORT_until_atom(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+
+            first_shot(self)
 
         delay(1 * ms)
 
@@ -8648,10 +8809,50 @@ def single_photon_experiment_5_atom_loading_advance_AllSPCM(self):
         # delay(1 * ms)
 
         # load_MOT_and_FORT_until_atom(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+
+            first_shot(self)
 
         delay(1 * ms)
 
@@ -9005,10 +9206,50 @@ def single_photon_experiment_6_atom_loading_advance_AllSPCM(self):
         # delay(1 * ms)
 
         # load_MOT_and_FORT_until_atom(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            delay(1 * ms)
+
+            first_shot(self)
         delay(1 * ms)
 
         if self.t_recooling_after_first_shot > 0:
@@ -9321,10 +9562,50 @@ def single_photon_experiment_7_atom_loading_advance_AllSPCM(self):
         # delay(1 * ms)
 
         # load_MOT_and_FORT_until_atom(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        # delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                # delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            # delay(1 * ms)
+
+            first_shot(self)
         delay(1 * ms)
 
         if self.t_recooling_after_first_shot > 0:
@@ -9602,10 +9883,50 @@ def single_photon_experiment_8_atom_loading_advance_AllSPCM(self):
         # delay(1 * ms)
 
         # load_MOT_and_FORT_until_atom(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        # delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                # delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            # delay(1 * ms)
+
+            first_shot(self)
         delay(1 * ms)
 
         if self.t_recooling_after_first_shot > 0:
@@ -9869,10 +10190,50 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
         # delay(1 * ms)
 
         # load_MOT_and_FORT_until_atom(self)
-        load_until_atom_smooth_FORT_recycle(self)
-        # delay(1 * ms)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
 
-        first_shot(self)
+                load_until_atom_smooth_FORT_recycle(self)
+                # delay(1 * ms)
+
+                first_shot(self)
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_smooth_FORT_recycle(self)
+            # delay(1 * ms)
+
+            first_shot(self)
         delay(1 * ms)
 
         if self.t_recooling_after_first_shot > 0:
