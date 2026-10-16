@@ -680,8 +680,8 @@ class BaseExperimentMasterSatellite:
         * RUN-GLOBAL DATASET NAMES -- measurements_progress and the
           *_rate_dataset / scan_* name strings. These are unsuffixed in both
           modes: they name run state, not one node's hardware, and
-          plan_codex_detail.md already fixes that policy for
-          measurements_progress.
+          plan_claude_detail.md section 6.9 already fixes that policy
+          for measurements_progress.
 
         Was _install_single_node_wiring_metadata, which returned immediately
         outside single_node mode and so left two-node code with no coil

@@ -16,7 +16,7 @@ node-suffixed names: FORT_MM_monitor_NodeX, best_852HWP_to_max_NodeX, ...).
 
 FUTURE REFERENCE - two_nodes design (deliberately not implemented yet;
 revisit after two-node PARALLEL FORT laser feedback exists, see
-plan_codex_detail.md section 18):
+plan_claude_detail.md section 10, Feedback scope):
 
 - which_node gains "two_nodes" and Base is configured in two_nodes mode.
 - Both nodes march through one grid by point index. Per scan point, all four
@@ -38,8 +38,8 @@ plan_codex_detail.md section 18):
   either disable it in two_nodes or stop a row only when every node's
   criterion fires.
 - Run both nodes' FORT feedback in parallel before/during the scan once
-  section 18 allows it; until then two_nodes would have to run at the
-  persistent default FORT powers.
+  plan_claude_detail.md section 10 allows it; until then two_nodes would
+  have to run at the persistent default FORT powers.
 - Finish per node: move its plates to its own best and persist
   best_852HWP_to_max_NodeX, best_852QWP_to_max_NodeX, best_852_power_NodeX,
   best_852_power_ref_NodeX.

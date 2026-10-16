@@ -10,9 +10,9 @@ separate file rather than an extension of it.
 
 It did NOT answer "when does the pin actually move", and it touched only an
 OUTPUT channel (set_config_mu -> one rtio_output). Remote INPUT latency has
-never been measured in this repository, while plan_codex_detail.md:569 and
-PLAN.md:945-952 both flag remote input/TTL-timestamp operations as
-latency-sensitive. This probe measures both directions.
+never been measured in this repository, while plan_claude_detail.md section
+12.2 flags remote input/TTL-timestamp operations as latency-sensitive. This
+probe measures both directions.
 
 WHAT IS BEING MEASURED, AND WHY IT IS TWO DIFFERENT THINGS
 ----------------------------------------------------------
