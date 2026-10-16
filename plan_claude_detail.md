@@ -2,13 +2,15 @@
 
 File `plan_claude_detail.md`; companion brief `plan_claude_concise.md`.
 State described: 2026-10-16. Branch `20261006_two_nodes_experiment`; HEAD is
-the commit that adds this file, on top of `bfca64d` (unpushed; origin is
+the commit that last updated this file (unpushed; origin is
 behind). `main` holds everything through `19dcee9` via PR #68 (`94d0ef6`,
 merged 2026-10-11). Committed on 2026-10-16 at the user's request: the
 MicrowaveScanOptimizer fixes (`619d3ec`; section 11.1, O-17), the magnetometer
 monitoring work together with the user's delay edits in
-`subroutines/experiment_functions.py` (`bfca64d`; O-34, O-35), and this plan
-consolidation. The analysis notebooks stay uncommitted until the user commits
+`subroutines/experiment_functions.py` (`bfca64d`; O-34, O-35), this plan
+consolidation (`a369392`), and Node2's A1 photodiode move to `sampler4` ch6
+with the MOT beam power check (sections 10.1, 16.4). The analysis notebooks
+stay uncommitted until the user commits
 them. Run `git status` rather than trusting this paragraph. The ARTIQ master
 runs experiments straight from the working tree, so uncommitted code is not
 undeployed code (rule R26).
@@ -1810,6 +1812,18 @@ in `feedback_channels.json`). D1 feedback is inactive: keep its history, do
 not expand it, do not invent `set_point_D1_DP`. Every `feedback_channels.json`
 entry is `"series": true`.
 
+Node2's AOM A1 photodiode is read on logical `sampler1` ch6 = physical
+`sampler4` ch6 since 2026-10-16 13:24 (bob `feedback_channels.json`, a
+`"sampler1"` group placed AFTER `"sampler0"`; committed 2026-10-16). Its old
+channel, logical `sampler0` ch7 = physical `sampler3` ch7,
+is bad (the user's finding): `MOTBeamPowerCheck_master_satellite` RIDs 39018,
+39019 and 39021 read a flat 0.0215 V there at every power against a 0.06 set
+point, and feedback (RID 39020) could not hold it. On the new channel feedback
+holds `MOT1_monitor_Node2` at about 1.00 of the retuned
+`set_point_PD1_AOM_A1_Node2` = 0.042, at -16.6 to -18.0 dB (RIDs 39027-39032).
+Node2's stabilizer now samples two cards (`sampler3`, `sampler4`), as Node1's
+always has; see O-36 for the one limitation that brings.
+
 ### 10.2 Single-node path
 
 `Base.prepare_laser_stabilizer()` builds `laser_stabilizer` from the projected
@@ -2696,7 +2710,18 @@ the worker; uses DummyScheduler/DummyCCB and `device_db.py`.
 (needs T-adapters; unrun), `measure_urukul_sync_windows.py`,
 `bringup_test_rtio_clock.py` (measures the RTIO clock against a
 reference-locked TTL through an EdgeCounter; to be deleted once clock
-verification is no longer needed), `MonitorSPCMinApplet.py`.
+verification is no longer needed), `MonitorSPCMinApplet.py`, and
+`MOTBeamPowerCheck_master_satellite.py` (2026-10-16): one node's six MOT beam
+photodiodes, one beam at a time exactly as feedback measures its series
+channels, at the `p_AOM_A*_<node>` powers re-read at run start (feedback
+leaves them there; nothing is written back). Sampler card and channel come from
+the node's `feedback_channels.json` via `prepare_laser_stabilizer`. Raw volts
+per round in `MOT_beam_PD_A1..A6_<node>`, applied dB in
+`MOT_beam_p_AOM_dB_<node>`, one applet "MOT beam PDs <node>" (group "Both
+nodes", only with `show_applet`), and a per-beam summary in `analyze()`. Each
+point averages `aom_feedback_averages_<node>` readings; the rounds are not
+averaged. Ends with cooling and the six MOT AOMs on, as feedback leaves them.
+Compile-checker cases for both nodes.
 
 ### 16.5 Hardware sanity principle
 
@@ -2934,6 +2959,16 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   (2026-10-16); 38972, 38973 and 38975 stopped after 69-75 measurements and
   their h5 files do not record why; 38969 started a minute before the fix
   was saved. No Node2 run with the monitor on exists yet.
+- **O-36 Feedback buffer index for a subset stabilizer** (found 2026-10-16).
+  `AOMPowerStabilizer` sets `buffer_index = sampler_ch + 8*i`, with `i` the
+  group's position in `feedback_channels.json`, but samples only the groups
+  that hold one of its `dds_names`. A stabilizer built for channels that all
+  sit in a LATER group therefore indexes past its buffer: Node2 with
+  `dds_names=["dds_AOM_A1"]` (index 14, buffer 8) and, all along, Node1 with
+  `["dds_FORT"]`. Not hit today: every experiment builds from
+  `fast_feedback_dds_list_NodeX`, which includes `sampler0` channels on both
+  nodes. Fix (shared code, user to decide): number by the cards actually
+  sampled, `8 * (len(self.sampler_list) - 1)` after the append.
 - **O-18 No `MonitorMagnetometer_master_satellite` run** (nor GVS
   `test_magnetometer_experiment`) exists through 2026-10-14. The first
   master-satellite magnetometer readings are from `end_measurement` in RID

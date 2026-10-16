@@ -2,8 +2,8 @@
 
 File `plan_claude_concise.md`; full specification `plan_claude_detail.md`.
 State: 2026-10-16, branch `20261006_two_nodes_experiment`; HEAD is the
-commit that adds this file.
-"Section N", the rules R1-R26 and the open items O-1 to O-35 all refer to
+commit that last updated this file.
+"Section N", the rules R1-R26 and the open items O-1 to O-36 all refer to
 `plan_claude_detail.md`.
 
 ## 1. Purpose and precedence
@@ -230,10 +230,13 @@ come before cleanup (sections 3.1, 3.3).
     complete (RIDs 38976, 38980, 38982). Three applet specs (Zero / OP /
     MOT) are opened by hand only (section 14.2). Includes the user's 2 ms
     coil-settle delays (O-34).
-  - The plan consolidation (these two files).
+  - `a369392`: the plan consolidation (these two files).
+  - Node2's A1 photodiode moved to `sampler4` ch6 because `sampler3` ch7 is
+    bad (bob `feedback_channels.json`, section 10.1), and the new
+    `tests/MOTBeamPowerCheck_master_satellite.py` (section 16.4).
 
-**Uncommitted:** the analysis notebooks (check `git status`; under R26
-uncommitted code may already have run).
+**Uncommitted:** the analysis notebooks. Check `git status`; under R26
+uncommitted code may already have run.
 
 ## 7. Open issues (section 18; next steps in section 18.5)
 
@@ -319,5 +322,5 @@ uncommitted code may already have run).
 | DRTIO, skew probe, slack, SED, `with parallel`, DMA | 12 |
 | Host devices; applets and dashboard; analysis | 13, 14, 15 |
 | Tests, compile sweep, controls; status and history | 16, 17 |
-| Open issues O-1 to O-35, next steps | 18 |
+| Open issues O-1 to O-36, next steps | 18 |
 | Decisions and superseded claims; reporting contract | 19, 20 |
