@@ -300,6 +300,8 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 f"{name}_Node2"
                 for name in base.MAGNETOMETER_RESULT_DATASETS
             ),
+            # Legend for the magnetometer applet.
+            "magnetometer_axis_labels",
         }
         written_names = {
             name for name, _, _ in experiment.dataset_writes
@@ -820,6 +822,72 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(
             groups["retention and loading AllSPCMs"], [two, "GVS and Cycler"]
         )
+
+    def test_magnetometer_applets_are_manual_only(self):
+        """No run creates or closes the magnetometer applets on its own.
+
+        The user opens them by hand (2026-10-14), so create_applets_for must
+        neither add them -- whatever monitor_magnetometer_in_end_measurement
+        is -- nor retire them, which would close a hand-opened one on the next
+        run. Asked for explicitly, they resolve to the running node's
+        Magnetometer_<phase>_*_NodeX.
+        """
+        import applets_master_satellite as applets
+
+        class RecordingCCB:
+            def __init__(self):
+                self.created = {}
+                self.disabled = []
+
+            def issue(self, action, *args, **kwargs):
+                if action == "create_applet":
+                    self.created[args[0]] = (list(kwargs.get("group")), args[1])
+                elif action == "disable_applet":
+                    self.disabled.append(args[0])
+
+        phases = ("Zero", "OP", "MOT")
+        titles = {f"Magnetometer ({phase})" for phase in phases}
+        self.assertEqual(
+            {spec.title for spec in applets.MAGNETOMETER_APPLET_SPECS}, titles
+        )
+        for node in ("Node1", "Node2"):
+            for flag in (True, False):
+                with self.subTest(node=node, flag=flag):
+                    experiment, base = self.build_and_prepare(
+                        "single_node", node
+                    )
+                    experiment.monitor_magnetometer_in_end_measurement = flag
+                    ccb = RecordingCCB()
+                    experiment.ccb = ccb
+                    applets.create_applets_for(
+                        experiment, base, specs=applets.APPLET_SPECS,
+                        shared_specs=(),
+                    )
+                    self.assertFalse(titles & set(ccb.created))
+                    self.assertFalse(titles & set(ccb.disabled))
+
+            with self.subTest(node=node, explicit=True):
+                experiment, base = self.build_and_prepare("single_node", node)
+                ccb = RecordingCCB()
+                experiment.ccb = ccb
+                applets.create_applets_for(
+                    experiment, base,
+                    specs=applets.APPLET_SPECS
+                    + applets.MAGNETOMETER_APPLET_SPECS,
+                    shared_specs=(),
+                )
+                for phase in phases:
+                    group, command = ccb.created[f"Magnetometer ({phase})"]
+                    self.assertEqual(
+                        group, [applets.SINGLE_NODE_APPLET_GROUP,
+                                "Monitor in each measurement"]
+                    )
+                    for axis in ("X", "Y", "Z"):
+                        self.assertIn(
+                            f"Magnetometer_{phase}_{axis}_{node}", command
+                        )
+                    self.assertIn("--labels magnetometer_axis_labels", command)
+                self.assertFalse(titles & set(ccb.disabled))
 
     def test_single_node_applets_are_shared_between_nodes(self):
         """Node1 and Node2 runs create the SAME applets, in the same group.

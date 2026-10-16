@@ -740,6 +740,65 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         )
         self.assertEqual(offenders, [])
 
+    def test_magnetometer_results_exist_for_every_experiment_call(self):
+        """measure_Magnetometer can append on every path the optimizer runs.
+
+        Base creates Magnetometer_*_NodeX in reset_result_state_for_scan_point,
+        which GVS calls and this optimizer did not, so with
+        monitor_magnetometer_in_end_measurement on the first append raised
+        "Cannot mutate nonexistent dataset 'Magnetometer_Zero_X_Node1'" --
+        RID 38965, in the health check. The harness's append_to_dataset raises
+        the same KeyError for a dataset that was never set, as ARTIQ does.
+        Covers the health-check path and the scan path.
+        """
+        def appending_scan_point(inner_self):
+            # What measure_Magnetometer does, through the same redirect.
+            for axis in ("X", "Y", "Z"):
+                inner_self.append_to_dataset(f"Magnetometer_Zero_{axis}", 1.0)
+
+        for node in ("Node1", "Node2"):
+            with self.subTest(node=node, path="health check"):
+                experiment = self.make_experiment({
+                    "which_node": node,
+                    "Frequency_00_Scan": True,
+                    "n_measurements": 4,
+                    "target_fidelity": 0.8,
+                })
+                experiment.initialize_datasets()
+                with mock.patch.object(
+                    exp_functions, "microwave_Rabi_2_experiment",
+                    appending_scan_point,
+                ):
+                    try:
+                        experiment.health_check_general()
+                    except IndexError:
+                        # No SPCM data from this fake, so the fidelity step
+                        # has nothing to index; the appends already ran.
+                        pass
+                self.assertEqual(
+                    experiment.broadcast_sets[f"Magnetometer_Zero_X_{node}"],
+                    [0.0, 1.0],
+                )
+
+            with self.subTest(node=node, path="scan"):
+                experiment = self.make_experiment({
+                    "which_node": node,
+                    "Frequency_00_Scan": True,
+                    "n_measurements": 4,
+                    "run_health_check_and_optimize": False,
+                    "enable_geometric_frequency_scan": False,
+                    "enable_fitting": False,
+                })
+                experiment.experiment_function = (
+                    lambda: appending_scan_point(experiment)
+                )
+                experiment.run()
+                # Reset at every scan point, so the last point's one sample.
+                self.assertEqual(
+                    experiment.broadcast_sets[f"Magnetometer_Zero_Z_{node}"],
+                    [0.0, 1.0],
+                )
+
     def test_retention_slicing_skips_the_dataset_seed(self):
         experiment = self.make_experiment({
             "which_node": "Node1",

@@ -254,6 +254,51 @@ SPCM_MONITOR_APPLET_SPECS = (
 )
 
 
+#: The magnetometer field for whichever node is running: one applet per
+#: measured coil setting, one trace per axis.
+#:
+#: MANUAL ONLY, by the user's choice (2026-10-14): nothing creates these and,
+#: since they are not in EXCLUSIVE_APPLET_SPEC_SETS, nothing closes them, so an
+#: applet opened by hand stays open. Open one from the dashboard with the
+#: command build_applet_command(spec, base) gives, e.g. for Node1 Zero:
+#:   python "<repo>/applets/plot_xy_multichannel.py" Magnetometer_Zero_X_Node1
+#:     n_measurements --y2 Magnetometer_Zero_Y_Node1
+#:     --y3 Magnetometer_Zero_Z_Node1 --labels magnetometer_axis_labels
+#: or have an experiment ask for them explicitly, like the other opt-in sets:
+#:   create_applets_for(self, self.base,
+#:                      specs=APPLET_SPECS + MAGNETOMETER_APPLET_SPECS)
+#: The datasets are written only while monitor_magnetometer_in_end_measurement
+#: (or monitors_for_atom_loading) is on; otherwise a hand-opened applet keeps
+#: showing the last field recorded.
+#:
+#: Each call of measure_Magnetometer (Node1) or
+#: measure_Magnetometer_Node2_X_Y_Z (Node2) -- the readers end_measurement and
+#: the loaders call -- samples three phases, setting the coils for each:
+#: Zero (all coils 0 V), OP (the OP coil voltages) and MOT (the MOT coil
+#: voltages), and appends to Magnetometer_<phase>_X/Y/Z. Hence three applets.
+#: The legacy names resolve to the running node's ..._NodeX through the
+#: dataset redirect when the commands are built for a node; a hand-entered
+#: command names one node and stays on it. Base seeds the datasets and
+#: magnetometer_axis_labels in reset_result_state_for_scan_point, so each plot
+#: covers the current scan point and pts = n_measurements shows all of it.
+#:
+#: The loaders also call the readers when monitors_for_atom_loading is on, so
+#: with both flags set the traces interleave loading and end-of-measurement
+#: samples. No unit in the titles on purpose: Node1 scales by 350 mG/V, while
+#: Node2 currently scales by mGauss_per_Volt = 1, i.e. plots volts. The three
+#: axes share one y range per plot (RID 38968, Node1 Zero: X 143, Y -213,
+#: Z -1125), so zoom in to see one axis drift.
+MAGNETOMETER_APPLET_SPECS = tuple(
+    _spec(f"Magnetometer ({phase})", "plot_xy_multichannel.py",
+          (f"Magnetometer_{phase}_X", "n_measurements"),
+          (("--y2", f"Magnetometer_{phase}_Y"),
+           ("--y3", f"Magnetometer_{phase}_Z"),
+           ("--labels", "magnetometer_axis_labels")),
+          group=_MON)
+    for phase in ("Zero", "OP", "MOT")
+)
+
+
 #: Top-level group for applets that belong to NEITHER node. It is not one of
 #: execution_applet_groups, so no retirement pass ever touches it -- which is
 #: what keeps these up no matter which node, or which mode, is running.

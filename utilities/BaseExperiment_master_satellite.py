@@ -801,6 +801,15 @@ class BaseExperimentMasterSatellite:
                 broadcast=True,
                 persist=False,
             )
+        # Legend for the magnetometer applets
+        # (applets_master_satellite.MAGNETOMETER_APPLET_SPECS):
+        # plot_xy_multichannel.py takes its trace labels from a dataset.
+        self.experiment.set_dataset(
+            "magnetometer_axis_labels",
+            ["X", "Y", "Z"],
+            broadcast=True,
+            persist=False,
+        )
 
     @staticmethod
     def _node_variable_definitions(node):

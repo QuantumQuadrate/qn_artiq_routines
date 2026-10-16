@@ -3233,12 +3233,21 @@ def measure_Magnetometer(self):
     ### x,y, and z axes are connected to Sampler2 Ch1,2, and 3, respectively.
     avgs = 1
 
+    ### Re-arm slack before the first output. end_measurement calls this
+    ### right after its set_dataset(measurements_progress) RPC, which is
+    ### SYNCHRONOUS: the kernel waits for the host while the timeline stands
+    ### still, and when that wait outran the delays after it, the coil write
+    ### below underflowed -- RID 38968, -550 us on zotino0, after six good
+    ### readings. break_realtime only ever moves the cursor forward, and
+    ### nothing here is timed against an earlier event.
+    self.core.break_realtime()
+
     #####################################  Measure with Zotino set to zero V
     ### Turn off all the coils
     self.zotino0.set_dac(
         [0.0, 0.0, 0.0, 0.0],
         channels=self.coil_channels)
-    delay(200 * ms)
+    delay(2 * ms)
 
     measurement_buf = np.array([0.0] * 8)
     MagnetometerX = 0.0
@@ -3265,7 +3274,7 @@ def measure_Magnetometer(self):
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
         channels=self.coil_channels)
-    delay(1 * ms)
+    delay(2 * ms)
 
     measurement_buf = np.array([0.0] * 8)
     MagnetometerX = 0.0
@@ -3290,7 +3299,7 @@ def measure_Magnetometer(self):
     self.zotino0.set_dac(
         [self.AZ_bottom_volts_MOT, self.AZ_top_volts_MOT, self.AX_volts_MOT, self.AY_volts_MOT],
         channels=self.coil_channels)
-    delay(200 * ms)
+    delay(2 * ms)
 
     measurement_buf = np.array([0.0] * 8)
     MagnetometerX = 0.0
@@ -3444,6 +3453,15 @@ def measure_Magnetometer_Node2_X_Y_Z(self):
 
     avgs = 1
     mGauss_per_Volt = 1 #625
+
+    ### Re-arm slack before the first output. end_measurement calls this
+    ### right after its set_dataset(measurements_progress) RPC, which is
+    ### SYNCHRONOUS: the kernel waits for the host while the timeline stands
+    ### still, and when that wait outran the delays after it, the coil write
+    ### below underflowed -- RID 38968, -550 us on zotino0, after six good
+    ### readings. break_realtime only ever moves the cursor forward, and
+    ### nothing here is timed against an earlier event.
+    self.core.break_realtime()
 
     #####################################  Measure with Zotino set to 3V
     self.zotino0.set_dac(
@@ -3611,9 +3629,9 @@ def end_measurement(self):
     #     # delay(1*ms)
     #     # measure_MOT_end(self)
     #     # delay(1*ms)
-    #     measure_REPUMP(self)
-    # elif self.which_node == "bob":
-    #     measure_Magnetometer_Node2(self)
+    #     # measure_REPUMP(self)
+    # # elif self.which_node == "bob":
+    # #     measure_Magnetometer_Node2(self)
 
     if self.monitor_magnetometer_in_end_measurement:
         if self.which_node == "alice":

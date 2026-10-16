@@ -430,6 +430,15 @@ class MicrowaveScanOptimizer_master_satellite(
         typically these datasets are used for plotting which would be
         meaningless if we continued to append to the data.
         """
+        # Base's per-scan-point results, as GVS resets them: progress, the
+        # _current_iteration histograms, and the node's Magnetometer_*_NodeX.
+        # The magnetometer series were never created here before, so with
+        # monitor_magnetometer_in_end_measurement (or
+        # monitors_for_atom_loading) on, the first measure_Magnetometer append
+        # raised "Cannot mutate nonexistent dataset
+        # 'Magnetometer_Zero_X_Node1'" -- RID 38965. Every experiment call,
+        # the health checks included, is preceded by this method.
+        self.base.reset_result_state_for_scan_point()
         self.set_dataset("test_dataset", [0], broadcast=True)
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
