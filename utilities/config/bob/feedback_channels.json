@@ -1,18 +1,6 @@
 {
     "sampler0":
         {
-            "dds_AOM_A1":
-                {
-                    "sampler_ch": 7,
-                    "set_points": ["set_point_PD1_AOM_A1"],
-                    "p": 0.01,
-                    "i": 0.000,
-                    "series": true,
-                    "dataset": "MOT1_monitor",
-                    "power_dataset":"p_AOM_A1",
-                    "t_measure_delay":0.005,
-                    "max_dB": -10
-                },
             "dds_AOM_A2":
                 {
                     "sampler_ch": 1,
@@ -104,6 +92,22 @@
 
 
 
+        },
+
+    "sampler1":
+        {
+            "dds_AOM_A1":
+                {
+                    "sampler_ch": 6,
+                    "set_points": ["set_point_PD1_AOM_A1"],
+                    "p": 0.01,
+                    "i": 0.000,
+                    "series": true,
+                    "dataset": "MOT1_monitor",
+                    "power_dataset":"p_AOM_A1",
+                    "t_measure_delay":0.005,
+                    "max_dB": -10
+                }
         }
 
 
