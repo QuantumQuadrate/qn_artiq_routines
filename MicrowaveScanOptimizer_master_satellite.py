@@ -400,15 +400,25 @@ class MicrowaveScanOptimizer_master_satellite(
             logging.info("requested %d applets", len(created))
 
     def initialize_datasets(self):
+        # Archive the applied overrides under their authoritative names.
+        #
+        # FIRST, before any broadcast. A local write to a key this run has
+        # already broadcast makes ARTIQ delete that key from the master DB
+        # (artiq/master/worker_db.py, DatasetManager.set: the
+        # `elif key in self._broadcaster.raw_view` branch), and
+        # initialize_result_state broadcasts and persists n_measurements. So
+        # with this loop after it, {'n_measurements': ...} in an override
+        # dictionary deleted n_measurements from the DB -- reproduced through
+        # the real DatasetManager, 2026-10-14 -- and every master-satellite
+        # experiment then failed in prepare(). GVS keeps the same order.
+        for var, val in self.authoritative_overrides.items():
+            self.set_dataset(var, val)
+
         self.base.initialize_result_state()
 
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
         self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1, broadcast=True)
         self.set_dataset(self.scan_sequence2_dataset, self.scan_sequence2, broadcast=True)
-
-        # Archive the applied overrides under their authoritative names.
-        for var, val in self.authoritative_overrides.items():
-            self.set_dataset(var, val)
 
         # The stabilizer dB histories were already seeded node-suffixed by
         # Base.prepare_laser_stabilizer().
@@ -491,6 +501,16 @@ class MicrowaveScanOptimizer_master_satellite(
 
         else:
             ##### Scan sequence - same as GVS (compatible with GVS analysis)
+
+            # Every scan point is written INTO the scanned attribute
+            # (_apply_scan_point), and for the 11, m10 and m11 scans that
+            # attribute IS the calibration the fit check reports as
+            # "original": scan_dict names their scan variable and their
+            # center / pi_pulse alike. Restored after the scan, below.
+            # Without it the LAST scanned point was reported as the original:
+            # RID 38934, a Frequency_11 scan of a 339.213 MHz calibration,
+            # printed "Original f0 value: 339.073 MHz" -- its refined center.
+            value_before_scan = getattr(self, self.scan_variable1)
             if self.scan_type.startswith("Freq") and self.enable_geometric_frequency_scan:
                 scan_with_fixed_sequence = False    ### adaptive scan enabled if False
             else:
@@ -730,6 +750,10 @@ class MicrowaveScanOptimizer_master_satellite(
 
                                 pending_sequence1 = list(new_sequence1)
                                 did_refine = True
+
+            # Back to the calibration the scan started from; see
+            # value_before_scan above.
+            self._apply_scan_point(value_before_scan)
 
             #### for fitting
             if self.enable_fitting and not self.scan_type.startswith("Ramsey"):

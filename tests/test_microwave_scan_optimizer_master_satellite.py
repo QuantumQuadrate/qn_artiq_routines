@@ -615,6 +615,131 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         refined_center = scanned[-1]
         self.assertAlmostEqual(f0 - refined_center, 10_000.0)
 
+    def test_fit_check_sees_the_calibration_from_before_the_scan(self):
+        """The fit check's "original" is the calibration before the scan.
+
+        _apply_scan_point writes every point INTO the scanned attribute, and
+        for the 11, m10 and m11 scans that attribute is the calibration
+        itself: scan_dict names their scan variable and their center /
+        pi_pulse alike. RID 38934, a Frequency_11 scan of a 339.213 MHz
+        calibration, printed "Original f0 value: 339.073 MHz" -- the last
+        point it scanned, its refined center. Both scan branches (fixed and
+        adaptive) and a time scan are covered.
+        """
+        cases = (
+            ("Frequency_11_Scan", False, "f_microwaves_11_dds_Node1",
+             {"f0": 339.2e6, "sigma": 50e3, "C": 0.9}),
+            ("Frequency_11_Scan", True, "f_microwaves_11_dds_Node1",
+             {"f0": 339.2e6, "sigma": 50e3, "C": 0.9}),
+            ("Time_11_Scan", False, "t_microwave_11_pulse_Node1",
+             {"t_pi": 5e-6}),
+        )
+
+        class FakeFit:
+            def __init__(self, parameters):
+                self.parameters = parameters
+
+            def fit(self, t, y, **kwargs):
+                return (dict(self.parameters),
+                        {name: 0.0 for name in self.parameters})
+
+        for scan_flag, adaptive, calibration, parameters in cases:
+            with self.subTest(scan=scan_flag, adaptive=adaptive):
+                experiment = self.make_experiment({
+                    "which_node": "Node1",
+                    scan_flag: True,
+                    "n_measurements": 4,
+                    "run_health_check_and_optimize": False,
+                    "enable_geometric_frequency_scan": adaptive,
+                    "enable_fitting": True,
+                    "freq_scan_min_step_size_kHz": 10.0,
+                    "time_scan_sequence": "np.arange(0,10,1)*us",
+                })
+                before = getattr(experiment, calibration)
+
+                cutoff = (
+                    experiment.single_atom_threshold
+                    * experiment.t_SPCM_first_shot
+                )
+                loaded = cutoff * 10
+                # Uneven first four points, so the adaptive branch refines
+                # (Frequency_11 fits a resonance PEAK, so this moves the
+                # center right) and the scan ends away from `before`.
+                retained_counts = iter([0, 3, 3, 3] + [3] * 50)
+
+                def fake_scan_point(inner_self):
+                    retained = next(retained_counts)
+                    ro1 = (list(inner_self.get_dataset("AllSPCMs_RO1"))
+                           + [loaded] * 4)
+                    ro2 = (list(inner_self.get_dataset("AllSPCMs_RO2"))
+                           + [loaded] * retained + [0.0] * (4 - retained))
+                    inner_self.set_dataset("AllSPCMs_RO1", ro1, broadcast=True)
+                    inner_self.set_dataset("AllSPCMs_RO2", ro2, broadcast=True)
+
+                experiment._selected_experiment_function = fake_scan_point
+                experiment.experiment_function = (
+                    lambda: fake_scan_point(experiment)
+                )
+                experiment.which_fit_model = FakeFit(parameters)
+                seen = []
+
+                def recording_health_check(fit_check=False):
+                    seen.append(getattr(experiment, calibration))
+                    return False
+
+                experiment.health_check_general = recording_health_check
+
+                experiment.run()
+
+                scanned = list(experiment.broadcast_sets["scan_sequence1"])
+                self.assertNotEqual(
+                    scanned[-1], before,
+                    "the scan must end away from the calibration, or this "
+                    "test cannot tell a restore from no change",
+                )
+                self.assertEqual(seen, [before])
+
+    def test_no_local_write_follows_a_broadcast_of_the_same_name(self):
+        """No dataset is written locally after this run broadcast it.
+
+        ARTIQ's DatasetManager.set deletes a key from the master DB when a
+        local write follows a broadcast of the same key within one run
+        (artiq/master/worker_db.py, the `elif key in
+        self._broadcaster.raw_view` branch). initialize_datasets used to
+        record the overrides AFTER initialize_result_state, which broadcasts
+        and persists n_measurements, so an override of n_measurements
+        deleted it from the DB and every master-satellite experiment then
+        failed in prepare(). Checked over the whole run, build to end, so a
+        new local write anywhere is caught too.
+        """
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_00_Scan": True,
+            "n_measurements": 4,
+            "run_health_check_and_optimize": False,
+            "enable_geometric_frequency_scan": False,
+            "enable_fitting": False,
+            "override_ExperimentVariables_Node1": "{'n_measurements': 4}",
+        })
+        experiment.experiment_function = lambda: None
+        experiment.run()
+
+        broadcast = set()
+        offenders = []
+        local = []
+        for name, _, kwargs in experiment.dataset_writes:
+            if kwargs.get("broadcast") or kwargs.get("persist"):
+                broadcast.add(name)
+            else:
+                local.append(name)
+                if name in broadcast:
+                    offenders.append(name)
+        self.assertIn(
+            "n_measurements", local,
+            "the harness must see the override record, or this test is moot",
+        )
+        self.assertEqual(offenders, [])
+
     def test_retention_slicing_skips_the_dataset_seed(self):
         experiment = self.make_experiment({
             "which_node": "Node1",
