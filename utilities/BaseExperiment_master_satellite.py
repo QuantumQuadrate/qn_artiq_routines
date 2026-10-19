@@ -161,44 +161,64 @@ class BaseExperimentMasterSatellite:
         "ttl11_counter",
     )
 
+    # The standalone two-node handshake cables were removed on 2026-10-19:
+    # Node1 ttl10, ttl11, ttl12, ttl15 and Node2 ttl9, ttl10, ttl15 (unified
+    # ttl25, ttl26, ttl31) were left with nothing connected. Node1 ttl15 has
+    # since become Node1's ttl_D1_pumping_switch (below). The legacy handshake
+    # aliases stay so old code still builds, but each now points at its
+    # node's dummy TTL, a channel with nothing connected:
+    #   Node1: dummy input ttl3, dummy output ttl12
+    #   Node2: dummy input ttl8, dummy output ttl15 (unified ttl24, ttl31)
+    # Inputs go to the dummy input and outputs to the dummy output. Each
+    # node's dummies are its own, so no alias reaches across DRTIO.
     NODE_TTL_ALIASES = {
         "Node1": {
             "ttl_microwave_switch": "ttl4",
             "ttl_repump_switch": "ttl5",
             "ttl_exc0_switch": "ttl6",
             "ttl_pumping_repump_switch": "ttl7",
-            "ttl_node2_input1": "ttl11",
-            "ttl_node1_output1": "ttl12",
+
             "ttl_GRIN2_switch": "ttl13",
             "ttl_GRIN1_switch": "ttl14",
-            "ttl_node1_output2": "ttl15",
+            "ttl_D1_pumping_switch": "ttl15",
+
+            ########## dummy
+            "ttl_node2_input1": "ttl3",
+            "ttl_node1_output1": "ttl12",
+            "ttl_node1_output2": "ttl12",
         },
         "Node2": {
             "ttl_microwave_switch": "ttl4",
             "ttl_repump_switch": "ttl5",
             "ttl_exc0_switch": "ttl6",
             "ttl_pumping_repump_switch": "ttl7",
-            "ttl_node1_input1": "ttl8",
-            "ttl_node1_input2": "ttl9",
-            "ttl_D1_pumping": "ttl12",
+
+            "ttl_D1_pumping_switch": "ttl12",
             "ttl_GRIN2_switch": "ttl13",
             "ttl_GRIN1_switch": "ttl14",
+
+            ########## dummy
+            "ttl_node1_input1": "ttl8",
+            "ttl_node1_input2": "ttl8",
             "ttl_node2_output1": "ttl15",
         },
     }
 
     # Dummy aliases are retained only for legacy single-node presentation.
+    # They follow the same per-node dummies. Node2's two outputs used to sit
+    # on ttl5, its real repump switch. Node1's ttl_D1_pumping_switch is no longer a
+    # dummy (NODE_TTL_ALIASES): an entry here would override it in
+    # single-node mode.
     COMPATIBILITY_DUMMY_TTL_ALIASES = {
         "Node1": {
-            "ttl_node2_output1": "ttl15",
+            "ttl_node2_output1": "ttl12",
             "ttl_node1_input1": "ttl3",
             "ttl_node1_input2": "ttl3",
-            "ttl_D1_pumping": "ttl3",
         },
         "Node2": {
-            "ttl_node2_input1": "ttl11",
-            "ttl_node1_output1": "ttl5",
-            "ttl_node1_output2": "ttl5",
+            "ttl_node2_input1": "ttl8",
+            "ttl_node1_output1": "ttl15",
+            "ttl_node1_output2": "ttl15",
         },
     }
 
@@ -1104,9 +1124,14 @@ class BaseExperimentMasterSatellite:
                     bound_devices,
                 )
 
+        # Node1 ttl10, ttl11 and Node2 ttl9, ttl10 are unused since 2026-10-19
+        # (see NODE_TTL_ALIASES) and are left out of these groups. Node1 ttl15
+        # is ttl_D1_pumping_switch and is blocked at init, like Node2's ttl12.
+        # Node1's input group holds its dummy input instead of ttl11: an
+        # empty group cannot be type-inferred by the kernel compiler.
         input_names = {
-            "Node1": ("ttl11",),
-            "Node2": ("ttl0", "ttl1", "ttl2", "ttl3", "ttl8", "ttl9"),
+            "Node1": ("ttl3",),
+            "Node2": ("ttl0", "ttl1", "ttl2", "ttl3", "ttl8"),
         }[node]
         output_names = {
             "Node1": (
@@ -1117,11 +1142,11 @@ class BaseExperimentMasterSatellite:
             ),
         }[node]
         safe_on_names = {
-            "Node1": ("ttl4", "ttl5", "ttl6", "ttl7", "ttl13", "ttl14"),
+            "Node1": ("ttl4", "ttl5", "ttl6", "ttl7", "ttl13", "ttl14", "ttl15"),
             "Node2": ("ttl4", "ttl5", "ttl6", "ttl7", "ttl12", "ttl13", "ttl14"),
         }[node]
         safe_off_names = {
-            "Node1": ("ttl12", "ttl15"),
+            "Node1": ("ttl12",),
             "Node2": ("ttl15",),
         }[node]
 

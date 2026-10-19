@@ -227,15 +227,14 @@ def record_CW_optical_pumping_both_nodes(self):
       * Node1 delivers the pumping repump through all six fiber AOMs; Node2
         through A5/A6 only.
       * Node1's D1 is a dedicated double-pass AOM, dds_D1_pumping_DP_Node1.
-        Node2's D1 comes from an external source gated by ttl_D1_pumping_Node2
+        Node2's D1 comes from an external source gated by ttl_D1_pumping_switch_Node2
         and reaches the atom through GRIN1, so GRIN1and2_dds_Node2 -- which on
         Node2 IS the GRIN1 DDS, see the naming note at
         experiment_functions.py:2409 -- has to be running before the gates
         open.
-      * There is no ttl_D1_pumping_Node1 to turn off at the start: Base
-        declares that alias for Node2 only, and Node1's dummy (ttl3) exists in
-        single-node mode alone (BaseExperiment_master_satellite.py:183,
-        ":196"). Giving Node1 a real D1 gate is the open hardware change in
+      * ttl_D1_pumping_switch_Node1 (ttl15) exists since 2026-10-19 but is not
+        driven here: Node1's D1 is still gated by its double-pass DDS. Giving
+        Node1 a real D1 gate is the open hardware change in
         documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md; once it
         lands, the two branches below collapse into one.
     """
@@ -261,7 +260,7 @@ def record_CW_optical_pumping_both_nodes(self):
         self.dds_cooling_DP_Node1.sw.off()
         self.dds_cooling_DP_Node2.sw.off()
         ### Node2 only: make sure its dedicated D1 gate starts closed
-        self.ttl_D1_pumping_Node2.on()
+        self.ttl_D1_pumping_switch_Node2.on()
         delay(5 * us)
 
         ### Configure the pumping-repump delivery AOMs. The four-per-group rule
@@ -328,14 +327,14 @@ def record_CW_optical_pumping_both_nodes(self):
 
         ### OPTICAL PUMPING STARTS HERE -- one timestamp, both nodes
         self.dds_D1_pumping_DP_Node1.sw.on()
-        self.ttl_D1_pumping_Node2.off()
+        self.ttl_D1_pumping_switch_Node2.off()
         self.ttl_GRIN1_switch_Node2.off()
 
         delay(t_pumping)
 
         ### ... AND ENDS HERE -- one timestamp, both nodes
         self.dds_D1_pumping_DP_Node1.sw.off()
-        self.ttl_D1_pumping_Node2.on()
+        self.ttl_D1_pumping_switch_Node2.on()
         self.ttl_GRIN1_switch_Node2.on()
 
         delay(t_depumping)

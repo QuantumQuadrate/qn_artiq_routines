@@ -4,6 +4,11 @@ Print the measured TTL delay of every cabled path between and within the two
 nodes, averaged over n_shots (default 1000). Nothing is estimated, derived or
 corrected: every printed number is a plain statistic of measured timestamps.
 
+STATUS 2026-10-19: every cable and loopback below was removed, so every leg
+prints "no edge" until they are re-fitted. Leg 2 is gone: Node1 ttl15 is now
+Node1's D1 gate (ttl_D1_pumping_switch), blocked at every init, and this
+probe used to leave it low, which on that active-low gate means open.
+
 WHAT ONE NUMBER MEANS
 ---------------------
     delay = (input timestamp) - (scheduled fire timestamp of the output)
@@ -15,16 +20,16 @@ window. The DIO TTL channels resolve 1 ns on both inputs and outputs.
 
 Each timestamp is in the clock of the node that recorded it, and a Node2
 output fires when NODE2's clock reaches its timestamp. Legs 4 and 5 stay
-inside one node. Legs 1-3 compare the two nodes' clocks, so they include the
+inside one node. Legs 1 and 3 compare the two nodes' clocks, so they include the
 offset between those clocks. Context, read from the ARTIQ 7 DRTIO gateware:
 Node1 sends its raw timestamp counter when the link comes up
 (gateware/drtio/rt_controller_master.py:54-55) and Node2 loads it as received
 (rt_packet_satellite.py:85-86), with no compensation for the link latency,
 so Node2's clock reads behind Node1's. Only a link re-establish reloads it
 (artiq-zynq release-7 src/runtime/src/rtio_mgt.rs:276-286); core.reset()
-does not. So a negative delay on legs 1-2 is not an error, and cross-node
+does not. So a negative delay on leg 1 is not an error, and cross-node
 numbers belong to the link session they were measured in. To see whether
-legs 1-3 repeat from one link session to the next, reboot Node2 or replug
+legs 1 and 3 repeat from one link session to the next, reboot Node2 or replug
 the fibre, run this again and compare the printed means.
 
 LEGS AND CABLING
@@ -33,12 +38,13 @@ Unified device names; Node2's local ttlN is unified ttl(N+16).
 
     leg  direction        fires  stamps  physical connection
     1    Node1 -> Node2   ttl12  ttl25   cable 1: Node1 ttl12 -> Node2 ttl9
-    2    Node1 -> Node2   ttl15  ttl26   cable 2: Node1 ttl15 -> Node2 ttl10
+    2    removed 2026-10-19 (was Node1 ttl15 -> Node2 ttl10 (ttl26))
     3    Node2 -> Node1   ttl31  ttl11   cable 3: Node2 ttl15 -> Node1 ttl11
     4    Node1 -> Node1   ttl12  ttl10   loopback (add it, see below)
     5    Node2 -> Node2   ttl31  ttl27   loopback (add it, see below)
 
-Cables 1-3 exist, wired as the lab stated on 2026-10-18. Two repo records
+Cables 1-3 existed until 2026-10-19, wired as the lab stated on 2026-10-18.
+Two repo records
 put cables 1 and 2 one Node2 input lower, on Node2 ttl8 and ttl9 (ttl24,
 ttl25): NODE_TTL_ALIASES (utilities/BaseExperiment_master_satellite.py:
 181-182) and the test_ttl_pulse_experiment docstring
@@ -52,11 +58,10 @@ input on the same node:
     leg 5   T on Node2 ttl15 (ttl31), short coax into Node2 ttl11 (ttl27)
 
 Legs 1 and 4 see the same ttl12 edge; legs 3 and 5 see the same ttl31 edge.
-Without the loopbacks, legs 4 and 5 print "no edge" and legs 1-3 still run;
+Without the loopbacks, legs 4 and 5 print "no edge" and legs 1 and 3 still run;
 an edge on leg 4 or 5 without its loopback means something else is plugged
 into that input (no current code uses Node1 ttl10 or Node2 ttl11).
-The Node1 loop uses ttl10, not ttl3: ttl3 is the GRIN1 toggle-switch input
-read by SamplerMOTCoilAndBeamBalanceTune_master_satellite.py:392-395.
+The Node1 loop uses ttl10, not ttl3: ttl3 is Node1's dummy input.
 
 ONE SHOT
 --------
@@ -76,7 +81,7 @@ n_valid/n_shots, std (population, ddof=0), min, max, and the total number of
 extra edges. A leg with no edge at all prints one line saying so and naming
 the connection it expects.
 
-Archived to this run's h5 only (broadcast=False, persist=False), k = 1..5:
+Archived to this run's h5 only (broadcast=False, persist=False), k = 1, 3, 4, 5:
 
     drtio_ttl_skew_leg<k>_delay_mu      int64[n_shots]  delay of each shot
     drtio_ttl_skew_leg<k>_edge_seen     bool[n_shots]   False = missed shot
@@ -96,10 +101,10 @@ over from an earlier experiment is cleared by the start-up drain.
 
 SAFETY
 ------
-Drives only Node1 ttl12, Node1 ttl15 and Node2 ttl15 (ttl31): set low at the
-start, one 1 us pulse each per shot, left low. They belong to the retired
-inter-node handshake and are wired only to the inputs above. Puts Node1
-ttl10, ttl11 and Node2 ttl9, ttl10, ttl11 (ttl25, ttl26, ttl27) in input mode
+Drives only Node1 ttl12 and Node2 ttl15 (ttl31): set low at the start, one
+1 us pulse each per shot, left low. They belong to the retired inter-node
+handshake and are now each node's dummy output. Puts Node1 ttl10, ttl11 and
+Node2 ttl9, ttl11 (ttl25, ttl27) in input mode
 and gates them. Nothing else: no DDS, Zotino, Sampler or DMA, and Node1's
 SPCM inputs ttl0, ttl1, ttl8, ttl9 (all four SPCMs are on Node1) are not
 touched. Standalone EnvExperiment, no BaseExperiment. Writes no broadcast or
@@ -109,7 +114,7 @@ No core.reset(). On Kasli-SoC it resets only Node1's RTIO core (artiq-zynq
 src/runtime/src/rtio_csr.rs:22-26). The routine that would also reset the
 satellite (rtio_mgt.rs:356-362, which sends it a ResetRequest at :324) has
 no caller, so a reset could not clear Node2's inputs. The probe drains its
-five inputs itself at the start.
+four inputs itself at the start.
 
 RESULT, 2026-10-18 (RID 39102, loopbacks fitted)
 ------------------------------------------------
@@ -157,17 +162,16 @@ _NO_EDGE = np.int64(-1)
 
 #: Outputs in window order; row index into fire_mu.
 _TTL12 = 0
-_TTL15 = 1
-_TTL31 = 2
-_N_OUTPUTS = 3
+_TTL31 = 1
+_N_OUTPUTS = 2
 
 #: (leg, direction, output, input, output row, connection). Leg k is row
-#: k - 1 of stamp_mu and extra_edges.
+#: k - 1 of stamp_mu and extra_edges. Leg 2 (Node1 ttl15 -> Node2 ttl26) was
+#: dropped on 2026-10-19, when ttl15 became Node1's D1 gate; its row stays
+#: unused so the remaining legs keep their numbers.
 _LEGS = (
     (1, "Node1 -> Node2", "ttl12", "ttl25", _TTL12,
      "cable 1: Node1 ttl12 -> Node2 ttl9 (ttl25)"),
-    (2, "Node1 -> Node2", "ttl15", "ttl26", _TTL15,
-     "cable 2: Node1 ttl15 -> Node2 ttl10 (ttl26)"),
     (3, "Node2 -> Node1", "ttl31", "ttl11", _TTL31,
      "cable 3: Node2 ttl15 (ttl31) -> Node1 ttl11"),
     (4, "Node1 -> Node1", "ttl12", "ttl10", _TTL12,
@@ -176,7 +180,7 @@ _LEGS = (
      "loopback: BNC T on Node2 ttl15 (ttl31), short coax into "
      "Node2 ttl11 (ttl27)"),
 )
-_N_LEGS = len(_LEGS)
+_N_ROWS = max(entry[0] for entry in _LEGS)
 
 
 class measure_drtio_ttl_skew(EnvExperiment):
@@ -187,12 +191,10 @@ class measure_drtio_ttl_skew(EnvExperiment):
 
         # Outputs (TTLOut).
         self.setattr_device("ttl12")   # Node1 ttl12 -> legs 1 and 4
-        self.setattr_device("ttl15")   # Node1 ttl15 -> leg 2
         self.setattr_device("ttl31")   # Node2 ttl15 -> legs 3 and 5
 
         # Inputs (TTLInOut).
         self.setattr_device("ttl25")   # Node2 ttl9,  leg 1
-        self.setattr_device("ttl26")   # Node2 ttl10, leg 2
         self.setattr_device("ttl11")   # Node1 ttl11, leg 3
         self.setattr_device("ttl10")   # Node1 ttl10, leg 4 (loopback)
         self.setattr_device("ttl27")   # Node2 ttl11, leg 5 (loopback)
@@ -200,8 +202,8 @@ class measure_drtio_ttl_skew(EnvExperiment):
         self.setattr_argument(
             "n_shots",
             NumberValue(1000, ndecimals=0, step=100, min=1, max=10000),
-            tooltip="Shots to average. Every shot fires ttl12, ttl15 and "
-                    "ttl31 once each.",
+            tooltip="Shots to average. Every shot fires ttl12 and ttl31 "
+                    "once each.",
         )
 
     def prepare(self):
@@ -212,9 +214,9 @@ class measure_drtio_ttl_skew(EnvExperiment):
         #   fire_mu[output * n_shots + shot]         scheduled rising edge
         # Raw timestamps are always positive, so -1 is unambiguous HERE; the
         # delays computed from them on the host use a mask instead.
-        self.stamp_mu = np.full(_N_LEGS * self.n_shots, _NO_EDGE,
+        self.stamp_mu = np.full(_N_ROWS * self.n_shots, _NO_EDGE,
                                 dtype=np.int64)
-        self.extra_edges = np.zeros(_N_LEGS * self.n_shots, dtype=np.int32)
+        self.extra_edges = np.zeros(_N_ROWS * self.n_shots, dtype=np.int32)
         self.fire_mu = np.zeros(_N_OUTPUTS * self.n_shots, dtype=np.int64)
 
     # --------------------------------------------------------------- kernels
@@ -240,11 +242,9 @@ class measure_drtio_ttl_skew(EnvExperiment):
         self.ttl10.input()
         self.ttl11.input()
         self.ttl25.input()
-        self.ttl26.input()
         self.ttl27.input()
         delay(1 * ms)
         self.ttl12.off()
-        self.ttl15.off()
         self.ttl31.off()
         delay(1 * ms)
 
@@ -253,7 +253,6 @@ class measure_drtio_ttl_skew(EnvExperiment):
         self._drain(self.ttl10)
         self._drain(self.ttl11)
         self._drain(self.ttl25)
-        self._drain(self.ttl26)
         self._drain(self.ttl27)
 
     @kernel
@@ -298,17 +297,9 @@ class measure_drtio_ttl_skew(EnvExperiment):
                     self.fire_mu[_TTL12 * n + shot] = now_mu()
                     self.ttl12.pulse_mu(_PULSE_MU)
 
-            # Window 2: ttl15. Cable 2 -> ttl26.
+            # Window 2: ttl31 on Node2. Cable 3 -> ttl11; T loopback -> ttl27.
             with parallel:
-                gate_end_2 = self.ttl26.gate_rising_mu(_WINDOW_MU)
-                with sequential:
-                    delay_mu(_FIRE_AT_MU)
-                    self.fire_mu[_TTL15 * n + shot] = now_mu()
-                    self.ttl15.pulse_mu(_PULSE_MU)
-
-            # Window 3: ttl31 on Node2. Cable 3 -> ttl11; T loopback -> ttl27.
-            with parallel:
-                gate_end_3 = self.ttl11.gate_rising_mu(_WINDOW_MU)
+                gate_end_2 = self.ttl11.gate_rising_mu(_WINDOW_MU)
                 self.ttl27.gate_rising_mu(_WINDOW_MU)
                 with sequential:
                     delay_mu(_FIRE_AT_MU)
@@ -318,9 +309,8 @@ class measure_drtio_ttl_skew(EnvExperiment):
             # Read only after every event of the shot is submitted.
             self._read_gate(self.ttl25, gate_end_1, 1, shot)
             self._read_gate(self.ttl10, gate_end_1, 4, shot)
-            self._read_gate(self.ttl26, gate_end_2, 2, shot)
-            self._read_gate(self.ttl11, gate_end_3, 3, shot)
-            self._read_gate(self.ttl27, gate_end_3, 5, shot)
+            self._read_gate(self.ttl11, gate_end_2, 3, shot)
+            self._read_gate(self.ttl27, gate_end_2, 5, shot)
 
     # ------------------------------------------------------------------ host
 
@@ -332,9 +322,9 @@ class measure_drtio_ttl_skew(EnvExperiment):
     def analyse(self):
         """Per-leg delays and statistics from the raw kernel arrays."""
         n = self.n_shots
-        stamps = np.asarray(self.stamp_mu, dtype=np.int64).reshape(_N_LEGS, n)
+        stamps = np.asarray(self.stamp_mu, dtype=np.int64).reshape(_N_ROWS, n)
         extras = np.asarray(self.extra_edges,
-                            dtype=np.int32).reshape(_N_LEGS, n)
+                            dtype=np.int32).reshape(_N_ROWS, n)
         fires = np.asarray(self.fire_mu,
                            dtype=np.int64).reshape(_N_OUTPUTS, n)
 
@@ -373,7 +363,7 @@ class measure_drtio_ttl_skew(EnvExperiment):
     def report(self):
         print("measure_drtio_ttl_skew  n_shots %d" % self.n_shots)
         print("delay = input timestamp - scheduled fire timestamp (ns)")
-        print("legs 1-3 compare two node clocks: a negative leg 1-2 delay "
+        print("legs 1 and 3 compare two node clocks: a negative leg 1 delay "
               "is not an error")
         for result in self.analyse():
             self._print_leg(result)

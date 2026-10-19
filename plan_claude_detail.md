@@ -236,16 +236,50 @@ indices; Node2's resolve to `ttl16`-`ttl31`):
 | `ttl_pumping_repump_switch` | ttl7 | ttl7 |
 | `ttl_GRIN2_switch` | ttl13 | ttl13 |
 | `ttl_GRIN1_switch` | ttl14 | ttl14 |
-| `ttl_D1_pumping` | dummy (ttl3) | ttl12 (real gate) |
-| legacy handshake | `ttl_node2_input1` ttl11, `ttl_node1_output1` ttl12, `ttl_node1_output2` ttl15 | `ttl_node1_input1` ttl8, `ttl_node1_input2` ttl9, `ttl_node2_output1` ttl15 |
+| `ttl_D1_pumping_switch` | ttl15 (since 2026-10-19; blocked at init, no sequence opens it yet) | ttl12 (real gate) |
+| dummy input / output (no alias name of their own) | ttl3 / ttl12 | ttl8 / ttl15 (= ttl24 / ttl31) |
+| legacy handshake | `ttl_node2_input1` ttl3, `ttl_node1_output1` and `_output2` ttl12 (dummies) | `ttl_node1_input1` and `_input2` ttl8, `ttl_node2_output1` ttl15 (dummies) |
 
-- Inputs: Node1 ttl11; Node2 ttl0-3, ttl8, ttl9.
-- Safe state ON (active-low optical gates blocked): Node1 ttl4-7, 13, 14;
-  Node2 ttl4-7, 12, 13, 14. Safe state OFF: Node1 ttl12, 15; Node2 ttl15.
+- Inputs: Node1 ttl3, its dummy (the group must not be empty or the kernel
+  does not compile); Node2 ttl0-3, ttl8.
+- Safe state ON (active-low optical gates blocked): Node1 ttl4-7, 13, 14,
+  15; Node2 ttl4-7, 12, 13, 14. Safe state OFF: Node1 ttl12; Node2 ttl15.
 - The gateware configures only ttl4-7 and ttl12-15 as outputs on each node;
-  ttl2/ttl10 sit on input banks. The cross-node handshake coax (master ttl12
-  to satellite ttl24; satellite ttl31 to master ttl11) still exists and is
-  reused by the skew probe (section 12.2).
+  ttl2/ttl10 sit on input banks.
+- The handshake cables were removed on 2026-10-19 (user). They ran master
+  ttl12 -> satellite ttl25, master ttl15 -> satellite ttl26 and satellite
+  ttl31 -> master ttl11, plus BNC T loopbacks ttl12 -> ttl10 and ttl31 ->
+  ttl27 (section 12.2). Each legacy handshake alias, and each single-node
+  `COMPATIBILITY_DUMMY_TTL_ALIASES` entry, now points at its own node's
+  dummy, which has nothing connected.
+  Before this, single-node Node2's `ttl_node1_output1/2` were on ttl5, its
+  repump switch. Node1 ttl10, ttl11 and Node2 ttl9, ttl10 (ttl25, ttl26)
+  are now referenced only by the bind-everything `TTLS` and `EDGE_COUNTERS`
+  tuples. device_db is unchanged: renaming a key there makes `build()` fail
+  for every experiment.
+- Node1 ttl15 became Node1's `ttl_D1_pumping_switch` later on 2026-10-19 (user);
+  it used to be the dummy ttl3, set in `COMPATIBILITY_DUMMY_TTL_ALIASES`
+  and so present only in single-node mode. It now exists in both modes,
+  as `ttl_D1_pumping_switch` and `ttl_D1_pumping_switch_Node1`. Nothing writes it yet:
+  Node1's optical pumping gates D1 with `dds_D1_pumping_DP`, only the
+  `*_node2` pumping functions use the alias and Node1 runs dispatch to the
+  `*_node1` ones; AOMsCoils Node1 opens it when D1 is requested (section
+  11.7). Init blocks it (safe state ON), like Node2's ttl12, at the user's
+  request that master-satellite init turn off everything standalone does.
+  ttl15 does gate Node1's D1 (external source since 2026-10-19), so every
+  Node1 sequence that pumps gets NO D1 light until it opens ttl15: the runs
+  complete and the data look normal, but the atoms are not pumped.
+  Standalone (`utilities/BaseExperiment.py`, the user's edits) matches:
+  alice has D1 on ttl15 blocked at init, output dummies on ttl12, input
+  dummies on ttl3; bob's dummies are its ttl8 (input) and ttl15 (output),
+  node-local names for ttl24/ttl31. The `dummy_ttl_input`/`_output`
+  aliases added earlier that day were removed again: nothing uses them.
+- `ttl_D1_pumping` was renamed `ttl_D1_pumping_switch` on 2026-10-19 (user),
+  in both stacks and every file that used it (60 occurrences in 12 files,
+  including `ttl_D1_pumping_Node1/_Node2` -> `ttl_D1_pumping_switch_Node1/
+  _Node2`). `subroutines/experiment_functions.py` and
+  `subroutines/cost_functions.py` carry the Windows read-only attribute;
+  it was cleared for that edit and set again, origin unknown.
 
 ### 2.8 DDS channel map
 
@@ -277,7 +311,7 @@ The same alias names mean physically different things on the two nodes
   GRIN2 (defaults `f/p_GRIN2_D1_pumping`; the Node2 combined GRIN2 mode
   reprograms it to `f/p_GRIN2_excitation`).
 - Node1 D1 shares the GRIN1 optical gate; Node2 has a dedicated D1 gate
-  (`ttl_D1_pumping`, ttl12).
+  (`ttl_D1_pumping_switch`, ttl12).
 
 ### 2.9 Fixed wiring metadata
 
@@ -2126,16 +2160,28 @@ and is refused by the analysis loader.
   which undercuts `reset_core=False` (O-11).
 - Controls: FORT, cooling DP, A1-A6, D1 pumping DP, GRIN1and2, the active-low
   optical gates (repump, pumping-repump, excitation0, GRIN1, GRIN2,
-  microwave, and Node2's dedicated D1 gate; Node1 D1 shares the GRIN1 gate,
-  `ttl_GRIN1_switch enabled |= D1_pumping_DP_ON`), microwave DDS, MW RF,
-  coils, K10CR1, `run_laser_feedback`. DDS frequency/power come from the
-  authoritative `*_NodeX` values through resolver bindings.
+  microwave, and each node's dedicated D1 gate `ttl_D1_pumping_switch`;
+  Node1 D1 also opens the GRIN1 gate, `ttl_GRIN1_switch enabled |=
+  D1_pumping_DP_ON`), microwave DDS, MW RF, coils, K10CR1,
+  `run_laser_feedback`. DDS frequency/power come from the authoritative
+  `*_NodeX` values through resolver bindings.
+- Node1 D1 since 2026-10-19 (user): the D1 AOM runs from an external RF
+  source switched by `ttl_D1_pumping_switch` (Node1 ttl15, active low), as on
+  Node2. `D1_pumping_DP_ON` opens that gate (and GRIN1); Node1's Urukul D1
+  channel (`dds_D1_pumping_DP`, urukul2_ch2) is no longer switched on by it
+  and stays off. Test: `test_node1_d1_is_switched_by_its_external_source_ttl`.
+  The Node1 sequences still switch D1 through that Urukul channel; with ttl15
+  blocked at init they get no D1 light until they are changed.
 - Node2 combined `Node2_GRIN1_AOM_ON` / `Node2_GRIN2_AOM_ON` modes
   (`0a4ed7a`) are applied after the individual controls, as in standalone, so
   they are authoritative: their OFF branches override `GRIN1and2_ON`, the GRIN
   gates and the D1 DDS (`D1_pumping_DP_ON` on Node2 effectively drives only
-  `ttl_D1_pumping`). The GRIN2 mode reprograms `dds_D1_pumping_DP` to
-  `f/p_GRIN2_excitation` before switching it on.
+  `ttl_D1_pumping_switch`). The GRIN2 mode reprograms `dds_D1_pumping_DP` to
+  `f/p_GRIN2_excitation` before switching it on. `run_feedback()` re-applies
+  them too after the stabilizer (2026-10-19); before that it re-applied only
+  the individual controls, so a Node2 run with every stabilized AOM on could
+  end with GRIN RF on or the GRIN1 gate open where standalone ends them off
+  (`test_run_feedback_keeps_node2_combined_grin_state`).
 - Coils (`71b4405`): one `disable_coils` checkbox (default False). Unchecked,
   the four coils go to the persistent `*_volts_MOT_NodeX` values read at
   prepare; checked, 0 V. Nothing is typed in the GUI or persisted.
@@ -2199,6 +2245,13 @@ and is refused by the analysis loader.
 
 The retired detail spec (section 20) condensed it to "Remote input/SPI
 operations are latency-sensitive." This remains a binding rule.
+
+Status 2026-10-19: the probe ran on 2026-10-18 (RIDs 39100 and 39102; the
+numbers are in its RESULT block). The cables it used were removed on
+2026-10-19 (section 2.7), so it cannot be rerun without re-cabling. Its leg 2
+(Node1 ttl15 -> Node2 ttl26) was then removed from the probe, because ttl15
+became Node1's D1 gate and the probe left it low (open); legs 1, 3, 4 and 5
+keep their numbers. The 2026-10-14 status below is history.
 
 Status 2026-10-14: the OUTPUT side is measured (section 12.3: no DRTIO
 per-event cost). Remote INPUT latency and cross-node TTL skew have never been
@@ -2530,8 +2583,11 @@ the node-count axis only (`2026_Single_Node_*`, future `Two_Nodes_*`), with
 no folder-redundant prefix such as `MS_`; keep existing names when porting.
 Current notebooks: `2026_Monitor_Magnetometer_Analysis` (no node prefix by
 design), `2026_Single_Node_Atom_Loading`, `_Microwaves`,
-`_Parity_Analysis_AllSPCM`, `_Single_Photon_Analysis`. No `Two_Nodes_`
-notebook exists yet.
+`_Parity_Analysis_AllSPCM`, `_Single_Photon_Analysis`, and
+`2026_Two_Nodes_Atom_Loading` (2026-10-19), ported from
+`standalone/Two photon analysis/two_nodes_atom_loading.ipynb`. That
+folder's two-photon notebook is not ported: there are no master-satellite
+two-photon runs yet.
 
 ### 15.2 Master-satellite loaders (`Analysis/h5_data_utilities.py`)
 
@@ -2554,6 +2610,19 @@ notebook exists yet.
   other-node names; checked on 238 October files, only overridden names
   change); exposes `overrides_applied`; sets `node`. Two-node files are refused
   by design.
+- Two-node files (2026-10-19), for `2026_Two_Nodes_*`: `ms_two_nodes_files`
+  returns ONE file per RID (the plain file ARTIQ writes at the end of the
+  run, else the `_TwoNodes_..._scan_over_...` copy the GVS rewrites after
+  every scan point, read from its name and never opened), optionally
+  filtered by `experiment_function`.
+  `ms_two_nodes_archive_and_datasets_to_locals` keeps every suffix, applies
+  unrecorded overrides under the name the run resolved them to, rebuilds
+  the bare joint scalars (`MS_TWO_NODES_JOINT_SCALARS`, a copy of
+  `TWO_NODE_AGREEING_SCALARS`) from their agreeing `_Node1`/`_Node2` pair,
+  strips the seed from the four `SPCM*_OtherNode_RO*` series too, and
+  injects expid arguments. The archived `*_two_node` timing globals are
+  not what the sequence read (RID 39108: `t_atom_check_time_two_node`
+  0.01, gate 0.005).
 - `ms_get(source, key, default)`: datasets, then archive, then expid, with
   suffix resolution, returning DECODED values. Never wrap it in `str_from_h5`
   (`str_from_h5('dummy_variable')` gives `'mmy_variabl'`). GVS does not
@@ -2588,6 +2657,15 @@ now print the exception (`4aed4c1`).
   matches with `any()`, not `all()` (two-element filter: any = 71, all = 0);
   shared with standalone and left alone; the comment was corrected only in
   the master_satellite copies.
+- `h5_archive_and_datasets_to_locals` strips the leading `[0]` seed from
+  `SPCM0/1_RO*`, `AllSPCMs_RO*` and `BothSPCMs_RO*` but not from the four
+  `SPCM*_OtherNode_RO*` series, so every notebook that histograms those
+  per iteration (standalone and `2026_Single_Node_*`) pairs each shot with
+  the previous one. Only the two-node loader strips them; the plain
+  loader is left as it is.
+- The `2026_Single_Node_*` name filter `GeneralVariableScan_master_satellite`
+  also matches `..._two_nodes` files, which `ms_archive_and_datasets_to_locals`
+  then refuses.
 - In the single-photon notebook the decay-fit cells (48, 52) and efficiency
   cells (26, 53) still index `[0]` into per-iteration arrays, possibly on
   purpose.
@@ -3064,7 +3142,8 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   2026-10-11): rename `GRIN1and2_dds -> GRIN1_dds` and `dds_D1_pumping_DP ->
   GRIN2_dds` in both stacks and the alias/feedback JSON keys (about 307
   occurrences in 21 files; zero electrical change because only alias KEYS
-  change), verify Node2 on hardware, then give Node1 a real D1 TTL (ttl12) and
+  change), verify Node2 on hardware, then give Node1 a real D1 TTL (now ttl15,
+  section 2.7) and
   an external DDS. Prerequisite: the alias guard test (O-22). Latent bugs
   recorded there and left alone: `chopped_optical_pumping` has no
   Node2-correct path; several Node1-only unconditional sequences mis-drive
@@ -3076,7 +3155,10 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   handshake (about 10 sites) and ttl15 is the other handshake line. Retiring
   the handshake frees ttl12 (D1 TTL on both nodes) and ttl15 (chop gate);
   the alternative is moving the handshake to ttl8/9/10, which Node1 does not
-  alias. User decision.
+  alias. User decision. Answered 2026-10-19: retired, cables removed (section
+  2.7). Node1 ttl15 is now Node1's `ttl_D1_pumping_switch`. ttl12 is Node1's
+  dummy output and Node2's ttl15 (ttl31) Node2's, so reusing either means
+  moving that node's dummy first.
 
 ### 18.5 Next steps (suggested order, user decides)
 

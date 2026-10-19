@@ -2419,7 +2419,7 @@ def CW_optical_pumping_node2(self):
     self.dds_cooling_DP.sw.off()  # no MOT cooling light
     self.ttl_repump_switch.on()   # no MOT RP AOM
     self.ttl_exc0_switch.on()     # no excitation
-    self.ttl_D1_pumping.on()      # no D1
+    self.ttl_D1_pumping_switch.on()      # no D1
     delay(5 * us)
 
     ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
@@ -2445,13 +2445,13 @@ def CW_optical_pumping_node2(self):
 
     with parallel:
         self.ttl_pumping_repump_switch.off()  ## pumping repump ON
-        self.ttl_D1_pumping.off()  ##turning D1 ON
+        self.ttl_D1_pumping_switch.off()  ##turning D1 ON
         self.ttl_GRIN1_switch.off()  ## turning D1 ON
 
     delay(self.t_pumping)     ## pumping time
 
     with parallel:
-        self.ttl_D1_pumping.on()  ## turning D1 OFF
+        self.ttl_D1_pumping_switch.on()  ## turning D1 OFF
         self.ttl_GRIN1_switch.on()  ## GRIN OFF
 
     delay(self.t_depumping)    ## depumping time
@@ -2546,7 +2546,7 @@ def record_CW_optical_pumping_node2(self):
             self.dds_cooling_DP.sw.off()
             self.ttl_repump_switch.on()
             self.ttl_exc0_switch.on()
-            self.ttl_D1_pumping.on()
+            self.ttl_D1_pumping_switch.on()
 
         ### Configure pumping-repump delivery AOMs
         ### These must remain sequential if they share the same Urukul SPI bus
@@ -2577,14 +2577,14 @@ def record_CW_optical_pumping_node2(self):
         ### Optical pumping
         with parallel:
             self.ttl_pumping_repump_switch.off()
-            self.ttl_D1_pumping.off()
+            self.ttl_D1_pumping_switch.off()
             self.ttl_GRIN1_switch.off()
 
         delay(self.t_pumping)
 
         ### Turn off D1 pumping light
         with parallel:
-            self.ttl_D1_pumping.on()
+            self.ttl_D1_pumping_switch.on()
             self.ttl_GRIN1_switch.on()
 
         delay(self.t_depumping)
@@ -2609,7 +2609,7 @@ def record_CW_optical_pumping_node2_without_coil(self):
             self.dds_cooling_DP.sw.off()
             self.ttl_repump_switch.on()
             self.ttl_exc0_switch.on()
-            self.ttl_D1_pumping.on()
+            self.ttl_D1_pumping_switch.on()
 
         ### Configure pumping-repump delivery AOMs
         ### These must remain sequential if they share the same Urukul SPI bus
@@ -2640,14 +2640,14 @@ def record_CW_optical_pumping_node2_without_coil(self):
         ### Optical pumping
         with parallel:
             self.ttl_pumping_repump_switch.off()
-            self.ttl_D1_pumping.off()
+            self.ttl_D1_pumping_switch.off()
             self.ttl_GRIN1_switch.off()
 
         delay(self.t_pumping)
 
         ### Turn off D1 pumping light
         with parallel:
-            self.ttl_D1_pumping.on()
+            self.ttl_D1_pumping_switch.on()
             self.ttl_GRIN1_switch.on()
 
         delay(self.t_depumping)
@@ -7316,7 +7316,7 @@ def single_photon_experiment_3_atom_loading_advance_node2_AllSPCMs(self):
         delay(1 * us)
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### 1) use ttl_D1_pumping/ttl_excitation to send D1/Exc to GRIN1/GRIN2
+        ### 1) use ttl_D1_pumping_switch/ttl_excitation to send D1/Exc to GRIN1/GRIN2
         ### 2) use ttl_GRIN1_switch/ttl_GRIN2_switch to send D1/EXC to atoms
 
         self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
@@ -13064,7 +13064,7 @@ def atom_photon_parity_6_node2_AllSPCM_experiment(self):
 
         ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
         ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
-        ### 1) use ttl_D1_pumping/ttl_excitation to send D1/Exc to GRIN1/GRIN2
+        ### 1) use ttl_D1_pumping_switch/ttl_excitation to send D1/Exc to GRIN1/GRIN2
         ### 2) use ttl_GRIN1_switch/ttl_GRIN2_switch to send D1/EXC to atoms
 
         # self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))

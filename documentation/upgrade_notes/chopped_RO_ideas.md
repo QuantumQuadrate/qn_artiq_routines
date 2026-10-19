@@ -365,7 +365,7 @@ The one output that frees up is **`ttl15`** (`ttl_node1_output2` /
 
 | TTL | role | depends on |
 |---|---|---|
-| ttl12 | `ttl_D1_pumping`, both nodes | retiring the standalone handshake |
+| ttl12 | `ttl_D1_pumping_switch`, both nodes | retiring the standalone handshake |
 | **ttl15** | **chop gate: cooling DP + FORT (one line, FORT inverted)** | the same |
 | ttl11 | spare | — |
 

@@ -164,7 +164,13 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
             self._manual_dds.append(
                 getattr(self, binding["experiment_attribute"])
             )
-            self._manual_dds_enabled.append(getattr(self, control_name))
+            enabled = getattr(self, control_name)
+            if self.NODE == "Node1" and logical_alias == "dds_D1_pumping_DP":
+                # Node1's D1 AOM runs from an external source since
+                # 2026-10-19, switched by ttl_D1_pumping_switch below. This
+                # Urukul channel no longer turns D1 on, so it stays off.
+                enabled = False
+            self._manual_dds_enabled.append(enabled)
             self._manual_dds_frequencies.append(
                 getattr(self, binding["frequency_attribute"])
             )
@@ -180,9 +186,11 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
             if self.NODE == "Node1" and logical_alias == "ttl_GRIN1_switch":
                 enabled = enabled or self.D1_pumping_DP_ON
             self._manual_ttl_enabled.append(enabled)
-        if self.NODE == "Node2":
-            self._manual_ttls.append(self.ttl_D1_pumping)
-            self._manual_ttl_enabled.append(self.D1_pumping_DP_ON)
+        # Both nodes' D1 AOMs run from an external source switched by an
+        # active-low ttl_D1_pumping_switch: off() turns D1 on. Node1 joined
+        # Node2 here on 2026-10-19; its D1 still also opens GRIN1 (above).
+        self._manual_ttls.append(self.ttl_D1_pumping_switch)
+        self._manual_ttl_enabled.append(self.D1_pumping_DP_ON)
 
         # MOT coil voltages come from the node's persistent MOT calibration
         # through the single-node projection; disable_coils selects 0 V.
@@ -277,7 +285,7 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
         standalone AOMsCoils ordering, so on Node2 these switches are
         authoritative: their OFF branches override GRIN1and2_ON, the GRIN
         gate controls, and the D1 DDS (D1_pumping_DP_ON on Node2 therefore
-        effectively drives only ttl_D1_pumping, as in the original).
+        effectively drives only ttl_D1_pumping_switch, as in the original).
         """
         if self._node2_grin1_combined:
             self.GRIN1and2_dds.sw.on()
@@ -320,7 +328,10 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
         Mirrors the standalone utility: the stabilizer only runs when all six
         fiber AOMs and the cooling DP are requested on, and the requested DDS
         and optical-gate states are re-applied afterward because the
-        stabilizer switches AOMs during its measurement phase.
+        stabilizer switches AOMs during its measurement phase. On Node2 that
+        includes the combined GRIN modes, as in apply_manual_state: without
+        them the individual flags just re-applied would win, leaving RF or a
+        GRIN gate on that the standalone utility ends off.
         """
         self.core.reset()
         if self._all_stabilized_aoms_requested:
@@ -330,6 +341,8 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
                 self._apply_dds_state()
                 delay(1 * ms)
                 self._apply_active_low_ttl_state()
+                if self._apply_node2_combined_modes:
+                    self._apply_node2_combined_grin_state()
             else:
                 delay(10 * ms)
                 self.laser_stabilizer.monitor()
@@ -337,6 +350,8 @@ class _AOMsCoilsMasterSatelliteMixin(_DatasetRedirectMixin):
                 self._apply_dds_state()
                 delay(1 * ms)
                 self._apply_active_low_ttl_state()
+                if self._apply_node2_combined_modes:
+                    self._apply_node2_combined_grin_state()
 
     @kernel
     def k10cr1_operations(self):

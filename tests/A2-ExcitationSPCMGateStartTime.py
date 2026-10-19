@@ -80,7 +80,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         self.dds_AOM_A6.sw.off()
 
         delay(1*ms)
-        self.ttl_D1_pumping.on()            ## turning D1 OFF
+        self.ttl_D1_pumping_switch.on()            ## turning D1 OFF
         self.ttl_exc0_switch.on()           ## turning EXC OFF
         # self.dds_pumping_repump.sw.off()    ## turning PR OFF
         self.ttl_pumping_repump_switch.on()
@@ -383,8 +383,8 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         # turning on excitation DDS and switch
         self.ttl_exc0_switch.off()      # EXC0 AOM ON
         # self.ttl_exc0_switch.on()      # EXC0 AOM OFF
-        # self.ttl_D1_pumping.on()        ## turning D1 OFF
-        # self.ttl_D1_pumping.off()        ## turning D1 ON
+        # self.ttl_D1_pumping_switch.on()        ## turning D1 OFF
+        # self.ttl_D1_pumping_switch.off()        ## turning D1 ON
 
         # self.GRIN1and2_dds.sw.on()      # GRIN1 RF ON, external sw not activated yet
         self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet
@@ -454,7 +454,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(1 * ms)
 
         self.ttl_exc0_switch.on()  # EXC0 AOM OFF
-        self.ttl_D1_pumping.on()  ## turning D1 OFF
+        self.ttl_D1_pumping_switch.on()  ## turning D1 OFF
 
 
     @kernel
@@ -473,8 +473,8 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         # turning on excitation DDS and switch
         self.ttl_exc0_switch.off()      # EXC0 AOM ON
         # self.ttl_exc0_switch.on()      # EXC0 AOM OFF
-        # self.ttl_D1_pumping.on()        ## turning D1 OFF
-        # self.ttl_D1_pumping.off()        ## turning D1 ON
+        # self.ttl_D1_pumping_switch.on()        ## turning D1 OFF
+        # self.ttl_D1_pumping_switch.off()        ## turning D1 ON
 
         # self.GRIN1and2_dds.sw.on()      # GRIN1 RF ON, external sw not activated yet
         self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet
@@ -574,7 +574,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(1 * ms)
 
         self.ttl_exc0_switch.on()  # EXC0 AOM OFF
-        self.ttl_D1_pumping.on()  ## turning D1 OFF
+        self.ttl_D1_pumping_switch.on()  ## turning D1 OFF
 
     @kernel
     def experiment_run_WO_SPCMswitch_edge_counter_and_FORT_node2(self):
@@ -592,8 +592,8 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         # turning on excitation DDS and switch
         # self.ttl_exc0_switch.off()      # EXC0 AOM ON
         # self.ttl_exc0_switch.on()      # EXC0 AOM OFF
-        # self.ttl_D1_pumping.on()        ## turning D1 OFF
-        # self.ttl_D1_pumping.off()        ## turning D1 ON
+        # self.ttl_D1_pumping_switch.on()        ## turning D1 OFF
+        # self.ttl_D1_pumping_switch.off()        ## turning D1 ON
 
         # self.GRIN1and2_dds.sw.on()      # GRIN1 RF ON, external sw not activated yet
         # self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet
@@ -666,7 +666,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(1 * ms)
 
         # self.ttl_exc0_switch.on()  # EXC0 AOM OFF
-        # self.ttl_D1_pumping.on()  ## turning D1 OFF
+        # self.ttl_D1_pumping_switch.on()  ## turning D1 OFF
 
 
 
@@ -686,8 +686,8 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         # turning on excitation DDS and switch
         # self.ttl_exc0_switch.off()      # EXC0 AOM ON
         # self.ttl_exc0_switch.on()      # EXC0 AOM OFF
-        # self.ttl_D1_pumping.on()        ## turning D1 OFF
-        # self.ttl_D1_pumping.off()        ## turning D1 ON
+        # self.ttl_D1_pumping_switch.on()        ## turning D1 OFF
+        # self.ttl_D1_pumping_switch.off()        ## turning D1 ON
 
         # self.GRIN1and2_dds.sw.on()      # GRIN1 RF ON, external sw not activated yet
         # self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet
@@ -758,7 +758,7 @@ class ExcitationSPCMGateStartTime(EnvExperiment):
         delay(1 * ms)
         #
         # self.ttl_exc0_switch.on()  # EXC0 AOM OFF
-        # self.ttl_D1_pumping.on()  ## turning D1 OFF
+        # self.ttl_D1_pumping_switch.on()  ## turning D1 OFF
 
 
 

@@ -204,8 +204,9 @@ come before cleanup (sections 3.1, 3.3).
   FORT optimizer (last run RID 38772, 2026-10-12), MonitorSPCMinApplet.
 - **Two-node:** namespace sanity, joint atom loading, alternating retention,
   sequential feedback per crate.
-- **Not yet run:** master-satellite MonitorMagnetometer, the TTL skew probe,
-  and any two-node photon experiment.
+- **Not yet run:** master-satellite MonitorMagnetometer and any two-node
+  photon experiment. The TTL skew probe ran on 2026-10-18 (RIDs 39100,
+  39102); its cables are gone since 2026-10-19.
 
 **Recent changes:**
 - **2026-10-07:** two_nodes in Base and feedback (`e768d50`); two-node atom
@@ -234,6 +235,23 @@ come before cleanup (sections 3.1, 3.3).
   - Node2's A1 photodiode moved to `sampler4` ch6 because `sampler3` ch7 is
     bad (bob `feedback_channels.json`, section 10.1), and the new
     `tests/MOTBeamPowerCheck_master_satellite.py` (section 16.4).
+
+- **2026-10-19 (uncommitted):** `Analysis/master_satellite/
+  2026_Two_Nodes_Atom_Loading.ipynb`, ported from the standalone two-node
+  notebook, with two-node loaders appended to `Analysis/h5_data_utilities.py`
+  (section 15.2).
+- **2026-10-19 (uncommitted):** the handshake cables were removed. Every
+  legacy handshake alias now points at its node's dummy TTL (input /
+  output: Node1 ttl3 / ttl12, Node2 ttl24 / ttl31), and init no longer
+  touches Node1 ttl11 or Node2 ttl25 (section 2.7). device_db is
+  unchanged. Node1 ttl15 is now Node1's `ttl_D1_pumping_switch` (also
+  `ttl_D1_pumping_switch_Node1`), blocked at init like Node2's ttl12; no sequence
+  opens it yet. `ttl_D1_pumping` was renamed `ttl_D1_pumping_switch`
+  everywhere. AOMsCoils Node2's `run_feedback` now re-applies the combined
+  GRIN modes (new test), and the skew probe no longer drives ttl15.
+  Node1's D1 AOM now runs from an external source switched by ttl15:
+  AOMsCoils Node1 `D1_pumping_DP_ON` opens `ttl_D1_pumping_switch` and keeps
+  the Urukul D1 channel off (section 11.7); Node1 sequences not yet changed.
 
 **Uncommitted:** the analysis notebooks. Check `git status`; under R26
 uncommitted code may already have run.
@@ -270,7 +288,7 @@ uncommitted code may already have run.
 - **Unit tests** (hardware-free): from the repository root, with an
   artiq-free interpreter (`C:/Python39`, the `python` in Git Bash), run
   `python -B -m unittest discover -s tests -p "test_*.py"`. Always use
-  discover, never `artiq7`. Expect 154 OK on the 2026-10-14 working tree.
+  discover, never `artiq7`. Expect 156 OK on the 2026-10-19 working tree.
 - **Compile sweep:** run `artiq-master/compile_check_master_satellite.py`
   with `artiq7` active after ANY master-satellite edit (about 5 minutes).
   Check the PASS/COMPILED/FAIL counts and that the target kernel is in the

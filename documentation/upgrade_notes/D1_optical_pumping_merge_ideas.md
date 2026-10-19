@@ -27,7 +27,7 @@ dds_D1_pumping_DP        >>>>   GRIN2 dds
 |---|---|---|
 | `GRIN1and2_dds` | `urukul0_ch3` — one DDS feeding **both** GRINs, carries excitation (`f_excitation`) | `urukul2_ch2`→`urukul5_ch2` — **GRIN1 only**, carries D1 pumping (`f_GRIN1_D1_pumping`) |
 | `dds_D1_pumping_DP` | `urukul2_ch2` — a real D1 double-pass AOM at 373.075 MHz | `urukul2_ch0`→`urukul5_ch0` — **GRIN2**, carries excitation (`f_GRIN2_excitation`) |
-| `ttl_D1_pumping` | **dummy**, aliased to `ttl3` — "not used in node1" | real gate, `ttl12`, in series ahead of GRIN1 |
+| `ttl_D1_pumping_switch` | **dummy**, aliased to `ttl3` — "not used in node1" | real gate, `ttl12`, in series ahead of GRIN1 |
 | `ttl_GRIN1_switch` | `ttl14` — routes the single shared tone to GRIN1 (D1) | `ttl14` — per-GRIN optical gate, own DDS behind it |
 | `ttl_GRIN2_switch` | `ttl13` — routes the single shared tone to GRIN2 (EXC) | `ttl13` — per-GRIN optical gate, own DDS behind it |
 
@@ -218,7 +218,7 @@ light is delivered to GRIN1, so `GRIN1_dds` must also be on to pass it — the
 same arrangement Node2 already uses.
 
 Node1 then matches Node2 structurally, which resolves stage 4 to **yes**: once
-Node1 has a real `ttl_D1_pumping` and two independent GRIN tones,
+Node1 has a real `ttl_D1_pumping_switch` and two independent GRIN tones,
 `CW_optical_pumping_node1` and `record_CW_optical_pumping_node1`
 (`experiment_functions.py:2333`, `:2475`) become redundant, and the roughly
 twelve duplicated `if self.which_node == "alice":` excitation-arming blocks
@@ -233,6 +233,15 @@ assignment: `GRIN1_dds` → `urukul2_ch2`, `GRIN2_dds` → `urukul2_ch0`. That i
 physical repatch and has not been scoped.
 
 ### Blocking conflict — settle before any wiring
+
+**Settled 2026-10-19 for master-satellite.** The handshake cables are
+removed, and Node1's `ttl_D1_pumping_switch` is now `ttl15` (`ttl_D1_pumping_switch_Node1`
+in two-node mode); ttl12 became Node1's dummy output instead
+(`plan_claude_detail.md` section 2.7). No Node1 sequence drives the new
+alias yet; init blocks it, like Node2's ttl12. Standalone alice matches (the
+user's edit to `utilities/BaseExperiment.py`): `ttl_D1_pumping_switch` is ttl15
+there too, and its init blocks D1. The text below is the analysis as it
+stood before.
 
 On Node1, **`ttl12` is currently `ttl_node1_output1`**
 (`utilities/BaseExperiment.py:219`,
