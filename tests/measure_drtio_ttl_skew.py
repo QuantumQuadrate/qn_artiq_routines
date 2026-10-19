@@ -1,127 +1,139 @@
-"""Measure the deterministic master-satellite TTL skew, in both directions.
+"""measure_drtio_ttl_skew.py
 
-WHY THIS EXISTS ALONGSIDE measure_drtio_event_cost.py
------------------------------------------------------
-That probe (RID 38429, 2026-09-10) answered "will an event be accepted":
-submission cost 713 vs 711 mu/event and an identical 1000 mu minimum viable
-lead on both destinations, because ARTIQ buffers events at the satellite ahead
-of time. It is a cabling-free control and must stay that way, so this is a
-separate file rather than an extension of it.
+Print the measured TTL delay of every cabled path between and within the two
+nodes, averaged over n_shots (default 1000). Nothing is estimated, derived or
+corrected: every printed number is a plain statistic of measured timestamps.
 
-It did NOT answer "when does the pin actually move", and it touched only an
-OUTPUT channel (set_config_mu -> one rtio_output). Remote INPUT latency has
-never been measured in this repository, while plan_claude_detail.md section
-12.2 flags remote input/TTL-timestamp operations as latency-sensitive. This
-probe measures both directions.
+WHAT ONE NUMBER MEANS
+---------------------
+    delay = (input timestamp) - (scheduled fire timestamp of the output)
 
-WHAT IS BEING MEASURED, AND WHY IT IS TWO DIFFERENT THINGS
-----------------------------------------------------------
-Cross-node timing has two independent layers, and the pre-DRTIO code conflated
-them. This probe measures LAYER 1 only:
+in machine units; 1 mu = 1 ns (ref_period 1 ns). The fire timestamp is the
+timeline position of the output's rising edge (now_mu() at the pulse). The
+input timestamp is the first rising edge that input saw inside that output's
+window. The DIO TTL channels resolve 1 ns on both inputs and outputs.
 
-  LAYER 1, electrical.  Do the two crates' output PINS move together for one
-      scheduled timestamp?  -> t_Node2_rtio_offset_mu.  Everything with a gate
-      wider than a microsecond (atom loading, the alternating readout) cares
-      only about this.  THIS FILE.
+Each timestamp is in the clock of the node that recorded it, and a Node2
+output fires when NODE2's clock reaches its timestamp. Legs 4 and 5 stay
+inside one node. Legs 1-3 compare the two nodes' clocks, so they include the
+offset between those clocks. Context, read from the ARTIQ 7 DRTIO gateware:
+Node1 sends its raw timestamp counter when the link comes up
+(gateware/drtio/rt_controller_master.py:54-55) and Node2 loads it as received
+(rt_packet_satellite.py:85-86), with no compensation for the link latency,
+so Node2's clock reads behind Node1's. Only a link re-establish reloads it
+(artiq-zynq release-7 src/runtime/src/rtio_mgt.rs:276-286); core.reset()
+does not. So a negative delay on legs 1-2 is not an error, and cross-node
+numbers belong to the link session they were measured in. To see whether
+legs 1-3 repeat from one link session to the next, reboot Node2 or replug
+the fibre, run this again and compare the printed means.
 
-  LAYER 2, optical.  Do the two emitted PHOTONS arrive at the SPCM together?
-      -> t_Node2_excitation_delay_mu.  Firing both excitation pulses at the
-      same now_mu does not make the light reach the two atoms together: fibre
-      and free-space path lengths differ, AOM turn-on differs, and each atom's
-      emission is referenced to its own local pulse.  NOT measurable here --
-      it needs a photon coincidence measurement (HOM dip / cross-correlation).
+LEGS AND CABLING
+----------------
+Unified device names; Node2's local ttlN is unified ttl(N+16).
 
-CABLING
--------
-Both cross-node coax ALREADY EXIST -- they are the legacy TTL handshake
-cables, named in BaseExperiment_master_satellite.NODE_TTL_ALIASES. Add two BNC
-T-adapters and two short coax:
+    leg  direction        fires  stamps  physical connection
+    1    Node1 -> Node2   ttl12  ttl25   cable 1: Node1 ttl12 -> Node2 ttl9
+    2    Node1 -> Node2   ttl15  ttl26   cable 2: Node1 ttl15 -> Node2 ttl10
+    3    Node2 -> Node1   ttl31  ttl11   cable 3: Node2 ttl15 -> Node1 ttl11
+    4    Node1 -> Node1   ttl12  ttl10   loopback (add it, see below)
+    5    Node2 -> Node2   ttl31  ttl27   loopback (add it, see below)
 
-    role          signal                     from              to
-    existing      master out -> satellite    ttl12  (dest 0)   ttl24 (dest 1)
-    NEW (T)       master out -> master       ttl12  (dest 0)   ttl3  (dest 0)
-    existing      satellite out -> master    ttl31  (dest 1)   ttl11 (dest 0)
-    NEW (T)       satellite out -> satellite ttl31  (dest 1)   ttl27 (dest 1)
+Cables 1-3 exist, wired as the lab stated on 2026-10-18. Two repo records
+put cables 1 and 2 one Node2 input lower, on Node2 ttl8 and ttl9 (ttl24,
+ttl25): NODE_TTL_ALIASES (utilities/BaseExperiment_master_satellite.py:
+181-182) and the test_ttl_pulse_experiment docstring
+(subroutines/experiment_functions.py:88-90). If leg 1 or 2 sees no edge,
+check which Node2 input that cable is in.
 
-ttl2/ttl3/ttl10 are free counter-capable TTLInOut on the master; ttl27 is free
-on the satellite (Node2's ttl11, "not being used").
+Each loopback is a BNC T-adapter on the output plus a short coax into a free
+input on the same node:
 
-The T-adapter is the whole trick: ONE output edge produces TWO timestamps, so
-the output path cancels exactly and the difference is pure input-side skew.
+    leg 4   T on Node1 ttl12, short coax into Node1 ttl10
+    leg 5   T on Node2 ttl15 (ttl31), short coax into Node2 ttl11 (ttl27)
 
-Cable length differences between the three cross-node lines are < 3 ns
-(measured by the lab), i.e. under half a 125 MHz RTIO clock period, so there
-is no need to swap cables and re-run. Recorded here so nobody re-derives it.
+Legs 1 and 4 see the same ttl12 edge; legs 3 and 5 see the same ttl31 edge.
+Without the loopbacks, legs 4 and 5 print "no edge" and legs 1-3 still run;
+an edge on leg 4 or 5 without its loopback means something else is plugged
+into that input (no current code uses Node1 ttl10 or Node2 ttl11).
+The Node1 loop uses ttl10, not ttl3: ttl3 is the GRIN1 toggle-switch input
+read by SamplerMOTCoilAndBeamBalanceTune_master_satellite.py:392-395.
 
-WHAT IT REPORTS
----------------
-  T1  input skew      pulse ttl12; d_sat - d_mas over the two timestamps.
-                      The number that has never existed in this repository.
-  T2  output skew     pulse ttl31; same construction the other way. Combined
-                      with T1 this isolates how much later a satellite output
-                      pin moves for one scheduled timestamp -- the value for
-                      t_Node2_rtio_offset_mu.
-  T3  consistency     the two round trips must agree within jitter. A
-                      mismatch means a cable or channel assumption is wrong,
-                      not that DRTIO is bad.
-  T4  counter aperture  the loader uses EDGE COUNTERS, not timestamps. Sweep
-                      a fixed gate across the pulse in 4 ns steps and find the
-                      0->1 count transition on a master and a satellite
-                      counter. It must agree with T1, which is what proves the
-                      timestamp-measured quantity governs a gated count.
+ONE SHOT
+--------
+Each output fires once, in its own 10 us window, 5 us into the window. Only
+the input(s) wired to that output are gated, and only during that window, so
+a cable on the wrong input shows up as a missed edge, not as a wrong number.
+Delays from -5 us to +5 us are caught. After the first edge is read, the
+rest of that gate is drained and counted as extra edges (ringing, e.g. on a
+T stub, shows up there). A gate that saw no edge is a missed shot and is
+left out of the statistics.
 
-STABILITY IS WHAT DECIDES THE DESIGN
-------------------------------------
-Deterministic within a link session is not the same as constant. Levels 1-3
-are automated here; level 4 is an operator procedure:
+PRINTOUT AND DATASETS
+---------------------
+Three header lines (name and n_shots, what "delay" means), then per leg:
+the mean delay over the shots that saw an edge (ns, 2 decimals),
+n_valid/n_shots, std (population, ddof=0), min, max, and the total number of
+extra edges. A leg with no edge at all prints one line saying so and naming
+the connection it expects.
 
-  1. repeats inside one kernel invocation          (n_shots)
-  2. repeats across kernel invocations in one run  (n_blocks)
-  3. across core.reset()                           (n_resets)
-  4. ACROSS A SATELLITE LINK RE-ESTABLISH -- reboot the satellite or unplug
-     and replug the fibre, then run this again and compare. NOT automated,
-     because it needs physical intervention.
+Archived to this run's h5 only (broadcast=False, persist=False), k = 1..5:
 
-Level 4 is the risk. If 1-3 give sub-nanosecond spread but 4 moves by a clock
-period (8 ns), the offset is a per-session quantity, not a constant to bake
-into a delay(). For atom loading (10 us - 1 ms gates) an 8 ns session shift is
-irrelevant and the answer is "insensitive, proceed". For the deferred
-herald/photon work it is decisive, which is why both are measured at once.
+    drtio_ttl_skew_leg<k>_delay_mu      int64[n_shots]  delay of each shot
+    drtio_ttl_skew_leg<k>_edge_seen     bool[n_shots]   False = missed shot
+    drtio_ttl_skew_leg<k>_extra_edges   int32[n_shots]  edges after the first
+    drtio_ttl_skew_leg<k>_mean_mu       float           NaN if no edge at all
 
-ACCEPTANCE GATE
----------------
-|T1| and |T2| each < 1 us, and the level-1..3 std < 100 ns. Both are ~100x
-looser than the physics needs and ~1000x looser than the buffer-ahead
-behaviour predicts, so a failure means something structural (clocking, link,
-SED lanes), and the two-node loader must not be written until it is
-understood.
+A missed shot holds 0 in delay_mu, so always select with edge_seen. -1 is not
+used as a marker because a real cross-node delay can be -1.
 
-RESULT (fill in after the first hardware run, as
-measure_drtio_event_cost.py:50-73 does -- that habit is why the DRTIO
-question is settled today)
-
-    RESULT, <date> (RID <n>)
-        T1 input skew      <median> mu   std <...>   n <...>
-        T2 output skew     <median> mu   std <...>   n <...>
-        T4 aperture        master <...>  satellite <...>
-        level 4            <moved / did not move> across a link re-establish
-        -> t_Node2_rtio_offset_mu = <value>
-
-    Copy T2's median into t_Node2_rtio_offset_mu WITH ITS SIGN UNCHANGED.
-    Positive means Node2's pin moves later for the same timestamp, and the
-    sequence cancels that by scheduling Node2 earlier -- the convention is
-    spelled out at the variable's declaration in
-    ExperimentVariables_master_satellite_global.py. Negating it here would
-    double the skew rather than remove it, and the only symptom would be
-    readout light leaking between the alternating windows.
+FAILURES
+--------
+The arrays reach the host only when run_shots returns (artiq-zynq
+src/runtime/src/kernel/core1.rs:121-125), so an exception during the shots
+(an input FIFO overflowing past 64 queued edges, the link dropping) loses
+that whole run and prints no legs; submit again. An input overflow left
+over from an earlier experiment is cleared by the start-up drain.
 
 SAFETY
 ------
-Drives two TTL outputs that exist solely for the retired inter-node handshake
-and reads four TTL inputs. No DDS, no Zotino, no coils, no DMA. Does not use
-BaseExperiment, so it runs regardless of the two-node base-layer work. The
-core reset in the stability sweep drops TTL output states; that is why it is
-behind an argument.
+Drives only Node1 ttl12, Node1 ttl15 and Node2 ttl15 (ttl31): set low at the
+start, one 1 us pulse each per shot, left low. They belong to the retired
+inter-node handshake and are wired only to the inputs above. Puts Node1
+ttl10, ttl11 and Node2 ttl9, ttl10, ttl11 (ttl25, ttl26, ttl27) in input mode
+and gates them. Nothing else: no DDS, Zotino, Sampler or DMA, and Node1's
+SPCM inputs ttl0, ttl1, ttl8, ttl9 (all four SPCMs are on Node1) are not
+touched. Standalone EnvExperiment, no BaseExperiment. Writes no broadcast or
+persistent dataset.
+
+No core.reset(). On Kasli-SoC it resets only Node1's RTIO core (artiq-zynq
+src/runtime/src/rtio_csr.rs:22-26). The routine that would also reset the
+satellite (rtio_mgt.rs:356-362, which sends it a ResetRequest at :324) has
+no caller, so a reset could not clear Node2's inputs. The probe drains its
+five inputs itself at the start.
+
+RESULT, 2026-10-18 (RID 39102, loopbacks fitted)
+------------------------------------------------
+    measure_drtio_ttl_skew  n_shots 1000
+    leg 1  Node1 -> Node2  ttl12 -> ttl25   mean -117.00 ns  1000/1000, std 0
+    leg 2  Node1 -> Node2  ttl15 -> ttl26   mean -118.00 ns  1000/1000, std 0
+    leg 3  Node2 -> Node1  ttl31 -> ttl11   mean  444.17 ns  1000/1000, std 0.37
+    leg 4  Node1 -> Node1  ttl12 -> ttl10   mean  159.78 ns  1000/1000, std 0.41
+    leg 5  Node2 -> Node2  ttl31 -> ttl27   mean  161.00 ns  1000/1000, std 0
+
+Leg 3 read 444 or 445 and leg 4 read 159 or 160; every other leg gave one
+integer on all 1000 shots. Leg 4 saw exactly one extra rising edge in every
+shot; no other leg saw any. The connectivity check just before it (RID 39101)
+showed the same thing: 198 rising edges on ttl10 from 100 ttl12 pulses, every
+other path 100/100, no crosstalk, nothing in the no-pulse window.
+
+The extra edge is at the END of the ttl12 pulse (edge trace, RID 39103):
+ttl10 falls at +1166 ns, rises again at +1175 ns and falls at +1182 ns,
+relative to the ttl12 rising edge, in every shot. ttl25 on the other T
+branch shows no such bounce. The leg 4 rising edge itself is unaffected.
+
+Earlier the same day, before the BNC T pieces were fitted (RID 39100, cabling
+checked by RID 39099): leg 1 -122 ns, leg 2 -119 ns, leg 3 +439 ns, each the
+identical integer on all 1000 shots, no extra edges.
 """
 
 import numpy as np
@@ -129,12 +141,42 @@ import numpy as np
 from artiq.experiment import *
 
 
-#: Destination 1 readiness, same bounded-poll shape BaseExperiment uses.
+#: Node2 is DRTIO destination 1. Wait for it for up to 100 x 100 ms.
+_SATELLITE_DESTINATION = 1
 _SATELLITE_POLL_ATTEMPTS = 100
-_SATELLITE_POLL_INTERVAL_MU = 100_000_000  # 100 ms in mu at 1 ns/mu
+_SATELLITE_POLL_INTERVAL_MU = np.int64(100_000_000)
 
-#: A missed edge: TTLInOut.timestamp_mu returns -1 when the gate saw nothing.
+#: One window per output per shot, with the edge fired _FIRE_AT_MU into it,
+#: so delays from -_FIRE_AT_MU to _WINDOW_MU - _FIRE_AT_MU are caught.
+_WINDOW_MU = np.int64(10_000)
+_FIRE_AT_MU = np.int64(5_000)
+_PULSE_MU = np.int64(1_000)
+
+#: TTLInOut.timestamp_mu returns -1 when the gate saw no edge.
 _NO_EDGE = np.int64(-1)
+
+#: Outputs in window order; row index into fire_mu.
+_TTL12 = 0
+_TTL15 = 1
+_TTL31 = 2
+_N_OUTPUTS = 3
+
+#: (leg, direction, output, input, output row, connection). Leg k is row
+#: k - 1 of stamp_mu and extra_edges.
+_LEGS = (
+    (1, "Node1 -> Node2", "ttl12", "ttl25", _TTL12,
+     "cable 1: Node1 ttl12 -> Node2 ttl9 (ttl25)"),
+    (2, "Node1 -> Node2", "ttl15", "ttl26", _TTL15,
+     "cable 2: Node1 ttl15 -> Node2 ttl10 (ttl26)"),
+    (3, "Node2 -> Node1", "ttl31", "ttl11", _TTL31,
+     "cable 3: Node2 ttl15 (ttl31) -> Node1 ttl11"),
+    (4, "Node1 -> Node1", "ttl12", "ttl10", _TTL12,
+     "loopback: BNC T on Node1 ttl12, short coax into Node1 ttl10"),
+    (5, "Node2 -> Node2", "ttl31", "ttl27", _TTL31,
+     "loopback: BNC T on Node2 ttl15 (ttl31), short coax into "
+     "Node2 ttl11 (ttl27)"),
+)
+_N_LEGS = len(_LEGS)
 
 
 class measure_drtio_ttl_skew(EnvExperiment):
@@ -143,391 +185,217 @@ class measure_drtio_ttl_skew(EnvExperiment):
     def build(self):
         self.setattr_device("core")
 
-        # Outputs. Both are TTLOut and both exist only for the retired
-        # handshake, so driving them disturbs nothing.
-        self.setattr_device("ttl12")   # dest 0, master   -> ttl24 and ttl3
-        self.setattr_device("ttl31")   # dest 1, satellite-> ttl11 and ttl27
+        # Outputs (TTLOut).
+        self.setattr_device("ttl12")   # Node1 ttl12 -> legs 1 and 4
+        self.setattr_device("ttl15")   # Node1 ttl15 -> leg 2
+        self.setattr_device("ttl31")   # Node2 ttl15 -> legs 3 and 5
 
-        # Inputs. All four are TTLInOut and must be put in input mode.
-        self.setattr_device("ttl3")    # dest 0, T off ttl12   (NEW cable)
-        self.setattr_device("ttl24")   # dest 1, from ttl12    (existing)
-        self.setattr_device("ttl11")   # dest 0, from ttl31    (existing)
-        self.setattr_device("ttl27")   # dest 1, T off ttl31   (NEW cable)
-
-        # Edge counters for T4. Only the two that see the master-driven pulse.
-        self.setattr_device("ttl3_counter")    # dest 0
-        self.setattr_device("ttl24_counter")   # dest 1
+        # Inputs (TTLInOut).
+        self.setattr_device("ttl25")   # Node2 ttl9,  leg 1
+        self.setattr_device("ttl26")   # Node2 ttl10, leg 2
+        self.setattr_device("ttl11")   # Node1 ttl11, leg 3
+        self.setattr_device("ttl10")   # Node1 ttl10, leg 4 (loopback)
+        self.setattr_device("ttl27")   # Node2 ttl11, leg 5 (loopback)
 
         self.setattr_argument(
             "n_shots",
-            NumberValue(1000, ndecimals=0, step=100, min=1, max=100000),
-            "Stability",
-            tooltip="Level 1: repeats inside one kernel invocation.",
-        )
-        self.setattr_argument(
-            "n_blocks",
-            NumberValue(10, ndecimals=0, step=1, min=1, max=1000),
-            "Stability",
-            tooltip="Level 2: kernel invocations per run.",
-        )
-        self.setattr_argument(
-            "n_resets",
-            NumberValue(0, ndecimals=0, step=1, min=0, max=50),
-            "Stability",
-            tooltip="Level 3: extra passes separated by core.reset(). "
-                    "WARNING: a core reset drops TTL output states. Leave 0 "
-                    "unless levels 1-2 look clean and you want level 3.",
-        )
-        self.setattr_argument(
-            "run_aperture_sweep",
-            BooleanValue(True),
-            "Counter aperture",
-            tooltip="T4. Sweeps a fixed gate across the pulse and finds the "
-                    "0->1 count transition on a master and a satellite "
-                    "counter. This is the one that speaks to the loader, "
-                    "which gates counters rather than reading timestamps.",
-        )
-        self.setattr_argument(
-            "aperture_half_range_ns",
-            NumberValue(200, ndecimals=0, step=50, min=20, max=5000),
-            "Counter aperture",
-        )
-        self.setattr_argument(
-            "aperture_step_ns",
-            NumberValue(4, ndecimals=0, step=1, min=1, max=100),
-            "Counter aperture",
-            tooltip="4 ns is half an RTIO coarse period at 125 MHz.",
-        )
-        self.setattr_argument(
-            "aperture_gate_ns",
-            NumberValue(200, ndecimals=0, step=50, min=20, max=5000),
-            "Counter aperture",
-        )
-        self.setattr_argument(
-            "aperture_repeats",
-            NumberValue(64, ndecimals=0, step=8, min=1, max=1000),
-            "Counter aperture",
+            NumberValue(1000, ndecimals=0, step=100, min=1, max=10000),
+            tooltip="Shots to average. Every shot fires ttl12, ttl15 and "
+                    "ttl31 once each.",
         )
 
     def prepare(self):
         self.n_shots = int(self.n_shots)
-        self.n_blocks = int(self.n_blocks)
-        self.n_resets = int(self.n_resets)
-        self.aperture_repeats = int(self.aperture_repeats)
-
-        # Gate wide enough to contain the pulse comfortably even if the skew
-        # turns out to be far larger than expected; the measurement is the
-        # timestamp, not the gate, so a wide gate costs only timeline.
-        self.gate_mu = np.int64(10_000)        # 10 us
-        self.pulse_offset_mu = np.int64(5_000)  # fire mid-gate
-        self.pulse_mu = np.int64(1_000)         # 1 us, well above any jitter
-
-        # Per-shot results, filled in the kernel. int64 because they are
-        # machine units and may be negative.
-        self.d_master = np.full(self.n_shots, _NO_EDGE, dtype=np.int64)
-        self.d_satellite = np.full(self.n_shots, _NO_EDGE, dtype=np.int64)
-
-        self.aperture_offsets = [
-            int(value)
-            for value in range(
-                -int(self.aperture_half_range_ns),
-                int(self.aperture_half_range_ns) + 1,
-                int(self.aperture_step_ns),
-            )
-        ]
-        self.aperture_gate_mu = np.int64(int(self.aperture_gate_ns))
-
-        # Collected across blocks/resets, on the host.
-        self.t1_samples = []   # input skew, satellite minus master
-        self.t2_samples = []   # output skew round trip
-        self.miss_count = 0
-        self.shot_count = 0
-
-    # ------------------------------------------------------------------ RPC
-
-    def collect(self, which, n_valid):
-        """Pull one kernel block's results onto the host.
-
-        Called from the kernel after each block so the arrays can be reused.
-        `which` is 1 for the master-driven direction and 2 for the
-        satellite-driven one.
-        """
-        samples = []
-        for index in range(int(n_valid)):
-            master = int(self.d_master[index])
-            satellite = int(self.d_satellite[index])
-            if master == -1 or satellite == -1:
-                self.miss_count += 1
-                continue
-            samples.append(satellite - master)
-        self.shot_count += int(n_valid)
-        if which == 1:
-            self.t1_samples += samples
-        else:
-            self.t2_samples += samples
-
-    def record_aperture(self, tag, offset_ns, count):
-        self.aperture_results.setdefault(int(tag), []).append(
-            (int(offset_ns), int(count))
-        )
+        # Filled by run_shots. Flat, one array per kind:
+        #   stamp_mu[(leg - 1) * n_shots + shot]     input timestamp, -1 none
+        #   extra_edges[(leg - 1) * n_shots + shot]  edges after the first
+        #   fire_mu[output * n_shots + shot]         scheduled rising edge
+        # Raw timestamps are always positive, so -1 is unambiguous HERE; the
+        # delays computed from them on the host use a mask instead.
+        self.stamp_mu = np.full(_N_LEGS * self.n_shots, _NO_EDGE,
+                                dtype=np.int64)
+        self.extra_edges = np.zeros(_N_LEGS * self.n_shots, dtype=np.int32)
+        self.fire_mu = np.zeros(_N_OUTPUTS * self.n_shots, dtype=np.int64)
 
     # --------------------------------------------------------------- kernels
 
     @kernel
     def prepare_hardware(self):
-        self.core.reset()
-
-        # Destination 1 must be up before any satellite channel is touched.
-        ready = False
-        for _ in range(_SATELLITE_POLL_ATTEMPTS):
-            if self.core.get_rtio_destination_status(1):
-                ready = True
-                break
-            delay_mu(_SATELLITE_POLL_INTERVAL_MU)
-        if not ready:
-            raise RuntimeError("DRTIO destination 1 did not become available.")
         self.core.break_realtime()
 
-        # Inputs in input mode; outputs driven low so the first edge of a shot
-        # is unambiguous.
-        self.ttl3.input()
-        self.ttl24.input()
+        # Node2 must be up before any of its channels is touched.
+        ready = False
+        for _ in range(_SATELLITE_POLL_ATTEMPTS):
+            if self.core.get_rtio_destination_status(_SATELLITE_DESTINATION):
+                ready = True
+                break
+            # delay_mu alone only moves the timeline cursor; waiting for the
+            # RTIO counter to reach it is what makes each attempt take time.
+            delay_mu(_SATELLITE_POLL_INTERVAL_MU)
+            self.core.wait_until_mu(now_mu())
+        if not ready:
+            raise RuntimeError("DRTIO destination 1 (Node2) is not up.")
+        self.core.break_realtime()
+
+        self.ttl10.input()
         self.ttl11.input()
+        self.ttl25.input()
+        self.ttl26.input()
         self.ttl27.input()
         delay(1 * ms)
         self.ttl12.off()
+        self.ttl15.off()
         self.ttl31.off()
         delay(1 * ms)
 
-    @kernel
-    def shots_master_drives(self, n: TInt32):
-        """Pulse the MASTER output; timestamp on a master and a satellite in.
+        # No gate is open yet, so this only discards edges an earlier
+        # experiment gated on these inputs and never read.
+        self._drain(self.ttl10)
+        self._drain(self.ttl11)
+        self._drain(self.ttl25)
+        self._drain(self.ttl26)
+        self._drain(self.ttl27)
 
-        d_master     = ts(ttl3)  - t_fire   master out -> master in
-        d_satellite  = ts(ttl24) - t_fire   master out -> satellite in
-        T1 = d_satellite - d_master, so the output path cancels and what is
-        left is the input-side skew plus the (<3 ns) cable difference.
-        """
+    @kernel
+    def _drain(self, ttl):
+        """Discard queued input edges, surviving a stale overflow flag."""
+        try:
+            ttl.count(now_mu())
+        except RTIOOverflow:
+            # That read cleared the flag without consuming an event
+            # (gateware/rtio/input_collector.py:109-117); read the rest.
+            ttl.count(now_mu())
+
+    @kernel
+    def _read_gate(self, ttl, gate_end_mu: TInt64, leg: TInt32,
+                   shot: TInt32):
+        """First rising edge of one gate, then drain and count the rest."""
+        slot = (leg - 1) * self.n_shots + shot
+        stamp = ttl.timestamp_mu(gate_end_mu)
+        self.stamp_mu[slot] = stamp
+        if stamp != _NO_EDGE:
+            # Left in the FIFO, a second edge would become a later read's
+            # "first" edge. A -1 means the gate already closed empty.
+            self.extra_edges[slot] = ttl.count(gate_end_mu)
+
+    @kernel
+    def run_shots(self):
+        n = self.n_shots
         for shot in range(n):
+            # Fresh slack every shot: the reads below wait for the gates to
+            # close, and a Node2 read waits for NODE2's clock, which lags.
             self.core.break_realtime()
-            t_fire = np.int64(0)
+
+            # At most 3 events share a timestamp (at a window boundary),
+            # well under the 8-event limit.
+
+            # Window 1: ttl12. Cable 1 -> ttl25; T loopback -> ttl10.
             with parallel:
-                gate_master = self.ttl3.gate_rising_mu(self.gate_mu)
-                gate_satellite = self.ttl24.gate_rising_mu(self.gate_mu)
+                gate_end_1 = self.ttl25.gate_rising_mu(_WINDOW_MU)
+                self.ttl10.gate_rising_mu(_WINDOW_MU)
                 with sequential:
-                    delay_mu(self.pulse_offset_mu)
-                    t_fire = now_mu()
-                    self.ttl12.pulse_mu(self.pulse_mu)
+                    delay_mu(_FIRE_AT_MU)
+                    self.fire_mu[_TTL12 * n + shot] = now_mu()
+                    self.ttl12.pulse_mu(_PULSE_MU)
 
-            stamp_master = self.ttl3.timestamp_mu(gate_master)
-            stamp_satellite = self.ttl24.timestamp_mu(gate_satellite)
-
-            if stamp_master == _NO_EDGE:
-                self.d_master[shot] = _NO_EDGE
-            else:
-                self.d_master[shot] = stamp_master - t_fire
-            if stamp_satellite == _NO_EDGE:
-                self.d_satellite[shot] = _NO_EDGE
-            else:
-                self.d_satellite[shot] = stamp_satellite - t_fire
-
-    @kernel
-    def shots_satellite_drives(self, n: TInt32):
-        """Pulse the SATELLITE output; timestamp on a satellite and a master in.
-
-        d_master    = ts(ttl11) - t_fire   satellite out -> master in
-        d_satellite = ts(ttl27) - t_fire   satellite out -> satellite in
-        Compared with T1 this says how much later the satellite's output pin
-        moves for the same scheduled timestamp.
-        """
-        for shot in range(n):
-            self.core.break_realtime()
-            t_fire = np.int64(0)
+            # Window 2: ttl15. Cable 2 -> ttl26.
             with parallel:
-                gate_master = self.ttl11.gate_rising_mu(self.gate_mu)
-                gate_satellite = self.ttl27.gate_rising_mu(self.gate_mu)
+                gate_end_2 = self.ttl26.gate_rising_mu(_WINDOW_MU)
                 with sequential:
-                    delay_mu(self.pulse_offset_mu)
-                    t_fire = now_mu()
-                    self.ttl31.pulse_mu(self.pulse_mu)
+                    delay_mu(_FIRE_AT_MU)
+                    self.fire_mu[_TTL15 * n + shot] = now_mu()
+                    self.ttl15.pulse_mu(_PULSE_MU)
 
-            stamp_master = self.ttl11.timestamp_mu(gate_master)
-            stamp_satellite = self.ttl27.timestamp_mu(gate_satellite)
-
-            if stamp_master == _NO_EDGE:
-                self.d_master[shot] = _NO_EDGE
-            else:
-                self.d_master[shot] = stamp_master - t_fire
-            if stamp_satellite == _NO_EDGE:
-                self.d_satellite[shot] = _NO_EDGE
-            else:
-                self.d_satellite[shot] = stamp_satellite - t_fire
-
-    @kernel
-    def aperture_point(self, offset_ns: TInt32, repeats: TInt32):
-        """One rung of T4: fixed gate placed offset_ns from the pulse.
-
-        Both counters are gated identically relative to the SAME master-driven
-        pulse, so the difference between the two transition positions is the
-        same quantity T1 measures -- but measured the way the loader actually
-        works, through EdgeCounter rather than timestamp_mu.
-        """
-        self.core.break_realtime()
-        offset_mu = np.int64(offset_ns)
-
-        for _ in range(repeats):
-            self.core.break_realtime()
+            # Window 3: ttl31 on Node2. Cable 3 -> ttl11; T loopback -> ttl27.
             with parallel:
+                gate_end_3 = self.ttl11.gate_rising_mu(_WINDOW_MU)
+                self.ttl27.gate_rising_mu(_WINDOW_MU)
                 with sequential:
-                    delay_mu(self.pulse_offset_mu + offset_mu)
-                    self.ttl3_counter.gate_rising_mu(self.aperture_gate_mu)
-                with sequential:
-                    delay_mu(self.pulse_offset_mu + offset_mu)
-                    self.ttl24_counter.gate_rising_mu(self.aperture_gate_mu)
-                with sequential:
-                    delay_mu(self.pulse_offset_mu)
-                    self.ttl12.pulse_mu(self.pulse_mu)
+                    delay_mu(_FIRE_AT_MU)
+                    self.fire_mu[_TTL31 * n + shot] = now_mu()
+                    self.ttl31.pulse_mu(_PULSE_MU)
 
-        count_master = 0
-        count_satellite = 0
-        for _ in range(repeats):
-            count_master += self.ttl3_counter.fetch_count()
-            count_satellite += self.ttl24_counter.fetch_count()
-
-        self.record_aperture(0, offset_ns, count_master)
-        self.record_aperture(1, offset_ns, count_satellite)
+            # Read only after every event of the shot is submitted.
+            self._read_gate(self.ttl25, gate_end_1, 1, shot)
+            self._read_gate(self.ttl10, gate_end_1, 4, shot)
+            self._read_gate(self.ttl26, gate_end_2, 2, shot)
+            self._read_gate(self.ttl11, gate_end_3, 3, shot)
+            self._read_gate(self.ttl27, gate_end_3, 5, shot)
 
     # ------------------------------------------------------------------ host
 
     def run(self):
-        self.aperture_results = {}
-
-        print("measure_drtio_ttl_skew")
-        print("  cable deltas between the cross-node lines are < 3 ns "
-              "(lab measurement), i.e. under half an RTIO coarse period")
-        print("  %d shots x %d blocks, %d extra core-reset passes"
-              % (self.n_shots, self.n_blocks, self.n_resets))
-
         self.prepare_hardware()
-
-        for pass_index in range(self.n_resets + 1):
-            if pass_index > 0:
-                print("  -- core reset, pass %d" % pass_index)
-                self.prepare_hardware()
-            for _ in range(self.n_blocks):
-                # The kernels fill d_master/d_satellite in place and
-                # return nothing; the host already knows the shot count, so
-                # there is no reason to round-trip it through a return value.
-                self.shots_master_drives(self.n_shots)
-                self.collect(1, self.n_shots)
-                self.shots_satellite_drives(self.n_shots)
-                self.collect(2, self.n_shots)
-
-        if self.run_aperture_sweep:
-            print("  T4 aperture sweep: %d points x %d repeats"
-                  % (len(self.aperture_offsets), self.aperture_repeats))
-            for offset_ns in self.aperture_offsets:
-                self.aperture_point(offset_ns, self.aperture_repeats)
-
+        self.run_shots()
         self.report()
 
-    def _stats(self, samples):
-        if not samples:
-            return None
-        array = np.array(samples, dtype=np.float64)
-        return {
-            "n": int(array.size),
-            "median": float(np.median(array)),
-            "mean": float(array.mean()),
-            "std": float(array.std()),
-            "min": float(array.min()),
-            "max": float(array.max()),
-        }
+    def analyse(self):
+        """Per-leg delays and statistics from the raw kernel arrays."""
+        n = self.n_shots
+        stamps = np.asarray(self.stamp_mu, dtype=np.int64).reshape(_N_LEGS, n)
+        extras = np.asarray(self.extra_edges,
+                            dtype=np.int32).reshape(_N_LEGS, n)
+        fires = np.asarray(self.fire_mu,
+                           dtype=np.int64).reshape(_N_OUTPUTS, n)
 
-    def _transition_ns(self, tag):
-        """Where the gate first stops catching the pulse, in ns."""
-        points = sorted(self.aperture_results.get(tag, []))
-        if not points:
-            return None
-        peak = max(count for _, count in points)
-        if peak == 0:
-            return None
-        half = peak / 2.0
-        for (offset, count), (next_offset, next_count) in zip(points, points[1:]):
-            if count >= half > next_count:
-                return float(offset + next_offset) / 2.0
-        return None
+        results = []
+        for leg, direction, output, input_name, row, connection in _LEGS:
+            stamp = stamps[leg - 1]
+            seen = stamp != _NO_EDGE
+            delay_mu = np.where(seen, stamp - fires[row], 0).astype(np.int64)
+            valid = delay_mu[seen]
+            result = {
+                "leg": leg,
+                "direction": direction,
+                "output": output,
+                "input": input_name,
+                "connection": connection,
+                "n_shots": n,
+                "n_valid": int(valid.size),
+                "edge_seen": seen,
+                "delay_mu": delay_mu,
+                "extra_edges": extras[leg - 1].copy(),
+                "n_extra": int(extras[leg - 1].sum()),
+                "mean_mu": float("nan"),
+                "std_mu": float("nan"),
+                "min_mu": 0,
+                "max_mu": 0,
+            }
+            if valid.size:
+                values = valid.astype(np.float64)
+                result["mean_mu"] = float(values.mean())
+                result["std_mu"] = float(values.std())
+                result["min_mu"] = int(valid.min())
+                result["max_mu"] = int(valid.max())
+            results.append(result)
+        return results
 
     def report(self):
-        print("")
-        print("=" * 68)
-        t1 = self._stats(self.t1_samples)
-        t2 = self._stats(self.t2_samples)
+        print("measure_drtio_ttl_skew  n_shots %d" % self.n_shots)
+        print("delay = input timestamp - scheduled fire timestamp (ns)")
+        print("legs 1-3 compare two node clocks: a negative leg 1-2 delay "
+              "is not an error")
+        for result in self.analyse():
+            self._print_leg(result)
+            self._archive_leg(result)
 
-        for name, stats in (("T1 input skew  (sat-in minus mas-in)", t1),
-                            ("T2 output skew (sat-out round trip) ", t2)):
-            if stats is None:
-                print("  %s   NO VALID SHOTS" % name)
-                continue
-            print("  %s" % name)
-            print("      n=%d  median=%.1f mu  mean=%.1f  std=%.1f  "
-                  "min=%.0f  max=%.0f"
-                  % (stats["n"], stats["median"], stats["mean"],
-                     stats["std"], stats["min"], stats["max"]))
+    def _print_leg(self, result):
+        head = "leg %d  %s  %s -> %s" % (result["leg"], result["direction"],
+                                          result["output"], result["input"])
+        if result["n_valid"] == 0:
+            print("%s   no edge within %d..%+d ns of the fire time in %d "
+                  "shots; expects %s"
+                  % (head, -_FIRE_AT_MU, _WINDOW_MU - _FIRE_AT_MU,
+                     result["n_shots"], result["connection"]))
+            return
+        print("%s   mean %.2f ns" % (head, result["mean_mu"]))
+        print("       n %d/%d   std %.2f ns   min %d ns   max %d ns   "
+              "extra edges %d"
+              % (result["n_valid"], result["n_shots"], result["std_mu"],
+                 result["min_mu"], result["max_mu"], result["n_extra"]))
 
-        if self.miss_count:
-            print("  MISSED EDGES: %d of %d shots had a -1 timestamp. A gate "
-                  "missed the pulse; widen gate_mu or check the cabling."
-                  % (self.miss_count, self.shot_count))
-
-        if t1 is not None and t2 is not None:
-            # T2 - T1 removes the common input-side term, leaving the
-            # output-side asymmetry: the candidate for t_Node2_rtio_offset_mu.
-            offset = t2["median"] - t1["median"]
-            print("")
-            print("  => t_Node2_rtio_offset_mu candidate: %.1f mu" % offset)
-            print("     (T2 median minus T1 median; the shared input-side "
-                   "term cancels)")
-
-        if self.run_aperture_sweep:
-            master_edge = self._transition_ns(0)
-            satellite_edge = self._transition_ns(1)
-            print("")
-            print("  T4 counter aperture (the quantity the loader gates on)")
-            if master_edge is None or satellite_edge is None:
-                print("      transition not found; check the sweep range")
-            else:
-                print("      master    transition at %+.1f ns" % master_edge)
-                print("      satellite transition at %+.1f ns" % satellite_edge)
-                print("      difference %+.1f ns  -- must agree with T1"
-                      % (satellite_edge - master_edge))
-
-        # Acceptance gate, stated rather than enforced: a failure here means
-        # something structural, and the operator should see the numbers.
-        print("")
-        if t1 is not None and t2 is not None:
-            within = (abs(t1["median"]) < 1000 and abs(t2["median"]) < 1000
-                      and t1["std"] < 100 and t2["std"] < 100)
-            print("  ACCEPTANCE (|skew| < 1000 mu, std < 100 mu): %s"
-                  % ("PASS" if within else "FAIL -- investigate before "
-                     "writing two-node sequences"))
-        print("  LEVEL 4 is not automated: reboot the satellite or replug the "
-              "fibre, re-run, and compare the medians above.")
-        print("=" * 68)
-
-        for name, stats in (("input", t1), ("output", t2)):
-            if stats is None:
-                continue
-            self.set_dataset("drtio_skew_%s_mu" % name,
-                             stats["median"], broadcast=True, persist=True)
-            self.set_dataset("drtio_skew_%s_std_mu" % name,
-                             stats["std"], broadcast=True, persist=True)
-            self.set_dataset("drtio_skew_%s_n" % name,
-                             stats["n"], broadcast=True, persist=True)
-        if self.run_aperture_sweep:
-            master_edge = self._transition_ns(0)
-            satellite_edge = self._transition_ns(1)
-            if master_edge is not None and satellite_edge is not None:
-                self.set_dataset("drtio_skew_counter_aperture_mu",
-                                 satellite_edge - master_edge,
-                                 broadcast=True, persist=True)
+    def _archive_leg(self, result):
+        prefix = "drtio_ttl_skew_leg%d_" % result["leg"]
+        for name in ("delay_mu", "edge_seen", "extra_edges", "mean_mu"):
+            self.set_dataset(prefix + name, result[name],
+                             broadcast=False, persist=False, archive=True)
