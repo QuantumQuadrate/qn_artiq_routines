@@ -183,7 +183,8 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
             tooltip="After the search, re-measure the cost at the previous "
                     "values and at the optimized values, and keep the "
                     "optimized ones only if they actually measured better. "
-                    "Costs two extra measurement rounds.",
+                    "target_cost is reported, not required. Costs two extra "
+                    "measurement rounds.",
         )
 
         group = "differential coil volts boundaries"
@@ -886,25 +887,22 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
         """Re-measure the cost at the previous and the optimized settings.
 
         Returns the parameter vector that should actually be persisted. The
-        optimized one is returned only if it clears BOTH bars:
+        optimized one is returned when it is strictly better than the previous
+        values, re-measured here. A tie keeps the previous ones, since there is
+        no reason to overwrite working settings for no gain.
 
-          * strictly better than the previous values, re-measured here. A tie
-            keeps the previous ones, since there is no reason to overwrite
-            working settings for no gain.
-          * better than target_cost. Beating the starting point is not the
-            same as being good enough, and M-LOOP stops at max_runs whether
-            or not the target was reached -- RID 38552 ended that way with
-            -2793 against a target of -8000. Without this bar, a search that
-            merely nudged the cost would overwrite tuned settings.
+        target_cost is REPORTED, not required (since 2026-10-16, at the user's
+        request). M-LOOP stops at max_runs whether or not the target was
+        reached -- RID 38552 ended with -2793 against a target of -8000 --
+        and an improvement over the settings in place is worth keeping even
+        then. It used to be a second bar, which threw such improvements away.
+        A result short of target is applied and flagged, with the remedy for
+        getting further: more max_runs, or a target_cost the apparatus can
+        actually reach.
 
-        A failure of the second bar is reported distinctly from a genuine
-        non-improvement, because the remedy differs: more max_runs, or a
-        target_cost that matches what the apparatus can actually reach.
-
-        Note the bar lives here, in the comparison. With
-        compare_prev_and_optimized_values unticked there is no re-measurement
-        and no target check, and M-LOOP's best is persisted as the standalone
-        file has always done.
+        With compare_prev_and_optimized_values unticked there is no
+        re-measurement at all, and M-LOOP's best is persisted as the
+        standalone file has always done.
 
         Both are measured with the same optimization_routine the search used,
         so the two costs are directly comparable: same sequence, same
@@ -965,23 +963,21 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
             print("")
             return previous_params
 
-        if not meets_target:
-            print(f"BETTER BUT SHORT OF TARGET: cost {previous_cost} -> "
-                  f"{optimized_cost}, which does not reach target_cost "
-                  f"{self.target_cost:.0f}.")
-            print("KEEPING THE PREVIOUS VALUES. Nothing is overwritten.")
-            print("To accept a result like this, either give the search more "
-                  "room with max_runs,")
-            print("or relax target_cost to what the apparatus can actually "
-                  "reach.")
-            print("=" * 72)
-            print("")
-            return previous_params
-
-        print(f"IMPROVED AND TARGET MET: cost {previous_cost} -> "
-              f"{optimized_cost} (better by "
-              f"{previous_cost - optimized_cost}, target "
-              f"{self.target_cost:.0f}).")
+        if meets_target:
+            print(f"IMPROVED AND TARGET MET: cost {previous_cost} -> "
+                  f"{optimized_cost} (better by "
+                  f"{previous_cost - optimized_cost}, target "
+                  f"{self.target_cost:.0f}).")
+        else:
+            ### Better than what is in place, so it is applied even though the
+            ### target was not reached; the target is reported, not enforced.
+            print(f"IMPROVED BUT SHORT OF TARGET: cost {previous_cost} -> "
+                  f"{optimized_cost} (better by "
+                  f"{previous_cost - optimized_cost}), target_cost "
+                  f"{self.target_cost:.0f} not reached.")
+            print("Applying it anyway, since it beats the previous values. To "
+                  "get further, give the search more max_runs or set a "
+                  "target_cost the apparatus can reach.")
         print("UPDATING to the optimized values:")
         for (name, old_value), (_, new_value) in zip(
                 self.describe_parameters(previous_params),

@@ -609,12 +609,13 @@ class ComparePreviousAndOptimizedTests(_OptimizerHarness):
                          "the previous values are measured first")
         self.assertEqual(list(calls[1]), list(optimized))
 
-    def test_better_than_previous_but_short_of_target_keeps_previous(self):
+    def test_better_than_previous_but_short_of_target_updates(self):
         """The case RID 38552 hit: improved, but nowhere near target_cost.
 
-        M-LOOP stops at max_runs whether or not the target was reached, so
-        beating the starting point is not sufficient to overwrite tuned
-        settings.
+        Applied anyway since 2026-10-16, at the user's request: an improvement
+        over the settings in place is worth keeping even when M-LOOP stopped
+        at max_runs short of the target. target_cost is reported, not
+        enforced.
         """
         experiment = self.make_experiment({
             "which_node": "Node2", "what_to_tune": "coils only",
@@ -624,11 +625,12 @@ class ComparePreviousAndOptimizedTests(_OptimizerHarness):
         self.assertEqual(experiment.target_cost, -3000.0)
         self._script_costs(experiment, [-1000, -2000])
 
-        kept = experiment.compare_previous_and_optimized(optimized)
-        self.assertEqual(list(kept), list(experiment.previous_params))
+        applied = experiment.compare_previous_and_optimized(optimized)
+        self.assertEqual(list(applied), list(optimized))
 
     def test_target_met_but_not_better_than_previous_keeps_previous(self):
-        """Both bars are required, not either one."""
+        """Meeting target_cost is not enough on its own: the optimized values
+        must also beat the previous ones."""
         experiment = self.make_experiment({
             "which_node": "Node2", "what_to_tune": "coils only",
         })

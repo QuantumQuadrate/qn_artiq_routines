@@ -2060,9 +2060,11 @@ explicitly suffixed through `resolve_experiment_variable_target` (only coil
 volts are covered by the redirect); `t_SPCM_exposure` and `n_measurements` GUI
 values captured and re-asserted; `break_realtime` after every stabilizer run;
 `run_feedback_and_record_FORT_MM_power` records the FORT powers.
-`compare_prev_and_optimized_values` (default on) keeps optimized values only
-if they beat both the previous values and `target_cost` (RID 38552 ended at
--2793 against -8000). `analyze()` tolerates M-LOOP 3.3.4's 0-d `in_costs`
+`compare_prev_and_optimized_values` (default on) re-measures both and keeps
+the optimized values whenever they beat the previous values; `target_cost` is
+reported, not required, since 2026-10-16 at the user's request (it used to be
+a second bar, which discarded results like RID 38552's -2793 against a -8000
+target). `analyze()` tolerates M-LOOP 3.3.4's 0-d `in_costs`
 IndexError (RID 38545 had been marked failed for that alone). Hardware RIDs
 38540-38562 (2026-10-01..02). M-LOOP aborts before `run()` in the compile
 harness, so `set_experiment_variables_to_best_params` was compiled
