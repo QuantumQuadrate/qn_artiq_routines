@@ -113,7 +113,7 @@ at `:357` and the two `if ch.name == 'GRIN1and2_dds'` compares at `:691`, `:730`
 **Experiments.**
 `AOMsCoils_master_satellite_Node1.py` and `AOMsCoils_master_satellite_Node2.py`
 (self-contained since 2026-10-19, replacing the deleted shared mixin) — the
-`GRIN1and2_ON` / `D1_pumping_DP_ON` boxes in `build()` and `turn_on_AOMs()`,
+`GRIN1and2_ON` / `D1_pumping_switch_ON` boxes in `build()` and `turn_on_AOMs()`,
 Node1's D1-opens-GRIN1 rule, Node2's combined GRIN blocks at the end of
 `turn_on_AOMs()`. `standalone/AOMsCoils.py` (9 sites).
 `MOT_experiments/MonitorMOTandExternalBeamPositions.py`,
@@ -125,7 +125,7 @@ Node1's D1-opens-GRIN1 rule, Node2's combined GRIN blocks at the end of
 `tests/test_base_experiment_master_satellite.py:549`,
 `tests/test_aoms_coils_master_satellite.py`:
 `test_node2_d1_uses_authoritative_grin2_defaults`, and every test that sets the
-`GRIN1and2_ON` / `D1_pumping_DP_ON` boxes by name (search for them; the
+`GRIN1and2_ON` / `D1_pumping_switch_ON` boxes by name (search for them; the
 `combined=False` subtest of `test_run_feedback_keeps_node2_combined_grin_state`
 expects everything off, so it keeps passing with stale names),
 `tests/test_experiment_variables_master_satellite.py:376-387`.
@@ -150,9 +150,13 @@ The AOMsCoils checkboxes are named after the old devices:
 | file | old | proposed |
 |---|---|---|
 | `AOMsCoils_master_satellite_Node1.py`, `_Node2.py` | `GRIN1and2_ON` | `GRIN1_DDS_ON` |
-| " | `D1_pumping_DP_ON` | `GRIN2_DDS_ON` |
+| " | `D1_pumping_switch_ON` | `GRIN2_DDS_ON` |
 | `standalone/AOMsCoils.py` | `GRIN1and2_DDS_ON` | `GRIN1_DDS_ON` |
 | " | `D1_pumping_DP_AOM_ON` | `GRIN2_DDS_ON` |
+
+2026-10-20: the user renamed the master-satellite `D1_pumping_DP_ON` to
+`D1_pumping_switch_ON` and moved it to the TTL-gates group (it opens
+`ttl_D1_pumping_switch` on both nodes), so the table starts from that name.
 
 The short forms `GRIN1_ON` / `GRIN2_ON` were the first choice. The `_DDS_` form
 is suggested instead because `GRIN1_AOM_switch_ON` / `GRIN2_AOM_switch_ON`
@@ -173,8 +177,9 @@ Word-boundary regex on exactly two tokens:
 ```
 
 The `dds_` prefix is load-bearing: it stops the second pattern touching
-`f_D1_pumping_DP`, `p_D1_pumping_DP` or `D1_pumping_DP_ON`, which are renamed
-separately (GUI) or not at all (variables). The GUI renames are done by hand.
+`f_D1_pumping_DP`, `p_D1_pumping_DP` or standalone's `D1_pumping_DP_AOM_ON`,
+which are renamed separately (GUI) or not at all (variables). The GUI renames
+are done by hand.
 
 ### The standalone trap — add this guard first
 

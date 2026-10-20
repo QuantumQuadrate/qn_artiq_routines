@@ -350,7 +350,7 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             "AOM_A4_ON": "dds_AOM_A4",
             "AOM_A5_ON": "dds_AOM_A5",
             "AOM_A6_ON": "dds_AOM_A6",
-            "D1_pumping_DP_ON": "dds_D1_pumping_DP",
+            "D1_pumping_switch_ON": "dds_D1_pumping_DP",
             "GRIN1and2_ON": "GRIN1and2_dds",
         }
         for node, experiment_class in (
@@ -424,7 +424,7 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
 
     def test_node2_combined_modes_off_override_individual_grin_controls(self):
         node2 = self.make_experiment(Node2ManualExperiment, {
-            "GRIN1and2_ON": True, "D1_pumping_DP_ON": True,
+            "GRIN1and2_ON": True, "D1_pumping_switch_ON": True,
         })
         node2.apply_manual_state()
         # The unticked combined modes win, as in the standalone ordering:
@@ -446,13 +446,13 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
     def test_node1_d1_is_switched_by_its_external_source_ttl(self):
         """Node1's D1 AOM runs from an external source since 2026-10-19.
 
-        D1_pumping_DP_ON opens ttl_D1_pumping_switch (Node1 ttl15, active
+        D1_pumping_switch_ON opens ttl_D1_pumping_switch (Node1 ttl15, active
         low: off() turns D1 on) and, as before, the GRIN1 gate D1 passes
         through. The Urukul channel that used to drive D1 (urukul2_ch2)
         stays off either way.
         """
         node1 = self.make_experiment(
-            Node1ManualExperiment, {"D1_pumping_DP_ON": True}
+            Node1ManualExperiment, {"D1_pumping_switch_ON": True}
         )
         node1.apply_manual_state()
         self.assertFalse(self.devices["ttl15"].state)        # D1 on
@@ -562,7 +562,7 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             "AOM_A4_ON", "AOM_A5_ON", "AOM_A6_ON", "cooling_DP_ON",
         )}
         individual = {
-            "GRIN1and2_ON": True, "D1_pumping_DP_ON": True,
+            "GRIN1and2_ON": True, "D1_pumping_switch_ON": True,
             "GRIN1_AOM_switch_ON": True,
         }
         for feedback in (True, False):

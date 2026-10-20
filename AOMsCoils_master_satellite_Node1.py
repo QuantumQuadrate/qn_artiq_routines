@@ -54,10 +54,10 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
         self.setattr_argument("AOM_A4_ON", BooleanValue(False), group)
         self.setattr_argument("AOM_A5_ON", BooleanValue(False), group)
         self.setattr_argument("AOM_A6_ON", BooleanValue(False), group)
-        self.setattr_argument("D1_pumping_DP_ON", BooleanValue(False), group)
         self.setattr_argument("GRIN1and2_ON", BooleanValue(False), group)
 
         group = "Node1 TTL-controlled AOM gates"
+        self.setattr_argument("D1_pumping_switch_ON", BooleanValue(False), group)
         self.setattr_argument("Repump_AOM_switch_ON", BooleanValue(False), group)
         self.setattr_argument("pumping_repump_switch_ON", BooleanValue(False), group)
         self.setattr_argument("Excitation0_AOM_switch_ON", BooleanValue(False), group)
@@ -301,7 +301,7 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
         delay(1 * ms)
 
         # D1 passes through the GRIN1 AOM, so the D1 box opens this gate too.
-        if self.GRIN1_AOM_switch_ON or self.D1_pumping_DP_ON:
+        if self.GRIN1_AOM_switch_ON or self.D1_pumping_switch_ON:
             self.ttl_GRIN1_switch.off()
         else:
             self.ttl_GRIN1_switch.on()
@@ -313,7 +313,7 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
             self.ttl_GRIN2_switch.on()
         delay(1 * ms)
 
-        if self.D1_pumping_DP_ON:
+        if self.D1_pumping_switch_ON:
             self.ttl_D1_pumping_switch.off()  # D1 on
         else:
             self.ttl_D1_pumping_switch.on()  # D1 blocked

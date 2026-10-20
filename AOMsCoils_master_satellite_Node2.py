@@ -54,10 +54,10 @@ class AOMsCoils_master_satellite_Node2(_DatasetRedirectMixin, EnvExperiment):
         self.setattr_argument("AOM_A4_ON", BooleanValue(False), group)
         self.setattr_argument("AOM_A5_ON", BooleanValue(False), group)
         self.setattr_argument("AOM_A6_ON", BooleanValue(False), group)
-        self.setattr_argument("D1_pumping_DP_ON", BooleanValue(False), group)
         self.setattr_argument("GRIN1and2_ON", BooleanValue(False), group)
 
         group = "Node2 TTL-controlled AOM gates"
+        self.setattr_argument("D1_pumping_switch_ON", BooleanValue(False), group)
         self.setattr_argument("Repump_AOM_switch_ON", BooleanValue(False), group)
         self.setattr_argument("pumping_repump_switch_ON", BooleanValue(False), group)
         self.setattr_argument("Excitation0_AOM_switch_ON", BooleanValue(False), group)
@@ -278,7 +278,7 @@ class AOMsCoils_master_satellite_Node2(_DatasetRedirectMixin, EnvExperiment):
         # Node2_GRIN2_AOM_ON is ticked, the combined GRIN2 block at the end
         # turns this channel off again, so in the end the D1 box only opens
         # ttl_D1_pumping_switch, as in standalone bob.
-        if self.D1_pumping_DP_ON:
+        if self.D1_pumping_switch_ON:
             self.dds_D1_pumping_DP.set(
                 frequency=self.f_GRIN2_D1_pumping_Node2,
                 amplitude=dB_to_V(self.p_GRIN2_D1_pumping_Node2),
@@ -332,7 +332,7 @@ class AOMsCoils_master_satellite_Node2(_DatasetRedirectMixin, EnvExperiment):
             self.ttl_GRIN2_switch.on()
         delay(1 * ms)
 
-        if self.D1_pumping_DP_ON:
+        if self.D1_pumping_switch_ON:
             self.ttl_D1_pumping_switch.off()  # D1 on
         else:
             self.ttl_D1_pumping_switch.on()  # D1 blocked

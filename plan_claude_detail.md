@@ -2181,25 +2181,30 @@ and is refused by the analysis loader.
   `run_feedback()`, and (when any waveplate box is ticked)
   `k10cr1_operations()`; both start with an unconditional `self.core.reset()`,
   which undercuts `reset_core=False` (O-11).
-- Controls: FORT, cooling DP, A1-A6, D1 pumping DP, GRIN1and2, the active-low
-  optical gates (repump, pumping-repump, excitation0, GRIN1, GRIN2,
-  microwave, and each node's dedicated D1 gate `ttl_D1_pumping_switch`;
-  Node1 D1 also opens the GRIN1 gate, `if self.GRIN1_AOM_switch_ON or
-  self.D1_pumping_DP_ON`), microwave DDS, MW RF, coils, K10CR1,
+- Controls: FORT, cooling DP, A1-A6, GRIN1and2, the active-low optical gates
+  (repump, pumping-repump, excitation0, GRIN1, GRIN2, microwave, and each
+  node's dedicated D1 gate `ttl_D1_pumping_switch`, box `D1_pumping_switch_ON`,
+  which on Node2 also switches the D1 DDS; Node1 D1 also opens the GRIN1 gate,
+  `if self.GRIN1_AOM_switch_ON or self.D1_pumping_switch_ON`), microwave DDS,
+  MW RF, coils, K10CR1,
   `run_laser_feedback`. DDS frequency/power are the authoritative `*_NodeX`
   variables, named directly in each file's `turn_on_AOMs()` (the mixin read
   them through Base's resolver DDS bindings).
 - Node1 D1 since 2026-10-19 (user): the D1 AOM runs from an external RF
   source switched by `ttl_D1_pumping_switch` (Node1 ttl15, active low), as on
-  Node2. `D1_pumping_DP_ON` opens that gate (and GRIN1); Node1's Urukul D1
+  Node2. `D1_pumping_switch_ON` opens that gate (and GRIN1); Node1's Urukul D1
   channel (`dds_D1_pumping_DP`, urukul2_ch2) is no longer switched on by it
   and stays off. Test: `test_node1_d1_is_switched_by_its_external_source_ttl`.
   The Node1 sequences still switch D1 through that Urukul channel; with ttl15
   blocked at init they get no D1 light until they are changed.
+- 2026-10-20 (user): the D1 box `D1_pumping_DP_ON` is renamed
+  `D1_pumping_switch_ON` and moved from the DDS group to the "NodeX
+  TTL-controlled AOM gates" group, in both files; what it switches is
+  unchanged.
 - Node2 combined `Node2_GRIN1_AOM_ON` / `Node2_GRIN2_AOM_ON` modes
   (`0a4ed7a`) are applied after the individual controls, as in standalone, so
   they are authoritative: their OFF branches override `GRIN1and2_ON`, the GRIN
-  gates and the D1 DDS (`D1_pumping_DP_ON` on Node2 effectively drives only
+  gates and the D1 DDS (`D1_pumping_switch_ON` on Node2 effectively drives only
   `ttl_D1_pumping_switch`). The GRIN2 mode reprograms `dds_D1_pumping_DP` to
   `f/p_GRIN2_excitation_Node2` before switching it on. `run_feedback()` re-applies
   them too after the stabilizer (2026-10-19); before that it re-applied only

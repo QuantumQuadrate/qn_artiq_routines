@@ -250,12 +250,15 @@ come before cleanup (sections 3.1, 3.3).
   everywhere. AOMsCoils Node2's `run_feedback` now re-applies the combined
   GRIN modes (new test), and the skew probe no longer drives ttl15.
   Node1's D1 AOM now runs from an external source switched by ttl15:
-  AOMsCoils Node1 `D1_pumping_DP_ON` opens `ttl_D1_pumping_switch` and keeps
+  AOMsCoils Node1 `D1_pumping_switch_ON` opens `ttl_D1_pumping_switch` and keeps
   the Urukul D1 channel off (section 11.7); Node1 sequences not yet changed.
 - **2026-10-19:** AOMsCoils `_Node1` (`51e169c`) and `_Node2` are
   self-contained files written box by box like standalone `AOMsCoils.py`,
   with the same GUI arguments and hardware operations; the AOMsCoils mixin
   is deleted (section 11.7).
+- **2026-10-20:** the AOMsCoils D1 box is now `D1_pumping_switch_ON`, in each
+  file's TTL-gates group (was `D1_pumping_DP_ON`, among the DDSes); what it
+  switches is unchanged (section 11.7).
 
 **Uncommitted:** the analysis notebooks. Check `git status`; under R26
 uncommitted code may already have run.
