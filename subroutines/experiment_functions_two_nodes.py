@@ -222,21 +222,19 @@ def record_CW_optical_pumping_both_nodes(self):
     it either.
 
     THE ASYMMETRIES BELOW ARE REAL, carried over from the two single-node
-    recordings. They are not omissions:
+    recordings. They are not omissions, except Node1's GRIN1 (deferred, see
+    the D1 bullet):
 
       * Node1 delivers the pumping repump through all six fiber AOMs; Node2
         through A5/A6 only.
-      * Node1's D1 is a dedicated double-pass AOM, dds_D1_pumping_DP_Node1.
-        Node2's D1 comes from an external source gated by ttl_D1_pumping_switch_Node2
-        and reaches the atom through GRIN1, so GRIN1and2_dds_Node2 -- which on
-        Node2 IS the GRIN1 DDS, see the naming note at
-        experiment_functions.py:2409 -- has to be running before the gates
-        open.
-      * ttl_D1_pumping_switch_Node1 (ttl15) exists since 2026-10-19 but is not
-        driven here: Node1's D1 is still gated by its double-pass DDS. Giving
-        Node1 a real D1 gate is the open hardware change in
-        documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md; once it
-        lands, the two branches below collapse into one.
+      * Both nodes' D1 comes from an external source gated by
+        ttl_D1_pumping_switch_NodeX (Node1's since 2026-10-19, on ttl15).
+        Node2's reaches the atom through GRIN1, so GRIN1and2_dds_Node2 -- which
+        on Node2 IS the GRIN1 DDS, see the naming note in the docstring of
+        CW_optical_pumping_node2 -- has to be running before the gates open.
+        Node1's D1 now passes its GRIN1 AOM too, but this function does not
+        open Node1's GRIN1 yet (user, 2026-10-20: D1 switch only for now;
+        documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md).
     """
     ### Larger of the two nodes' values. Computed BEFORE the recording: a
     ### float compare is host arithmetic and has no business inside a trace.
@@ -311,8 +309,8 @@ def record_CW_optical_pumping_both_nodes(self):
         delay(t_coil_relax)
 
         ### Node2 only: its D1 reaches the atom through GRIN1, so the GRIN1
-        ### tone must be up before the gates open. Node1's double-pass needs
-        ### nothing here -- BaseExperiment already programmed it.
+        ### tone must be up before the gates open. Node1's GRIN1 is not
+        ### opened here yet (see the docstring).
         self.GRIN1and2_dds_Node2.set(frequency=self.f_GRIN1_D1_pumping_Node2,
                                      amplitude=dB_to_V(self.p_GRIN1_D1_pumping_Node2))
         self.GRIN1and2_dds_Node2.sw.on()
@@ -326,14 +324,14 @@ def record_CW_optical_pumping_both_nodes(self):
         delay(5 * us)
 
         ### OPTICAL PUMPING STARTS HERE -- one timestamp, both nodes
-        self.dds_D1_pumping_DP_Node1.sw.on()
+        self.ttl_D1_pumping_switch_Node1.off()
         self.ttl_D1_pumping_switch_Node2.off()
         self.ttl_GRIN1_switch_Node2.off()
 
         delay(t_pumping)
 
         ### ... AND ENDS HERE -- one timestamp, both nodes
-        self.dds_D1_pumping_DP_Node1.sw.off()
+        self.ttl_D1_pumping_switch_Node1.on()
         self.ttl_D1_pumping_switch_Node2.on()
         self.ttl_GRIN1_switch_Node2.on()
 

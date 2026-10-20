@@ -245,13 +245,14 @@ come before cleanup (sections 3.1, 3.3).
   output: Node1 ttl3 / ttl12, Node2 ttl24 / ttl31), and init no longer
   touches Node1 ttl11 or Node2 ttl25 (section 2.7). device_db is
   unchanged. Node1 ttl15 is now Node1's `ttl_D1_pumping_switch` (also
-  `ttl_D1_pumping_switch_Node1`), blocked at init like Node2's ttl12; no sequence
-  opens it yet. `ttl_D1_pumping` was renamed `ttl_D1_pumping_switch`
+  `ttl_D1_pumping_switch_Node1`), blocked at init like Node2's ttl12; the Node1
+  sequences open it since 2026-10-20. `ttl_D1_pumping` was renamed `ttl_D1_pumping_switch`
   everywhere. AOMsCoils Node2's `run_feedback` now re-applies the combined
   GRIN modes (new test), and the skew probe no longer drives ttl15.
   Node1's D1 AOM now runs from an external source switched by ttl15:
   AOMsCoils Node1 `D1_pumping_switch_ON` opens `ttl_D1_pumping_switch` and keeps
-  the Urukul D1 channel off (section 11.7); Node1 sequences not yet changed.
+  the Urukul D1 channel off (section 11.7); the Node1 sequences followed on
+  2026-10-20 (below).
 - **2026-10-19:** AOMsCoils `_Node1` (`51e169c`) and `_Node2` are
   self-contained files written box by box like standalone `AOMsCoils.py`,
   with the same GUI arguments and hardware operations; the AOMsCoils mixin
@@ -265,9 +266,16 @@ come before cleanup (sections 3.1, 3.3).
   `p_AOM_A1_history_NodeX`, as single-node does, so the `feedback RF NodeX`
   applets also update during two-node runs (before: `p_AOM_A1_NodeX_history`,
   which nothing read; section 10.3).
+- **2026-10-20:** the Node1 sequences switch D1 with
+  `ttl_D1_pumping_switch` (ttl15) instead of `dds_D1_pumping_DP`: the Node1
+  pumping functions, single photon 4/5, `measure_GRIN1`, the chopped-pumping
+  DMA, the two-node Node1 side, standalone alice init and AOMsCoils, the MOT
+  scripts and `tests/A2-SPCMGateTimeVsCounts.py`. `CW_optical_pumping_node1`
+  and its DMA version do not open Node1's GRIN1 path yet (section 2.7; D1
+  upgrade note).
 
-**Uncommitted:** the analysis notebooks. Check `git status`; under R26
-uncommitted code may already have run.
+**Uncommitted:** check `git status`; under R26 uncommitted code may already
+have run.
 
 ## 7. Open issues (section 18; next steps in section 18.5)
 

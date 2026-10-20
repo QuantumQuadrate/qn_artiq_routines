@@ -1,13 +1,52 @@
 # D1 and optical pumping: merging Node1 and Node2
 
-**Started:** 2026-10-11 **Status:** **Queued, not started** — nothing below has
-been applied to the code.
+**Started:** 2026-10-11 **Status:** **Partly applied** — Node1's D1 hardware
+change and its D1 switch are done (Status 2026-10-20, below); the renames
+(stages 1-2), Node1's GRIN1 path and the stage 4 merge are not started.
 **Scope:** both stacks (standalone and master-satellite) plus the per-node
 alias config. Not the device_db.
 
 ---
 
+## Status 2026-10-20
+
+- Hardware (user, 2026-10-19): Node1's D1 AOM runs from an external RF source
+  switched by `ttl_D1_pumping_switch` = Node1 `ttl15` (active low: `off()` = D1
+  on; blocked at init). `dds_D1_pumping_DP` (`urukul2_ch2`) no longer drives it.
+- Code (2026-10-20, the user's rule: a set of `dds_D1_pumping_DP` is commented
+  out with a note, `sw.on()` becomes `ttl_D1_pumping_switch.off()`, `sw.off()`
+  becomes `.on()`). Node1's D1 is switched by the TTL in
+  `CW_optical_pumping_node1`, `record_CW_optical_pumping_node1`,
+  `single_photon_experiment_4_atom_loading_advance` and
+  `single_photon_experiment_5_atom_loading_advance_AllSPCM` (both Node1 only),
+  `measure_GRIN1` and `record_chopped_optical_pumping` (treated as Node1 code),
+  `record_CW_optical_pumping_both_nodes` (Node1 side), `standalone/AOMsCoils.py`
+  (alice branch), the two `MOT_experiments` scripts and
+  `tests/A2-SPCMGateTimeVsCounts.py`. Standalone alice init's explicit D1 tone
+  set is commented out. AOMsCoils master-satellite Node1 did this on 2026-10-19.
+- Left as they are:
+  - the `which_node == "bob"` branches, and the Node2-written functions that
+    use `dds_D1_pumping_DP` as GRIN2;
+  - `dds_D1_pumping_DP.sw.off()` after the excitation loop in single photon
+    6-9, and right after the chopped-pumping DMA in parity 2-5 (that DMA now
+    ends every chop with D1 blocked). On Node1 these switch an unused channel;
+    on Node2 they turn its GRIN2 RF off;
+  - the init loops that program `urukul2_ch2` with its RF off: master-satellite
+    `_initialize_dds_group` and standalone `named_devices.initialize()`;
+  - the inactive D1 channel in alice's `feedback_channels*.json`;
+  - `chopped_optical_pumping`, which nothing calls;
+  - `tests/A2-ExcitationSPCMGateStartTime.py`, written for Node2: pending the
+    user's decision.
+- Not done (user: "D1 switch only for now"): Node1's D1 now passes the GRIN1
+  AOM, but `CW_optical_pumping_node1`, `record_CW_optical_pumping_node1` and
+  the two-node Node1 side neither open `ttl_GRIN1_switch` nor turn on
+  `GRIN1and2_dds` (parity 2-5, single photon 4/5 and `measure_GRIN1` keep their
+  own GRIN1 lines). Check on hardware whether D1 reaches the atoms.
+
 ## The problem
+
+*As written on 2026-10-11; Node1's D1 hardware has changed since (Status
+2026-10-20, above).*
 
 Both nodes run the same `subroutines/experiment_functions.py`. To keep that
 possible, Node2 was given new hardware without new names: it reuses two Node1
@@ -224,9 +263,9 @@ Cheap, and it catches this entire class of error.
 
 ## Stages 3 and 4 — Node1 to match Node2
 
-Node1 gains a **real D1 TTL (`ttl12`) plus an external DDS source**. D1 pumping
-light is delivered to GRIN1, so `GRIN1_dds` must also be on to pass it — the
-same arrangement Node2 already uses.
+Node1 gains a **real D1 TTL (`ttl15`, done 2026-10-19) plus an external
+source**. D1 pumping light is delivered to GRIN1, so `GRIN1_dds` must also be
+on to pass it — the same arrangement Node2 already uses.
 
 Node1 then matches Node2 structurally, which resolves stage 4 to **yes**: once
 Node1 has a real `ttl_D1_pumping_switch` and two independent GRIN tones,
@@ -238,18 +277,18 @@ collapse to the Node2 form. Those blocks are at `experiment_functions.py:5386`,
 `:15204`, `:15642`, `:15973`, with Node2-only teardowns at `:15473`, `:15852`,
 `:16038`.
 
-Node1's old dedicated D1 double-pass AOM (`urukul2_ch2`, 373.075 MHz) is then
-free. To make the configs genuinely identical, Node1 would take Node2's channel
-assignment: `GRIN1_dds` → `urukul2_ch2`, `GRIN2_dds` → `urukul2_ch0`. That is a
-physical repatch and has not been scoped.
+Node1's old dedicated D1 double-pass AOM (`urukul2_ch2`, 373.075 MHz) is free
+since 2026-10-19. To make the configs genuinely identical, Node1 would take
+Node2's channel assignment: `GRIN1_dds` → `urukul2_ch2`, `GRIN2_dds` →
+`urukul2_ch0`. That is a physical repatch and has not been scoped.
 
 ### Blocking conflict — settle before any wiring
 
 **Settled 2026-10-19 for master-satellite.** The handshake cables are
 removed, and Node1's `ttl_D1_pumping_switch` is now `ttl15` (`ttl_D1_pumping_switch_Node1`
 in two-node mode); ttl12 became Node1's dummy output instead
-(`plan_claude_detail.md` section 2.7). No Node1 sequence drives the new
-alias yet; init blocks it, like Node2's ttl12. Standalone alice matches (the
+(`plan_claude_detail.md` section 2.7). The Node1 sequences drive it since
+2026-10-20; init blocks it, like Node2's ttl12. Standalone alice matches (the
 user's edit to `utilities/BaseExperiment.py`): `ttl_D1_pumping_switch` is ttl15
 there too, and its init blocks D1. The text below is the analysis as it
 stood before.
@@ -310,4 +349,5 @@ because the names will finally mean what they say.
   but **150.50 MHz on Node2** — the only node where it is physically used.
 * **Node1 pre-programs `dds_D1_pumping_DP` at init** (`BaseExperiment.py:1019-1020`);
   Node2 has no equivalent, so Node2's GRIN2 tone is only ever set inside the
-  OP/EXC arming blocks.
+  OP/EXC arming blocks. (2026-10-20: that explicit Node1 set is commented out;
+  both nodes now program the channel only through `named_devices.initialize()`.)

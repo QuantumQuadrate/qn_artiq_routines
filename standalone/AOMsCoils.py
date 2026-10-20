@@ -136,13 +136,15 @@ class AOMsCoils(EnvExperiment):
         delay(1 * ms)
         if self.D1_pumping_DP_AOM_ON == True:
             if self.which_node == 'alice':
-                self.dds_D1_pumping_DP.sw.on()
+                # Node1's D1 since 2026-10-19: external RF source switched by
+                # ttl_D1_pumping_switch (active low), not dds_D1_pumping_DP
+                self.ttl_D1_pumping_switch.off()
                 self.ttl_GRIN1_switch.off()
             elif self.which_node == 'bob':
                 self.ttl_D1_pumping_switch.off()
         else:
             if self.which_node == 'alice':
-                self.dds_D1_pumping_DP.sw.off()
+                self.ttl_D1_pumping_switch.on()
                 self.ttl_GRIN1_switch.on()
             elif self.which_node == 'bob':
                 self.ttl_D1_pumping_switch.on()

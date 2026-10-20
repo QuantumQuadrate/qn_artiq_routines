@@ -81,7 +81,8 @@ class SPCMGateTimeVsCounts(EnvExperiment):
 
         self.ttl_excitation_switch.on()
         self.GRIN1and2_dds.sw.off()
-        self.dds_D1_pumping_DP.sw.off()
+        # D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source switched by ttl_D1_pumping_switch
+        self.ttl_D1_pumping_switch.on()
 
         delay(10*ms)
 

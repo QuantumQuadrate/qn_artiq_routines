@@ -64,7 +64,7 @@ A dictionary mapping aliases of the urukul channels and their defaults lives in 
     ALIAS_MAP = {
           "dds_FORT": "urukul0_ch0", # the key is the alias, and the value is the name given in device_db.py
           "dds_cooling_DP": "urukul0_ch1",
-          "dds_D1_pumping_DP": "urukul0_ch2",
+          "dds_D1_pumping_DP": "urukul2_ch2",
           ...
           "dds_AOM_A4": "urukul2_ch0",
           "dds_AOM_A5": "urukul2_ch1"

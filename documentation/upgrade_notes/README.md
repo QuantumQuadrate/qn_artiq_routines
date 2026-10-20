@@ -28,9 +28,10 @@ wrong. These are forward-looking plans for work not yet done.
 
 | Note | Topic | Status |
 | --- | --- | --- |
-| [D1_optical_pumping_merge_ideas.md](D1_optical_pumping_merge_ideas.md) | Rename `GRIN1and2_dds`→`GRIN1_dds`, `dds_D1_pumping_DP`→`GRIN2_dds`; then give Node1 a real D1 TTL so it can share Node2's OP/EXC code | Queued, not started |
+| [D1_optical_pumping_merge_ideas.md](D1_optical_pumping_merge_ideas.md) | Rename `GRIN1and2_dds`→`GRIN1_dds`, `dds_D1_pumping_DP`→`GRIN2_dds`; then give Node1 a real D1 TTL so it can share Node2's OP/EXC code | Partly applied (2026-10-20): Node1's D1 on ttl15 with an external RF source, Node1 sequences switched; renames, Node1's GRIN1 path and the merge not started |
 | [chopped_RO_ideas.md](chopped_RO_ideas.md) | Low-loss fluorescence readout by chopping the FORT out of phase with the readout light; why the DP AOM currently caps the duty cycle at 26% | Idea, partially built |
 
 Both notes above depend on the **same** decision: whether two-node *standalone*
 synchronization is retired, which is what frees `ttl12` and `ttl15` as output
-TTLs on both nodes. Settle that once and both unblock.
+TTLs on both nodes. Settle that once and both unblock. Answered 2026-10-19:
+retired, cables removed; the D1 note is now partly applied.

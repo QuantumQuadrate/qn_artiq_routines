@@ -236,7 +236,7 @@ indices; Node2's resolve to `ttl16`-`ttl31`):
 | `ttl_pumping_repump_switch` | ttl7 | ttl7 |
 | `ttl_GRIN2_switch` | ttl13 | ttl13 |
 | `ttl_GRIN1_switch` | ttl14 | ttl14 |
-| `ttl_D1_pumping_switch` | ttl15 (since 2026-10-19; blocked at init, no sequence opens it yet) | ttl12 (real gate) |
+| `ttl_D1_pumping_switch` | ttl15 (since 2026-10-19; blocked at init; the Node1 sequences switch D1 with it since 2026-10-20) | ttl12 (real gate) |
 | dummy input / output (no alias name of their own) | ttl3 / ttl12 | ttl8 / ttl15 (= ttl24 / ttl31) |
 | legacy handshake | `ttl_node2_input1` ttl3, `ttl_node1_output1` and `_output2` ttl12 (dummies) | `ttl_node1_input1` and `_input2` ttl8, `ttl_node2_output1` ttl15 (dummies) |
 
@@ -260,15 +260,17 @@ indices; Node2's resolve to `ttl16`-`ttl31`):
 - Node1 ttl15 became Node1's `ttl_D1_pumping_switch` later on 2026-10-19 (user);
   it used to be the dummy ttl3, set in `COMPATIBILITY_DUMMY_TTL_ALIASES`
   and so present only in single-node mode. It now exists in both modes,
-  as `ttl_D1_pumping_switch` and `ttl_D1_pumping_switch_Node1`. Nothing writes it yet:
-  Node1's optical pumping gates D1 with `dds_D1_pumping_DP`, only the
-  `*_node2` pumping functions use the alias and Node1 runs dispatch to the
-  `*_node1` ones; AOMsCoils Node1 opens it when D1 is requested (section
-  11.7). Init blocks it (safe state ON), like Node2's ttl12, at the user's
-  request that master-satellite init turn off everything standalone does.
-  ttl15 does gate Node1's D1 (external source since 2026-10-19), so every
-  Node1 sequence that pumps gets NO D1 light until it opens ttl15: the runs
-  complete and the data look normal, but the atoms are not pumped.
+  as `ttl_D1_pumping_switch` and `ttl_D1_pumping_switch_Node1`. It gates
+  Node1's D1 (external RF source since 2026-10-19). Since 2026-10-20 (user)
+  the Node1 sequences switch D1 with it instead of `dds_D1_pumping_DP`; the
+  site list is in `documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md`
+  (Status 2026-10-20). Before that no Node1 sequence opened it, so a Node1
+  pumping run in between got no D1 light (only AOMsCoils ran on Node1 then).
+  Node1's D1 now also passes the GRIN1 AOM, which `CW_optical_pumping_node1`
+  and its DMA version do not open yet (user: D1 switch only for now).
+  AOMsCoils Node1 opens ttl15 when D1 is requested (section 11.7). Init blocks it (safe state ON), like Node2's ttl12,
+  at the user's request that master-satellite init turn off everything
+  standalone does.
   Standalone (`utilities/BaseExperiment.py`, the user's edits) matches:
   alice has D1 on ttl15 blocked at init, output dummies on ttl12, input
   dummies on ttl3; bob's dummies are its ttl8 (input) and ttl15 (output),
@@ -307,11 +309,13 @@ The same alias names mean physically different things on the two nodes
 - `GRIN1and2_dds`: Node1 = one DDS feeding both GRINs (excitation, defaults
   `f/p_excitation`); Node2 = GRIN1 only (D1 pumping, defaults
   `f/p_GRIN1_D1_pumping`).
-- `dds_D1_pumping_DP`: Node1 = a real D1 DP AOM at 373.075 MHz; Node2 =
-  GRIN2 (defaults `f/p_GRIN2_D1_pumping`; the Node2 combined GRIN2 mode
-  reprograms it to `f/p_GRIN2_excitation`).
-- Node1 D1 shares the GRIN1 optical gate; Node2 has a dedicated D1 gate
-  (`ttl_D1_pumping_switch`, ttl12).
+- `dds_D1_pumping_DP`: Node1 = `urukul2_ch2`, the D1 DP AOM at 373.075 MHz
+  until 2026-10-19, now unused (D1 runs from an external source, section
+  2.7); Node2 = GRIN2 (defaults `f/p_GRIN2_D1_pumping`; the Node2 combined
+  GRIN2 mode reprograms it to `f/p_GRIN2_excitation`).
+- Each node has a dedicated D1 gate, `ttl_D1_pumping_switch` (Node1 ttl15
+  since 2026-10-19, Node2 ttl12); Node1's D1 also passes the GRIN1 optical
+  gate.
 
 ### 2.9 Fixed wiring metadata
 
@@ -2220,8 +2224,7 @@ and is refused by the analysis loader.
   Node2. `D1_pumping_switch_ON` opens that gate (and GRIN1); Node1's Urukul D1
   channel (`dds_D1_pumping_DP`, urukul2_ch2) is no longer switched on by it
   and stays off. Test: `test_node1_d1_is_switched_by_its_external_source_ttl`.
-  The Node1 sequences still switch D1 through that Urukul channel; with ttl15
-  blocked at init they get no D1 light until they are changed.
+  Since 2026-10-20 the Node1 sequences switch D1 with ttl15 too (section 2.7).
 - 2026-10-20 (user): the D1 box `D1_pumping_DP_ON` is renamed
   `D1_pumping_switch_ON` and moved from the DDS group to the "NodeX
   TTL-controlled AOM gates" group, in both files; what it switches is
@@ -3199,14 +3202,16 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   2026-10-11): rename `GRIN1and2_dds -> GRIN1_dds` and `dds_D1_pumping_DP ->
   GRIN2_dds` in both stacks and the alias/feedback JSON keys (about 307
   occurrences in 21 files; zero electrical change because only alias KEYS
-  change), verify Node2 on hardware, then give Node1 a real D1 TTL (now ttl15,
-  section 2.7) and
-  an external DDS. Prerequisite: the alias guard test (O-22). Latent bugs
-  recorded there and left alone: `chopped_optical_pumping` has no
-  Node2-correct path; several Node1-only unconditional sequences mis-drive
-  Node2; the `aom_feedback` GRIN special case never fires in two-node mode;
-  Bob's `feedback_channels.json` references the undeclared `set_point_D1_DP`;
-  Node1 pre-programs `dds_D1_pumping_DP` at init and Node2 does not.
+  change), verify Node2 on hardware, then give Node1 a real D1 TTL and an
+  external source (done: ttl15 and an external RF source since 2026-10-19,
+  the Node1 sequences switched on 2026-10-20; section 2.7). Prerequisite: the
+  alias guard test (O-22). Latent bugs recorded there and left alone:
+  `chopped_optical_pumping` has no Node2-correct path; several Node1-only
+  unconditional sequences mis-drive Node2; the `aom_feedback` GRIN special
+  case never fires in two-node mode; Bob's `feedback_channels.json` references
+  the undeclared `set_point_D1_DP`; Node1 pre-programmed `dds_D1_pumping_DP`
+  at init and Node2 did not (that explicit set is commented out since
+  2026-10-20).
 - **Shared blocker for O-31 and O-32**: is two-node STANDALONE synchronization
   retired? On Node1, ttl12 (`ttl_node1_output1`) is driven by the standalone
   handshake (about 10 sites) and ttl15 is the other handshake line. Retiring

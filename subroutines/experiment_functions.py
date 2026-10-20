@@ -2174,6 +2174,9 @@ def record_chopped_blow_away(self):
 @kernel
 def record_chopped_optical_pumping(self):
     """
+    D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
+    switched by ttl_D1_pumping_switch (active low: off() = D1 on), not by the
+    Urukul channel dds_D1_pumping_DP.
 
     :param self:
     :return:
@@ -2209,9 +2212,9 @@ def record_chopped_optical_pumping(self):
                 delay_mu(OP_pulse_length_mu)
                 self.dds_FORT.sw.on()
                 at_mu(start+i*period_mu+OP_on_mu)
-                self.dds_D1_pumping_DP.sw.on()
+                self.ttl_D1_pumping_switch.off()  # D1 on
                 delay_mu(OP_pulse_length_mu)
-                self.dds_D1_pumping_DP.sw.off()
+                self.ttl_D1_pumping_switch.on()  # D1 off
         else:
             for i in range(n_chop_cycles):
                 at_mu(start + i * period_mu + FORT_on_mu)
@@ -2234,9 +2237,9 @@ def record_chopped_optical_pumping(self):
                     delay_mu(OP_pulse_length_mu)
                     self.dds_FORT.sw.on()
                     at_mu(start + i * period_mu + OP_on_mu)
-                    self.dds_D1_pumping_DP.sw.on()
+                    self.ttl_D1_pumping_switch.off()  # D1 on
                     delay_mu(OP_pulse_length_mu)
-                    self.dds_D1_pumping_DP.sw.off()
+                    self.ttl_D1_pumping_switch.on()  # D1 off
             else:
                 for i in range(n_depump_chop_cycles):
                     at_mu(start + i * period_mu + FORT_on_mu)
@@ -2335,6 +2338,9 @@ def CW_optical_pumping_node1(self):
     - Includes turning on or off some AOMs, or setting their powers, setting the coils, etc.
     - D1 is on GRIN1
     - I am bypassing GRIN1 AOM to increase the D1 power at the atom to speed up O.P.
+    - 2026-10-19: D1 now runs from an external RF source switched by
+      ttl_D1_pumping_switch and goes through the GRIN1 AOM; this function does
+      not open GRIN1 yet.
     """
 
     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
@@ -2369,12 +2375,15 @@ def CW_optical_pumping_node1(self):
     delay(self.t_OP_coil_relax_time)
 
     ### Optical pumping phase
+    ### D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
+    ### switched by ttl_D1_pumping_switch (active low: off() = D1 on), not
+    ### by the Urukul channel dds_D1_pumping_DP.
     self.ttl_pumping_repump_switch.off()
-    self.dds_D1_pumping_DP.sw.on()
+    self.ttl_D1_pumping_switch.off()  # D1 on
 
     delay(self.t_pumping)
 
-    self.dds_D1_pumping_DP.sw.off()
+    self.ttl_D1_pumping_switch.on()  # D1 off
     delay(self.t_depumping)
     self.ttl_pumping_repump_switch.on()
 
@@ -2510,13 +2519,16 @@ def record_CW_optical_pumping_node1(self):
         delay(self.t_OP_coil_relax_time)
 
         ### Optical pumping
+        ### D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
+        ### switched by ttl_D1_pumping_switch (active low: off() = D1 on), not
+        ### by the Urukul channel dds_D1_pumping_DP.
         with parallel:
             self.ttl_pumping_repump_switch.off()
-            self.dds_D1_pumping_DP.sw.on()
+            self.ttl_D1_pumping_switch.off()  # D1 on
 
         delay(self.t_pumping)
 
-        self.dds_D1_pumping_DP.sw.off()
+        self.ttl_D1_pumping_switch.on()  # D1 off
 
         delay(self.t_depumping)
 
@@ -2813,8 +2825,10 @@ def measure_GRIN1(self):
     # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
     self.GRIN1and2_dds.sw.on()
 
-    #turning D1 ON
-    self.dds_D1_pumping_DP.sw.on()
+    #turning D1 ON. Since 2026-10-19 Node1's D1 AOM runs from an external RF
+    # source switched by ttl_D1_pumping_switch (active low: off() = D1 on),
+    # not by the Urukul channel dds_D1_pumping_DP.
+    self.ttl_D1_pumping_switch.off()
 
     delay(0.1*ms)
 
@@ -2827,7 +2841,7 @@ def measure_GRIN1(self):
 
     # turning D1 off & repump on
     # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
-    self.dds_D1_pumping_DP.sw.off()
+    self.ttl_D1_pumping_switch.on()  # D1 off
     # self.ttl_repump_switch.off()  # turns the RP AOM on
     self.ttl_exc0_switch.off() # turns EXC0 AOM on
 
@@ -8527,12 +8541,16 @@ def single_photon_experiment_4_atom_loading_advance(self):
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
+                ### D1: since 2026-10-19 Node1's D1 AOM runs from an external RF
+                ### source switched by ttl_D1_pumping_switch (active low: off() =
+                ### D1 on), not by the Urukul channel dds_D1_pumping_DP. This
+                ### experiment is Node1 only.
                 self.ttl_pumping_repump_switch.off()
-                self.dds_D1_pumping_DP.sw.on()
+                self.ttl_D1_pumping_switch.off()  # D1 on
 
                 delay(self.t_pumping)
 
-                self.dds_D1_pumping_DP.sw.off()
+                self.ttl_D1_pumping_switch.on()  # D1 off
                 delay(self.t_depumping)
                 self.ttl_pumping_repump_switch.on()
 
@@ -8928,12 +8946,16 @@ def single_photon_experiment_5_atom_loading_advance_AllSPCM(self):
                 self.dds_AOM_A5.sw.on()
                 self.dds_AOM_A6.sw.on()
 
+                ### D1: since 2026-10-19 Node1's D1 AOM runs from an external RF
+                ### source switched by ttl_D1_pumping_switch (active low: off() =
+                ### D1 on), not by the Urukul channel dds_D1_pumping_DP. This
+                ### experiment is Node1 only.
                 self.ttl_pumping_repump_switch.off()
-                self.dds_D1_pumping_DP.sw.on()
+                self.ttl_D1_pumping_switch.off()  # D1 on
 
                 delay(self.t_pumping)
 
-                self.dds_D1_pumping_DP.sw.off()
+                self.ttl_D1_pumping_switch.on()  # D1 off
                 delay(self.t_depumping)
                 self.ttl_pumping_repump_switch.on()
 
