@@ -229,7 +229,8 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(node2.base.which_node, "Node2")
         self.assertTrue(hasattr(node1, "FORT_AOM_ON"))
         self.assertFalse(hasattr(node1, "FORT_AOM_ON_Node1"))
-        self.assertEqual(node1.COIL_CHANNELS, (0, 1, 13, 14))
+        # Node1 takes its coil channels from Base's wiring table.
+        self.assertEqual(node1.coil_channels, [0, 1, 13, 14])
         self.assertEqual(node2.COIL_CHANNELS, (0, 1, 2, 3))
 
     def test_node1_then_node2_preserves_node1_outputs(self):
@@ -550,20 +551,21 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             node1.k10cr1_ndsp.get_position("852_HWP")
 
     def test_852_target_moves_are_gated_on_852_booleans(self):
-        import AOMsCoils_master_satellite_mixin as mixin_module
+        # Node1 is self-contained, so its own module holds the K10CR1 calls.
+        import AOMsCoils_master_satellite_Node1 as node1_module
         from unittest import mock
 
         calls = []
         with mock.patch.object(
-            mixin_module, "go_to_home",
+            node1_module, "go_to_home",
             side_effect=lambda experiment, name: calls.append(("home", name)),
         ), mock.patch.object(
-            mixin_module, "move_to_target_deg",
+            node1_module, "move_to_target_deg",
             side_effect=lambda experiment, name, target_deg: calls.append(
                 ("target", name, target_deg)
             ),
         ), mock.patch.object(
-            mixin_module, "move_by_deg",
+            node1_module, "move_by_deg",
             side_effect=lambda experiment, name, target_deg: calls.append(
                 ("by", name, target_deg)
             ),

@@ -669,8 +669,8 @@ Master-satellite (repository top level, the primary namespace):
 GeneralVariableScan_master_satellite_mixin.py         (private)
 GeneralVariableScan_master_satellite_single_node.py
 GeneralVariableScan_master_satellite_two_nodes.py
-AOMsCoils_master_satellite_mixin.py                   (private)
-AOMsCoils_master_satellite_Node1.py
+AOMsCoils_master_satellite_mixin.py                   (private; Node2 only, to go)
+AOMsCoils_master_satellite_Node1.py                   (self-contained)
 AOMsCoils_master_satellite_Node2.py
 ExperimentVariables_master_satellite_Node1.py
 ExperimentVariables_master_satellite_Node2.py
@@ -2140,10 +2140,20 @@ and is refused by the analysis loader.
 
 ### 11.7 Manual control: `AOMsCoils_master_satellite_Node1/_Node2`
 
-- Shared private implementation `AOMsCoils_master_satellite_mixin.py`
-  (`_AOMsCoilsMasterSatelliteMixin`); public per-node files (`a7d8dff`,
-  2026-08-31) separate from GVS and from standalone `AOMsCoils.py`. No
-  two_nodes mode and no node selector; `NODE` is a class constant.
+- One public file per node (`a7d8dff`, 2026-08-31), separate from GVS and
+  from standalone `AOMsCoils.py`. No two_nodes mode and no node selector;
+  `NODE` is a class constant.
+- 2026-10-19 (user's decision): the per-node files become self-contained and
+  independent, written box by box like standalone `AOMsCoils.py`; they share
+  no code and never import each other, so one node's hardware change cannot
+  reach the other. `AOMsCoils_master_satellite_Node1.py` is converted: same
+  GUI arguments, groups and order, and identical hardware operations to the
+  old mixin version (op logs compared over 524 argument sets, a planted
+  one-line mistake is caught). Node1 takes its coil channels from Base's
+  wiring table (`coil_channels`). Node2 still uses the private
+  `AOMsCoils_master_satellite_mixin.py` (`_AOMsCoilsMasterSatelliteMixin`)
+  until it is converted the same way; the mixin is then deleted.
+  The rest of this section describes the behaviour, which both share.
 - Build: argument metadata and the suffixed superset (unconfigured Base).
   Prepare: `configure_execution('single_node', NODE)`, loads only that node's
   variables plus globals.
