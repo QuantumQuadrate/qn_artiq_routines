@@ -273,6 +273,9 @@ come before cleanup (sections 3.1, 3.3).
   scripts and `tests/A2-SPCMGateTimeVsCounts.py`. `CW_optical_pumping_node1`
   and its DMA version do not open Node1's GRIN1 path yet (section 2.7; D1
   upgrade note).
+- **2026-10-20:** the functions no longer in use (45 of 103) moved from
+  `experiment_functions.py` to `subroutines/experiment_functions_obsolete.py`,
+  which nothing imports; the single-node GVS menu has 23 entries (section 9.2).
 
 **Uncommitted:** check `git status`; under R26 uncommitted code may already
 have run.

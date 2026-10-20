@@ -501,11 +501,10 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertIn("atom_loading_experiment", registry)
         self.assertIn("test_ttl_pulse_experiment", registry)
         self.assertIn("atom_photon_parity_11_AllSPCM_experiment", registry)
-        # 51 since 2026-10-13: single_photon_experiment_10 (grouped excitation)
-        # and atom_photon_parity_12 / _13 (confirm-by-first-shot, batched
-        # datasets) were removed after not working well in practice, along
-        # with experiment 10's grouped-DMA helpers.
-        self.assertEqual(len(registry), 51)
+        # 23 since 2026-10-20: the functions no longer in use moved to
+        # subroutines/experiment_functions_obsolete.py, the four historical
+        # two-node experiments among them (51 before; 54 until 2026-10-13).
+        self.assertEqual(len(registry), 23)
         for name in HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS:
             self.assertNotIn(name, registry)
         self.assertNotIn("master_satellite_namespace_sanity_experiment", registry)

@@ -1465,7 +1465,10 @@ separate.
   `HISTORICAL_INDEPENDENT_TWO_NODE_EXPERIMENTS` = exactly
   `Two_nodes_atom_loading_experiment`, `Two_node_single_photon_experiment`,
   `Two_node_single_photon_2_experiment`,
-  `Two_node_single_photon_2_optimization_experiment`. 51 functions at HEAD.
+  `Two_node_single_photon_2_optimization_experiment`. 23 functions since
+  2026-10-20, when the ones no longer in use moved to
+  `subroutines/experiment_functions_obsolete.py` (the four historical
+  two-node functions too, so the exclusion now removes nothing; 51 before).
 - Two-node: only `subroutines/experiment_functions_two_nodes.py`: 3 functions
   (`master_satellite_namespace_sanity_experiment`,
   `Two_nodes_atom_loading_experiment` (the native one; same name as an
@@ -1603,15 +1606,23 @@ result tag is `TwoNodes`. No `force_other_node_off`.
 - Shared edits to `experiment_functions.py` are allowed under R1/R8 (slack
   restores, confirm-by-first-shot).
 
-### 9.2 Single-node registry (51 functions, 2026-10-14)
+### 9.2 Single-node registry (23 functions, 2026-10-20)
 
-Includes 11 `microwave_*` experiments; `single_photon_experiment_3` (three
-variants) and 4-9; `atom_photon_parity_2` to `_11` (with `6_node2`,
-`9/10/11_AllSPCM`); `atom_loading(_2/_for_*/_optimizer)_experiment`;
-`beam_balancing_*`; `blowaway_fidelity`; `test_*`; `tune_coil_driver`. Count
-history: 50, then 51 with `atom_photon_parity_11_AllSPCM` (2026-09-03), 54 on
-2026-10-13 (parity 12/13 and single_photon_experiment_10), back to 51
-(`2a3592c`).
+11 `microwave_*` experiments;
+`atom_loading(_2/_for_optimization/_for_PGC_optimization/_optimizer)_experiment`;
+`beam_balancing_with_atoms(2)`; `blowaway_fidelity_measurement`;
+`test_ttl_pulse` and `test_magnetometer`;
+`single_photon_experiment_9_atom_loading_advance_AllSPCM`;
+`atom_photon_parity_11_AllSPCM`. Count history: 50, then 51 with
+`atom_photon_parity_11_AllSPCM` (2026-09-03), 54 on 2026-10-13 (parity 12/13
+and single_photon_experiment_10), back to 51 (`2a3592c`), 23 on 2026-10-20:
+the user moved 45 of the 103 functions, the ones no longer in use (the other
+single-photon and parity experiments, the test pulses, the four historical
+two-node experiments and dead helpers), to
+`subroutines/experiment_functions_obsolete.py`, together with
+`trap_frequency_experiment`, which had been commented out. Nothing imports
+that file and it has no imports of its own (user: none of it will be used),
+so the master's repository scan logs an import error for it; harmless.
 
 ### 9.3 Two-node module conventions
 

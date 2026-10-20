@@ -42,6 +42,12 @@ alias config. Not the device_db.
   the two-node Node1 side neither open `ttl_GRIN1_switch` nor turn on
   `GRIN1and2_dds` (parity 2-5, single photon 4/5 and `measure_GRIN1` keep their
   own GRIN1 lines). Check on hardware whether D1 reaches the atoms.
+- Later on 2026-10-20 the unused functions moved to
+  `subroutines/experiment_functions_obsolete.py`. Of those named here, single
+  photon 3_node2, 4, 5, 6, 7 and 8, parity 2-5 and 6_node2 and
+  `test_excitation_rise_time_experiment` are there now; the pumping functions,
+  `measure_GRIN1`, the chopped-pumping DMA, `chopped_optical_pumping` and single
+  photon 9 stayed.
 
 ## The problem
 
