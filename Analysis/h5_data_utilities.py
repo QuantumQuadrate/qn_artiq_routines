@@ -1078,3 +1078,241 @@ def compute_cost(retention, loading, cost_function):
 #             plt.legend()
 #             plt.title(experiment_name)
 #             plt.show()
+
+
+###############################################################################
+###  two-node helpers, for the Analysis/master_satellite/2026_Two_Nodes_*
+###  notebooks
+###
+###  Everything above is untouched. A two-node run
+###  (GeneralVariableScan_master_satellite_two_nodes) records BOTH nodes'
+###  variables, suffixed _Node1 and _Node2, so ms_archive_and_datasets_to_locals
+###  refuses it: stripping the suffix would collide the two nodes onto one name.
+###  These keep every name the way the file spells it and add only what a
+###  two-node notebook needs on top of the plain loader.
+###############################################################################
+
+MS_TWO_NODES_NAME_FILTER = "GeneralVariableScan_master_satellite_two_nodes"
+
+#: The bare scalars a two-node sequence reads, e.g. self.t_SPCM_first_shot.
+#: The h5 holds only their _Node1/_Node2 pair: at run time
+#: BaseExperimentMasterSatellite._publish_agreeing_scalars publishes the bare
+#: name from the pair, and raises if the two differ. Copied from
+#: TWO_NODE_AGREEING_SCALARS in utilities/BaseExperiment_master_satellite.py,
+#: unchanged since that tuple was introduced (e768d50, 2026-10-07). Keep the
+#: two in step.
+#:
+#: The archived *_two_node globals (t_SPCM_first_shot_two_node and friends)
+#: are NOT these. Nothing reads them except max_atom_check_tries_two_node, and
+#: they can differ from what the run used: RID 39108 archived
+#: t_atom_check_time_two_node = 0.01 while the loader gated for 0.005.
+MS_TWO_NODES_JOINT_SCALARS = (
+    "monitor_magnetometer_in_end_measurement",
+    "monitors_for_atom_loading",
+    "use_chopped_readout",
+    "no_first_shot",
+    "require_D1_lock_to_advance",
+    "enable_laser_feedback",
+    "Luca_trigger_for_feedback_verification",
+    "t_SPCM_first_shot",
+    "t_SPCM_second_shot",
+    "t_atom_check_time",
+    "t_delay_between_shots",
+    "t_FORT_loading",
+    "t_MOT_dissipation",
+)
+
+#: Readouts seeded with a leading [0] that h5_archive_and_datasets_to_locals
+#: leaves in: its list strips SPCM0/1_RO*, AllSPCMs_RO* and BothSPCMs_RO*
+#: only, so these came back one entry longer than the rest, each shot paired
+#: with the one before.
+#: utilities/BaseExperiment.py seeds them exactly like the others, so the
+#: standalone notebooks have always had this off-by-one too.
+MS_TWO_NODES_EXTRA_SEEDED_READOUTS = (
+    "SPCM0_OtherNode_RO1", "SPCM0_OtherNode_RO2",
+    "SPCM1_OtherNode_RO1", "SPCM1_OtherNode_RO2",
+)
+
+
+def _ms_rid_of_filename(path):
+    """The RID an ARTIQ result filename starts with, or None."""
+    head = os.path.basename(str(path)).split("-", 1)[0]
+    return int(head) if head.isdigit() else None
+
+
+def ms_two_nodes_files(date_filters, experiment_functions=None,
+                       start_dir=results):
+    """Two-node result files, ONE per RID, sorted by RID.
+
+    A two-node GVS run leaves up to two files per RID:
+
+      <rid>-GeneralVariableScan_master_satellite_two_nodes.h5
+          ARTIQ's own, written once when the run ends, with the real
+          start_time and run_time.
+      <rid>-GeneralVariableScan_master_satellite_two_nodes_TwoNodes_
+      <experiment>_scan_over_<variable>.h5
+          the copy GeneralVariableScan_master_satellite_mixin.py rewrites after
+          every completed scan point (utilities/write_h5.py). run_time is 0.
+
+    For a finished run their datasets are identical. For an aborted one the
+    plain file also holds the partial last point. So the plain file is
+    returned when there is one, and the copy otherwise -- which is all there is
+    while a run is still going. Listing both, as a name filter does, shows
+    every finished run twice.
+
+    experiment_functions: None for every two-node run, or the names to keep.
+    The name filter alone also matches the alternating-shot and
+    alternating-retention runs. Finished runs are opened read-only to read
+    their experiment_function; a copy-only run (likely still being written) is
+    NOT opened, and its experiment is read from the filename instead, which
+    spells it without the trailing "_experiment".
+
+    Returns full paths, so fnames[i] can be opened directly.
+    """
+    by_rid = {}
+    for root, dirs, files in os.walk(start_dir):
+        if not any(x in root for x in date_filters):
+            continue
+        for name in files:
+            if MS_TWO_NODES_NAME_FILTER not in name or not name.endswith(".h5"):
+                continue
+            rid = _ms_rid_of_filename(name)
+            if rid is None:
+                continue
+            plain = name == f"{name.split('-', 1)[0]}-{MS_TWO_NODES_NAME_FILTER}.h5"
+            entry = by_rid.setdefault(rid, {})
+            entry["plain" if plain else "copy"] = os.path.join(root, name)
+
+    selected = []
+    for rid in sorted(by_rid):
+        entry = by_rid[rid]
+        path = entry.get("plain") or entry["copy"]
+        if experiment_functions is not None:
+            function = None
+            if "plain" in entry:
+                try:
+                    with h5py.File(path, "r") as handle:
+                        function = _ms_expid_arguments(handle).get(
+                            "experiment_function")
+                except OSError as error:
+                    if "copy" not in entry:
+                        print(f"skipping {path}: "
+                              f"{type(error).__name__}: {error}")
+                        continue
+                    print(f"cannot open {path} ({type(error).__name__}: "
+                          f"{error}); using its copy instead")
+                    path = entry["copy"]
+            if function is None:
+                name = os.path.basename(path)
+                if "_TwoNodes_" not in name or "_scan_over_" not in name:
+                    print(f"skipping {path}: cannot tell its experiment "
+                          f"from the name, and it may still be being written")
+                    continue
+                tail = name.split("_TwoNodes_", 1)[1]
+                function = tail.split("_scan_over_", 1)[0] + "_experiment"
+            if function not in experiment_functions:
+                continue
+        selected.append(path)
+    return selected
+
+
+
+
+def ms_two_nodes_archive_and_datasets_to_locals(f, parent_locals, quiet=False):
+    """Loader for a two-node master-satellite run.
+
+    The two-node counterpart of ms_archive_and_datasets_to_locals, which
+    refuses these files. It starts from h5_archive_and_datasets_to_locals, so
+    datasets win over archive: a recorded override, or the run's own
+    n_measurements, beats the persistent value. On top of that:
+
+      * Names are NOT stripped. Per-node names keep their suffix
+        (t_FORT_drop_Node1, FORT_MM_monitor_Node2), since both nodes' values
+        are in the file. Joint globals (two_atom_threshold, n_measurements)
+        and the readouts (AllSPCMs_RO1, SPCM0_OtherNode_RO1) are bare, as the
+        file has them.
+      * Overrides a run applied but did not record (files written before
+        2026-10-14, see _ms_unrecorded_overrides) are applied under the name
+        the run resolved them to: t_FORT_drop in Node1's dictionary is
+        t_FORT_drop_Node1, and a global stays bare. They are listed in
+        overrides_applied. One case is not covered: an entry suffixed for
+        the OTHER node (t_FORT_drop_Node2 in Node1's dictionary), which a
+        two-node run applies but _ms_unrecorded_overrides skips. No two-node
+        file has one; every override on disk is {} or {'t_FORT_drop':10*us}.
+      * The bare joint scalars the sequence read (MS_TWO_NODES_JOINT_SCALARS,
+        e.g. t_SPCM_first_shot) are then rebuilt from their _Node1/_Node2
+        pair, as the run published them after its overrides. If the pair
+        differs, which the run itself would have refused, or half of it is
+        missing, there is no bare name, any left over from an earlier file is
+        removed, and a differing pair gets a note.
+      * The leading [0] seed is also stripped from the four OtherNode readouts
+        (MS_TWO_NODES_EXTRA_SEEDED_READOUTS), so all readouts line up.
+        Everything else keeps its seed, as with the plain loader:
+        Atom_loading_time[1:] and friends, as before.
+      * Every submitted argument from expid that the file has in neither
+        archive nor datasets is added, e.g. experiment_function,
+        scan_variable1_name, scan_variable2_name and
+        override_ExperimentVariables_Node1 and _Node2.
+
+    Notes are printed even when quiet, since each one is about a name the
+    notebook would otherwise read wrongly without noticing.
+    """
+    raw = {}
+    h5_archive_and_datasets_to_locals(f, raw, quiet=quiet)
+    notes = []
+
+    for key in MS_TWO_NODES_EXTRA_SEEDED_READOUTS:
+        if key in raw:
+            raw[key] = raw[key][1:]
+
+    arguments = _ms_expid_arguments(f)
+
+    applied = {}
+    for node in MASTER_SATELLITE_NODES:
+        source, unrecorded, error = _ms_unrecorded_overrides(f, node, arguments)
+        if error is not None:
+            notes.append(f"could not evaluate {source} ({error}); its "
+                         f"variables keep their archived persistent values")
+        for bare, value in unrecorded.items():
+            # How the run resolved the name: a per-node variable gets the
+            # dictionary's own suffix, a global stays bare. Decided before
+            # the bare joint scalars exist, so those resolve per node too.
+            name = bare if bare in raw and f"{bare}_{node}" not in raw \
+                else f"{bare}_{node}"
+            before = raw.get(name)
+            raw[name] = value
+            applied[name] = value
+            was = ("not archived" if before is None
+                   else _ms_format_value(before))
+            notes.append(f"{source} applied (file predates recording "
+                         f"overrides): {name} {was} -> "
+                         f"{_ms_format_value(value)}")
+    raw["overrides_applied"] = applied
+
+    for base_name in MS_TWO_NODES_JOINT_SCALARS:
+        if base_name in raw:
+            continue
+        pair = [raw.get(f"{base_name}_{node}")
+                for node in MASTER_SATELLITE_NODES]
+        if any(value is None for value in pair):
+            parent_locals.pop(base_name, None)
+            continue
+        if pair[0] == pair[1]:
+            raw[base_name] = pair[0]
+        else:
+            parent_locals.pop(base_name, None)
+            notes.append(
+                f"{base_name} differs between the nodes (Node1={pair[0]!r}, "
+                f"Node2={pair[1]!r}), so there is no bare {base_name}; read "
+                f"{base_name}_Node1 or _Node2"
+            )
+
+    for key, value in arguments.items():
+        raw.setdefault(key, value)
+
+    parent_locals.update(raw)
+
+    if not quiet:
+        print(f"loaded two-node run, {len(raw)} names")
+    for note in notes:
+        print(f"  note: {note}")
