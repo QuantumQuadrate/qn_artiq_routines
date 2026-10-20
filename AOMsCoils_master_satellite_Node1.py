@@ -24,7 +24,6 @@ from utilities.BaseExperiment_master_satellite import (
     BaseExperimentMasterSatellite,
     _DatasetRedirectMixin,
 )
-from utilities.conversions import dB_to_V_kernel as dB_to_V
 
 
 class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
@@ -181,85 +180,56 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
         """Turn on what the boxes ask for and turn off the rest.
 
         Run after everything_off(), and again after laser feedback, which
-        switches AOMs during its measurements.
+        switches AOMs during its measurements. As in standalone, this only
+        switches. initialize_hardware() has set every DDS to Node1's
+        frequency and power, and laser feedback corrects the power of each
+        AOM it stabilizes (fast_feedback_dds_list) in the DDS itself, so
+        after feedback the corrected power is what comes back on.
         """
-        ### DDS / AOM outputs. Each is set to Node1's frequency and power
-        ### before it is switched on.
+        ### DDS / AOM outputs: switched only (see above)
         if self.FORT_AOM_ON:
-            self.dds_FORT.set(
-                frequency=self.f_FORT_Node1,
-                amplitude=dB_to_V(self.p_FORT_loading_Node1),
-            )
             self.dds_FORT.sw.on()
         else:
             self.dds_FORT.sw.off()
         delay(1 * ms)
 
         if self.cooling_DP_ON:
-            self.dds_cooling_DP.set(
-                frequency=self.f_cooling_DP_MOT_Node1,
-                amplitude=dB_to_V(self.p_cooling_DP_MOT_Node1),
-            )
             self.dds_cooling_DP.sw.on()
         else:
             self.dds_cooling_DP.sw.off()
         delay(1 * ms)
 
         if self.AOM_A1_ON:
-            self.dds_AOM_A1.set(
-                frequency=self.AOM_A1_freq_Node1,
-                amplitude=dB_to_V(self.p_AOM_A1_Node1),
-            )
             self.dds_AOM_A1.sw.on()
         else:
             self.dds_AOM_A1.sw.off()
         delay(1 * ms)
 
         if self.AOM_A2_ON:
-            self.dds_AOM_A2.set(
-                frequency=self.AOM_A2_freq_Node1,
-                amplitude=dB_to_V(self.p_AOM_A2_Node1),
-            )
             self.dds_AOM_A2.sw.on()
         else:
             self.dds_AOM_A2.sw.off()
         delay(1 * ms)
 
         if self.AOM_A3_ON:
-            self.dds_AOM_A3.set(
-                frequency=self.AOM_A3_freq_Node1,
-                amplitude=dB_to_V(self.p_AOM_A3_Node1),
-            )
             self.dds_AOM_A3.sw.on()
         else:
             self.dds_AOM_A3.sw.off()
         delay(1 * ms)
 
         if self.AOM_A4_ON:
-            self.dds_AOM_A4.set(
-                frequency=self.AOM_A4_freq_Node1,
-                amplitude=dB_to_V(self.p_AOM_A4_Node1),
-            )
             self.dds_AOM_A4.sw.on()
         else:
             self.dds_AOM_A4.sw.off()
         delay(1 * ms)
 
         if self.AOM_A5_ON:
-            self.dds_AOM_A5.set(
-                frequency=self.AOM_A5_freq_Node1,
-                amplitude=dB_to_V(self.p_AOM_A5_Node1),
-            )
             self.dds_AOM_A5.sw.on()
         else:
             self.dds_AOM_A5.sw.off()
         delay(1 * ms)
 
         if self.AOM_A6_ON:
-            self.dds_AOM_A6.set(
-                frequency=self.AOM_A6_freq_Node1,
-                amplitude=dB_to_V(self.p_AOM_A6_Node1),
-            )
             self.dds_AOM_A6.sw.on()
         else:
             self.dds_AOM_A6.sw.off()
@@ -272,10 +242,6 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
         delay(1 * ms)
 
         if self.GRIN1and2_ON:
-            self.GRIN1and2_dds.set(
-                frequency=self.f_excitation_Node1,
-                amplitude=dB_to_V(self.p_excitation_Node1),
-            )
             self.GRIN1and2_dds.sw.on()
         else:
             self.GRIN1and2_dds.sw.off()
@@ -374,7 +340,8 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
     def run_feedback(self):
         """Feed back (or monitor) when the six fiber AOMs and the cooling DP
         are all requested on, then re-apply the boxes: the stabilizer
-        switches AOMs while it measures.
+        switches AOMs while it measures. Re-applying only switches, so the
+        powers the feedback corrected stay.
         """
         self.core.reset()
         if self._all_stabilized_aoms_requested:

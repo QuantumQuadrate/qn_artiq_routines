@@ -2159,13 +2159,30 @@ and is refused by the analysis loader.
   `everything_off()`, `turn_on_AOMs()` (one block per box),
   `set_microwaves()`, `set_coils()`, `run_feedback()`,
   `k10cr1_operations()`. Tests: `test_node_files_are_self_contained_experiments`;
-  `test_each_dds_box_writes_its_authoritative_binding` and
-  `test_every_k10cr1_box_moves_only_its_own_nodes_axis` tie the hand-written
-  DDS tones and waveplate axes of both files back to Base; the coil,
+  `test_every_k10cr1_box_moves_only_its_own_nodes_axis` ties the
+  hand-written waveplate axes of both files back to Base; the coil,
   microwave-interlock and feedback-gate tests run on both nodes.
   Hardware: not yet run in this form. The last AOMsCoils runs (Node1 RIDs
   39127-39134, 2026-10-19 17:47-18:01) used the mixin.
-  The rest of this section describes the behaviour, which both keep.
+  The rest of this section describes the current behaviour.
+- 2026-10-19 (user): after laser feedback the stabilized AOMs come back on
+  at the corrected power, as in standalone. `turn_on_AOMs()` no longer sets
+  the box DDSes:
+  `initialize_hardware()` has set each DDS to its binding frequency and
+  power, and the stabilizer leaves its corrected amplitude in each DDS it
+  adjusts (`fast_feedback_dds_list`: A1-A6 and the FORT on both nodes).
+  Before, `turn_on_AOMs()` set every ticked DDS to its prepare-time power,
+  so after feedback the correction was saved for the next run but undone for
+  this one (inherited from the mixin). The one set() left is Node2's
+  combined GRIN2 excitation tone. Compared with the version before over 589
+  (Node1) and 824 (Node2) argument sets, both methods, with the test
+  stabilizer and with one that changes the powers: identical apart from the
+  removed set() calls, which rewrote the value the DDS already held except
+  (a) the post-feedback overwrites this removes and (b) on Node2, with
+  `D1_pumping_switch_ON` and `Node2_GRIN2_AOM_ON` both ticked, a ~9 ms rewrite
+  of GRIN2's D1 tone over its excitation tone after feedback, also gone.
+  Tests: `test_feedback_corrected_powers_are_what_comes_back_on`,
+  `test_turn_on_only_switches_and_each_dds_keeps_its_binding`.
 - Build: argument metadata and the suffixed superset (unconfigured Base).
   Prepare: `configure_execution('single_node', NODE)`, loads only that node's
   variables plus globals.
@@ -2188,8 +2205,9 @@ and is refused by the analysis loader.
   `if self.GRIN1_AOM_switch_ON or self.D1_pumping_switch_ON`), microwave DDS,
   MW RF, coils, K10CR1,
   `run_laser_feedback`. DDS frequency/power are the authoritative `*_NodeX`
-  variables, named directly in each file's `turn_on_AOMs()` (the mixin read
-  them through Base's resolver DDS bindings).
+  variables, which `initialize_hardware()` writes through Base's resolver
+  DDS bindings; `turn_on_AOMs()` only switches (except Node2's combined GRIN2
+  mode, which sets `f/p_GRIN2_excitation_Node2`).
 - Node1 D1 since 2026-10-19 (user): the D1 AOM runs from an external RF
   source switched by `ttl_D1_pumping_switch` (Node1 ttl15, active low), as on
   Node2. `D1_pumping_switch_ON` opens that gate (and GRIN1); Node1's Urukul D1
@@ -2224,7 +2242,9 @@ and is refused by the analysis loader.
   standalone copy-paste bug that gated them on the 780 ones).
 - `run_laser_feedback` (`ff9e8ec`): only when A1-A6 and the cooling DP are
   all requested on, run the stabilizer (or `monitor()` when unticked), then
-  re-apply the requested DDS and gate states; results persist node-suffixed.
+  re-apply the requested DDS and gate states without setting any stabilized
+  DDS, so the corrected powers stay for the rest of the run; results persist
+  node-suffixed.
 - Excluded: old independent-Kasli networking TTLs, Rigol, other USB devices.
 - Hardware: Node1 first ran 2026-09-09 with all controls off (RIDs
   38393-38401, after the three compile fixes of `14d8bee`); Node2 from

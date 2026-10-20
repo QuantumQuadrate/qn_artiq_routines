@@ -255,7 +255,9 @@ come before cleanup (sections 3.1, 3.3).
 - **2026-10-19:** AOMsCoils `_Node1` (`51e169c`) and `_Node2` are
   self-contained files written box by box like standalone `AOMsCoils.py`,
   with the same GUI arguments and hardware operations; the AOMsCoils mixin
-  is deleted (section 11.7).
+  is deleted (section 11.7). After laser feedback the stabilized AOMs now
+  come back on at the corrected power: `turn_on_AOMs()` no longer sets the
+  box DDSes, as in standalone.
 - **2026-10-20:** the AOMsCoils D1 box is now `D1_pumping_switch_ON`, in each
   file's TTL-gates group (was `D1_pumping_DP_ON`, among the DDSes); what it
   switches is unchanged (section 11.7).
@@ -295,7 +297,7 @@ uncommitted code may already have run.
 - **Unit tests** (hardware-free): from the repository root, with an
   artiq-free interpreter (`C:/Python39`, the `python` in Git Bash), run
   `python -B -m unittest discover -s tests -p "test_*.py"`. Always use
-  discover, never `artiq7`. Expect 158 OK on the 2026-10-19 working tree.
+  discover, never `artiq7`. Expect 159 OK on the 2026-10-19 working tree.
 - **Compile sweep:** run `artiq-master/compile_check_master_satellite.py`
   with `artiq7` active after ANY master-satellite edit (about 5 minutes).
   Check the PASS/COMPILED/FAIL counts and that the target kernel is in the

@@ -334,10 +334,11 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(binding["frequency_attribute"], "f_GRIN2_D1_pumping_Node2")
         self.assertEqual(binding["power_attribute"], "p_GRIN2_D1_pumping_Node2")
 
-    def test_each_dds_box_writes_its_authoritative_binding(self):
-        """Each node's file names its DDS tones directly. Tie them back to
-        Base's DDS binding table, the single source the old mixin read them
-        from, so a wrong name in either file fails here.
+    def test_turn_on_only_switches_and_each_dds_keeps_its_binding(self):
+        """turn_on_AOMs() only switches, as in standalone, so each box's DDS
+        keeps the tone initialize_hardware() gave it: Base's DDS binding for
+        that alias, at the power loaded in prepare(). (Node2's combined GRIN2
+        mode, which sets its own excitation tone, is unticked here.)
         """
         from utilities.conversions import dB_to_V_kernel
 
@@ -361,29 +362,88 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
                 experiment = self.make_experiment(
                     experiment_class, {box: True for box in boxes}
                 )
+                start = len(self.log)
+                experiment.turn_on_AOMs()
+                self.assertEqual(
+                    [entry for entry in self.log[start:] if entry[1] == "set"],
+                    [],
+                )
+
                 bindings = {
                     item["logical_alias"]: item
                     for item in experiment.base.node_resolvers[node].dds_bindings
                 }
-                # Not apply_manual_state(): initialize_hardware() would set
-                # every DDS to these same values first.
-                start = len(self.log)
-                experiment.turn_on_AOMs()
+                experiment.apply_manual_state()
                 for box, alias in boxes.items():
                     if node == "Node1" and alias == "dds_D1_pumping_DP":
                         continue  # Node1's D1 runs from an external source
-                    device = getattr(experiment, alias)
-                    first_set = next(
-                        value for name, operation, value in self.log[start:]
-                        if name == device.name and operation == "set"
-                    )
                     binding = bindings[alias]
-                    self.assertEqual(first_set, {
+                    self.assertEqual(getattr(experiment, alias).last_set, {
                         "frequency": self.datasets[binding["frequency_attribute"]],
                         "amplitude": dB_to_V_kernel(
                             self.datasets[binding["power_attribute"]]
                         ),
                     }, box)
+
+    def test_feedback_corrected_powers_are_what_comes_back_on(self):
+        """After laser feedback, each stabilized AOM must come back on at the
+        power the feedback left in its DDS, as in standalone, not at the
+        power loaded in prepare().
+        """
+        corrected = 0.0123
+
+        class CorrectingStabilizer(FakeStabilizer):
+            # Ends the way the real one does (aom_feedback.py run(), with
+            # leave_MOT_AOMs_on=True): each stabilized DDS holds a corrected
+            # amplitude; A1-A6 and the cooling DP are on, the FORT is off,
+            # the MOT repump is open and the pumping repump is blocked.
+            def run(self):
+                super().run()
+                experiment = self.exp
+                experiment.ttl_repump_switch.on()
+                experiment.ttl_pumping_repump_switch.on()
+                for name in self.dds_names:
+                    dds = getattr(experiment, name)
+                    dds.set(
+                        frequency=dds.last_set["frequency"],
+                        amplitude=corrected,
+                    )
+                    dds.sw.off()
+                experiment.dds_cooling_DP.sw.on()
+                experiment.ttl_repump_switch.off()
+                for index in range(1, 7):
+                    getattr(experiment, "dds_AOM_A%d" % index).sw.on()
+
+        # The two repump boxes are set opposite to how the stabilizer leaves
+        # their gates, so the re-apply must switch the gates as well.
+        boxes = {name: True for name in (
+            "FORT_AOM_ON", "cooling_DP_ON", "AOM_A1_ON", "AOM_A2_ON",
+            "AOM_A3_ON", "AOM_A4_ON", "AOM_A5_ON", "AOM_A6_ON",
+            "pumping_repump_switch_ON",
+        )}
+        for experiment_class in (Node1ManualExperiment, Node2ManualExperiment):
+            with self.subTest(node=experiment_class.NODE):
+                harness = type(
+                    "Correcting" + experiment_class.__name__,
+                    (experiment_class,),
+                    {"_stabilizer_factory": CorrectingStabilizer},
+                )
+                experiment = self.make_experiment(
+                    harness, {**boxes, "run_laser_feedback": True}
+                )
+                experiment.run()
+                stabilizer = experiment.laser_stabilizer
+                self.assertEqual(stabilizer.run_calls, 1)
+                self.assertEqual(
+                    sorted(stabilizer.dds_names),
+                    ["dds_AOM_A%d" % i for i in range(1, 7)] + ["dds_FORT"],
+                )
+                for name in stabilizer.dds_names:
+                    dds = getattr(experiment, name)
+                    self.assertEqual(dds.last_set["amplitude"], corrected, name)
+                    self.assertTrue(dds.state, name)
+                self.assertTrue(experiment.ttl_repump_switch.state)  # blocked
+                self.assertFalse(experiment.ttl_pumping_repump_switch.state)
 
     def test_microwave_defaults_off_and_no_calibration_is_persisted(self):
         for experiment_class in (Node1ManualExperiment, Node2ManualExperiment):
