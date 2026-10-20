@@ -470,10 +470,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         name their datasets explicitly per node, so they resolve unchanged in
         either mode.
 
-        Worth knowing about feedback RF in two-node mode: prepare_laser_
-        stabilizer is deliberately skipped there, so such a run writes no
-        p_AOM_A*_history_* at all and the plot shows the last single-node
-        run's data rather than live values.
+        Feedback RF works in two-node mode too: each node's stabilizer
+        writes p_AOM_A1_history_NodeX, the name a single-node run writes, so
+        the shared feedback RF applets plot live values in either mode.
 
         Never fatal: the applets are a convenience, and the CCB is a
         dashboard-side service that artiq_run and the offline compile check

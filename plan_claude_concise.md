@@ -261,6 +261,10 @@ come before cleanup (sections 3.1, 3.3).
 - **2026-10-20:** the AOMsCoils D1 box is now `D1_pumping_switch_ON`, in each
   file's TTL-gates group (was `D1_pumping_DP_ON`, among the DDSes); what it
   switches is unchanged (section 11.7).
+- **2026-10-20:** two-node feedback writes its dB histories as
+  `p_AOM_A1_history_NodeX`, as single-node does, so the `feedback RF NodeX`
+  applets also update during two-node runs (before: `p_AOM_A1_NodeX_history`,
+  which nothing read; section 10.3).
 
 **Uncommitted:** the analysis notebooks. Check `git status`; under R26
 uncommitted code may already have run.
@@ -297,7 +301,7 @@ uncommitted code may already have run.
 - **Unit tests** (hardware-free): from the repository root, with an
   artiq-free interpreter (`C:/Python39`, the `python` in Git Bash), run
   `python -B -m unittest discover -s tests -p "test_*.py"`. Always use
-  discover, never `artiq7`. Expect 159 OK on the 2026-10-19 working tree.
+  discover, never `artiq7`. Expect 160 OK on the 2026-10-20 working tree.
 - **Compile sweep:** run `artiq-master/compile_check_master_satellite.py`
   with `artiq7` active after ANY master-satellite edit (about 5 minutes).
   Check the PASS/COMPILED/FAIL counts and that the target kernel is in the

@@ -73,7 +73,8 @@ from utilities.helper_functions import print_async
 class FeedbackChannel:
 
     def __init__(self, stabilizer, name, dds_obj, buffer_index, set_points, p, i, frequency, amplitude, dataset,
-                 dB_dataset, t_measure_delay, error_history_length, max_dB, tol=0.02):
+                 dB_dataset, t_measure_delay, error_history_length, max_dB, tol=0.02,
+                 dB_history_dataset=None):
         """
         class which defines a DDS feedback channel
 
@@ -89,6 +90,8 @@ class FeedbackChannel:
         'frequency': the default frequency for the dds. see DeviceAliases.py
         'dataset': the dataset which stores the process value normalized to the setpoint
         'dB_dataset': the dataset which stores the power for the dds channel in dB
+        'dB_history_dataset': the dataset each new dB power is appended to; by default
+            dB_dataset + "_history"
         't_measure_delay': time to wait after turning on the dds before making a measurement
         'error_history_length->int':, how many errors to store for the integral term
         'max_dB': the maximum dB we can attempt to set for the dds channel
@@ -110,7 +113,9 @@ class FeedbackChannel:
         self.value_normalized = 0.0 # self.value normalized to the set point
         self.dataset = dataset
         self.dB_dataset = dB_dataset # the name of the dataset that stores the dB RF power for the dds
-        self.dB_history_dataset = dB_dataset + str("_history")
+        if dB_history_dataset is None:
+            dB_history_dataset = dB_dataset + str("_history")
+        self.dB_history_dataset = dB_history_dataset
         self.t_measure_delay = t_measure_delay
         self.error_history_arr = np.full(error_history_length,0.0)
         self.error_buffer = np.full(error_history_length-1,0.0)
@@ -397,6 +402,9 @@ class AOMPowerStabilizer:
                                             amplitude=dB_to_V(getattr(self.exp, defaults["power"] + suffix)),
                                             dataset=ch_params['dataset'] + suffix,
                                             dB_dataset=ch_params['power_dataset'] + suffix,
+                                            # suffix last, p_AOM_A1_history_Node2: the name a single-node
+                                            # run writes and the feedback RF applets plot
+                                            dB_history_dataset=ch_params['power_dataset'] + "_history" + suffix,
                                             t_measure_delay=ch_params['t_measure_delay'],
                                             error_history_length=self.iterations,
                                             max_dB=ch_params['max_dB']

@@ -1885,6 +1885,13 @@ two-node module runs `laser_stabilizer_Node1.run()` then
 (The retired spec's "aom_feedback.py stays byte-identical to main" and "two-node
 mode must not call either" are superseded; section 19.)
 
+The dB history is built as `power_dataset + '_history' + suffix`, so a two-node
+run writes `p_AOM_A1_history_Node2`, the name a single-node run writes and the
+`feedback RF NodeX` applets plot (2026-10-20). Before, it came out
+`p_AOM_A1_Node2_history` (every two-node h5 up to RID 39108), which no applet or
+notebook reads, so those applets did not move during two-node runs. Test:
+`test_two_node_feedback_writes_the_histories_the_feedback_rf_applets_plot`.
+
 ### 10.4 Compile requirement
 
 Kernels read `self.stabilizer_<channel>` and host scalars such as

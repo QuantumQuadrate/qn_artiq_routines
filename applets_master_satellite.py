@@ -687,7 +687,8 @@ def _per_node_specs(title, script, args, options=(), group=None):
 #: the microwave fidelities are persistent per-node ExperimentVariables, and
 #: the feedback histories are per-node result datasets. Note the suffix goes
 #: on the END of the whole legacy name -- p_AOM_A1_history_Node1, not
-#: p_AOM_A1_Node1_history -- which is what feedback_dataset_map produces.
+#: p_AOM_A1_Node1_history -- which is what feedback_dataset_map produces,
+#: and what two-node feedback writes too (aom_feedback.py, since 2026-10-20).
 #: Asked for by FORT_Polarization_Optimizer_master_satellite, as shared_specs:
 #:
 #:     create_shared_applets_for(

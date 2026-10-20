@@ -583,6 +583,64 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         finally:
             aom_feedback.cwd = original_cwd
 
+    def test_two_node_feedback_writes_the_histories_the_feedback_rf_applets_plot(self):
+        """Each node's dB histories are the names "feedback RF NodeX" plots.
+
+        The applet plots p_AOM_A1_history_NodeX .. p_FORT_loading_history_NodeX,
+        the names a single-node run writes (feedback_dataset_map suffixes the
+        whole legacy name). Until 2026-10-20 a two-node stabilizer added
+        "_history" after its node suffix and wrote p_AOM_A1_Node1_history, so
+        the applet did not move during two-node runs. With suffix "" -- every
+        standalone and single-node stabilizer -- the name stays
+        p_AOM_A1_history.
+        """
+        import subroutines.aom_feedback as aom_feedback
+        from applets_master_satellite import SHARED_APPLET_SPECS
+
+        dds_names = [f"dds_AOM_A{k}" for k in range(1, 7)] + ["dds_FORT"]
+        artiq_master = Path(__file__).resolve().parents[3]
+        original_cwd = aom_feedback.cwd
+        aom_feedback.cwd = str(artiq_master) + "\\"
+        try:
+            experiment, base = self.build_and_prepare("two_nodes")
+            for node, legacy_name in (("Node1", "alice"), ("Node2", "bob")):
+                experiment.dds_defaults = base.node_resolvers[node].dds_defaults
+                stabilizer = aom_feedback.AOMPowerStabilizer(
+                    experiment=experiment,
+                    dds_names=dds_names,
+                    node_suffix=f"_{node}",
+                    config_node=legacy_name,
+                )
+                (spec,) = [
+                    spec for spec in SHARED_APPLET_SPECS
+                    if spec.title == f"feedback RF {node}"
+                ]
+                plotted = [
+                    name for name in
+                    spec.args + tuple(value for _, value in spec.options)
+                    if "_history" in name
+                ]
+                self.assertEqual(len(plotted), 7)
+                self.assertEqual(
+                    sorted(ch.dB_history_dataset
+                           for ch in stabilizer.all_channels),
+                    sorted(plotted),
+                )
+
+            experiment, base = self.build_and_prepare("single_node", "Node1")
+            experiment.dds_defaults = base.node_resolvers["Node1"].dds_defaults
+            stabilizer = aom_feedback.AOMPowerStabilizer(
+                experiment=experiment, dds_names=dds_names,
+                config_node="alice",
+            )
+            self.assertEqual(
+                sorted(ch.dB_history_dataset for ch in stabilizer.all_channels),
+                sorted([f"p_AOM_A{k}_history" for k in range(1, 7)]
+                       + ["p_FORT_loading_history"]),
+            )
+        finally:
+            aom_feedback.cwd = original_cwd
+
     def test_two_node_retention_applet_thresholds_on_both_atoms(self):
         """The two-node retention applet must discriminate TWO atoms.
 

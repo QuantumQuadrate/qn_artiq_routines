@@ -1923,10 +1923,11 @@ class BaseExperimentMasterSatellite:
         """Build ONE AOMPowerStabilizer per crate, for a two-node run.
 
         Two-node feedback works the way single-node feedback does, and writes
-        the SAME per-node datasets -- p_AOM_A1_Node1, FORT_monitor_Node2 and
-        so on -- so every applet and every analysis notebook keeps working
-        unchanged. That is the whole requirement; nothing here invents a
-        two-node dataset vocabulary.
+        the SAME per-node datasets -- p_AOM_A1_Node1, p_AOM_A1_history_Node1,
+        FORT_monitor_Node2 and so on -- so every applet and every analysis
+        notebook keeps working unchanged. That is the whole requirement;
+        nothing here invents a two-node dataset vocabulary. (Until 2026-10-20
+        the histories came out p_AOM_A1_Node1_history, which no applet plots.)
 
         It cannot go through feedback_dataset_map the way single-node does,
         because that map is one dict on the experiment and two stabilizers
