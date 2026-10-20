@@ -1,3 +1,14 @@
+"""
+Legacy functions we used in the past.
+
+They were moved out of experiment_functions.py on 2026-10-20 and are kept
+here only in case we need them again or want to look them up. Nothing imports
+this file and it has no imports of its own, so none of these functions shows
+up in a GeneralVariableScan menu or can run as it is; the master's repository
+scan reports an import error for this file, which is expected. To use one
+again, move it back into experiment_functions.py.
+"""
+
 ###############################################################################
 # 1. Test FUNCTIONS
 ###############################################################################
