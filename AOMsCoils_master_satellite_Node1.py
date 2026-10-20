@@ -114,7 +114,8 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
             stabilizer_factory=self._stabilizer_factory
         )
 
-        # Feedback runs only when every AOM it stabilizes is requested on.
+        # As in standalone, feedback runs only when the six fiber AOMs and
+        # the cooling DP are all requested on.
         self._all_stabilized_aoms_requested = bool(
             self.AOM_A1_ON and self.AOM_A2_ON and self.AOM_A3_ON
             and self.AOM_A4_ON and self.AOM_A5_ON and self.AOM_A6_ON
@@ -133,9 +134,10 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
 
     @kernel
     def everything_off(self):
-        """Every output this experiment controls: RF off, gates blocked,
-        coils at 0 V. initialize_hardware() already does most of this; this
-        pass makes the starting point explicit before the boxes are applied.
+        """The AOM DDSes, optical gates and coils: RF off, gates blocked,
+        coils at 0 V. initialize_hardware() has already done this (and turned
+        the microwaves off); this pass makes the starting point explicit
+        before the boxes are applied.
         """
         self.dds_FORT.sw.off()
         delay(1 * ms)
@@ -355,8 +357,8 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
     @kernel
     def apply_manual_state(self):
         """Initialize Node1 and set every output from the boxes."""
-        # reset_core=False: a core reset would also disturb outputs this
-        # experiment does not own, e.g. Node2's.
+        # reset_core=False, as before. The run still resets the core:
+        # run_feedback() and k10cr1_operations() start with core.reset().
         self.base.initialize_hardware(
             turn_off_dds_channels=True,
             turn_off_zotinos=True,
@@ -370,9 +372,9 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
 
     @kernel
     def run_feedback(self):
-        """Feed back (or monitor) when every stabilized AOM is requested on,
-        then re-apply the boxes: the stabilizer switches AOMs while it
-        measures.
+        """Feed back (or monitor) when the six fiber AOMs and the cooling DP
+        are all requested on, then re-apply the boxes: the stabilizer
+        switches AOMs while it measures.
         """
         self.core.reset()
         if self._all_stabilized_aoms_requested:

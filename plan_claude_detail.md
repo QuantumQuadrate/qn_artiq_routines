@@ -669,9 +669,8 @@ Master-satellite (repository top level, the primary namespace):
 GeneralVariableScan_master_satellite_mixin.py         (private)
 GeneralVariableScan_master_satellite_single_node.py
 GeneralVariableScan_master_satellite_two_nodes.py
-AOMsCoils_master_satellite_mixin.py                   (private; Node2 only, to go)
 AOMsCoils_master_satellite_Node1.py                   (self-contained)
-AOMsCoils_master_satellite_Node2.py
+AOMsCoils_master_satellite_Node2.py                   (self-contained)
 ExperimentVariables_master_satellite_Node1.py
 ExperimentVariables_master_satellite_Node2.py
 ExperimentVariables_master_satellite_global.py
@@ -1819,7 +1818,9 @@ Legacy two_nodes node mode and `config/two_nodes` (`e86046f`, 2026-08-26);
 `_CatchUnderflowRetryMixin` (`9904f9b`); standalone
 `GeneralVariableScan_CatchUnderflow.py` (`1c428e4`); the combined
 `AOMsCoils_master_satellite.py` (split per node in `a7d8dff`, then renamed to
-`AOMsCoils_master_satellite_mixin.py` in `02b5820`: converted, not deleted); `h5_data_utilities_node1.py`
+`AOMsCoils_master_satellite_mixin.py` in `02b5820`: converted, not deleted;
+the mixin itself was deleted 2026-10-19 when both node files became
+self-contained, section 11.7); `h5_data_utilities_node1.py`
 (`2a5796a`); `ms_filter_by_node` (`0b59304`); the shared override field
 (`5c1f508`); the `3a90e2d` alternating diagnostic (reverted `ae93327`);
 `t_coil_relaxation_time_OP_NodeX` (`0e54c84`);
@@ -2143,25 +2144,37 @@ and is refused by the analysis loader.
 - One public file per node (`a7d8dff`, 2026-08-31), separate from GVS and
   from standalone `AOMsCoils.py`. No two_nodes mode and no node selector;
   `NODE` is a class constant.
-- 2026-10-19 (user's decision): the per-node files become self-contained and
+- 2026-10-19 (user's decision): both per-node files are self-contained and
   independent, written box by box like standalone `AOMsCoils.py`; they share
   no code and never import each other, so one node's hardware change cannot
-  reach the other. `AOMsCoils_master_satellite_Node1.py` is converted: same
-  GUI arguments, groups and order, and identical hardware operations to the
-  old mixin version (op logs compared over 524 argument sets, a planted
-  one-line mistake is caught). Node1 takes its coil channels from Base's
-  wiring table (`coil_channels`). Node2 still uses the private
-  `AOMsCoils_master_satellite_mixin.py` (`_AOMsCoilsMasterSatelliteMixin`)
-  until it is converted the same way; the mixin is then deleted.
-  The rest of this section describes the behaviour, which both share.
+  reach the other. The private `AOMsCoils_master_satellite_mixin.py`
+  (`_AOMsCoilsMasterSatelliteMixin`) they used to share is deleted. Both
+  conversions keep the mixin versions' GUI arguments (names, groups, order)
+  and hardware operations: op logs, delays included, compared over 557
+  (Node1) and 696 (Node2) argument sets, each through `apply_manual_state()`
+  and `run()`; planted one-line mistakes are caught. One timing difference:
+  after laser feedback the mixin paused 1 ms between re-applying the DDS
+  group and the gate group, and `turn_on_AOMs()` does not. Both take their
+  coil channels from Base's wiring table (`coil_channels`). Each file:
+  `everything_off()`, `turn_on_AOMs()` (one block per box),
+  `set_microwaves()`, `set_coils()`, `run_feedback()`,
+  `k10cr1_operations()`. Tests: `test_node_files_are_self_contained_experiments`;
+  `test_each_dds_box_writes_its_authoritative_binding` and
+  `test_every_k10cr1_box_moves_only_its_own_nodes_axis` tie the hand-written
+  DDS tones and waveplate axes of both files back to Base; the coil,
+  microwave-interlock and feedback-gate tests run on both nodes.
+  Hardware: not yet run in this form. The last AOMsCoils runs (Node1 RIDs
+  39127-39134, 2026-10-19 17:47-18:01) used the mixin.
+  The rest of this section describes the behaviour, which both keep.
 - Build: argument metadata and the suffixed superset (unconfigured Base).
   Prepare: `configure_execution('single_node', NODE)`, loads only that node's
   variables plus globals.
 - `apply_manual_state()` calls `initialize_hardware(turn_off_dds_channels=True,
   turn_off_zotinos=True, initialize_spcms=False, reset_core=False)` so outputs
   established on the other node are preserved; then a second explicit
-  OFF/0 V pass (`_force_selected_node_off`); then requested DDS states,
-  active-low gates, Node2 combined GRIN modes, microwave/RF, coils. The other
+  OFF/0 V pass (`everything_off()`); then `turn_on_AOMs()` (requested DDS
+  states, active-low gates, Node2 combined GRIN modes), `set_microwaves()`,
+  `set_coils()`. The other
   node is never assigned a state, and AOMsCoils never calls
   `force_other_node_off`. Making a node safe means running that node's own
   experiment with controls unchecked. Caveat: `run()` always calls
@@ -2171,10 +2184,11 @@ and is refused by the analysis loader.
 - Controls: FORT, cooling DP, A1-A6, D1 pumping DP, GRIN1and2, the active-low
   optical gates (repump, pumping-repump, excitation0, GRIN1, GRIN2,
   microwave, and each node's dedicated D1 gate `ttl_D1_pumping_switch`;
-  Node1 D1 also opens the GRIN1 gate, `ttl_GRIN1_switch enabled |=
-  D1_pumping_DP_ON`), microwave DDS, MW RF, coils, K10CR1,
-  `run_laser_feedback`. DDS frequency/power come from the authoritative
-  `*_NodeX` values through resolver bindings.
+  Node1 D1 also opens the GRIN1 gate, `if self.GRIN1_AOM_switch_ON or
+  self.D1_pumping_DP_ON`), microwave DDS, MW RF, coils, K10CR1,
+  `run_laser_feedback`. DDS frequency/power are the authoritative `*_NodeX`
+  variables, named directly in each file's `turn_on_AOMs()` (the mixin read
+  them through Base's resolver DDS bindings).
 - Node1 D1 since 2026-10-19 (user): the D1 AOM runs from an external RF
   source switched by `ttl_D1_pumping_switch` (Node1 ttl15, active low), as on
   Node2. `D1_pumping_DP_ON` opens that gate (and GRIN1); Node1's Urukul D1
@@ -2187,7 +2201,7 @@ and is refused by the analysis loader.
   they are authoritative: their OFF branches override `GRIN1and2_ON`, the GRIN
   gates and the D1 DDS (`D1_pumping_DP_ON` on Node2 effectively drives only
   `ttl_D1_pumping_switch`). The GRIN2 mode reprograms `dds_D1_pumping_DP` to
-  `f/p_GRIN2_excitation` before switching it on. `run_feedback()` re-applies
+  `f/p_GRIN2_excitation_Node2` before switching it on. `run_feedback()` re-applies
   them too after the stabilizer (2026-10-19); before that it re-applied only
   the individual controls, so a Node2 run with every stabilized AOM on could
   end with GRIN RF on or the GRIN1 gate open where standalone ends them off
@@ -2195,8 +2209,9 @@ and is refused by the analysis loader.
 - Coils (`71b4405`): one `disable_coils` checkbox (default False). Unchecked,
   the four coils go to the persistent `*_volts_MOT_NodeX` values read at
   prepare; checked, 0 V. Nothing is typed in the GUI or persisted.
-  `COIL_CHANNELS` tuples are converted to lists for `Zotino.set_dac`
-  (typed `list(int32)`; `14d8bee`).
+  The channels are Base's `coil_channels` lists, as `Zotino.set_dac` needs
+  (typed `list(int32)`; the old `COIL_CHANNELS` tuples had to be converted,
+  `14d8bee`).
 - Microwave/RF defaults OFF, is hard-gated and needs
   `yes_Im_sure_I_want_MW_or_RF_dds_ON`.
 - K10CR1: thirteen booleans in the 780/852 groups drive this node's axes only
@@ -2755,14 +2770,14 @@ the worker; uses DummyScheduler/DummyCCB and `device_db.py`.
   COPY, so a green sweep cannot detect a missing persistent dataset. Read the
   end-of-run "ACTION NEEDED" block; if it is non-empty the change is not safe
   to deploy without seeding.
-- 37 cases: AOMsCoils Node1 x4, Node2 x2; GVS single-node x9 (TTL pulse
+- 41 cases: AOMsCoils Node1 x4, Node2 x4; GVS single-node x9 (TTL pulse
   N1/N2, atom loading, single photon 9 N2, microwave Rabi 2 confirm ON,
   map01_map11 confirm ON, parity 11 N2 confirm ON, atom loading 2 N1/N2); GVS
   two-node x5 (namespace sanity, atom loading symmetric / confirm-by-first-shot
   / asymmetric per-node branches, alternating retention); MicrowaveScanOptimizer
   x3; FORT optimizer x2; AtomLoadingOptimizer x2; DRTIO event cost; Urukul
   sync sweep; DRTIO TTL skew probe; SamplerMOT x2; MonitorSPCMinApplet;
-  MonitorMagnetometer x4. No case covers parity 2-7 or most of the 31 wrapped
+  MonitorMagnetometer x4; MOTBeamPowerCheck x2. No case covers parity 2-7 or most of the 31 wrapped
   functions (O-14).
 - Last full runs: 2026-10-14 about 20:05-20:10, and again read-only about
   20:33, on the working tree including the optimizer fixes later committed

@@ -240,7 +240,7 @@ come before cleanup (sections 3.1, 3.3).
   2026_Two_Nodes_Atom_Loading.ipynb`, ported from the standalone two-node
   notebook, with two-node loaders appended to `Analysis/h5_data_utilities.py`
   (section 15.2).
-- **2026-10-19 (uncommitted):** the handshake cables were removed. Every
+- **2026-10-19 (`aab3f8c`):** the handshake cables were removed. Every
   legacy handshake alias now points at its node's dummy TTL (input /
   output: Node1 ttl3 / ttl12, Node2 ttl24 / ttl31), and init no longer
   touches Node1 ttl11 or Node2 ttl25 (section 2.7). device_db is
@@ -252,6 +252,10 @@ come before cleanup (sections 3.1, 3.3).
   Node1's D1 AOM now runs from an external source switched by ttl15:
   AOMsCoils Node1 `D1_pumping_DP_ON` opens `ttl_D1_pumping_switch` and keeps
   the Urukul D1 channel off (section 11.7); Node1 sequences not yet changed.
+- **2026-10-19:** AOMsCoils `_Node1` (`51e169c`) and `_Node2` are
+  self-contained files written box by box like standalone `AOMsCoils.py`,
+  with the same GUI arguments and hardware operations; the AOMsCoils mixin
+  is deleted (section 11.7).
 
 **Uncommitted:** the analysis notebooks. Check `git status`; under R26
 uncommitted code may already have run.
@@ -288,7 +292,7 @@ uncommitted code may already have run.
 - **Unit tests** (hardware-free): from the repository root, with an
   artiq-free interpreter (`C:/Python39`, the `python` in Git Bash), run
   `python -B -m unittest discover -s tests -p "test_*.py"`. Always use
-  discover, never `artiq7`. Expect 156 OK on the 2026-10-19 working tree.
+  discover, never `artiq7`. Expect 158 OK on the 2026-10-19 working tree.
 - **Compile sweep:** run `artiq-master/compile_check_master_satellite.py`
   with `artiq7` active after ANY master-satellite edit (about 5 minutes).
   Check the PASS/COMPILED/FAIL counts and that the target kernel is in the

@@ -69,7 +69,6 @@ if _experiment_stub is not None:
             setattr(_experiment_stub, name, value)
 
 
-from AOMsCoils_master_satellite_mixin import _AOMsCoilsMasterSatelliteMixin  # noqa: E402
 from AOMsCoils_master_satellite_Node1 import (  # noqa: E402
     AOMsCoils_master_satellite_Node1,
 )
@@ -229,9 +228,9 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(node2.base.which_node, "Node2")
         self.assertTrue(hasattr(node1, "FORT_AOM_ON"))
         self.assertFalse(hasattr(node1, "FORT_AOM_ON_Node1"))
-        # Node1 takes its coil channels from Base's wiring table.
+        # Both nodes take their coil channels from Base's wiring table.
         self.assertEqual(node1.coil_channels, [0, 1, 13, 14])
-        self.assertEqual(node2.COIL_CHANNELS, (0, 1, 2, 3))
+        self.assertEqual(node2.coil_channels, [0, 1, 2, 3])
 
     def test_node1_then_node2_preserves_node1_outputs(self):
         node1 = self.make_experiment(Node1ManualExperiment, {
@@ -287,30 +286,40 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         )
 
     def test_disable_coils_forces_all_four_coils_to_zero(self):
-        node1 = self.make_experiment(
-            Node1ManualExperiment, {"disable_coils": True}
-        )
-        node1.apply_manual_state()
-        zotino = self.devices["zotino0"]
-        self.assertEqual(
-            [zotino.dac_values[channel] for channel in (0, 1, 13, 14)],
-            [0.0, 0.0, 0.0, 0.0],
-        )
+        for node, experiment_class, zotino_name, channels in (
+            ("Node1", Node1ManualExperiment, "zotino0", (0, 1, 13, 14)),
+            ("Node2", Node2ManualExperiment, "zotino1", (0, 1, 2, 3)),
+        ):
+            with self.subTest(node=node):
+                experiment = self.make_experiment(
+                    experiment_class, {"disable_coils": True}
+                )
+                experiment.apply_manual_state()
+                zotino = self.devices[zotino_name]
+                self.assertEqual(
+                    [zotino.dac_values[channel] for channel in channels],
+                    [0.0, 0.0, 0.0, 0.0],
+                )
 
     def test_mot_coil_voltages_come_from_persistent_calibration(self):
-        node1 = self.make_experiment(Node1ManualExperiment)
-        self.assertFalse(node1.disable_coils)
-        node1.apply_manual_state()
-        zotino = self.devices["zotino0"]
-        self.assertEqual(
-            [zotino.dac_values[channel] for channel in (0, 1, 13, 14)],
-            [
-                self.datasets["AZ_bottom_volts_MOT_Node1"],
-                self.datasets["AZ_top_volts_MOT_Node1"],
-                self.datasets["AX_volts_MOT_Node1"],
-                self.datasets["AY_volts_MOT_Node1"],
-            ],
-        )
+        for node, experiment_class, zotino_name, channels in (
+            ("Node1", Node1ManualExperiment, "zotino0", (0, 1, 13, 14)),
+            ("Node2", Node2ManualExperiment, "zotino1", (0, 1, 2, 3)),
+        ):
+            with self.subTest(node=node):
+                experiment = self.make_experiment(experiment_class)
+                self.assertFalse(experiment.disable_coils)
+                experiment.apply_manual_state()
+                zotino = self.devices[zotino_name]
+                self.assertEqual(
+                    [zotino.dac_values[channel] for channel in channels],
+                    [
+                        self.datasets[f"AZ_bottom_volts_MOT_{node}"],
+                        self.datasets[f"AZ_top_volts_MOT_{node}"],
+                        self.datasets[f"AX_volts_MOT_{node}"],
+                        self.datasets[f"AY_volts_MOT_{node}"],
+                    ],
+                )
 
     def test_only_selected_node_datasets_are_loaded(self):
         node1 = self.make_experiment(Node1ManualExperiment)
@@ -325,16 +334,73 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(binding["frequency_attribute"], "f_GRIN2_D1_pumping_Node2")
         self.assertEqual(binding["power_attribute"], "p_GRIN2_D1_pumping_Node2")
 
+    def test_each_dds_box_writes_its_authoritative_binding(self):
+        """Each node's file names its DDS tones directly. Tie them back to
+        Base's DDS binding table, the single source the old mixin read them
+        from, so a wrong name in either file fails here.
+        """
+        from utilities.conversions import dB_to_V_kernel
+
+        boxes = {
+            "FORT_AOM_ON": "dds_FORT",
+            "cooling_DP_ON": "dds_cooling_DP",
+            "AOM_A1_ON": "dds_AOM_A1",
+            "AOM_A2_ON": "dds_AOM_A2",
+            "AOM_A3_ON": "dds_AOM_A3",
+            "AOM_A4_ON": "dds_AOM_A4",
+            "AOM_A5_ON": "dds_AOM_A5",
+            "AOM_A6_ON": "dds_AOM_A6",
+            "D1_pumping_DP_ON": "dds_D1_pumping_DP",
+            "GRIN1and2_ON": "GRIN1and2_dds",
+        }
+        for node, experiment_class in (
+            ("Node1", Node1ManualExperiment),
+            ("Node2", Node2ManualExperiment),
+        ):
+            with self.subTest(node=node):
+                experiment = self.make_experiment(
+                    experiment_class, {box: True for box in boxes}
+                )
+                bindings = {
+                    item["logical_alias"]: item
+                    for item in experiment.base.node_resolvers[node].dds_bindings
+                }
+                # Not apply_manual_state(): initialize_hardware() would set
+                # every DDS to these same values first.
+                start = len(self.log)
+                experiment.turn_on_AOMs()
+                for box, alias in boxes.items():
+                    if node == "Node1" and alias == "dds_D1_pumping_DP":
+                        continue  # Node1's D1 runs from an external source
+                    device = getattr(experiment, alias)
+                    first_set = next(
+                        value for name, operation, value in self.log[start:]
+                        if name == device.name and operation == "set"
+                    )
+                    binding = bindings[alias]
+                    self.assertEqual(first_set, {
+                        "frequency": self.datasets[binding["frequency_attribute"]],
+                        "amplitude": dB_to_V_kernel(
+                            self.datasets[binding["power_attribute"]]
+                        ),
+                    }, box)
+
     def test_microwave_defaults_off_and_no_calibration_is_persisted(self):
-        node1 = self.make_experiment(Node1ManualExperiment, {
-            "microwave_dds_ON": True,
-            "yes_Im_sure_I_want_MW_or_RF_dds_ON": False,
-        })
-        writes_after_prepare = len(node1.dataset_writes)
-        node1.apply_manual_state()
-        self.assertFalse(node1.dds_microwaves.state)
-        self.assertTrue(node1.ttl_microwave_switch.state)
-        self.assertEqual(len(node1.dataset_writes), writes_after_prepare)
+        for experiment_class in (Node1ManualExperiment, Node2ManualExperiment):
+            with self.subTest(node=experiment_class.NODE):
+                experiment = self.make_experiment(experiment_class, {
+                    "microwave_dds_ON": True,
+                    "MW_RF_dds_ON": True,
+                    "yes_Im_sure_I_want_MW_or_RF_dds_ON": False,
+                })
+                writes_after_prepare = len(experiment.dataset_writes)
+                experiment.apply_manual_state()
+                self.assertFalse(experiment.dds_microwaves.state)
+                self.assertTrue(experiment.ttl_microwave_switch.state)
+                self.assertFalse(experiment.dds_MW_RF.state)
+                self.assertEqual(
+                    len(experiment.dataset_writes), writes_after_prepare
+                )
 
     def test_node2_combined_grin_modes_drive_dds_and_gate_together(self):
         from utilities.conversions import dB_to_V_kernel
@@ -449,24 +515,39 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             "AOM_A4_ON", "AOM_A5_ON", "AOM_A6_ON", "cooling_DP_ON",
         )}
 
-        node1 = self.make_experiment(
-            Node1ManualExperiment, {**all_on, "run_laser_feedback": True}
-        )
-        node1.run()
-        self.assertEqual(node1.laser_stabilizer.run_calls, 1)
-        self.assertEqual(node1.laser_stabilizer.monitor_calls, 0)
+        for experiment_class in (Node1ManualExperiment, Node2ManualExperiment):
+            with self.subTest(node=experiment_class.NODE):
+                feedback = self.make_experiment(
+                    experiment_class, {**all_on, "run_laser_feedback": True}
+                )
+                feedback.run()
+                self.assertEqual(feedback.laser_stabilizer.run_calls, 1)
+                self.assertEqual(feedback.laser_stabilizer.monitor_calls, 0)
 
-        monitor_only = self.make_experiment(Node1ManualExperiment, all_on)
-        monitor_only.run()
-        self.assertEqual(monitor_only.laser_stabilizer.run_calls, 0)
-        self.assertEqual(monitor_only.laser_stabilizer.monitor_calls, 1)
+                monitor_only = self.make_experiment(experiment_class, all_on)
+                monitor_only.run()
+                self.assertEqual(monitor_only.laser_stabilizer.run_calls, 0)
+                self.assertEqual(monitor_only.laser_stabilizer.monitor_calls, 1)
 
-        partial = self.make_experiment(
-            Node1ManualExperiment, {"run_laser_feedback": True}
-        )
-        partial.run()
-        self.assertEqual(partial.laser_stabilizer.run_calls, 0)
-        self.assertEqual(partial.laser_stabilizer.monitor_calls, 0)
+                partial = self.make_experiment(
+                    experiment_class, {"run_laser_feedback": True}
+                )
+                partial.run()
+                self.assertEqual(partial.laser_stabilizer.run_calls, 0)
+                self.assertEqual(partial.laser_stabilizer.monitor_calls, 0)
+
+                # Every one of the seven boxes is required.
+                for missing in all_on:
+                    almost = self.make_experiment(experiment_class, {
+                        **all_on, missing: False, "run_laser_feedback": True,
+                    })
+                    almost.run()
+                    self.assertEqual(
+                        (almost.laser_stabilizer.run_calls,
+                         almost.laser_stabilizer.monitor_calls),
+                        (0, 0),
+                        missing,
+                    )
 
     def test_run_feedback_keeps_node2_combined_grin_state(self):
         """Feedback must end Node2 the way apply_manual_state left it.
@@ -520,8 +601,6 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             Node2ManualExperiment, {"go_to_home_852QWP": True}
         )
         self.assertTrue(node2._k10cr1_requested)
-        self.assertEqual(node2._axis_780_HWP, "780_HWP_Node2")
-        self.assertEqual(node2._axis_852_QWP, "852_QWP_Node2")
         # Bare axis names resolve to the selected node; suffixed pass through.
         node2.k10cr1_ndsp.home("852_QWP")
         node2.k10cr1_ndsp.home("852_HWP_Node2")
@@ -551,50 +630,118 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             node1.k10cr1_ndsp.get_position("852_HWP")
 
     def test_852_target_moves_are_gated_on_852_booleans(self):
-        # Node1 is self-contained, so its own module holds the K10CR1 calls.
+        # Each node's file is self-contained, so its own module holds the
+        # K10CR1 calls, with that node's axis names written out.
         import AOMsCoils_master_satellite_Node1 as node1_module
+        import AOMsCoils_master_satellite_Node2 as node2_module
         from unittest import mock
 
-        calls = []
-        with mock.patch.object(
-            node1_module, "go_to_home",
-            side_effect=lambda experiment, name: calls.append(("home", name)),
-        ), mock.patch.object(
-            node1_module, "move_to_target_deg",
-            side_effect=lambda experiment, name, target_deg: calls.append(
-                ("target", name, target_deg)
-            ),
-        ), mock.patch.object(
-            node1_module, "move_by_deg",
-            side_effect=lambda experiment, name, target_deg: calls.append(
-                ("by", name, target_deg)
-            ),
+        for node, module, experiment_class in (
+            ("Node1", node1_module, Node1ManualExperiment),
+            ("Node2", node2_module, Node2ManualExperiment),
         ):
-            node1 = self.make_experiment(Node1ManualExperiment, {
-                "go_to_target_780HWP": True,
-                "go_to_target_852QWP": True,
-            })
-            node1.run()
+            with self.subTest(node=node):
+                calls = []
+                with mock.patch.object(
+                    module, "go_to_home",
+                    side_effect=lambda experiment, name: calls.append(
+                        ("home", name)
+                    ),
+                ), mock.patch.object(
+                    module, "move_to_target_deg",
+                    side_effect=lambda experiment, name, target_deg: calls.append(
+                        ("target", name, target_deg)
+                    ),
+                ), mock.patch.object(
+                    module, "move_by_deg",
+                    side_effect=lambda experiment, name, target_deg: calls.append(
+                        ("by", name, target_deg)
+                    ),
+                ):
+                    experiment = self.make_experiment(experiment_class, {
+                        "go_to_target_780HWP": True,
+                        "go_to_target_852QWP": True,
+                    })
+                    experiment.run()
 
-        self.assertEqual(calls, [
-            ("target", "780_HWP_Node1", self.datasets["target_780_HWP_Node1"]),
-            ("target", "852_QWP_Node1", self.datasets["target_852_QWP_Node1"]),
-        ])
+                self.assertEqual(calls, [
+                    ("target", f"780_HWP_{node}",
+                     self.datasets[f"target_780_HWP_{node}"]),
+                    ("target", f"852_QWP_{node}",
+                     self.datasets[f"target_852_QWP_{node}"]),
+                ])
 
-    def test_common_module_is_not_an_explorer_experiment(self):
-        self.assertFalse(hasattr(_AOMsCoilsMasterSatelliteMixin, "build"))
-        expected = {
-            "AOMsCoils_master_satellite_mixin.py": set(),
-            "AOMsCoils_master_satellite_Node1.py": {"AOMsCoils_master_satellite_Node1"},
-            "AOMsCoils_master_satellite_Node2.py": {"AOMsCoils_master_satellite_Node2"},
-        }
-        for filename, classes in expected.items():
+    def test_every_k10cr1_box_moves_only_its_own_nodes_axis(self):
+        """Each node's file writes its waveplate axis names out by hand, and
+        the K10CR1 proxy passes an already-suffixed name through unchanged,
+        so a stray suffix would rotate the other node's waveplate. Tick every
+        K10CR1 box and check the axis of every call, in order.
+        """
+        import AOMsCoils_master_satellite_Node1 as node1_module
+        import AOMsCoils_master_satellite_Node2 as node2_module
+        from unittest import mock
+
+        boxes = (
+            "go_to_home_780HWP", "go_to_home_780QWP",
+            "go_to_target_780HWP", "go_to_target_780QWP",
+            "move_780HWP_by", "move_780QWP_by",
+            "go_to_home_852HWP", "go_to_home_852QWP",
+            "go_to_target_852HWP", "go_to_target_852QWP",
+            "move_852HWP_by", "move_852QWP_by",
+            "go_to_optimized_852_settings",
+        )
+        for node, module, experiment_class in (
+            ("Node1", node1_module, Node1ManualExperiment),
+            ("Node2", node2_module, Node2ManualExperiment),
+        ):
+            with self.subTest(node=node):
+                axes = []
+                with mock.patch.object(
+                    module, "go_to_home",
+                    side_effect=lambda experiment, name: axes.append(name),
+                ), mock.patch.object(
+                    module, "move_to_target_deg",
+                    side_effect=lambda experiment, name, target_deg: axes.append(name),
+                ), mock.patch.object(
+                    module, "move_by_deg",
+                    side_effect=lambda experiment, name, target_deg: axes.append(name),
+                ):
+                    experiment = self.make_experiment(
+                        experiment_class, {box: True for box in boxes}
+                    )
+                    experiment.k10cr1_operations()
+
+                # home, target, move-by for 780 then 852, then the optimized
+                # 852 settings: HWP then QWP each time.
+                self.assertEqual(axes, [
+                    f"{beam}_{plate}_{node}"
+                    for beam in ("780", "780", "780", "852", "852", "852", "852")
+                    for plate in ("HWP", "QWP")
+                ])
+
+    def test_node_files_are_self_contained_experiments(self):
+        """Each node's AOMsCoils is complete on its own (2026-10-19): one
+        public experiment per file, and neither file imports the other or any
+        shared AOMsCoils module, so a change for one node cannot reach the
+        other. The mixin the two used to share is gone.
+        """
+        self.assertFalse(Path("AOMsCoils_master_satellite_mixin.py").exists())
+        for node in ("Node1", "Node2"):
+            filename = f"AOMsCoils_master_satellite_{node}.py"
             tree = ast.parse(Path(filename).read_text())
-            public = {node.name for node in tree.body if isinstance(node, ast.ClassDef)
-                      and not node.name.startswith("_")
+            public = {item.name for item in tree.body if isinstance(item, ast.ClassDef)
+                      and not item.name.startswith("_")
                       and any(isinstance(base, ast.Name) and base.id == "EnvExperiment"
-                              for base in node.bases)}
-            self.assertEqual(public, classes)
+                              for base in item.bases)}
+            self.assertEqual(public, {f"AOMsCoils_master_satellite_{node}"})
+            imported = {item.module for item in ast.walk(tree)
+                        if isinstance(item, ast.ImportFrom)}
+            imported |= {alias.name for item in ast.walk(tree)
+                         if isinstance(item, ast.Import) for alias in item.names}
+            self.assertEqual(
+                {name for name in imported if "AOMsCoils" in name}, set(),
+                filename,
+            )
 
 
 if __name__ == "__main__":

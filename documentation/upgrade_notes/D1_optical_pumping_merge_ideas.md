@@ -111,9 +111,11 @@ at `:357` and the two `if ch.name == 'GRIN1and2_dds'` compares at `:691`, `:730`
 `subroutines/experiment_functions.py`, 212 sites.
 
 **Experiments.**
-`AOMsCoils_master_satellite_mixin.py` — `DDS_CONTROLS` `:55-56`, the Node1
-D1-shares-GRIN1-gate rule `:180-181`, `_apply_node2_combined_grin_state`
-`:272-299`. `standalone/AOMsCoils.py` (9 sites).
+`AOMsCoils_master_satellite_Node1.py` and `AOMsCoils_master_satellite_Node2.py`
+(self-contained since 2026-10-19, replacing the deleted shared mixin) — the
+`GRIN1and2_ON` / `D1_pumping_DP_ON` boxes in `build()` and `turn_on_AOMs()`,
+Node1's D1-opens-GRIN1 rule, Node2's combined GRIN blocks at the end of
+`turn_on_AOMs()`. `standalone/AOMsCoils.py` (9 sites).
 `MOT_experiments/MonitorMOTandExternalBeamPositions.py`,
 `MOT_experiments/MOTDetuningAndGradBScan.py`.
 `tests/A2-ExcitationSPCMGateStartTime.py` (34),
@@ -121,8 +123,12 @@ D1-shares-GRIN1-gate rule `:180-181`, `_apply_node2_combined_grin_state`
 
 **Tests that pin the old names.**
 `tests/test_base_experiment_master_satellite.py:549`,
-`tests/test_aoms_coils_master_satellite.py:323` (plus the GUI name pins at
-`:225-233`), `tests/test_experiment_variables_master_satellite.py:376-387`.
+`tests/test_aoms_coils_master_satellite.py`:
+`test_node2_d1_uses_authoritative_grin2_defaults`, and every test that sets the
+`GRIN1and2_ON` / `D1_pumping_DP_ON` boxes by name (search for them; the
+`combined=False` subtest of `test_run_feedback_keeps_node2_combined_grin_state`
+expects everything off, so it keeps passing with stale names),
+`tests/test_experiment_variables_master_satellite.py:376-387`.
 
 **Explicitly NOT changed:** any `device_db*.py`,
 `config/master_satellite/device_aliases.json` (physical names only), any
@@ -143,7 +149,7 @@ The AOMsCoils checkboxes are named after the old devices:
 
 | file | old | proposed |
 |---|---|---|
-| `AOMsCoils_master_satellite_mixin.py` | `GRIN1and2_ON` | `GRIN1_DDS_ON` |
+| `AOMsCoils_master_satellite_Node1.py`, `_Node2.py` | `GRIN1and2_ON` | `GRIN1_DDS_ON` |
 | " | `D1_pumping_DP_ON` | `GRIN2_DDS_ON` |
 | `standalone/AOMsCoils.py` | `GRIN1and2_DDS_ON` | `GRIN1_DDS_ON` |
 | " | `D1_pumping_DP_AOM_ON` | `GRIN2_DDS_ON` |
