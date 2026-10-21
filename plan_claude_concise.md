@@ -46,8 +46,10 @@ these files (section 1.6, O-24).
   `urukul3`-`5` (sections 2.4, 2.5).
 - **Detectors:** all four SPCMs (H1/V1/H2/V2 = ttl0/1/8/9) are master-local
   Node1 inputs. Each one sees both traps (section 2.6).
-- **Node2 alias quirk:** `GRIN1and2_dds` drives GRIN1 only, and
-  `dds_D1_pumping_DP` drives GRIN2 (section 2.8).
+- **GRIN aliases** (renamed 2026-10-20 from `GRIN1and2_dds` and
+  `dds_D1_pumping_DP`): on Node2 `dds_GRIN1` drives GRIN1 and `dds_GRIN2`
+  GRIN2; on Node1 `dds_GRIN1` feeds both GRINs and `dds_GRIN2` is the old D1
+  channel, now unused (section 2.8).
 - **USB devices:** all connect to the master host. One `k10cr1_ndsp`
   controller drives the 8 rotators (section 13).
 
@@ -267,7 +269,7 @@ come before cleanup (sections 3.1, 3.3).
   applets also update during two-node runs (before: `p_AOM_A1_NodeX_history`,
   which nothing read; section 10.3).
 - **2026-10-20:** the Node1 sequences switch D1 with
-  `ttl_D1_pumping_switch` (ttl15) instead of `dds_D1_pumping_DP`: the Node1
+  `ttl_D1_pumping_switch` (ttl15) instead of `dds_GRIN2`: the Node1
   pumping functions, single photon 4/5, `measure_GRIN1`, the chopped-pumping
   DMA, the two-node Node1 side, standalone alice init and AOMsCoils, the MOT
   scripts and `tests/A2-SPCMGateTimeVsCounts.py`. `CW_optical_pumping_node1`
@@ -276,6 +278,12 @@ come before cleanup (sections 3.1, 3.3).
 - **2026-10-20:** the functions no longer in use (45 of 103) moved from
   `experiment_functions.py` to `subroutines/experiment_functions_obsolete.py`,
   which nothing imports; the single-node GVS menu has 23 entries (section 9.2).
+- **2026-10-20 (branch `20261020_GRIN_new_wiring`):** the aliases are renamed
+  `GRIN1and2_dds` -> `dds_GRIN1` and `dds_D1_pumping_DP` -> `dds_GRIN2` in every
+  file except the archive `subroutines/experiment_functions_obsolete.py`, alias
+  and feedback JSON keys included (values, device_db and variables unchanged), with a guard test that each node's alias lists match its
+  `ALIAS_MAP` and every feedback config key. Not yet checked on hardware
+  (O-32, section 18.4).
 
 **Uncommitted:** check `git status`; under R26 uncommitted code may already
 have run.
@@ -312,7 +320,7 @@ have run.
 - **Unit tests** (hardware-free): from the repository root, with an
   artiq-free interpreter (`C:/Python39`, the `python` in Git Bash), run
   `python -B -m unittest discover -s tests -p "test_*.py"`. Always use
-  discover, never `artiq7`. Expect 160 OK on the 2026-10-20 working tree.
+  discover, never `artiq7`. Expect 161 OK on the 2026-10-20 working tree.
 - **Compile sweep:** run `artiq-master/compile_check_master_satellite.py`
   with `artiq7` active after ANY master-satellite edit (about 5 minutes).
   Check the PASS/COMPILED/FAIL counts and that the target kernel is in the

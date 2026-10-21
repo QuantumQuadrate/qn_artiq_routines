@@ -262,7 +262,7 @@ indices; Node2's resolve to `ttl16`-`ttl31`):
   and so present only in single-node mode. It now exists in both modes,
   as `ttl_D1_pumping_switch` and `ttl_D1_pumping_switch_Node1`. It gates
   Node1's D1 (external RF source since 2026-10-19). Since 2026-10-20 (user)
-  the Node1 sequences switch D1 with it instead of `dds_D1_pumping_DP`; the
+  the Node1 sequences switch D1 with it instead of `dds_GRIN2`; the
   site list is in `documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md`
   (Status 2026-10-20). Before that no Node1 sequence opened it, so a Node1
   pumping run in between got no D1 light (only AOMsCoils ran on Node1 then).
@@ -298,18 +298,23 @@ against both mapping layers:
 | AOM A4 | `dds_AOM_A4` | `urukul2_ch0` | `urukul3_ch3` |
 | AOM A5 | `dds_AOM_A5` | `urukul2_ch1` | `urukul4_ch0` |
 | AOM A6 | `dds_AOM_A6` | `urukul1_ch3` | `urukul4_ch1` |
-| D1 pumping DP | `dds_D1_pumping_DP` | `urukul2_ch2` | `urukul5_ch0` |
-| GRIN1and2 | `GRIN1and2_dds` | `urukul0_ch3` | `urukul5_ch2` |
+| GRIN2 (Node1: the old D1 DP AOM, unused) | `dds_GRIN2` | `urukul2_ch2` | `urukul5_ch0` |
+| GRIN1 (Node1: feeds both GRINs) | `dds_GRIN1` | `urukul0_ch3` | `urukul5_ch2` |
 | microwaves | `dds_microwaves` | `urukul2_ch3` | `urukul5_ch3` |
 | MW RF | `dds_MW_RF` | `urukul0_ch2` | `urukul5_ch1` |
+
+The two GRIN aliases were renamed on 2026-10-20 (`GRIN1and2_dds` ->
+`dds_GRIN1`, `dds_D1_pumping_DP` -> `dds_GRIN2`): alias keys only, so every
+channel is unchanged; the archive `subroutines/experiment_functions_obsolete.py`
+keeps the old names. Guard: `test_every_dds_alias_list_matches_each_nodes_alias_map`.
 
 The same alias names mean physically different things on the two nodes
 (recorded in `documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md`):
 
-- `GRIN1and2_dds`: Node1 = one DDS feeding both GRINs (excitation, defaults
+- `dds_GRIN1`: Node1 = one DDS feeding both GRINs (excitation, defaults
   `f/p_excitation`); Node2 = GRIN1 only (D1 pumping, defaults
   `f/p_GRIN1_D1_pumping`).
-- `dds_D1_pumping_DP`: Node1 = `urukul2_ch2`, the D1 DP AOM at 373.075 MHz
+- `dds_GRIN2`: Node1 = `urukul2_ch2`, the D1 DP AOM at 373.075 MHz
   until 2026-10-19, now unused (D1 runs from an external source, section
   2.7); Node2 = GRIN2 (defaults `f/p_GRIN2_D1_pumping`; the Node2 combined
   GRIN2 mode reprograms it to `f/p_GRIN2_excitation`).
@@ -920,7 +925,7 @@ silently skips aliases missing from its list; see section 18, O-22).
 DDS default variables: the alice/bob configs name unsuffixed variables
 (`f_FORT`, `p_FORT_loading`, `f_cooling_DP_MOT`); the resolver and
 `Base._default_attribute_name(node, standalone_name)` turn them into the
-per-node authoritative names (`f_FORT_Node2`). Bob's `dds_D1_pumping_DP`
+per-node authoritative names (`f_FORT_Node2`). Bob's `dds_GRIN2`
 defaults resolve to `f_GRIN2_D1_pumping_Node2`/`p_GRIN2_D1_pumping_Node2`.
 
 DDS alias resolution and default-variable resolution are ONE step and must
@@ -2233,7 +2238,7 @@ and is refused by the analysis loader.
 - Node1 D1 since 2026-10-19 (user): the D1 AOM runs from an external RF
   source switched by `ttl_D1_pumping_switch` (Node1 ttl15, active low), as on
   Node2. `D1_pumping_switch_ON` opens that gate (and GRIN1); Node1's Urukul D1
-  channel (`dds_D1_pumping_DP`, urukul2_ch2) is no longer switched on by it
+  channel (`dds_GRIN2`, urukul2_ch2) is no longer switched on by it
   and stays off. Test: `test_node1_d1_is_switched_by_its_external_source_ttl`.
   Since 2026-10-20 the Node1 sequences switch D1 with ttl15 too (section 2.7).
 - 2026-10-20 (user): the D1 box `D1_pumping_DP_ON` is renamed
@@ -2244,7 +2249,7 @@ and is refused by the analysis loader.
   (`0a4ed7a`) are applied after the individual controls, as in standalone, so
   they are authoritative: their OFF branches override `GRIN1and2_ON`, the GRIN
   gates and the D1 DDS (`D1_pumping_switch_ON` on Node2 effectively drives only
-  `ttl_D1_pumping_switch`). The GRIN2 mode reprograms `dds_D1_pumping_DP` to
+  `ttl_D1_pumping_switch`). The GRIN2 mode reprograms `dds_GRIN2` to
   `f/p_GRIN2_excitation_Node2` before switching it on. `run_feedback()` re-applies
   them too after the stabilizer (2026-10-19); before that it re-applied only
   the individual controls, so a Node2 run with every stabilized AOM on could
@@ -3135,7 +3140,9 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   revalidation record. Separately, the alias-list guard test proposed in the
   D1 upgrade note (alias list == `ALIAS_MAP` keys == `DDS_DEFAULTS` keys for
   alice and bob; `utilities/DeviceAliases.py` silently skips missing aliases)
-  does not exist.
+  exists since 2026-10-20:
+  `test_every_dds_alias_list_matches_each_nodes_alias_map`, which also checks
+  the `feedback_channels*.json` keys.
 - **O-23 No master-satellite HealthCheck files**; when written they must
   submit `MicrowaveScanOptimizer_master_satellite` with `which_node`.
 
@@ -3210,17 +3217,18 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   counters and all 4 SPCMs); re-record the trace per scan point and keep the
   optics block outside it.
 - **O-32 D1/GRIN alias rename** (`D1_optical_pumping_merge_ideas.md`,
-  2026-10-11): rename `GRIN1and2_dds -> GRIN1_dds` and `dds_D1_pumping_DP ->
-  GRIN2_dds` in both stacks and the alias/feedback JSON keys (about 307
-  occurrences in 21 files; zero electrical change because only alias KEYS
-  change), verify Node2 on hardware, then give Node1 a real D1 TTL and an
+  2026-10-11): rename the two GRIN aliases in both stacks and the
+  alias/feedback JSON keys (zero electrical change because only alias KEYS
+  change; done 2026-10-20 on branch `20261020_GRIN_new_wiring` as
+  `GRIN1and2_dds -> dds_GRIN1` and `dds_D1_pumping_DP -> dds_GRIN2`, not yet
+  checked on hardware), verify Node2 on hardware, then give Node1 a real D1 TTL and an
   external source (done: ttl15 and an external RF source since 2026-10-19,
   the Node1 sequences switched on 2026-10-20; section 2.7). Prerequisite: the
-  alias guard test (O-22). Latent bugs recorded there and left alone:
+  alias guard test (O-22, now added). Latent bugs recorded there and left alone:
   `chopped_optical_pumping` has no Node2-correct path; several Node1-only
   unconditional sequences mis-drive Node2; the `aom_feedback` GRIN special
   case never fires in two-node mode; Bob's `feedback_channels.json` references
-  the undeclared `set_point_D1_DP`; Node1 pre-programmed `dds_D1_pumping_DP`
+  the undeclared `set_point_D1_DP`; Node1 pre-programmed `dds_GRIN2`
   at init and Node2 did not (that explicit set is commented out since
   2026-10-20).
 - **Shared blocker for O-31 and O-32**: is two-node STANDALONE synchronization

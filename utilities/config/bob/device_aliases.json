@@ -7,9 +7,9 @@
   "dds_AOM_A6": "urukul1_ch1",
   "dds_cooling_DP": "urukul1_ch2",
   "dds_FORT": "urukul1_ch3",
-  "dds_D1_pumping_DP": "urukul2_ch0",
+  "dds_GRIN2": "urukul2_ch0",
   "dds_MW_RF": "urukul2_ch1",
-  "GRIN1and2_dds": "urukul2_ch2",
+  "dds_GRIN1": "urukul2_ch2",
   "dds_microwaves": "urukul2_ch3"
   },
   "DDS_DEFAULTS": {
@@ -21,11 +21,11 @@
       "frequency": "f_cooling_DP_MOT",
       "power": "p_cooling_DP_MOT"
     },
-    "GRIN1and2_dds": {
+    "dds_GRIN1": {
       "frequency": "f_GRIN1_D1_pumping",
       "power": "p_GRIN1_D1_pumping"
     },
-    "dds_D1_pumping_DP": {
+    "dds_GRIN2": {
       "frequency": "f_GRIN2_D1_pumping",
       "power": "p_GRIN2_D1_pumping"
     },

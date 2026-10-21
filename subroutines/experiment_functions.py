@@ -1508,7 +1508,7 @@ def record_chopped_optical_pumping(self):
     """
     D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
     switched by ttl_D1_pumping_switch (active low: off() = D1 on), not by the
-    Urukul channel dds_D1_pumping_DP.
+    Urukul channel dds_GRIN2.
 
     :param self:
     :return:
@@ -1618,10 +1618,10 @@ def chopped_optical_pumping(self):
     delay(10 * us)
 
     if self.which_node == "alice":
-        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+        self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
         ### This is split into GRIN1 and GRIN2 in Alice
     else:
-        self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(-5.0))
+        self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(-5.0))
         ### This is just for GRIN1 in Bob
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
@@ -1635,7 +1635,7 @@ def chopped_optical_pumping(self):
     delay(1*ms)
 
     ### so that D1 can pass
-    self.GRIN1and2_dds.sw.on()
+    self.dds_GRIN1.sw.on()
     self.ttl_GRIN1_switch.off()
 
     ### set coils for pumping
@@ -1646,7 +1646,7 @@ def chopped_optical_pumping(self):
 
     self.core_dma.playback_handle(op_dma_handle)
     delay(self.t_depumping)
-    self.dds_D1_pumping_DP.sw.off() ### turning off D1 DP
+    self.dds_GRIN2.sw.off() ### turning off D1 DP
     self.ttl_pumping_repump_switch.on() ### turning off pumping RP
 
     delay(2*us)
@@ -1657,9 +1657,9 @@ def chopped_optical_pumping(self):
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
-    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+    # self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     delay(1*ms)
-    self.GRIN1and2_dds.sw.off()
+    self.dds_GRIN1.sw.off()
     self.ttl_GRIN1_switch.on()
     delay(10*us)
     # self.dds_cooling_DP.sw.off()
@@ -1693,9 +1693,9 @@ def CW_optical_pumping_node1(self):
     self.dds_AOM_A6.sw.on()
 
     # ### so that D1 can pass
-    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+    # self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
     # delay(5 * us)
-    # self.GRIN1and2_dds.sw.on()
+    # self.dds_GRIN1.sw.on()
     # self.ttl_GRIN1_switch.off()
 
     ### set coils for pumping
@@ -1709,7 +1709,7 @@ def CW_optical_pumping_node1(self):
     ### Optical pumping phase
     ### D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
     ### switched by ttl_D1_pumping_switch (active low: off() = D1 on), not
-    ### by the Urukul channel dds_D1_pumping_DP.
+    ### by the Urukul channel dds_GRIN2.
     self.ttl_pumping_repump_switch.off()
     self.ttl_D1_pumping_switch.off()  # D1 on
 
@@ -1734,7 +1734,7 @@ def CW_optical_pumping_node1(self):
     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
 
     delay(5*us)
-    # self.GRIN1and2_dds.sw.off()
+    # self.dds_GRIN1.sw.off()
     # self.ttl_GRIN1_switch.on()
 
 @kernel
@@ -1747,12 +1747,11 @@ def CW_optical_pumping_node2(self):
     ** OP AOM is driven with external RF source.
     ** ONLY GRIN1 AOM is used to turn on/off the OP.
 
-    Note: To avoid conflict with Node1 codes, I left the names of the dds channels that are now
-    used for GRIN1 and GRIN2 dds.
-
-    Name of the dds channels >>>>   what actually does here
-    GRIN1and2_dds            >>>>   GRIN1 dds
-    dds_D1_pumping_DP        >>>>   GRIN2 dds
+    Note: the dds channels used for GRIN1 and GRIN2 kept their Node1 names
+    (GRIN1and2_dds, dds_D1_pumping_DP) until 2026-10-20; they are now named
+    after what they drive here:
+    dds_GRIN1   >>>>   GRIN1 dds
+    dds_GRIN2   >>>>   GRIN2 dds
 
     Eunji - for Node2
 
@@ -1780,8 +1779,8 @@ def CW_optical_pumping_node2(self):
     delay(self.t_OP_coil_relax_time)
 
     ### so that D1 can pass
-    self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-    self.GRIN1and2_dds.sw.on()  ## GRIN1 RF ON but not yet activated with external switch
+    self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+    self.dds_GRIN1.sw.on()  ## GRIN1 RF ON but not yet activated with external switch
     delay(5 * us)
 
     with parallel:
@@ -1805,7 +1804,7 @@ def CW_optical_pumping_node2(self):
 
     self.dds_AOM_A5.sw.off()
     self.dds_AOM_A6.sw.off()
-    self.GRIN1and2_dds.sw.off()  ## GRIN1 RF OFF
+    self.dds_GRIN1.sw.off()  ## GRIN1 RF OFF
     delay(1 * us)
 
     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
@@ -1853,7 +1852,7 @@ def record_CW_optical_pumping_node1(self):
         ### Optical pumping
         ### D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
         ### switched by ttl_D1_pumping_switch (active low: off() = D1 on), not
-        ### by the Urukul channel dds_D1_pumping_DP.
+        ### by the Urukul channel dds_GRIN2.
         with parallel:
             self.ttl_pumping_repump_switch.off()
             self.ttl_D1_pumping_switch.off()  # D1 on
@@ -1914,8 +1913,8 @@ def record_CW_optical_pumping_node2(self):
         delay(self.t_OP_coil_relax_time)
 
         ### Configure GRIN1 DDS
-        self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-        self.GRIN1and2_dds.sw.on()
+        self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+        self.dds_GRIN1.sw.on()
         delay(2*us)
 
         ### Optical pumping
@@ -1938,7 +1937,7 @@ def record_CW_optical_pumping_node2(self):
             self.ttl_pumping_repump_switch.on()
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
-            self.GRIN1and2_dds.sw.off()
+            self.dds_GRIN1.sw.off()
 
         ### Restore feedback amplitudes while RF switches are off
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
@@ -1977,8 +1976,8 @@ def record_CW_optical_pumping_node2_without_coil(self):
         # # delay(self.dummy_variable)
 
         ### Configure GRIN1 DDS
-        self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-        self.GRIN1and2_dds.sw.on()
+        self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+        self.dds_GRIN1.sw.on()
         delay(2*us)
 
         ### Optical pumping
@@ -2001,7 +2000,7 @@ def record_CW_optical_pumping_node2_without_coil(self):
             self.ttl_pumping_repump_switch.on()
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
-            self.GRIN1and2_dds.sw.off()
+            self.dds_GRIN1.sw.off()
 
         ### Restore feedback amplitudes while RF switches are off
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
@@ -2150,16 +2149,16 @@ def measure_GRIN1(self):
     self.dds_cooling_DP.sw.off()
 
     # todo: D1 feedback
-    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+    # self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
 
     # UNBLOCKING GRIN1
     self.ttl_GRIN1_switch.off()
-    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
-    self.GRIN1and2_dds.sw.on()
+    # self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(0.0))
+    self.dds_GRIN1.sw.on()
 
     #turning D1 ON. Since 2026-10-19 Node1's D1 AOM runs from an external RF
     # source switched by ttl_D1_pumping_switch (active low: off() = D1 on),
-    # not by the Urukul channel dds_D1_pumping_DP.
+    # not by the Urukul channel dds_GRIN2.
     self.ttl_D1_pumping_switch.off()
 
     delay(0.1*ms)
@@ -2172,7 +2171,7 @@ def measure_GRIN1(self):
     self.append_to_dataset("GRIN1_D1_monitor", measurement)
 
     # turning D1 off & repump on
-    # self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+    # self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
     self.ttl_D1_pumping_switch.on()  # D1 off
     # self.ttl_repump_switch.off()  # turns the RP AOM on
     self.ttl_exc0_switch.off() # turns EXC0 AOM on
@@ -2189,7 +2188,7 @@ def measure_GRIN1(self):
 
 
     # turning EXC OFF
-    self.GRIN1and2_dds.sw.off()
+    self.dds_GRIN1.sw.off()
     self.ttl_GRIN1_switch.on()
     self.ttl_exc0_switch.on()
 
@@ -4899,17 +4898,17 @@ def microwave_Rabi_2_and_EXC_experiment(self):
         self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
 
         if self.which_node == "alice":
-            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
             delay(5 * us)
-            self.GRIN1and2_dds.sw.on()
+            self.dds_GRIN1.sw.on()
         else:
-            self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+            self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
             delay(5 * us)
-            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
             delay(5 * us)
-            self.GRIN1and2_dds.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
             delay(5 * us)
-            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
             delay(5 * us)
 
         ############################
@@ -5559,7 +5558,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
         #         channels=self.coil_channels)
         #     delay(1 * ms)  # coil relaxation time. 0.4ms was not enough based on oscilloscope.
         #
-        #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  ### set to 5V for optical pumping
+        #     self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))  ### set to 5V for optical pumping
         #     self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
         #     self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
         #     delay(1 * us)
@@ -5576,7 +5575,7 @@ def microwave_map01_map11_CORPSE_experiment(self):
         #
         #     self.core_dma.playback_handle(op_dma_handle)
         #     delay(self.t_depumping)
-        #     self.dds_D1_pumping_DP.sw.off()  ### turning off D1 DP
+        #     self.dds_GRIN2.sw.off()  ### turning off D1 DP
         #     self.ttl_pumping_repump_switch.on()  ### turning off pumping RP
         #
         #     delay(2 * us)
@@ -6657,17 +6656,17 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
 
         if self.which_node == "alice":
             # self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
-            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
             delay(5 * us)
-            self.GRIN1and2_dds.sw.on()
+            self.dds_GRIN1.sw.on()
         else:
-            self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+            self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
             delay(5 * us)
-            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
             delay(5 * us)
-            self.GRIN1and2_dds.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
             delay(5 * us)
-            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
             delay(5 * us)
 
         excitation_cycle = 1 ### just for initialization.
@@ -6823,8 +6822,8 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
 
         self.core.break_realtime()
 
-        self.GRIN1and2_dds.sw.off()
-        self.dds_D1_pumping_DP.sw.off()
+        self.dds_GRIN1.sw.off()
+        self.dds_GRIN2.sw.off()
         delay(0.1 * ms)
 
         second_shot(self)
@@ -7037,17 +7036,17 @@ def atom_photon_parity_11_AllSPCM_experiment(self):
 
         if self.which_node == "alice":
             # self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
-            self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
+            self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
             delay(5 * us)
-            self.GRIN1and2_dds.sw.on()
+            self.dds_GRIN1.sw.on()
         else:
-            self.GRIN1and2_dds.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+            self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
             delay(5 * us)
-            self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+            self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
             delay(5 * us)
-            self.GRIN1and2_dds.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
             delay(5 * us)
-            self.dds_D1_pumping_DP.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+            self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
             delay(5 * us)
 
         excitation_cycle = 0  ### just for initialization.

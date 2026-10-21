@@ -125,10 +125,10 @@ class BaseExperimentMasterSatellite:
     DDS_ALIASES = (
         "dds_FORT",
         "dds_cooling_DP",
-        "dds_D1_pumping_DP",
+        "dds_GRIN2",
         "dds_MW_RF",
         "dds_microwaves",
-        "GRIN1and2_dds",
+        "dds_GRIN1",
         "dds_AOM_A1",
         "dds_AOM_A2",
         "dds_AOM_A3",

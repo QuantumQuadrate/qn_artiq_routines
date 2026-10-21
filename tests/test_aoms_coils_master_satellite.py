@@ -330,7 +330,7 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
     def test_node2_d1_uses_authoritative_grin2_defaults(self):
         node2 = self.make_experiment(Node2ManualExperiment)
         binding = next(item for item in node2.base.node_resolvers["Node2"].dds_bindings
-                       if item["logical_alias"] == "dds_D1_pumping_DP")
+                       if item["logical_alias"] == "dds_GRIN2")
         self.assertEqual(binding["frequency_attribute"], "f_GRIN2_D1_pumping_Node2")
         self.assertEqual(binding["power_attribute"], "p_GRIN2_D1_pumping_Node2")
 
@@ -351,8 +351,8 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             "AOM_A4_ON": "dds_AOM_A4",
             "AOM_A5_ON": "dds_AOM_A5",
             "AOM_A6_ON": "dds_AOM_A6",
-            "D1_pumping_switch_ON": "dds_D1_pumping_DP",
-            "GRIN1and2_ON": "GRIN1and2_dds",
+            "D1_pumping_switch_ON": "dds_GRIN2",
+            "GRIN1and2_ON": "dds_GRIN1",
         }
         for node, experiment_class in (
             ("Node1", Node1ManualExperiment),
@@ -375,7 +375,7 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
                 }
                 experiment.apply_manual_state()
                 for box, alias in boxes.items():
-                    if node == "Node1" and alias == "dds_D1_pumping_DP":
+                    if node == "Node1" and alias == "dds_GRIN2":
                         continue  # Node1's D1 runs from an external source
                     binding = bindings[alias]
                     self.assertEqual(getattr(experiment, alias).last_set, {

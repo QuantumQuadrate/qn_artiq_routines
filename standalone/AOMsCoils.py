@@ -137,7 +137,7 @@ class AOMsCoils(EnvExperiment):
         if self.D1_pumping_DP_AOM_ON == True:
             if self.which_node == 'alice':
                 # Node1's D1 since 2026-10-19: external RF source switched by
-                # ttl_D1_pumping_switch (active low), not dds_D1_pumping_DP
+                # ttl_D1_pumping_switch (active low), not dds_GRIN2
                 self.ttl_D1_pumping_switch.off()
                 self.ttl_GRIN1_switch.off()
             elif self.which_node == 'bob':
@@ -163,9 +163,9 @@ class AOMsCoils(EnvExperiment):
 
         delay(1 * ms)
         if self.GRIN1and2_DDS_ON == True:
-            self.GRIN1and2_dds.sw.on()
+            self.dds_GRIN1.sw.on()
         else:
-            self.GRIN1and2_dds.sw.off()
+            self.dds_GRIN1.sw.off()
 
         delay(1 * ms)
         if self.GRIN1_AOM_switch_ON == True:
@@ -182,21 +182,21 @@ class AOMsCoils(EnvExperiment):
         delay(1 * ms)
         if self.which_node == 'bob':
             if self.Node2_GRIN1_AOM_ON == True:
-                self.GRIN1and2_dds.sw.on()
+                self.dds_GRIN1.sw.on()
                 self.ttl_GRIN1_switch.off()
             else:
-                self.GRIN1and2_dds.sw.off()
+                self.dds_GRIN1.sw.off()
                 self.ttl_GRIN1_switch.on()
 
         delay(1 * ms)
         if self.which_node == 'bob':
             if self.Node2_GRIN2_AOM_ON == True:
-                self.dds_D1_pumping_DP.set(frequency=self.f_GRIN2_excitation,
+                self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation,
                                            amplitude=dB_to_V(self.p_GRIN2_excitation))
-                self.dds_D1_pumping_DP.sw.on()
+                self.dds_GRIN2.sw.on()
                 self.ttl_GRIN2_switch.off()
             else:
-                self.dds_D1_pumping_DP.sw.off()
+                self.dds_GRIN2.sw.off()
                 self.ttl_GRIN2_switch.on()
 
         # MOT arm fiber AOMs, excitation AOM:

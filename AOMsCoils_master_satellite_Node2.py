@@ -161,9 +161,9 @@ class AOMsCoils_master_satellite_Node2(_DatasetRedirectMixin, EnvExperiment):
         delay(1 * ms)
         self.dds_AOM_A6.sw.off()
         delay(1 * ms)
-        self.dds_D1_pumping_DP.sw.off()
+        self.dds_GRIN2.sw.off()
         delay(1 * ms)
-        self.GRIN1and2_dds.sw.off()
+        self.dds_GRIN1.sw.off()
         delay(1 * ms)
 
         self.ttl_repump_switch.on()
@@ -252,16 +252,16 @@ class AOMsCoils_master_satellite_Node2(_DatasetRedirectMixin, EnvExperiment):
         # turns this channel off again, so in the end the D1 box only opens
         # ttl_D1_pumping_switch, as in standalone bob.
         if self.D1_pumping_switch_ON:
-            self.dds_D1_pumping_DP.sw.on()
+            self.dds_GRIN2.sw.on()
         else:
-            self.dds_D1_pumping_DP.sw.off()
+            self.dds_GRIN2.sw.off()
         delay(1 * ms)
 
         # The combined GRIN1 block at the end decides how this channel ends.
         if self.GRIN1and2_ON:
-            self.GRIN1and2_dds.sw.on()
+            self.dds_GRIN1.sw.on()
         else:
-            self.GRIN1and2_dds.sw.off()
+            self.dds_GRIN1.sw.off()
         delay(1 * ms)
 
         ### TTL gates, active low: off() passes, on() blocks
@@ -306,27 +306,27 @@ class AOMsCoils_master_satellite_Node2(_DatasetRedirectMixin, EnvExperiment):
         ### Combined GRIN modes (standalone bob). Each drives a GRIN DDS and
         ### its gate together. Ticked or not, it overrides the GRIN boxes
         ### above: unticked, that DDS ends off and that gate ends blocked.
-        # GRIN1and2_dds keeps the tone initialize_hardware() gave it,
+        # dds_GRIN1 keeps the tone initialize_hardware() gave it,
         # f_GRIN1_D1_pumping_Node2 at p_GRIN1_D1_pumping_Node2.
         if self.Node2_GRIN1_AOM_ON:
-            self.GRIN1and2_dds.sw.on()
+            self.dds_GRIN1.sw.on()
             self.ttl_GRIN1_switch.off()
         else:
-            self.GRIN1and2_dds.sw.off()
+            self.dds_GRIN1.sw.off()
             self.ttl_GRIN1_switch.on()
         delay(1 * ms)
 
         if self.Node2_GRIN2_AOM_ON:
             # The one tone set here: GRIN2 runs at its excitation tone, not
             # the D1 tone initialize_hardware() gave this channel.
-            self.dds_D1_pumping_DP.set(
+            self.dds_GRIN2.set(
                 frequency=self.f_GRIN2_excitation_Node2,
                 amplitude=dB_to_V(self.p_GRIN2_excitation_Node2),
             )
-            self.dds_D1_pumping_DP.sw.on()
+            self.dds_GRIN2.sw.on()
             self.ttl_GRIN2_switch.off()
         else:
-            self.dds_D1_pumping_DP.sw.off()
+            self.dds_GRIN2.sw.off()
             self.ttl_GRIN2_switch.on()
         delay(1 * ms)
 

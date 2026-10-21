@@ -593,10 +593,10 @@ class BaseExperiment:
                 experiment=self.experiment,
                 device_aliases=[
                     'dds_FORT',
-                    'dds_D1_pumping_DP',
+                    'dds_GRIN2',
                     'dds_cooling_DP',
                     'dds_MW_RF',
-                    'GRIN1and2_dds',
+                    'dds_GRIN1',
                     'dds_microwaves',
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
                 ]
@@ -695,11 +695,9 @@ class BaseExperiment:
                     'dds_FORT',
                     'dds_cooling_DP',
                     'dds_MW_RF',
-                    # 'dds_GRIN1',
-                    # 'dds_GRIN2',
                     'dds_microwaves',
-                    'dds_D1_pumping_DP',
-                    'GRIN1and2_dds',
+                    'dds_GRIN2',
+                    'dds_GRIN1',
 
                     *[f'dds_AOM_A{i + 1}' for i in range(6)]  # the fiber AOMs
                 ]
@@ -1030,7 +1028,7 @@ class BaseExperiment:
             ### setting the dds for optical pumping
             ### Not any more: since 2026-10-19 Node1's D1 AOM runs from an external RF
             ### source switched by ttl_D1_pumping_switch (ttl15), not by this Urukul channel.
-            # self.experiment.dds_D1_pumping_DP.set(frequency=self.experiment.f_D1_pumping_DP,
+            # self.experiment.dds_GRIN2.set(frequency=self.experiment.f_D1_pumping_DP,
             #                                       amplitude=dB_to_V(self.experiment.p_D1_pumping_DP))
             delay(10 * us)
 

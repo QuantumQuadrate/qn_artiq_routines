@@ -556,7 +556,7 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                     ("ttl_repump_switch", "ttl_repump_switch"),
                     ("ttl_pumping_repump_switch", "ttl_pumping_repump_switch"),
                     ("dds_cooling_DP", "dds_cooling_DP"),
-                    ("GRIN1and2_dds", "GRIN1and2_dds"),
+                    ("dds_GRIN1", "dds_GRIN1"),
                     ("ttl_exc0_switch", "ttl_exc0_switch"),
                     ("ttl_GRIN1_switch", "ttl_GRIN1_switch"),
                     ("mot_aom_1", "dds_AOM_A1"),
@@ -1398,6 +1398,77 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         )
         self.assertLess(reset_index, ready_index)
         self.assertLess(ready_index, first_hardware_index)
+
+    def test_every_dds_alias_list_matches_each_nodes_alias_map(self):
+        """Each node's DDS alias lists agree with its ALIAS_MAP.
+
+        Standalone DeviceAliases (utilities/DeviceAliases.py) silently skips
+        an alias that is missing from ALIAS_MAP, so a half-finished alias
+        rename would surface much later as an unrelated compile error. Pin,
+        for alice and bob: standalone BaseExperiment's device_aliases list ==
+        ALIAS_MAP keys == DDS_DEFAULTS keys == the master-satellite
+        DDS_ALIASES, and every feedback_channels*.json channel key is an
+        ALIAS_MAP key (aom_feedback skips an unknown key silently too).
+        """
+        import ast
+
+        source = Path("utilities/BaseExperiment.py").read_text(encoding="utf-8")
+        lists = {}
+        for node in ast.walk(ast.parse(source)):
+            if not (isinstance(node, ast.If)
+                    and isinstance(node.test, ast.Compare)
+                    and isinstance(node.test.left, ast.Attribute)
+                    and node.test.left.attr == "node"
+                    and isinstance(node.test.ops[0], ast.Eq)
+                    and isinstance(node.test.comparators[0], ast.Constant)):
+                continue
+            node_name = node.test.comparators[0].value
+            for statement in node.body:
+                for call in ast.walk(statement):
+                    if not isinstance(call, ast.Call):
+                        continue
+                    for keyword in call.keywords:
+                        if keyword.arg != "device_aliases":
+                            continue
+                        names = []
+                        for element in keyword.value.elts:
+                            if isinstance(element, ast.Starred):
+                                expression = ast.Expression(element.value)
+                                names.extend(eval(
+                                    compile(expression, "<aliases>", "eval"),
+                                    {"range": range},
+                                ))
+                            else:
+                                names.append(element.value)
+                        lists[node_name] = names
+        self.assertEqual(set(lists), {"alice", "bob"})
+        for node_name, names in lists.items():
+            with self.subTest(node=node_name):
+                with Path(
+                    f"utilities/config/{node_name}/device_aliases.json"
+                ).open() as config_file:
+                    config = json.load(config_file)
+                self.assertEqual(len(names), len(set(names)))
+                self.assertEqual(set(names), set(config["ALIAS_MAP"]))
+                self.assertEqual(
+                    set(config["DDS_DEFAULTS"]), set(config["ALIAS_MAP"])
+                )
+                self.assertEqual(
+                    set(BaseExperimentMasterSatellite.DDS_ALIASES),
+                    set(config["ALIAS_MAP"]),
+                )
+                feedback_paths = sorted(Path(
+                    f"utilities/config/{node_name}"
+                ).glob("feedback_channels*.json"))
+                self.assertTrue(feedback_paths)
+                for feedback_path in feedback_paths:
+                    with feedback_path.open() as feedback_file:
+                        feedback = json.load(feedback_file)
+                    for group in feedback.values():
+                        self.assertLessEqual(
+                            set(group), set(config["ALIAS_MAP"]),
+                            feedback_path.name,
+                        )
 
 
 if __name__ == "__main__":

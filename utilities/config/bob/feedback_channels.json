@@ -80,7 +80,7 @@
                 },
 
 
-			"dds_D1_pumping_DP":
+			"dds_GRIN2":
                 {
                     "sampler_ch": 0,
                     "set_points": ["set_point_D1_DP"],

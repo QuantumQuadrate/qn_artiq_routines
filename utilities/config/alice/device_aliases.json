@@ -1,7 +1,7 @@
 { "ALIAS_MAP": {
   "dds_FORT": "urukul0_ch0",
   "dds_cooling_DP": "urukul0_ch1",
-  "dds_D1_pumping_DP": "urukul2_ch2",
+  "dds_GRIN2": "urukul2_ch2",
   "dds_MW_RF": "urukul0_ch2",
   "dds_AOM_A2": "urukul1_ch0",
   "dds_AOM_A3": "urukul1_ch1",
@@ -9,7 +9,7 @@
   "dds_AOM_A6": "urukul1_ch3",
   "dds_AOM_A4": "urukul2_ch0",
   "dds_AOM_A5": "urukul2_ch1",
-  "GRIN1and2_dds": "urukul0_ch3",
+  "dds_GRIN1": "urukul0_ch3",
   "dds_microwaves": "urukul2_ch3"
   },
   "DDS_DEFAULTS": {
@@ -21,7 +21,7 @@
       "frequency": "f_cooling_DP_MOT",
       "power": "p_cooling_DP_MOT"
     },
-    "dds_D1_pumping_DP": {
+    "dds_GRIN2": {
       "frequency": "f_D1_pumping_DP",
       "power": "p_D1_pumping_DP"
     },
@@ -29,7 +29,7 @@
       "frequency": "f_MW_RF_dds",
       "power": "p_MW_RF_dds"
     },
-    "GRIN1and2_dds": {
+    "dds_GRIN1": {
       "frequency": "f_excitation",
       "power": "p_excitation"
     },

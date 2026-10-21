@@ -77,7 +77,7 @@
         },
     "sampler1":
         {
-            "dds_D1_pumping_DP":
+            "dds_GRIN2":
                 {
                     "sampler_ch": 4,
                     "set_points": ["set_point_D1_SP"],
@@ -89,7 +89,7 @@
                     "t_measure_delay":0.001,
                     "max_dB": -5
                 },
-            "GRIN1and2_dds":
+            "dds_GRIN1":
                 {
                     "sampler_ch": 4,
                     "set_points": ["set_point_excitation"],

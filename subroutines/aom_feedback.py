@@ -160,7 +160,7 @@ class FeedbackChannel:
         measured = buffer[self.buffer_index]
         err = self.set_points[setpoint_index] - measured
 
-        # if self.name == 'GRIN1and2_dds':
+        # if self.name == 'dds_GRIN1':
         #     self.stabilizer.exp.print_async("in feedback method:", measured, self.stabilizer.measurement_array[self.buffer_index])
 
         # runs off the kernel, else the error array isn't correctly updated
@@ -359,7 +359,7 @@ class AOMPowerStabilizer:
         self.ttl_repump_switch = ambient("ttl_repump_switch")
         self.ttl_pumping_repump_switch = ambient("ttl_pumping_repump_switch")
         self.dds_cooling_DP = ambient("dds_cooling_DP")
-        self.GRIN1and2_dds = ambient("GRIN1and2_dds")
+        self.dds_GRIN1 = ambient("dds_GRIN1")
         self.ttl_exc0_switch = ambient("ttl_exc0_switch")
         self.ttl_GRIN1_switch = ambient("ttl_GRIN1_switch")
         self.mot_aom_1 = ambient("dds_AOM_A1")
@@ -696,17 +696,17 @@ class AOMPowerStabilizer:
         ### do feedback on the series channels
         for ch in self.series_channels:
 
-            if ch.name == 'GRIN1and2_dds':
+            if ch.name == 'dds_GRIN1':
                 # self.exp.ttl_repump_switch.off() # turns MOT repump AOM on
-                self.GRIN1and2_dds.sw.on()
+                self.dds_GRIN1.sw.on()
                 delay(1*ms)
                 self.ttl_exc0_switch.off()
                 self.ttl_GRIN1_switch.off()
                 delay(1*ms)
             #
             # todo: D1 feedback
-            # if ch.name == 'dds_D1_pumping_DP':
-            #     self.GRIN1and2_dds.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
+            # if ch.name == 'dds_GRIN2':
+            #     self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(1.0))
             #     self.exp.ttl_excitation_switch.off() ### ttl_excitation_switch does not exist anymore; replaced by GRIN 1 and 2 switches
             #     delay(1*ms)
 
@@ -717,7 +717,7 @@ class AOMPowerStabilizer:
                 delay(0.1 * ms)
                 self.measure()
                 delay(0.1 * ms)
-                # if ch.name == 'GRIN1and2_dds':
+                # if ch.name == 'dds_GRIN1':
                 #     self.exp.print_async("in feedback loop:",self.measurement_array[ch.buffer_index])
 
                 if not (self.dry_run or monitor_only):
@@ -735,9 +735,9 @@ class AOMPowerStabilizer:
                 delay(60*ms)
             delay(1*ms)
 
-            if ch.name == 'GRIN1and2_dds':
+            if ch.name == 'dds_GRIN1':
                 # self.exp.ttl_repump_switch.on()  # turns MOT repump AOM on
-                self.GRIN1and2_dds.sw.off()
+                self.dds_GRIN1.sw.off()
                 delay(1 * ms)
                 self.ttl_exc0_switch.on()
                 self.ttl_GRIN1_switch.on()
@@ -745,7 +745,7 @@ class AOMPowerStabilizer:
                 delay(1 * ms)
 
             # todo: d1 feedback
-            # if ch.name == 'dds_D1_pumping_DP':
+            # if ch.name == 'dds_GRIN2':
             #     self.exp.ttl_excitation_switch.on() ### ttl_excitation_switch does not exist anymore; replaced by GRIN 1 and 2 switches
             #     delay(1 * ms)
 

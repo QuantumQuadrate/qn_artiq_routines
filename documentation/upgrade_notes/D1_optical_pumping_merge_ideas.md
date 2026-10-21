@@ -1,8 +1,14 @@
 # D1 and optical pumping: merging Node1 and Node2
 
 **Started:** 2026-10-11 **Status:** **Partly applied** — Node1's D1 hardware
-change and its D1 switch are done (Status 2026-10-20, below); the renames
-(stages 1-2), Node1's GRIN1 path and the stage 4 merge are not started.
+change and its D1 switch are done (Status 2026-10-20, below), and so is the
+stage 1 alias rename, with the user's names `GRIN1and2_dds` -> `dds_GRIN1` and
+`dds_D1_pumping_DP` -> `dds_GRIN2` (2026-10-20, branch
+`20261020_GRIN_new_wiring`; not the `GRIN1_dds` / `GRIN2_dds` proposed below;
+guard test `test_every_dds_alias_list_matches_each_nodes_alias_map`; the
+archive `experiment_functions_obsolete.py` keeps the old names). Not started: the GUI argument names (the other half of stage 1, still open),
+stage 2 (the hardware check), Node1's GRIN1 path and the stage 4 merge. The
+rest of this note uses the old names.
 **Scope:** both stacks (standalone and master-satellite) plus the per-node
 alias config. Not the device_db.
 

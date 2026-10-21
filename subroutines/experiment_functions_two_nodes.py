@@ -229,7 +229,7 @@ def record_CW_optical_pumping_both_nodes(self):
         through A5/A6 only.
       * Both nodes' D1 comes from an external source gated by
         ttl_D1_pumping_switch_NodeX (Node1's since 2026-10-19, on ttl15).
-        Node2's reaches the atom through GRIN1, so GRIN1and2_dds_Node2 -- which
+        Node2's reaches the atom through GRIN1, so dds_GRIN1_Node2 -- which
         on Node2 IS the GRIN1 DDS, see the naming note in the docstring of
         CW_optical_pumping_node2 -- has to be running before the gates open.
         Node1's D1 now passes its GRIN1 AOM too, but this function does not
@@ -311,9 +311,9 @@ def record_CW_optical_pumping_both_nodes(self):
         ### Node2 only: its D1 reaches the atom through GRIN1, so the GRIN1
         ### tone must be up before the gates open. Node1's GRIN1 is not
         ### opened here yet (see the docstring).
-        self.GRIN1and2_dds_Node2.set(frequency=self.f_GRIN1_D1_pumping_Node2,
+        self.dds_GRIN1_Node2.set(frequency=self.f_GRIN1_D1_pumping_Node2,
                                      amplitude=dB_to_V(self.p_GRIN1_D1_pumping_Node2))
-        self.GRIN1and2_dds_Node2.sw.on()
+        self.dds_GRIN1_Node2.sw.on()
         delay(2 * us)
 
         ### Pumping repump on, 5 us AHEAD of the D1 light rather than with it,
@@ -342,7 +342,7 @@ def record_CW_optical_pumping_both_nodes(self):
         ### single-node originals, and goes off here.
         self.ttl_pumping_repump_switch_Node1.on()
         self.ttl_pumping_repump_switch_Node2.on()
-        self.GRIN1and2_dds_Node2.sw.off()
+        self.dds_GRIN1_Node2.sw.off()
         delay(5 * us)
         self.dds_AOM_A1_Node1.sw.off()
         self.dds_AOM_A2_Node1.sw.off()

@@ -388,7 +388,7 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         with bob_defaults_path.open() as config_file:
             bob_defaults = json.load(config_file)["DDS_DEFAULTS"]
         self.assertEqual(
-            bob_defaults["dds_D1_pumping_DP"],
+            bob_defaults["dds_GRIN2"],
             {
                 "frequency": "f_GRIN2_D1_pumping",
                 "power": "p_GRIN2_D1_pumping",

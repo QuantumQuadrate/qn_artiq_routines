@@ -154,9 +154,9 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
         delay(1 * ms)
         self.dds_AOM_A6.sw.off()
         delay(1 * ms)
-        self.dds_D1_pumping_DP.sw.off()
+        self.dds_GRIN2.sw.off()
         delay(1 * ms)
-        self.GRIN1and2_dds.sw.off()
+        self.dds_GRIN1.sw.off()
         delay(1 * ms)
 
         self.ttl_repump_switch.on()
@@ -238,13 +238,13 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
         # D1: Node1's D1 AOM runs from an external RF source since
         # 2026-10-19, switched by ttl_D1_pumping_switch (gates, below). The
         # Urukul channel that used to drive it stays off.
-        self.dds_D1_pumping_DP.sw.off()
+        self.dds_GRIN2.sw.off()
         delay(1 * ms)
 
         if self.GRIN1and2_ON:
-            self.GRIN1and2_dds.sw.on()
+            self.dds_GRIN1.sw.on()
         else:
-            self.GRIN1and2_dds.sw.off()
+            self.dds_GRIN1.sw.off()
         delay(1 * ms)
 
         ### TTL gates, active low: off() passes, on() blocks
