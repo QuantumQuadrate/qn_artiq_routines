@@ -11,6 +11,12 @@ hardware cannot reach the other.
 
 The TTL gates are ACTIVE LOW: off() lets the light (or RF) through, on()
 blocks it.
+
+Since the 2026-10-20 rewire Node1's GRIN AOMs are wired like Node2's:
+dds_GRIN1 (urukul0_ch3) drives the GRIN1 AOM and dds_GRIN2 (urukul2_ch2) the
+GRIN2 AOM, and the D1 light comes from an external source gated by
+ttl_D1_pumping_switch. So the GRIN controls here work as on Node2, combined
+GRIN modes included.
 """
 
 from artiq.experiment import BooleanValue, EnvExperiment, delay, kernel, ms
@@ -24,6 +30,7 @@ from utilities.BaseExperiment_master_satellite import (
     BaseExperimentMasterSatellite,
     _DatasetRedirectMixin,
 )
+from utilities.conversions import dB_to_V_kernel as dB_to_V
 
 
 class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
@@ -62,6 +69,12 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
         self.setattr_argument("Excitation0_AOM_switch_ON", BooleanValue(False), group)
         self.setattr_argument("GRIN1_AOM_switch_ON", BooleanValue(False), group)
         self.setattr_argument("GRIN2_AOM_switch_ON", BooleanValue(False), group)
+
+        # As on Node2: each box drives a GRIN DDS and its gate together, and
+        # has the final say over them (turn_on_AOMs).
+        group = "Node1 GRIN1/GRIN2 combined modes"
+        self.setattr_argument("Node1_GRIN1_AOM_ON", BooleanValue(False), group)
+        self.setattr_argument("Node1_GRIN2_AOM_ON", BooleanValue(False), group)
 
         # Unless disabled, the four coils go to Node1's persistent MOT
         # calibration voltages. There are no manual voltage entries.
@@ -181,10 +194,14 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
 
         Run after everything_off(), and again after laser feedback, which
         switches AOMs during its measurements. As in standalone, this only
-        switches. initialize_hardware() has set every DDS to Node1's
+        switches, except that the combined GRIN2 mode sets GRIN2's
+        excitation tone. initialize_hardware() has set every DDS to Node1's
         frequency and power, and laser feedback corrects the power of each
         AOM it stabilizes (fast_feedback_dds_list) in the DDS itself, so
         after feedback the corrected power is what comes back on.
+
+        The two combined GRIN modes come last, as on Node2, and decide how
+        both GRIN DDSes and both GRIN gates end up.
         """
         ### DDS / AOM outputs: switched only (see above)
         if self.FORT_AOM_ON:
@@ -235,12 +252,13 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
             self.dds_AOM_A6.sw.off()
         delay(1 * ms)
 
-        # D1: Node1's D1 AOM runs from an external RF source since
-        # 2026-10-19, switched by ttl_D1_pumping_switch (gates, below). The
-        # Urukul channel that used to drive it stays off.
+        # D1 runs from an external RF source, switched by
+        # ttl_D1_pumping_switch (gates, below). dds_GRIN2 drives the GRIN2
+        # AOM; the combined GRIN2 block at the end decides how it ends.
         self.dds_GRIN2.sw.off()
         delay(1 * ms)
 
+        # The combined GRIN1 block at the end decides how this channel ends.
         if self.GRIN1and2_ON:
             self.dds_GRIN1.sw.on()
         else:
@@ -266,13 +284,14 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
             self.ttl_exc0_switch.on()
         delay(1 * ms)
 
-        # D1 passes through the GRIN1 AOM, so the D1 box opens this gate too.
-        if self.GRIN1_AOM_switch_ON or self.D1_pumping_switch_ON:
+        # The combined GRIN1 block at the end decides how this gate ends.
+        if self.GRIN1_AOM_switch_ON:
             self.ttl_GRIN1_switch.off()
         else:
             self.ttl_GRIN1_switch.on()
         delay(1 * ms)
 
+        # The combined GRIN2 block at the end decides how this gate ends.
         if self.GRIN2_AOM_switch_ON:
             self.ttl_GRIN2_switch.off()
         else:
@@ -283,6 +302,37 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
             self.ttl_D1_pumping_switch.off()  # D1 on
         else:
             self.ttl_D1_pumping_switch.on()  # D1 blocked
+        delay(1 * ms)
+
+        ### Combined GRIN modes, as on Node2. Each drives a GRIN DDS and its
+        ### gate together. Ticked or not, it overrides the GRIN boxes above:
+        ### unticked, that DDS ends off and that gate ends blocked.
+        # dds_GRIN1 keeps the tone initialize_hardware() gave it,
+        # f_GRIN1_D1_pumping_Node1 at p_GRIN1_D1_pumping_Node1.
+        if self.Node1_GRIN1_AOM_ON:
+            self.dds_GRIN1.set(
+                frequency=self.f_GRIN1_D1_pumping_Node1,
+                amplitude=dB_to_V(self.p_GRIN1_D1_pumping_Node1),
+            )
+            self.dds_GRIN1.sw.on()
+            self.ttl_GRIN1_switch.off()
+        else:
+            self.dds_GRIN1.sw.off()
+            self.ttl_GRIN1_switch.on()
+        delay(1 * ms)
+
+        if self.Node1_GRIN2_AOM_ON:
+            # The one tone set here: GRIN2 runs at its excitation tone, not
+            # the D1 tone initialize_hardware() gave this channel.
+            self.dds_GRIN2.set(
+                frequency=self.f_GRIN2_excitation_Node1,
+                amplitude=dB_to_V(self.p_GRIN2_excitation_Node1),
+            )
+            self.dds_GRIN2.sw.on()
+            self.ttl_GRIN2_switch.off()
+        else:
+            self.dds_GRIN2.sw.off()
+            self.ttl_GRIN2_switch.on()
         delay(1 * ms)
 
     @kernel
@@ -339,9 +389,10 @@ class AOMsCoils_master_satellite_Node1(_DatasetRedirectMixin, EnvExperiment):
     @kernel
     def run_feedback(self):
         """Feed back (or monitor) when the six fiber AOMs and the cooling DP
-        are all requested on, then re-apply the boxes: the stabilizer
-        switches AOMs while it measures. Re-applying only switches, so the
-        powers the feedback corrected stay.
+        are all requested on, then re-apply the boxes, combined GRIN modes
+        included: the stabilizer switches AOMs while it measures. Re-applying
+        sets none of the stabilized DDSes, so the powers the feedback
+        corrected stay.
         """
         self.core.reset()
         if self._all_stabilized_aoms_requested:

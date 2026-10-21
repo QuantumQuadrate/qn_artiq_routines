@@ -266,8 +266,9 @@ indices; Node2's resolve to `ttl16`-`ttl31`):
   site list is in `documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md`
   (Status 2026-10-20). Before that no Node1 sequence opened it, so a Node1
   pumping run in between got no D1 light (only AOMsCoils ran on Node1 then).
-  Node1's D1 now also passes the GRIN1 AOM, which `CW_optical_pumping_node1`
-  and its DMA version do not open yet (user: D1 switch only for now).
+  Node1's D1 now also passes the GRIN1 AOM. `CW_optical_pumping_node1` and
+  its DMA version never opened it; since the Node1 GRIN rewire (2026-10-20,
+  section 2.8) the Node1 sequences use Node2's pumping code, which does.
   AOMsCoils Node1 opens ttl15 when D1 is requested (section 11.7). Init blocks it (safe state ON), like Node2's ttl12,
   at the user's request that master-satellite init turn off everything
   standalone does.
@@ -298,8 +299,8 @@ against both mapping layers:
 | AOM A4 | `dds_AOM_A4` | `urukul2_ch0` | `urukul3_ch3` |
 | AOM A5 | `dds_AOM_A5` | `urukul2_ch1` | `urukul4_ch0` |
 | AOM A6 | `dds_AOM_A6` | `urukul1_ch3` | `urukul4_ch1` |
-| GRIN2 (Node1: the old D1 DP AOM, unused) | `dds_GRIN2` | `urukul2_ch2` | `urukul5_ch0` |
-| GRIN1 (Node1: feeds both GRINs) | `dds_GRIN1` | `urukul0_ch3` | `urukul5_ch2` |
+| GRIN2 (Node1: the old D1 DP channel) | `dds_GRIN2` | `urukul2_ch2` | `urukul5_ch0` |
+| GRIN1 | `dds_GRIN1` | `urukul0_ch3` | `urukul5_ch2` |
 | microwaves | `dds_microwaves` | `urukul2_ch3` | `urukul5_ch3` |
 | MW RF | `dds_MW_RF` | `urukul0_ch2` | `urukul5_ch1` |
 
@@ -308,19 +309,23 @@ The two GRIN aliases were renamed on 2026-10-20 (`GRIN1and2_dds` ->
 channel is unchanged; the archive `subroutines/experiment_functions_obsolete.py`
 keeps the old names. Guard: `test_every_dds_alias_list_matches_each_nodes_alias_map`.
 
-The same alias names mean physically different things on the two nodes
-(recorded in `documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md`):
+Since the Node1 GRIN rewire (2026-10-20, user) the GRIN aliases mean the same
+thing on both nodes (`documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md`,
+Status 2026-10-20, stages 3 and 4). The code was changed ahead of the cables:
 
-- `dds_GRIN1`: Node1 = one DDS feeding both GRINs (excitation, defaults
-  `f/p_excitation`); Node2 = GRIN1 only (D1 pumping, defaults
+- `dds_GRIN1` drives the GRIN1 AOM, which carries D1 pumping (defaults
   `f/p_GRIN1_D1_pumping`).
-- `dds_GRIN2`: Node1 = `urukul2_ch2`, the D1 DP AOM at 373.075 MHz
-  until 2026-10-19, now unused (D1 runs from an external source, section
-  2.7); Node2 = GRIN2 (defaults `f/p_GRIN2_D1_pumping`; the Node2 combined
-  GRIN2 mode reprograms it to `f/p_GRIN2_excitation`).
+- `dds_GRIN2` drives the GRIN2 AOM, which carries excitation (defaults
+  `f/p_GRIN2_D1_pumping`; the excitation arming and the combined GRIN2 modes
+  reprogram it to `f/p_GRIN2_excitation`).
 - Each node has a dedicated D1 gate, `ttl_D1_pumping_switch` (Node1 ttl15
-  since 2026-10-19, Node2 ttl12); Node1's D1 also passes the GRIN1 optical
-  gate.
+  since 2026-10-19, Node2 ttl12); its D1 then passes the GRIN1 optical gate.
+- Node1 runs Node2's pumping DMA (`record_CW_optical_pumping_node2`, which also
+  switches A1-A4 on Node1) and excitation arming. `CW_optical_pumping_node1`
+  and its DMA version are no longer called; kept for rollback.
+- Before the rewire, Node1's `dds_GRIN1` (`urukul0_ch3`) fed both GRINs at
+  `f/p_excitation`, and `dds_GRIN2` (`urukul2_ch2`) was the D1 DP AOM at
+  373.075 MHz until 2026-10-19, then unused.
 
 ### 2.9 Fixed wiring metadata
 
@@ -2200,8 +2205,8 @@ and is refused by the analysis loader.
   adjusts (`fast_feedback_dds_list`: A1-A6 and the FORT on both nodes).
   Before, `turn_on_AOMs()` set every ticked DDS to its prepare-time power,
   so after feedback the correction was saved for the next run but undone for
-  this one (inherited from the mixin). The one set() left is Node2's
-  combined GRIN2 excitation tone. Compared with the version before over 589
+  this one (inherited from the mixin). The one set() left is the combined
+  GRIN2 excitation tone (Node2; Node1 too since 2026-10-20). Compared with the version before over 589
   (Node1) and 824 (Node2) argument sets, both methods, with the test
   stabilizer and with one that changes the powers: identical apart from the
   removed set() calls, which rewrote the value the DDS already held except
@@ -2228,18 +2233,19 @@ and is refused by the analysis loader.
 - Controls: FORT, cooling DP, A1-A6, GRIN1and2, the active-low optical gates
   (repump, pumping-repump, excitation0, GRIN1, GRIN2, microwave, and each
   node's dedicated D1 gate `ttl_D1_pumping_switch`, box `D1_pumping_switch_ON`,
-  which on Node2 also switches the D1 DDS; Node1 D1 also opens the GRIN1 gate,
-  `if self.GRIN1_AOM_switch_ON or self.D1_pumping_switch_ON`), microwave DDS,
+  which on Node2 also switches `dds_GRIN2` before the combined GRIN2 mode
+  decides how it ends; until 2026-10-20 Node1 D1 also opened the GRIN1
+  gate), microwave DDS,
   MW RF, coils, K10CR1,
   `run_laser_feedback`. DDS frequency/power are the authoritative `*_NodeX`
   variables, which `initialize_hardware()` writes through Base's resolver
-  DDS bindings; `turn_on_AOMs()` only switches (except Node2's combined GRIN2
-  mode, which sets `f/p_GRIN2_excitation_Node2`).
+  DDS bindings; `turn_on_AOMs()` only switches (except each node's combined
+  GRIN2 mode, which sets `f/p_GRIN2_excitation_NodeX`).
 - Node1 D1 since 2026-10-19 (user): the D1 AOM runs from an external RF
   source switched by `ttl_D1_pumping_switch` (Node1 ttl15, active low), as on
-  Node2. `D1_pumping_switch_ON` opens that gate (and GRIN1); Node1's Urukul D1
-  channel (`dds_GRIN2`, urukul2_ch2) is no longer switched on by it
-  and stays off. Test: `test_node1_d1_is_switched_by_its_external_source_ttl`.
+  Node2. `D1_pumping_switch_ON` opens that gate (and, until the GRIN rewire
+  below, GRIN1); Node1's Urukul D1 channel (`dds_GRIN2`, urukul2_ch2) is no
+  longer switched on by it. Test: `test_d1_box_opens_only_the_d1_gate`.
   Since 2026-10-20 the Node1 sequences switch D1 with ttl15 too (section 2.7).
 - 2026-10-20 (user): the D1 box `D1_pumping_DP_ON` is renamed
   `D1_pumping_switch_ON` and moved from the DDS group to the "NodeX
@@ -2254,7 +2260,17 @@ and is refused by the analysis loader.
   them too after the stabilizer (2026-10-19); before that it re-applied only
   the individual controls, so a Node2 run with every stabilized AOM on could
   end with GRIN RF on or the GRIN1 gate open where standalone ends them off
-  (`test_run_feedback_keeps_node2_combined_grin_state`).
+  (`test_run_feedback_keeps_combined_grin_state`).
+- 2026-10-20, Node1 GRIN rewire (user; code ahead of the cables, section 2.8):
+  Node1 gets the same combined modes, `Node1_GRIN1_AOM_ON` /
+  `Node1_GRIN2_AOM_ON` (group "Node1 GRIN1/GRIN2 combined modes"), applied
+  last and re-applied by `run_feedback()`; the GRIN2 one sets
+  `f/p_GRIN2_excitation_Node1`. So on Node1 too, unticked combined modes turn
+  the GRIN DDSes off and block the GRIN gates whatever the individual boxes
+  say. Node1's D1 box no longer opens the GRIN1 gate. Tests:
+  `test_combined_grin_modes_drive_dds_and_gate_together`,
+  `test_combined_modes_off_override_individual_grin_controls`,
+  `test_each_node_file_has_its_own_combined_mode_boxes`.
 - Coils (`71b4405`): one `disable_coils` checkbox (default False). Unchecked,
   the four coils go to the persistent `*_volts_MOT_NodeX` values read at
   prepare; checked, 0 V. Nothing is typed in the GUI or persisted.
@@ -3223,7 +3239,10 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   `GRIN1and2_dds -> dds_GRIN1` and `dds_D1_pumping_DP -> dds_GRIN2`, not yet
   checked on hardware), verify Node2 on hardware, then give Node1 a real D1 TTL and an
   external source (done: ttl15 and an external RF source since 2026-10-19,
-  the Node1 sequences switched on 2026-10-20; section 2.7). Prerequisite: the
+  the Node1 sequences switched on 2026-10-20; section 2.7). Stages 3 and 4
+  are in the code since 2026-10-20, ahead of the Node1 GRIN rewire: Node1 runs
+  Node2's pumping and excitation code, its GRIN values are placeholders to
+  calibrate (section 2.8). Prerequisite: the
   alias guard test (O-22, now added). Latent bugs recorded there and left alone:
   `chopped_optical_pumping` has no Node2-correct path; several Node1-only
   unconditional sequences mis-drive Node2; the `aom_feedback` GRIN special

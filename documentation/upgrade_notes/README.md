@@ -28,7 +28,7 @@ wrong. These are forward-looking plans for work not yet done.
 
 | Note | Topic | Status |
 | --- | --- | --- |
-| [D1_optical_pumping_merge_ideas.md](D1_optical_pumping_merge_ideas.md) | Rename `GRIN1and2_dds`→`dds_GRIN1`, `dds_D1_pumping_DP`→`dds_GRIN2`; then give Node1 a real D1 TTL so it can share Node2's OP/EXC code | Partly applied (2026-10-20): alias renames done (GUI names and the hardware check pending); Node1's D1 on ttl15 with an external RF source, Node1 sequences switched; Node1's GRIN1 path and the merge not started |
+| [D1_optical_pumping_merge_ideas.md](D1_optical_pumping_merge_ideas.md) | Rename `GRIN1and2_dds`→`dds_GRIN1`, `dds_D1_pumping_DP`→`dds_GRIN2`; then give Node1 a real D1 TTL so it can share Node2's OP/EXC code | Partly applied (2026-10-20): alias renames done (GUI names and the hardware check pending); Node1's D1 on ttl15 with an external RF source, Node1 sequences switched; Node1's GRIN rewire and the merge in code ahead of the hardware (Node1 runs Node2's pumping and excitation code) |
 | [chopped_RO_ideas.md](chopped_RO_ideas.md) | Low-loss fluorescence readout by chopping the FORT out of phase with the readout light; why the DP AOM currently caps the duty cycle at 26% | Idea, partially built |
 
 Both notes above depend on the **same** decision: whether two-node *standalone*

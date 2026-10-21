@@ -134,20 +134,12 @@ class AOMsCoils(EnvExperiment):
             self.ttl_repump_switch.on()
 
         delay(1 * ms)
+        # D1 runs from an external RF source switched by ttl_D1_pumping_switch
+        # (active low) on both nodes since Node1's 2026-10-20 GRIN rewire.
         if self.D1_pumping_DP_AOM_ON == True:
-            if self.which_node == 'alice':
-                # Node1's D1 since 2026-10-19: external RF source switched by
-                # ttl_D1_pumping_switch (active low), not dds_GRIN2
-                self.ttl_D1_pumping_switch.off()
-                self.ttl_GRIN1_switch.off()
-            elif self.which_node == 'bob':
-                self.ttl_D1_pumping_switch.off()
+            self.ttl_D1_pumping_switch.off()
         else:
-            if self.which_node == 'alice':
-                self.ttl_D1_pumping_switch.on()
-                self.ttl_GRIN1_switch.on()
-            elif self.which_node == 'bob':
-                self.ttl_D1_pumping_switch.on()
+            self.ttl_D1_pumping_switch.on()
 
         delay(1 * ms)
         if self.pumping_repump_switch_ON == True:
@@ -179,25 +171,25 @@ class AOMsCoils(EnvExperiment):
         else:
             self.ttl_GRIN2_switch.on()
 
+        # Combined GRIN modes, on both nodes since Node1's 2026-10-20 GRIN
+        # rewire (the Node2_ box names are kept so saved arguments survive).
         delay(1 * ms)
-        if self.which_node == 'bob':
-            if self.Node2_GRIN1_AOM_ON == True:
-                self.dds_GRIN1.sw.on()
-                self.ttl_GRIN1_switch.off()
-            else:
-                self.dds_GRIN1.sw.off()
-                self.ttl_GRIN1_switch.on()
+        if self.Node2_GRIN1_AOM_ON == True:
+            self.dds_GRIN1.sw.on()
+            self.ttl_GRIN1_switch.off()
+        else:
+            self.dds_GRIN1.sw.off()
+            self.ttl_GRIN1_switch.on()
 
         delay(1 * ms)
-        if self.which_node == 'bob':
-            if self.Node2_GRIN2_AOM_ON == True:
-                self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation,
-                                           amplitude=dB_to_V(self.p_GRIN2_excitation))
-                self.dds_GRIN2.sw.on()
-                self.ttl_GRIN2_switch.off()
-            else:
-                self.dds_GRIN2.sw.off()
-                self.ttl_GRIN2_switch.on()
+        if self.Node2_GRIN2_AOM_ON == True:
+            self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation,
+                               amplitude=dB_to_V(self.p_GRIN2_excitation))
+            self.dds_GRIN2.sw.on()
+            self.ttl_GRIN2_switch.off()
+        else:
+            self.dds_GRIN2.sw.off()
+            self.ttl_GRIN2_switch.on()
 
         # MOT arm fiber AOMs, excitation AOM:
         delay(1 * ms)

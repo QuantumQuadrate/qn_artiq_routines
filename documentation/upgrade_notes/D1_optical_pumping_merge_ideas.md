@@ -1,14 +1,16 @@
 # D1 and optical pumping: merging Node1 and Node2
 
-**Started:** 2026-10-11 **Status:** **Partly applied** — Node1's D1 hardware
-change and its D1 switch are done (Status 2026-10-20, below), and so is the
-stage 1 alias rename, with the user's names `GRIN1and2_dds` -> `dds_GRIN1` and
-`dds_D1_pumping_DP` -> `dds_GRIN2` (2026-10-20, branch
+**Started:** 2026-10-11 **Status:** **Mostly applied in code** — Node1's D1
+hardware change and its D1 switch are done (Status 2026-10-20, below), and so
+is the stage 1 alias rename, with the user's names `GRIN1and2_dds` ->
+`dds_GRIN1` and `dds_D1_pumping_DP` -> `dds_GRIN2` (2026-10-20, branch
 `20261020_GRIN_new_wiring`; not the `GRIN1_dds` / `GRIN2_dds` proposed below;
 guard test `test_every_dds_alias_list_matches_each_nodes_alias_map`; the
-archive `experiment_functions_obsolete.py` keeps the old names). Not started: the GUI argument names (the other half of stage 1, still open),
-stage 2 (the hardware check), Node1's GRIN1 path and the stage 4 merge. The
-rest of this note uses the old names.
+archive `experiment_functions_obsolete.py` keeps the old names). Stages 3 and
+4 are in the code too, ahead of the Node1 GRIN rewire: Node1 runs Node2's
+pumping and excitation code (Status 2026-10-20, stages 3 and 4, below). Not
+started: the GUI argument names (the other half of stage 1, still open) and
+stage 2 (the hardware check). The rest of this note uses the old names.
 **Scope:** both stacks (standalone and master-satellite) plus the per-node
 alias config. Not the device_db.
 
@@ -43,17 +45,63 @@ alias config. Not the device_db.
   - `chopped_optical_pumping`, which nothing calls;
   - `tests/A2-ExcitationSPCMGateStartTime.py`, written for Node2: pending the
     user's decision.
-- Not done (user: "D1 switch only for now"): Node1's D1 now passes the GRIN1
-  AOM, but `CW_optical_pumping_node1`, `record_CW_optical_pumping_node1` and
-  the two-node Node1 side neither open `ttl_GRIN1_switch` nor turn on
-  `GRIN1and2_dds` (parity 2-5, single photon 4/5 and `measure_GRIN1` keep their
-  own GRIN1 lines). Check on hardware whether D1 reaches the atoms.
+- Superseded later the same day by stages 3 and 4 (next section). At first
+  (user: "D1 switch only for now") `CW_optical_pumping_node1`,
+  `record_CW_optical_pumping_node1` and the two-node Node1 side neither opened
+  `ttl_GRIN1_switch` nor turned on `GRIN1and2_dds`.
 - Later on 2026-10-20 the unused functions moved to
   `subroutines/experiment_functions_obsolete.py`. Of those named here, single
   photon 3_node2, 4, 5, 6, 7 and 8, parity 2-5 and 6_node2 and
   `test_excitation_rise_time_experiment` are there now; the pumping functions,
   `measure_GRIN1`, the chopped-pumping DMA, `chopped_optical_pumping` and single
   photon 9 stayed.
+
+## Status 2026-10-20, stages 3 and 4
+
+The next hardware change (user): the Urukul channel used for Node1's GRIN2 AOM
+today, `urukul0_ch3` (until now one tone for both GRINs), drives its GRIN1 AOM
+as `dds_GRIN1`, and the free old D1 channel `urukul2_ch2` drives its GRIN2 AOM
+as `dds_GRIN2`. After the recabling `ttl_GRIN1_switch` (ttl14) must gate the
+GRIN1 path and `ttl_GRIN2_switch` (ttl13) the GRIN2 path; on Node1 they used to
+route the one shared tone. Node1 then has
+Node2's AOM layout, so the alias map stays as it is. The code was changed
+ahead of the rewire (user: edit now, all at once), so until the rewire Node1
+runs no pumping or excitation experiment. Branch `20261020_GRIN_new_wiring`.
+
+- `subroutines/experiment_functions.py`: the twelve experiments that chose the
+  pumping DMA by node (microwave Rabi 2, Ramsey 00 and 11, Rabi 2 and EXC,
+  map01_map11 and its CORPSE form, map00_map0m1, map01_MWRFm11,
+  Ramsey_MWRFm11, map00_RF01_map00, single photon 9, parity 11) record and play
+  back `CW_optical_pumping_node2` on both nodes. The three excitation-arming
+  blocks (Rabi 2 and EXC, single photon 9, parity 11) run the Node2 form on
+  both: `dds_GRIN1` at `f/p_GRIN1_D1_pumping`, `dds_GRIN2` at
+  `f/p_GRIN2_excitation`, both switched on.
+- `record_CW_optical_pumping_node2` also switches A1-A4 on Node1, in their own
+  groups, so Node1 keeps its six-AOM pumping repump (user: keep A1-A6).
+  `CW_optical_pumping_node1` and `record_CW_optical_pumping_node1` are no longer
+  called and stay for rollback (user: remove the calls, keep the definitions).
+- `record_CW_optical_pumping_both_nodes`: Node1's side does what Node2's does,
+  `dds_GRIN1_Node1` at the D1 tone and `ttl_GRIN1_switch_Node1` opening with the
+  D1 gate; Node1's A1-A4 stay.
+- Alice `DDS_DEFAULTS`: `dds_GRIN1` -> `f/p_GRIN1_D1_pumping`, `dds_GRIN2` ->
+  `f/p_GRIN2_D1_pumping`, as bob's. Both stacks program the channels from these
+  at init.
+- `AOMsCoils_master_satellite_Node1.py`: new group "Node1 GRIN1/GRIN2 combined
+  modes", boxes `Node1_GRIN1_AOM_ON` / `Node1_GRIN2_AOM_ON`, as on Node2 (the
+  GRIN2 one sets `f/p_GRIN2_excitation_Node1`); unticked, they turn their GRIN
+  DDS off and block its gate, whatever the individual GRIN boxes say. The D1
+  box no longer opens the GRIN1 gate. `standalone/AOMsCoils.py`: the D1 box
+  switches only `ttl_D1_pumping_switch` on both nodes, and the
+  `Node2_GRIN1_AOM_ON` / `Node2_GRIN2_AOM_ON` boxes now act on alice too (names
+  kept so saved arguments still load).
+- Left as they are: `measure_GRIN1`, the dormant GRIN feedback configs, the
+  dead `chopped_optical_pumping`, and the `which_node` branches that are not
+  about the GRINs (UV trigger, magnetometer, `test_ttl_pulse`).
+- To set from the dashboard after the rewire: Node1's GRIN values are
+  placeholders. `f_GRIN2_excitation_Node1` is 150.6 MHz (Node2: 150.5 MHz);
+  `p_GRIN1_D1_pumping_Node1`, `p_GRIN2_excitation_Node1` and
+  `p_GRIN2_D1_pumping_Node1` are -8 dB (Node2 keeps `p_GRIN2_D1_pumping` at
+  -150 so GRIN2's init tone is dark). Standalone alice reads the bare names.
 
 ## The problem
 
@@ -274,6 +322,12 @@ Cheap, and it catches this entire class of error.
 ---
 
 ## Stages 3 and 4 — Node1 to match Node2
+
+**Done in code 2026-10-20** (Status 2026-10-20, stages 3 and 4, above),
+including the merge, except that Node1 keeps its A1-A4 pumping repump. The
+channel assignment differs from the paragraph below: Node1 keeps
+`urukul0_ch3` and `urukul2_ch2` and moves the AOM cables instead. The rest of
+this section is the analysis as it stood before.
 
 Node1 gains a **real D1 TTL (`ttl15`, done 2026-10-19) plus an external
 source**. D1 pumping light is delivered to GRIN1, so `GRIN1_dds` must also be

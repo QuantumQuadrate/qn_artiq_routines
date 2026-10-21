@@ -47,9 +47,9 @@ these files (section 1.6, O-24).
 - **Detectors:** all four SPCMs (H1/V1/H2/V2 = ttl0/1/8/9) are master-local
   Node1 inputs. Each one sees both traps (section 2.6).
 - **GRIN aliases** (renamed 2026-10-20 from `GRIN1and2_dds` and
-  `dds_D1_pumping_DP`): on Node2 `dds_GRIN1` drives GRIN1 and `dds_GRIN2`
-  GRIN2; on Node1 `dds_GRIN1` feeds both GRINs and `dds_GRIN2` is the old D1
-  channel, now unused (section 2.8).
+  `dds_D1_pumping_DP`): `dds_GRIN1` drives GRIN1 (D1 pumping) and
+  `dds_GRIN2` GRIN2 (excitation) on both nodes since the 2026-10-20 Node1
+  GRIN rewire; the code was changed ahead of the cables (section 2.8).
 - **USB devices:** all connect to the master host. One `k10cr1_ndsp`
   controller drives the 8 rotators (section 13).
 
@@ -273,8 +273,8 @@ come before cleanup (sections 3.1, 3.3).
   pumping functions, single photon 4/5, `measure_GRIN1`, the chopped-pumping
   DMA, the two-node Node1 side, standalone alice init and AOMsCoils, the MOT
   scripts and `tests/A2-SPCMGateTimeVsCounts.py`. `CW_optical_pumping_node1`
-  and its DMA version do not open Node1's GRIN1 path yet (section 2.7; D1
-  upgrade note).
+  and its DMA version did not open Node1's GRIN1 path (superseded by the
+  Node1 GRIN rewire below).
 - **2026-10-20:** the functions no longer in use (45 of 103) moved from
   `experiment_functions.py` to `subroutines/experiment_functions_obsolete.py`,
   which nothing imports; the single-node GVS menu has 23 entries (section 9.2).
@@ -284,6 +284,13 @@ come before cleanup (sections 3.1, 3.3).
   and feedback JSON keys included (values, device_db and variables unchanged), with a guard test that each node's alias lists match its
   `ALIAS_MAP` and every feedback config key. Not yet checked on hardware
   (O-32, section 18.4).
+- **2026-10-20 (same branch), Node1 GRIN rewire, code ahead of the cables:**
+  `urukul0_ch3` (`dds_GRIN1`) drives Node1's GRIN1 AOM and `urukul2_ch2`
+  (`dds_GRIN2`) its GRIN2 AOM, as on Node2. Node1 runs Node2's pumping DMA
+  (plus its A1-A4 repump) and excitation arming; the Node1 pumping functions
+  are kept but no longer called; AOMsCoils Node1 has combined
+  `Node1_GRIN1_AOM_ON` / `Node1_GRIN2_AOM_ON` modes. Node1's GRIN values are
+  placeholders to calibrate (sections 2.8, 11.7; D1 upgrade note).
 
 **Uncommitted:** check `git status`; under R26 uncommitted code may already
 have run.

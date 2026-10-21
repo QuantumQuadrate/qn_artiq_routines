@@ -327,18 +327,31 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
         node2 = self.make_experiment(Node2ManualExperiment)
         self.assertTrue({v.name for v in NODE1_VARIABLES}.isdisjoint(node2.dataset_reads))
 
-    def test_node2_d1_uses_authoritative_grin2_defaults(self):
-        node2 = self.make_experiment(Node2ManualExperiment)
-        binding = next(item for item in node2.base.node_resolvers["Node2"].dds_bindings
-                       if item["logical_alias"] == "dds_GRIN2")
-        self.assertEqual(binding["frequency_attribute"], "f_GRIN2_D1_pumping_Node2")
-        self.assertEqual(binding["power_attribute"], "p_GRIN2_D1_pumping_Node2")
+    def test_grin_dds_defaults_are_the_same_on_both_nodes(self):
+        """Since Node1's 2026-10-20 GRIN rewire both nodes start dds_GRIN1 at
+        the D1 pumping tone and dds_GRIN2 at the GRIN2 D1 tone."""
+        for node, experiment_class in (
+            ("Node1", Node1ManualExperiment),
+            ("Node2", Node2ManualExperiment),
+        ):
+            with self.subTest(node=node):
+                experiment = self.make_experiment(experiment_class)
+                bindings = {
+                    item["logical_alias"]: item
+                    for item in experiment.base.node_resolvers[node].dds_bindings
+                }
+                for alias, tone in (("dds_GRIN1", "GRIN1_D1_pumping"),
+                                    ("dds_GRIN2", "GRIN2_D1_pumping")):
+                    self.assertEqual(bindings[alias]["frequency_attribute"],
+                                     f"f_{tone}_{node}")
+                    self.assertEqual(bindings[alias]["power_attribute"],
+                                     f"p_{tone}_{node}")
 
     def test_turn_on_only_switches_and_each_dds_keeps_its_binding(self):
         """turn_on_AOMs() only switches, as in standalone, so each box's DDS
         keeps the tone initialize_hardware() gave it: Base's DDS binding for
-        that alias, at the power loaded in prepare(). (Node2's combined GRIN2
-        mode, which sets its own excitation tone, is unticked here.)
+        that alias, at the power loaded in prepare(). (Each node's combined
+        GRIN2 mode, which sets its own excitation tone, is unticked here.)
         """
         from utilities.conversions import dB_to_V_kernel
 
@@ -375,8 +388,6 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
                 }
                 experiment.apply_manual_state()
                 for box, alias in boxes.items():
-                    if node == "Node1" and alias == "dds_GRIN2":
-                        continue  # Node1's D1 runs from an external source
                     binding = bindings[alias]
                     self.assertEqual(getattr(experiment, alias).last_set, {
                         "frequency": self.datasets[binding["frequency_attribute"]],
@@ -462,77 +473,95 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
                     len(experiment.dataset_writes), writes_after_prepare
                 )
 
-    def test_node2_combined_grin_modes_drive_dds_and_gate_together(self):
+    def _grin_wiring(self):
+        """Per node: experiment, GRIN1 and GRIN2 DDS, GRIN1, GRIN2 and D1
+        gates, and the two combined-mode boxes. The nodes are wired alike
+        since Node1's 2026-10-20 GRIN rewire; only these names differ."""
+        return (
+            ("Node1", Node1ManualExperiment, "urukul0_ch3", "urukul2_ch2",
+             "ttl14", "ttl13", "ttl15",
+             "Node1_GRIN1_AOM_ON", "Node1_GRIN2_AOM_ON"),
+            ("Node2", Node2ManualExperiment, "urukul5_ch2", "urukul5_ch0",
+             "ttl30", "ttl29", "ttl28",
+             "Node2_GRIN1_AOM_ON", "Node2_GRIN2_AOM_ON"),
+        )
+
+    def test_combined_grin_modes_drive_dds_and_gate_together(self):
         from utilities.conversions import dB_to_V_kernel
 
-        node2 = self.make_experiment(Node2ManualExperiment, {
-            "Node2_GRIN1_AOM_ON": True, "Node2_GRIN2_AOM_ON": True,
-        })
-        node2.apply_manual_state()
-        grin1and2_dds = self.devices["urukul5_ch2"]
-        d1_dds = self.devices["urukul5_ch0"]
-        self.assertTrue(grin1and2_dds.state)
-        self.assertFalse(self.devices["ttl30"].state)  # GRIN1 gate open
-        self.assertTrue(d1_dds.state)
-        self.assertFalse(self.devices["ttl29"].state)  # GRIN2 gate open
-        self.assertEqual(d1_dds.last_set, {
-            "frequency": self.datasets["f_GRIN2_excitation_Node2"],
-            "amplitude": dB_to_V_kernel(
-                self.datasets["p_GRIN2_excitation_Node2"]
-            ),
-        })
+        for (node, experiment_class, grin1_dds, grin2_dds, grin1_gate,
+             grin2_gate, d1_gate, grin1_mode, grin2_mode) in self._grin_wiring():
+            with self.subTest(node=node):
+                experiment = self.make_experiment(experiment_class, {
+                    grin1_mode: True, grin2_mode: True,
+                })
+                experiment.apply_manual_state()
+                self.assertTrue(self.devices[grin1_dds].state)
+                self.assertFalse(self.devices[grin1_gate].state)  # GRIN1 open
+                self.assertTrue(self.devices[grin2_dds].state)
+                self.assertFalse(self.devices[grin2_gate].state)  # GRIN2 open
+                self.assertEqual(self.devices[grin2_dds].last_set, {
+                    "frequency": self.datasets[f"f_GRIN2_excitation_{node}"],
+                    "amplitude": dB_to_V_kernel(
+                        self.datasets[f"p_GRIN2_excitation_{node}"]
+                    ),
+                })
 
-    def test_node2_combined_modes_off_override_individual_grin_controls(self):
-        node2 = self.make_experiment(Node2ManualExperiment, {
-            "GRIN1and2_ON": True, "D1_pumping_switch_ON": True,
-        })
-        node2.apply_manual_state()
-        # The unticked combined modes win, as in the standalone ordering:
-        # both DDSes end OFF while the dedicated D1 gate stays open.
-        self.assertFalse(self.devices["urukul5_ch2"].state)
-        self.assertFalse(self.devices["urukul5_ch0"].state)
-        self.assertFalse(self.devices["ttl28"].state)  # ttl_D1_pumping_switch open
-        self.assertTrue(self.devices["ttl30"].state)   # GRIN1 gate closed
-        self.assertTrue(self.devices["ttl29"].state)   # GRIN2 gate closed
+    def test_combined_modes_off_override_individual_grin_controls(self):
+        for (node, experiment_class, grin1_dds, grin2_dds, grin1_gate,
+             grin2_gate, d1_gate, grin1_mode, grin2_mode) in self._grin_wiring():
+            with self.subTest(node=node):
+                experiment = self.make_experiment(experiment_class, {
+                    "GRIN1and2_ON": True, "D1_pumping_switch_ON": True,
+                    "GRIN1_AOM_switch_ON": True, "GRIN2_AOM_switch_ON": True,
+                })
+                experiment.apply_manual_state()
+                # The unticked combined modes win, as in the standalone
+                # ordering: both DDSes end OFF and both GRIN gates blocked,
+                # while the dedicated D1 gate stays open.
+                self.assertFalse(self.devices[grin1_dds].state)
+                self.assertFalse(self.devices[grin2_dds].state)
+                self.assertFalse(self.devices[d1_gate].state)    # D1 open
+                self.assertTrue(self.devices[grin1_gate].state)  # GRIN1 blocked
+                self.assertTrue(self.devices[grin2_gate].state)  # GRIN2 blocked
 
-    def test_node1_has_no_combined_grin_modes_and_keeps_grin_control(self):
-        node1 = self.make_experiment(
-            Node1ManualExperiment, {"GRIN1and2_ON": True}
-        )
-        self.assertFalse(hasattr(node1, "Node2_GRIN1_AOM_ON"))
-        node1.apply_manual_state()
-        self.assertTrue(self.devices["urukul0_ch3"].state)
+    def test_d1_box_opens_only_the_d1_gate(self):
+        """D1 runs from an external source on both nodes (Node1 since
+        2026-10-19), switched by ttl_D1_pumping_switch, active low. The D1
+        box opens that gate and nothing else; D1 reaches the atom through
+        GRIN1 only with the combined GRIN1 mode ticked too."""
+        for (node, experiment_class, grin1_dds, grin2_dds, grin1_gate,
+             grin2_gate, d1_gate, grin1_mode, grin2_mode) in self._grin_wiring():
+            with self.subTest(node=node):
+                experiment = self.make_experiment(
+                    experiment_class, {"D1_pumping_switch_ON": True}
+                )
+                experiment.apply_manual_state()
+                self.assertFalse(self.devices[d1_gate].state)    # D1 open
+                self.assertTrue(self.devices[grin1_gate].state)  # GRIN1 blocked
+                self.assertFalse(self.devices[grin1_dds].state)
+                self.assertFalse(self.devices[grin2_dds].state)
 
-    def test_node1_d1_is_switched_by_its_external_source_ttl(self):
-        """Node1's D1 AOM runs from an external source since 2026-10-19.
+                experiment = self.make_experiment(experiment_class)
+                experiment.apply_manual_state()
+                self.assertTrue(self.devices[d1_gate].state)     # D1 blocked
 
-        D1_pumping_switch_ON opens ttl_D1_pumping_switch (Node1 ttl15, active
-        low: off() turns D1 on) and, as before, the GRIN1 gate D1 passes
-        through. The Urukul channel that used to drive D1 (urukul2_ch2)
-        stays off either way.
-        """
-        node1 = self.make_experiment(
-            Node1ManualExperiment, {"D1_pumping_switch_ON": True}
-        )
-        node1.apply_manual_state()
-        self.assertFalse(self.devices["ttl15"].state)        # D1 on
-        self.assertFalse(self.devices["ttl14"].state)        # GRIN1 open
-        self.assertFalse(self.devices["urukul2_ch2"].state)  # old D1 DDS off
-        self.assertFalse(self.devices["urukul0_ch3"].state)  # GRIN tone off
+                experiment = self.make_experiment(experiment_class, {
+                    "D1_pumping_switch_ON": True, grin1_mode: True,
+                })
+                experiment.apply_manual_state()
+                self.assertFalse(self.devices[d1_gate].state)    # D1 open
+                self.assertFalse(self.devices[grin1_gate].state)  # GRIN1 open
+                self.assertTrue(self.devices[grin1_dds].state)
 
+    def test_each_node_file_has_its_own_combined_mode_boxes(self):
         node1 = self.make_experiment(Node1ManualExperiment)
-        node1.apply_manual_state()
-        self.assertTrue(self.devices["ttl15"].state)         # D1 blocked
-        self.assertTrue(self.devices["ttl14"].state)         # GRIN1 blocked
-        self.assertFalse(self.devices["urukul2_ch2"].state)
-
-        # The GRIN1 gate alone does not open D1.
-        node1 = self.make_experiment(
-            Node1ManualExperiment, {"GRIN1_AOM_switch_ON": True}
-        )
-        node1.apply_manual_state()
-        self.assertTrue(self.devices["ttl15"].state)         # D1 blocked
-        self.assertFalse(self.devices["ttl14"].state)        # GRIN1 open
+        node2 = self.make_experiment(Node2ManualExperiment)
+        for name in ("GRIN1", "GRIN2"):
+            self.assertTrue(hasattr(node1, f"Node1_{name}_AOM_ON"))
+            self.assertFalse(hasattr(node1, f"Node2_{name}_AOM_ON"))
+            self.assertTrue(hasattr(node2, f"Node2_{name}_AOM_ON"))
+            self.assertFalse(hasattr(node2, f"Node1_{name}_AOM_ON"))
 
     def test_laser_stabilizer_prepared_with_suffixed_persistence(self):
         node1 = self.make_experiment(Node1ManualExperiment)
@@ -609,13 +638,13 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
                         missing,
                     )
 
-    def test_run_feedback_keeps_node2_combined_grin_state(self):
-        """Feedback must end Node2 the way apply_manual_state left it.
+    def test_run_feedback_keeps_combined_grin_state(self):
+        """Feedback must end each node the way apply_manual_state left it.
 
         run_feedback re-applies the individual DDS and gate flags after the
-        stabilizer; the Node2 combined GRIN modes have to follow, or the
-        individual flags win: the GRIN DDSes come back on and GRIN1's gate
-        opens, where the standalone utility ends them off.
+        stabilizer; the combined GRIN modes have to follow, or the individual
+        flags win: the GRIN DDSes come back on and GRIN1's gate opens, where
+        the standalone utility ends them off.
         """
         all_on = {name: True for name in (
             "AOM_A1_ON", "AOM_A2_ON", "AOM_A3_ON",
@@ -625,26 +654,30 @@ class AOMsCoilsMasterSatelliteTests(unittest.TestCase):
             "GRIN1and2_ON": True, "D1_pumping_switch_ON": True,
             "GRIN1_AOM_switch_ON": True,
         }
-        for feedback in (True, False):
-            with self.subTest(run_laser_feedback=feedback, combined=False):
-                node2 = self.make_experiment(Node2ManualExperiment, {
-                    **all_on, **individual, "run_laser_feedback": feedback,
-                })
-                node2.run()
-                self.assertFalse(self.devices["urukul5_ch2"].state)
-                self.assertFalse(self.devices["urukul5_ch0"].state)
-                self.assertTrue(self.devices["ttl30"].state)  # GRIN1 blocked
-                self.assertTrue(self.devices["ttl29"].state)  # GRIN2 blocked
-            with self.subTest(run_laser_feedback=feedback, combined=True):
-                node2 = self.make_experiment(Node2ManualExperiment, {
-                    **all_on, "run_laser_feedback": feedback,
-                    "Node2_GRIN1_AOM_ON": True, "Node2_GRIN2_AOM_ON": True,
-                })
-                node2.run()
-                self.assertTrue(self.devices["urukul5_ch2"].state)
-                self.assertTrue(self.devices["urukul5_ch0"].state)
-                self.assertFalse(self.devices["ttl30"].state)  # GRIN1 open
-                self.assertFalse(self.devices["ttl29"].state)  # GRIN2 open
+        for (node, experiment_class, grin1_dds, grin2_dds, grin1_gate,
+             grin2_gate, d1_gate, grin1_mode, grin2_mode) in self._grin_wiring():
+            for feedback in (True, False):
+                with self.subTest(node=node, run_laser_feedback=feedback,
+                                  combined=False):
+                    experiment = self.make_experiment(experiment_class, {
+                        **all_on, **individual, "run_laser_feedback": feedback,
+                    })
+                    experiment.run()
+                    self.assertFalse(self.devices[grin1_dds].state)
+                    self.assertFalse(self.devices[grin2_dds].state)
+                    self.assertTrue(self.devices[grin1_gate].state)  # blocked
+                    self.assertTrue(self.devices[grin2_gate].state)  # blocked
+                with self.subTest(node=node, run_laser_feedback=feedback,
+                                  combined=True):
+                    experiment = self.make_experiment(experiment_class, {
+                        **all_on, "run_laser_feedback": feedback,
+                        grin1_mode: True, grin2_mode: True,
+                    })
+                    experiment.run()
+                    self.assertTrue(self.devices[grin1_dds].state)
+                    self.assertTrue(self.devices[grin2_dds].state)
+                    self.assertFalse(self.devices[grin1_gate].state)  # open
+                    self.assertFalse(self.devices[grin2_gate].state)  # open
 
     def test_k10cr1_proxy_is_lazy_and_node_aware(self):
         from utilities.BaseExperiment_master_satellite import (

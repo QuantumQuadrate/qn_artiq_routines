@@ -1027,7 +1027,9 @@ class BaseExperiment:
             #todo: this is giving me underflow error. now i am setting this within experiment for two node exp.
             ### setting the dds for optical pumping
             ### Not any more: since 2026-10-19 Node1's D1 AOM runs from an external RF
-            ### source switched by ttl_D1_pumping_switch (ttl15), not by this Urukul channel.
+            ### source switched by ttl_D1_pumping_switch (ttl15), and since the 2026-10-20
+            ### GRIN rewire this channel (dds_GRIN2) drives the GRIN2 AOM, programmed by
+            ### named_devices.initialize() from DDS_DEFAULTS like every other DDS.
             # self.experiment.dds_GRIN2.set(frequency=self.experiment.f_D1_pumping_DP,
             #                                       amplitude=dB_to_V(self.experiment.p_D1_pumping_DP))
             delay(10 * us)

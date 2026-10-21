@@ -382,18 +382,32 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                         names_by_node[node],
                     )
 
-        bob_defaults_path = Path(
-            "utilities/config/bob/device_aliases.json"
-        )
-        with bob_defaults_path.open() as config_file:
-            bob_defaults = json.load(config_file)["DDS_DEFAULTS"]
-        self.assertEqual(
-            bob_defaults["dds_GRIN2"],
-            {
-                "frequency": "f_GRIN2_D1_pumping",
-                "power": "p_GRIN2_D1_pumping",
-            },
-        )
+        # Since Node1's 2026-10-20 GRIN rewire both nodes start their GRIN
+        # DDSes at the same tones: GRIN1 at the D1 pumping tone, GRIN2 at the
+        # GRIN2 D1 tone (experiments set the excitation tone themselves).
+        for standalone_config in ("alice", "bob"):
+            defaults_path = (
+                Path("utilities/config")
+                / standalone_config
+                / "device_aliases.json"
+            )
+            with defaults_path.open() as config_file:
+                grin_defaults = json.load(config_file)["DDS_DEFAULTS"]
+            with self.subTest(config=standalone_config):
+                self.assertEqual(
+                    grin_defaults["dds_GRIN1"],
+                    {
+                        "frequency": "f_GRIN1_D1_pumping",
+                        "power": "p_GRIN1_D1_pumping",
+                    },
+                )
+                self.assertEqual(
+                    grin_defaults["dds_GRIN2"],
+                    {
+                        "frequency": "f_GRIN2_D1_pumping",
+                        "power": "p_GRIN2_D1_pumping",
+                    },
+                )
 
     def test_historical_and_result_datasets_are_not_migrated(self):
         all_names = {

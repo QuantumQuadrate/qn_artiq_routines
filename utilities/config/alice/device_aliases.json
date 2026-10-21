@@ -22,16 +22,16 @@
       "power": "p_cooling_DP_MOT"
     },
     "dds_GRIN2": {
-      "frequency": "f_D1_pumping_DP",
-      "power": "p_D1_pumping_DP"
+      "frequency": "f_GRIN2_D1_pumping",
+      "power": "p_GRIN2_D1_pumping"
     },
     "dds_MW_RF": {
       "frequency": "f_MW_RF_dds",
       "power": "p_MW_RF_dds"
     },
     "dds_GRIN1": {
-      "frequency": "f_excitation",
-      "power": "p_excitation"
+      "frequency": "f_GRIN1_D1_pumping",
+      "power": "p_GRIN1_D1_pumping"
     },
     "dds_microwaves": {
       "frequency": "f_microwaves_dds",

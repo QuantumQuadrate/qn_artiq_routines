@@ -180,8 +180,8 @@ def record_CW_optical_pumping_both_nodes(self):
     """Record ONE DMA trace that optically pumps both nodes together.
 
     Ported from record_CW_optical_pumping_node1 and _node2
-    (experiment_functions.py:2475 and ":2542"), merged rather than replayed
-    side by side.
+    (subroutines/experiment_functions.py), merged rather than replayed side
+    by side.
 
     WHY ONE TRACE AND NOT TWO PLAYED IN PARALLEL. core_dma.playback_handle
     ends with delay_mu(advance_mu), so two handles played sequentially run back
@@ -208,11 +208,10 @@ def record_CW_optical_pumping_both_nodes(self):
     on one timestamp, so the stages really are simultaneous.
 
     STAGE DURATIONS ARE THE LARGER OF THE TWO NODES', so a stage never ends
-    before the slower node has finished it. Mind what that means while the
-    values still differ: t_pumping is 1e-4 on Node1 and 3e-5 on Node2 today,
-    so this drives Node2's D1 for 100 us instead of its calibrated 30 us.
-    Equalise t_pumping, t_depumping and t_OP_coil_relax_time across the nodes
-    before trusting this on hardware, or Node2 is over-pumped by 3.3x.
+    before the slower node has finished it. Where the values differ, the node
+    with the shorter one is pumped longer than its own calibration, so check
+    that t_pumping, t_depumping and t_OP_coil_relax_time agree across the
+    nodes before trusting this on hardware.
 
     NO t_Node2_rtio_offset_mu CORRECTION, deliberately. That cancels the
     electrical skew between the two crates' output pins and only matters where
@@ -221,20 +220,12 @@ def record_CW_optical_pumping_both_nodes(self):
     is 30 us or longer, and this file's loading and PGC sequences do not apply
     it either.
 
-    THE ASYMMETRIES BELOW ARE REAL, carried over from the two single-node
-    recordings. They are not omissions, except Node1's GRIN1 (deferred, see
-    the D1 bullet):
-
-      * Node1 delivers the pumping repump through all six fiber AOMs; Node2
-        through A5/A6 only.
-      * Both nodes' D1 comes from an external source gated by
-        ttl_D1_pumping_switch_NodeX (Node1's since 2026-10-19, on ttl15).
-        Node2's reaches the atom through GRIN1, so dds_GRIN1_Node2 -- which
-        on Node2 IS the GRIN1 DDS, see the naming note in the docstring of
-        CW_optical_pumping_node2 -- has to be running before the gates open.
-        Node1's D1 now passes its GRIN1 AOM too, but this function does not
-        open Node1's GRIN1 yet (user, 2026-10-20: D1 switch only for now;
-        documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md).
+    THE NODES ARE WIRED ALIKE since the 2026-10-20 Node1 rewire: on each, D1
+    comes from an external source gated by ttl_D1_pumping_switch_NodeX and
+    reaches the atom through the GRIN1 AOM, so dds_GRIN1_NodeX runs at the D1
+    pumping tone and ttl_GRIN1_switch_NodeX opens with the D1 gate. The one
+    asymmetry left is real: Node1 delivers the pumping repump through all six
+    fiber AOMs (user, kept 2026-10-20), Node2 through A5/A6 only.
     """
     ### Larger of the two nodes' values. Computed BEFORE the recording: a
     ### float compare is host arithmetic and has no business inside a trace.
@@ -249,7 +240,7 @@ def record_CW_optical_pumping_both_nodes(self):
         t_depumping = self.t_depumping_Node2
 
     with self.core_dma.record("CW_optical_pumping_both_nodes"):
-        ### Turn off unused light. Seven events, so two groups.
+        ### Turn off unused light. Eight events, so two groups.
         self.ttl_repump_switch_Node1.on()
         self.ttl_repump_switch_Node2.on()
         self.ttl_exc0_switch_Node1.on()
@@ -257,7 +248,8 @@ def record_CW_optical_pumping_both_nodes(self):
         delay(5 * us)
         self.dds_cooling_DP_Node1.sw.off()
         self.dds_cooling_DP_Node2.sw.off()
-        ### Node2 only: make sure its dedicated D1 gate starts closed
+        ### make sure both dedicated D1 gates start closed
+        self.ttl_D1_pumping_switch_Node1.on()
         self.ttl_D1_pumping_switch_Node2.on()
         delay(5 * us)
 
@@ -308,11 +300,13 @@ def record_CW_optical_pumping_both_nodes(self):
         ### Physical coil-relaxation time, the longer of the two nodes'
         delay(t_coil_relax)
 
-        ### Node2 only: its D1 reaches the atom through GRIN1, so the GRIN1
-        ### tone must be up before the gates open. Node1's GRIN1 is not
-        ### opened here yet (see the docstring).
+        ### Both nodes' D1 reaches the atom through GRIN1, so the GRIN1 tone
+        ### must be up before the gates open.
+        self.dds_GRIN1_Node1.set(frequency=self.f_GRIN1_D1_pumping_Node1,
+                                 amplitude=dB_to_V(self.p_GRIN1_D1_pumping_Node1))
         self.dds_GRIN1_Node2.set(frequency=self.f_GRIN1_D1_pumping_Node2,
-                                     amplitude=dB_to_V(self.p_GRIN1_D1_pumping_Node2))
+                                 amplitude=dB_to_V(self.p_GRIN1_D1_pumping_Node2))
+        self.dds_GRIN1_Node1.sw.on()
         self.dds_GRIN1_Node2.sw.on()
         delay(2 * us)
 
@@ -326,6 +320,7 @@ def record_CW_optical_pumping_both_nodes(self):
         ### OPTICAL PUMPING STARTS HERE -- one timestamp, both nodes
         self.ttl_D1_pumping_switch_Node1.off()
         self.ttl_D1_pumping_switch_Node2.off()
+        self.ttl_GRIN1_switch_Node1.off()
         self.ttl_GRIN1_switch_Node2.off()
 
         delay(t_pumping)
@@ -333,15 +328,17 @@ def record_CW_optical_pumping_both_nodes(self):
         ### ... AND ENDS HERE -- one timestamp, both nodes
         self.ttl_D1_pumping_switch_Node1.on()
         self.ttl_D1_pumping_switch_Node2.on()
+        self.ttl_GRIN1_switch_Node1.on()
         self.ttl_GRIN1_switch_Node2.on()
 
         delay(t_depumping)
 
-        ### Turn off every pumping RF and light path. Eleven events, so three
+        ### Turn off every pumping RF and light path. Twelve events, so three
         ### groups. The pumping repump stays on through depumping, as in both
         ### single-node originals, and goes off here.
         self.ttl_pumping_repump_switch_Node1.on()
         self.ttl_pumping_repump_switch_Node2.on()
+        self.dds_GRIN1_Node1.sw.off()
         self.dds_GRIN1_Node2.sw.off()
         delay(5 * us)
         self.dds_AOM_A1_Node1.sw.off()

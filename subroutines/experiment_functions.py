@@ -1673,6 +1673,8 @@ def CW_optical_pumping_node1(self):
     - 2026-10-19: D1 now runs from an external RF source switched by
       ttl_D1_pumping_switch and goes through the GRIN1 AOM; this function does
       not open GRIN1 yet.
+    - Not used since the 2026-10-20 Node1 rewire (Node1's GRIN AOMs are wired
+      like Node2's); kept for rollback.
     """
 
     self.ttl_repump_switch.on()  # turns off the MOT RP AOM
@@ -1813,6 +1815,10 @@ def CW_optical_pumping_node2(self):
 
 @kernel
 def record_CW_optical_pumping_node1(self):
+    """Not used since the 2026-10-20 Node1 rewire: both nodes play
+    record_CW_optical_pumping_node2, which keeps Node1's A1-A4 repump. Kept
+    for rollback.
+    """
     with self.core_dma.record("CW_optical_pumping_node1"):
         ### Turn off unused light
         with parallel:
@@ -1883,6 +1889,18 @@ def record_CW_optical_pumping_node1(self):
 
 @kernel
 def record_CW_optical_pumping_node2(self):
+    """Record the CW optical-pumping DMA trace "CW_optical_pumping_node2".
+
+    Used on BOTH nodes since the 2026-10-20 Node1 rewire, after which Node1's
+    GRIN AOMs are wired like Node2's: dds_GRIN1 carries the D1 pumping tone to
+    the GRIN1 AOM (gate ttl_GRIN1_switch), dds_GRIN2 the excitation tone to
+    the GRIN2 AOM, and the D1 light comes from an external source gated by
+    ttl_D1_pumping_switch. The one per-node difference left is the pumping
+    repump: Node1 also delivers it through fiber AOMs A1-A4 (user, 2026-08-21;
+    kept 2026-10-20), Node2 through A5/A6 only. Node1's A1-A4 switch on and
+    off on timestamps of their own, so no timestamp holds more than four
+    switch events.
+    """
     with self.core_dma.record("CW_optical_pumping_node2"):
         ### Turn off unused light
         with parallel:
@@ -1893,9 +1911,22 @@ def record_CW_optical_pumping_node2(self):
 
         ### Configure pumping-repump delivery AOMs
         ### These must remain sequential if they share the same Urukul SPI bus
+        if self.which_node == "alice":
+            ### Node1 also delivers the pumping repump through A1-A4
+            self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=dB_to_V(-5.0))
+            self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=dB_to_V(-5.0))
+            self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=dB_to_V(-5.0))
+            self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=dB_to_V(-5.0))
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
 
+        if self.which_node == "alice":
+            with parallel:
+                self.dds_AOM_A1.sw.on()
+                self.dds_AOM_A2.sw.on()
+                self.dds_AOM_A3.sw.on()
+                self.dds_AOM_A4.sw.on()
+            delay(5 * us)
         with parallel:
             self.dds_AOM_A5.sw.on()
             self.dds_AOM_A6.sw.on()
@@ -1938,8 +1969,20 @@ def record_CW_optical_pumping_node2(self):
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
             self.dds_GRIN1.sw.off()
+        if self.which_node == "alice":
+            delay(5 * us)
+            with parallel:
+                self.dds_AOM_A1.sw.off()
+                self.dds_AOM_A2.sw.off()
+                self.dds_AOM_A3.sw.off()
+                self.dds_AOM_A4.sw.off()
 
         ### Restore feedback amplitudes while RF switches are off
+        if self.which_node == "alice":
+            self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
+            self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
+            self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
+            self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
         self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
         self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
         # delay(1.7 * us)  ### to match the timing with node1
@@ -4207,11 +4250,9 @@ def microwave_Rabi_2_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     # node1_epoch, node1_duration_mu, node1_ptr = CW_OP_node1_handle
@@ -4320,12 +4361,8 @@ def microwave_Rabi_2_experiment(self):
 
         ### with cw pumping:
         if self.t_pumping > 0.0:
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
 
         ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correclty
         delay(10*us)
@@ -4424,11 +4461,9 @@ def microwave_Ramsey_00_experiment(self):
         delay(1*ms)
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -4517,12 +4552,8 @@ def microwave_Ramsey_00_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10 * us)
 
         ############################
@@ -4619,11 +4650,9 @@ def microwave_Ramsey_11_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -4709,12 +4738,8 @@ def microwave_Ramsey_11_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10 * us)
 
         # ### Changing the bias field
@@ -4818,11 +4843,9 @@ def microwave_Rabi_2_and_EXC_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -4897,30 +4920,21 @@ def microwave_Rabi_2_and_EXC_experiment(self):
 
         self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
 
-        if self.which_node == "alice":
-            self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
-            delay(5 * us)
-            self.dds_GRIN1.sw.on()
-        else:
-            self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-            delay(5 * us)
-            self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
-            delay(5 * us)
-            self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
-            delay(5 * us)
-            self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
-            delay(5 * us)
+        self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+        delay(5 * us)
+        self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+        delay(5 * us)
+        self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+        delay(5 * us)
+        self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+        delay(5 * us)
 
         ############################
         # optical pumping phase - pumps atoms into F=1,m_F=0
         ############################
         if self.t_pumping > 0.0:
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10*us)
 
         for excitation_attempt in range(self.n_excitation_attempts):  ##### testing with multiple excitations
@@ -5217,11 +5231,9 @@ def microwave_map01_map11_experiment(self):
     delay(1 * ms)
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     delay(1 * ms)
@@ -5314,12 +5326,8 @@ def microwave_map01_map11_experiment(self):
 
         ### with cw pumping:
         if self.t_pumping > 0.0:
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             # delay(5.5 * us) ##todo: this is hardcoded delay to acount for coil drift- set it smaller so that mapping is tuned correctly
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
@@ -5445,12 +5453,10 @@ def microwave_map01_map11_CORPSE_experiment(self):
     ### Have to change SPCM0_SinglePhoton_tStamps in BaseExperiment accordingly.
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
     # record_chopped_optical_pumping(self)
     # delay(100 * ms)
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     if self.enable_laser_feedback:
@@ -5538,12 +5544,8 @@ def microwave_map01_map11_CORPSE_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10 * us)
 
         # if self.t_pumping > 0.0:
@@ -5707,11 +5709,9 @@ def microwave_map00_map0m1_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -5799,12 +5799,8 @@ def microwave_map00_map0m1_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             # delay(10 * us)
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10 * us)
 
         # ### Changing the bias field
@@ -5907,11 +5903,9 @@ def microwave_map01_MWRFm11_experiment(self):
 
     delay(1 * ms)
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     delay(1 * ms)
@@ -6005,12 +5999,8 @@ def microwave_map01_MWRFm11_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10 * us)
 
         ############################ microwave phase to transfer population from F=1,mF=0 to F=2,mF=1
@@ -6132,11 +6122,9 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -6227,12 +6215,8 @@ def microwave_Ramsey_MWRFm11_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10 * us)
 
         # ### Changing the bias field
@@ -6361,11 +6345,9 @@ def microwave_map00_RF01_map00_experiment(self):
         delay(1 * ms)
 
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
 
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
 
     self.core.break_realtime()
@@ -6452,12 +6434,8 @@ def microwave_map00_RF01_map00_experiment(self):
         ### with cw pumping:
         if self.t_pumping > 0.0:
             delay(10 * us)
-            if self.which_node == "alice":
-                # CW_optical_pumping_node1(self)
-                self.core_dma.playback_handle(CW_OP_node1_handle)
-            else:
-                # CW_optical_pumping_node2(self)
-                self.core_dma.playback_handle(CW_OP_node2_handle)
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_node2_handle)
             delay(10 * us)
 
         # ### Changing the bias field
@@ -6545,14 +6523,12 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
     delay(1 * ms)
 
     #### recording DMA
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
     # record_CW_optical_pumping_node2_without_coil(self)
     record_recooling(self)
     record_excitation_and_photon_collection(self)
 
     #### getting DMA handles
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
     # CW_OP_node2_without_coil_handle = self.core_dma.get_handle("CW_optical_pumping_node2_without_coil")
     recooling_dma_handle = self.core_dma.get_handle("recooling")
@@ -6654,20 +6630,14 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
 
         self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
 
-        if self.which_node == "alice":
-            # self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
-            self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
-            delay(5 * us)
-            self.dds_GRIN1.sw.on()
-        else:
-            self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-            delay(5 * us)
-            self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
-            delay(5 * us)
-            self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
-            delay(5 * us)
-            self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
-            delay(5 * us)
+        self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+        delay(5 * us)
+        self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+        delay(5 * us)
+        self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+        delay(5 * us)
+        self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+        delay(5 * us)
 
         excitation_cycle = 1 ### just for initialization.
 
@@ -6684,12 +6654,8 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
             ############################### CW optical pumping phase - pumps atoms into F=1,m_F=0
             if self.t_pumping > 0.0:
                 # delay(10 * us)
-                if self.which_node == "alice":
-                    # CW_optical_pumping_node1(self)
-                    self.core_dma.playback_handle(CW_OP_node1_handle)
-                else:
-                    self.core_dma.playback_handle(CW_OP_node2_handle)
-                    # self.core_dma.playback_handle(CW_OP_node2_without_coil_handle)
+                self.core_dma.playback_handle(CW_OP_node2_handle)
+                # self.core_dma.playback_handle(CW_OP_node2_without_coil_handle)
 
             ############################### excitation phase - excite F=1,m=0 -> F'=0,m'=0, detect photon
             for excitation_attempt in range(self.n_excitation_attempts):
@@ -6930,7 +6896,6 @@ def atom_photon_parity_11_AllSPCM_experiment(self):
 
     #### recording DMA
     record_chopped_blow_away(self)
-    record_CW_optical_pumping_node1(self)
     record_CW_optical_pumping_node2(self)
     # record_recooling(self)
     record_excitation_and_photon_collection(self)
@@ -6938,7 +6903,6 @@ def atom_photon_parity_11_AllSPCM_experiment(self):
 
     #### getting DMA handles
     ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
-    CW_OP_node1_handle = self.core_dma.get_handle("CW_optical_pumping_node1")
     CW_OP_node2_handle = self.core_dma.get_handle("CW_optical_pumping_node2")
     # recooling_dma_handle = self.core_dma.get_handle("recooling")
     excitation_dma_handle = self.core_dma.get_handle("excitation_and_photon_collection")
@@ -7030,24 +6994,18 @@ def atom_photon_parity_11_AllSPCM_experiment(self):
             self.dds_AOM_A6.sw.off()
         delay(10 * us)
 
-        ### this will stay on for the entire excition + OP loop, because both the D1 and excitation light use it
-        ### use GRIN1 and GRIN2 switches to swith on/off D1 or Exc light
+        ### GRIN1 RF (D1 tone) and GRIN2 RF (excitation tone) stay on for the entire excitation + OP loop;
+        ### the GRIN1 and GRIN2 switches turn the D1 and Exc light on and off
         self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
 
-        if self.which_node == "alice":
-            # self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
-            self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(self.p_excitation))
-            delay(5 * us)
-            self.dds_GRIN1.sw.on()
-        else:
-            self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
-            delay(5 * us)
-            self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
-            delay(5 * us)
-            self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
-            delay(5 * us)
-            self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
-            delay(5 * us)
+        self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+        delay(5 * us)
+        self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+        delay(5 * us)
+        self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+        delay(5 * us)
+        self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+        delay(5 * us)
 
         excitation_cycle = 0  ### just for initialization.
 
@@ -7059,12 +7017,8 @@ def atom_photon_parity_11_AllSPCM_experiment(self):
             ### Akbar 2026-03-26
             if self.t_pumping > 0.0:
                 # delay(10 * us)
-                if self.which_node == "alice":
-                    # CW_optical_pumping_node1(self)
-                    self.core_dma.playback_handle(CW_OP_node1_handle)
-                else:
-                    # CW_optical_pumping_node2(self)
-                    self.core_dma.playback_handle(CW_OP_node2_handle)
+                # CW_optical_pumping_node2(self)
+                self.core_dma.playback_handle(CW_OP_node2_handle)
             # t_after_OP_dma = now_mu()
 
             # if self.which_node == "alice":
