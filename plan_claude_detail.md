@@ -326,8 +326,8 @@ Status 2026-10-20, stages 3 and 4). The code was changed ahead of the cables:
   pumping repump on A5/A6 only (Node1's A1-A4 dropped on 2026-10-21 after a
   test), and the same excitation arming. The old Node1 pumping functions are
   in `subroutines/experiment_functions_obsolete.py` (section 9.2). The
-  two-node `record_CW_optical_pumping_both_nodes` still repumps Node1 through
-  A1-A6.
+  two-node `record_CW_optical_pumping_both_nodes` matches: A5/A6 only on both
+  nodes since 2026-10-23.
 - Before the rewire, Node1's `dds_GRIN1` (`urukul0_ch3`) fed both GRINs at
   `f/p_excitation`, and `dds_GRIN2` (`urukul2_ch2`) was the D1 DP AOM at
   373.075 MHz until 2026-10-19, then unused.

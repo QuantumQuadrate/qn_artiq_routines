@@ -224,11 +224,10 @@ def record_CW_optical_pumping_both_nodes(self):
     THE NODES ARE WIRED ALIKE since the 2026-10-20 Node1 rewire: on each, D1
     comes from an external source gated by ttl_D1_pumping_switch_NodeX and
     reaches the atom through the GRIN1 AOM, so dds_GRIN1_NodeX runs at the D1
-    pumping tone and ttl_GRIN1_switch_NodeX opens with the D1 gate. The one
-    asymmetry left: Node1 delivers the pumping repump through all six fiber
-    AOMs here, Node2 through A5/A6 only. The single-node
-    record_CW_optical_pumping dropped Node1's A1-A4 on 2026-10-21 after a test
-    on Node1; this two-node version has not followed.
+    pumping tone and ttl_GRIN1_switch_NodeX opens with the D1 gate. Both nodes
+    deliver the pumping repump through fiber AOMs A5/A6 only: Node1's A1-A4
+    were dropped here on 2026-10-23, following the single-node
+    record_CW_optical_pumping after the user's 2026-10-21 test on Node1.
     """
     ### Larger of the two nodes' values. Computed BEFORE the recording: a
     ### float compare is host arithmetic and has no business inside a trace.
@@ -259,11 +258,6 @@ def record_CW_optical_pumping_both_nodes(self):
         ### Configure the pumping-repump delivery AOMs. The four-per-group rule
         ### covers set() as well as the switches -- within a node these share a
         ### Urukul SPI bus, and the lab rule names dds.set explicitly.
-        self.dds_AOM_A1_Node1.set(frequency=self.AOM_A1_freq_Node1, amplitude=dB_to_V(-5.0))
-        self.dds_AOM_A2_Node1.set(frequency=self.AOM_A2_freq_Node1, amplitude=dB_to_V(-5.0))
-        self.dds_AOM_A3_Node1.set(frequency=self.AOM_A3_freq_Node1, amplitude=dB_to_V(-5.0))
-        self.dds_AOM_A4_Node1.set(frequency=self.AOM_A4_freq_Node1, amplitude=dB_to_V(-5.0))
-        delay(5 * us)
         self.dds_AOM_A5_Node1.set(frequency=self.AOM_A5_freq_Node1, amplitude=dB_to_V(-5.0))
         self.dds_AOM_A6_Node1.set(frequency=self.AOM_A6_freq_Node1, amplitude=dB_to_V(-5.0))
         self.dds_AOM_A5_Node2.set(frequency=self.AOM_A5_freq_Node2, amplitude=dB_to_V(-5.0))
@@ -271,11 +265,6 @@ def record_CW_optical_pumping_both_nodes(self):
         delay(5 * us)
 
         ### ... and switch them on. A5/A6 fire on both nodes at one timestamp.
-        self.dds_AOM_A1_Node1.sw.on()
-        self.dds_AOM_A2_Node1.sw.on()
-        self.dds_AOM_A3_Node1.sw.on()
-        self.dds_AOM_A4_Node1.sw.on()
-        delay(5 * us)
         self.dds_AOM_A5_Node1.sw.on()
         self.dds_AOM_A6_Node1.sw.on()
         self.dds_AOM_A5_Node2.sw.on()
@@ -336,18 +325,13 @@ def record_CW_optical_pumping_both_nodes(self):
 
         delay(t_depumping)
 
-        ### Turn off every pumping RF and light path. Twelve events, so three
+        ### Turn off every pumping RF and light path. Eight events, so two
         ### groups. The pumping repump stays on through depumping, as in both
         ### single-node originals, and goes off here.
         self.ttl_pumping_repump_switch_Node1.on()
         self.ttl_pumping_repump_switch_Node2.on()
         self.dds_GRIN1_Node1.sw.off()
         self.dds_GRIN1_Node2.sw.off()
-        delay(5 * us)
-        self.dds_AOM_A1_Node1.sw.off()
-        self.dds_AOM_A2_Node1.sw.off()
-        self.dds_AOM_A3_Node1.sw.off()
-        self.dds_AOM_A4_Node1.sw.off()
         delay(5 * us)
         self.dds_AOM_A5_Node1.sw.off()
         self.dds_AOM_A6_Node1.sw.off()
@@ -358,11 +342,6 @@ def record_CW_optical_pumping_both_nodes(self):
         ### Restore the feedback amplitudes while the RF switches are off.
         ### .amplitude is amplitudes[0], kept in step by the feedback routine
         ### (aom_feedback.py:182) -- the loading setpoint, as in the originals.
-        self.dds_AOM_A1_Node1.set(frequency=self.AOM_A1_freq_Node1, amplitude=self.stabilizer_AOM_A1_Node1.amplitude)
-        self.dds_AOM_A2_Node1.set(frequency=self.AOM_A2_freq_Node1, amplitude=self.stabilizer_AOM_A2_Node1.amplitude)
-        self.dds_AOM_A3_Node1.set(frequency=self.AOM_A3_freq_Node1, amplitude=self.stabilizer_AOM_A3_Node1.amplitude)
-        self.dds_AOM_A4_Node1.set(frequency=self.AOM_A4_freq_Node1, amplitude=self.stabilizer_AOM_A4_Node1.amplitude)
-        delay(5 * us)
         self.dds_AOM_A5_Node1.set(frequency=self.AOM_A5_freq_Node1, amplitude=self.stabilizer_AOM_A5_Node1.amplitude)
         self.dds_AOM_A6_Node1.set(frequency=self.AOM_A6_freq_Node1, amplitude=self.stabilizer_AOM_A6_Node1.amplitude)
         self.dds_AOM_A5_Node2.set(frequency=self.AOM_A5_freq_Node2, amplitude=self.stabilizer_AOM_A5_Node2.amplitude)

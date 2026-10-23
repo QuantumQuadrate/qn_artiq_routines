@@ -109,7 +109,8 @@ runs no pumping or excitation experiment. Branch `20261020_GRIN_new_wiring`.
   `CW_optical_pumping`), the one pumping DMA of every single-node experiment.
   `CW_optical_pumping_node1/2`, `record_CW_optical_pumping_node1`, the
   without-coil and the chopped variants moved to
-  `subroutines/experiment_functions_obsolete.py`.
+  `subroutines/experiment_functions_obsolete.py`. The two-node
+  `record_CW_optical_pumping_both_nodes` followed: A5/A6 only on both nodes.
 
 ## The problem
 
