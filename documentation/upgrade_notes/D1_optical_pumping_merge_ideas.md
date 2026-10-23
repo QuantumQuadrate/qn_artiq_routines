@@ -6,7 +6,8 @@ is the stage 1 alias rename, with the user's names `GRIN1and2_dds` ->
 `dds_GRIN1` and `dds_D1_pumping_DP` -> `dds_GRIN2` (2026-10-20, branch
 `20261020_GRIN_new_wiring`; not the `GRIN1_dds` / `GRIN2_dds` proposed below;
 guard test `test_every_dds_alias_list_matches_each_nodes_alias_map`; the
-archive `experiment_functions_obsolete.py` keeps the old names). Stages 3 and
+archive `experiment_functions_obsolete.py` keeps the old names, except the six
+pumping helpers moved there on 2026-10-23). Stages 3 and
 4 are in the code too, ahead of the Node1 GRIN rewire: Node1 runs Node2's
 pumping and excitation code (Status 2026-10-20, stages 3 and 4, below). Not
 started: the GUI argument names (the other half of stage 1, still open) and
@@ -102,6 +103,13 @@ runs no pumping or excitation experiment. Branch `20261020_GRIN_new_wiring`.
   `p_GRIN1_D1_pumping_Node1`, `p_GRIN2_excitation_Node1` and
   `p_GRIN2_D1_pumping_Node1` are -8 dB (Node2 keeps `p_GRIN2_D1_pumping` at
   -150 so GRIN2's init tone is dark). Standalone alice reads the bare names.
+- Update 2026-10-21 to 2026-10-23: the user tested Node1 with the pumping
+  repump on A5/A6 only (works) and commented out Node1's A1-A4 in the shared
+  recorder, which is now `record_CW_optical_pumping` (trace
+  `CW_optical_pumping`), the one pumping DMA of every single-node experiment.
+  `CW_optical_pumping_node1/2`, `record_CW_optical_pumping_node1`, the
+  without-coil and the chopped variants moved to
+  `subroutines/experiment_functions_obsolete.py`.
 
 ## The problem
 
@@ -316,7 +324,8 @@ Cheap, and it catches this entire class of error.
    toggle the two GRIN DDS controls, and confirm on the scope that the same
    channels respond as before the rename (`urukul5_ch2` and `urukul5_ch0` on
    Node2; `urukul0_ch3` and `urukul2_ch2` on Node1). Then run optical pumping on
-   Node2 via single-node GVS (`CW_optical_pumping_node2`) and confirm OP
+   Node2 via single-node GVS (`record_CW_optical_pumping`; `CW_optical_pumping_node2`
+   when this was written) and confirm OP
    performance is unchanged. The rename should be invisible.
 
 ---
@@ -324,7 +333,8 @@ Cheap, and it catches this entire class of error.
 ## Stages 3 and 4 — Node1 to match Node2
 
 **Done in code 2026-10-20** (Status 2026-10-20, stages 3 and 4, above),
-including the merge, except that Node1 keeps its A1-A4 pumping repump. The
+including the merge (Node1 kept its A1-A4 pumping repump at first; dropped
+on 2026-10-21 after a test). The
 channel assignment differs from the paragraph below: Node1 keeps
 `urukul0_ch3` and `urukul2_ch2` and moves the AOM cables instead. The rest of
 this section is the analysis as it stood before.

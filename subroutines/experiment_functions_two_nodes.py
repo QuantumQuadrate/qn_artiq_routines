@@ -179,9 +179,10 @@ def record_FORT_powers_both_nodes(self):
 def record_CW_optical_pumping_both_nodes(self):
     """Record ONE DMA trace that optically pumps both nodes together.
 
-    Ported from record_CW_optical_pumping_node1 and _node2
-    (subroutines/experiment_functions.py), merged rather than replayed side
-    by side.
+    Ported from record_CW_optical_pumping_node1 (now in
+    experiment_functions_obsolete.py) and record_CW_optical_pumping_node2 (now
+    record_CW_optical_pumping in experiment_functions.py), merged rather than
+    replayed side by side.
 
     WHY ONE TRACE AND NOT TWO PLAYED IN PARALLEL. core_dma.playback_handle
     ends with delay_mu(advance_mu), so two handles played sequentially run back
@@ -224,8 +225,10 @@ def record_CW_optical_pumping_both_nodes(self):
     comes from an external source gated by ttl_D1_pumping_switch_NodeX and
     reaches the atom through the GRIN1 AOM, so dds_GRIN1_NodeX runs at the D1
     pumping tone and ttl_GRIN1_switch_NodeX opens with the D1 gate. The one
-    asymmetry left is real: Node1 delivers the pumping repump through all six
-    fiber AOMs (user, kept 2026-10-20), Node2 through A5/A6 only.
+    asymmetry left: Node1 delivers the pumping repump through all six fiber
+    AOMs here, Node2 through A5/A6 only. The single-node
+    record_CW_optical_pumping dropped Node1's A1-A4 on 2026-10-21 after a test
+    on Node1; this two-node version has not followed.
     """
     ### Larger of the two nodes' values. Computed BEFORE the recording: a
     ### float compare is host arithmetic and has no business inside a trace.

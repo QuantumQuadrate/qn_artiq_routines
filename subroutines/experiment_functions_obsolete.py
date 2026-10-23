@@ -1,7 +1,8 @@
 """
 Legacy functions we used in the past.
 
-They were moved out of experiment_functions.py on 2026-10-20 and are kept
+They were moved out of experiment_functions.py on 2026-10-20 (the six
+optical-pumping helpers at the start of section 2 on 2026-10-23) and are kept
 here only in case we need them again or want to look them up. Nothing imports
 this file and it has no imports of its own, so none of these functions shows
 up in a GeneralVariableScan menu or can run as it is; the master's repository
@@ -570,6 +571,453 @@ def load_MOT_and_FORT_for_Luca_scattering_measurement(self):
 ###############################################################################
 # 2. SUBROUTINE FUNCTIONS
 ###############################################################################
+
+@kernel
+def record_chopped_optical_pumping(self):
+    """
+    D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
+    switched by ttl_D1_pumping_switch (active low: off() = D1 on), not by the
+    Urukul channel dds_GRIN2.
+
+    :param self:
+    :return:
+    """
+
+    n_chop_cycles = int(self.t_pumping/self.t_OP_chop_period + 0.5)
+    assert n_chop_cycles >= 1, "t_pumping should be > t_OP_chop_period"
+
+    # todo: use duty cycle ExperimentVariables
+    OP_pulse = self.t_OP_chop_period * self.duty_cycle_OP
+    FORT_pulse = self.t_OP_chop_period * self.duty_cycle_FORT
+
+    n_depump_chop_cycles = int(self.t_depumping /self.t_OP_chop_period)
+
+    self.core.reset()
+
+    with self.core_dma.record("chopped_optical_pumping"):
+
+        # hardcoded for offsets for now, but this gives decent separation between the FORT and OP
+        # pulses
+        start = now_mu()
+        period_mu = self.core.seconds_to_mu(self.t_OP_chop_period)
+
+        OP_pulse_length_mu = self.core.seconds_to_mu(OP_pulse)
+        FORT_pulse_length_mu = self.core.seconds_to_mu(FORT_pulse)
+        FORT_on_mu = self.core.seconds_to_mu(0.0)
+        OP_on_mu = self.core.seconds_to_mu(self.t_OP_chop_offset)
+
+        if not (self.pumping_light_off or self.D1_off_in_OP_phase):
+            for i in range(n_chop_cycles):
+                at_mu(start+i*period_mu+FORT_on_mu)
+                self.dds_FORT.sw.off()
+                delay_mu(OP_pulse_length_mu)
+                self.dds_FORT.sw.on()
+                at_mu(start+i*period_mu+OP_on_mu)
+                self.ttl_D1_pumping_switch.off()  # D1 on
+                delay_mu(OP_pulse_length_mu)
+                self.ttl_D1_pumping_switch.on()  # D1 off
+        else:
+            for i in range(n_chop_cycles):
+                at_mu(start + i * period_mu + FORT_on_mu)
+                self.dds_FORT.sw.off()
+                delay_mu(OP_pulse_length_mu)
+                self.dds_FORT.sw.on()
+
+        if n_depump_chop_cycles > 0:
+
+            # turn off the pumping repump
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+            self.ttl_pumping_repump_switch.on()
+            start = now_mu() + self.core.seconds_to_mu(0.5 * us)
+
+            if not (self.pumping_light_off or self.D1_off_in_depump_phase):
+                for i in range(n_depump_chop_cycles):
+                    at_mu(start + i * period_mu + FORT_on_mu)
+                    self.dds_FORT.sw.off()
+                    delay_mu(OP_pulse_length_mu)
+                    self.dds_FORT.sw.on()
+                    at_mu(start + i * period_mu + OP_on_mu)
+                    self.ttl_D1_pumping_switch.off()  # D1 on
+                    delay_mu(OP_pulse_length_mu)
+                    self.ttl_D1_pumping_switch.on()  # D1 off
+            else:
+                for i in range(n_depump_chop_cycles):
+                    at_mu(start + i * period_mu + FORT_on_mu)
+                    self.dds_FORT.sw.off()
+                    delay_mu(OP_pulse_length_mu)
+                    self.dds_FORT.sw.on()
+
+@kernel
+def chopped_optical_pumping(self):
+    """
+    Optical pumping with FORT chopped.
+
+    Turns on:
+        Fiber AOMs 5 and 6
+        GRIN1and2 DDS
+        GRIN1 AOM
+
+    Turns off at the end:
+        D1 DP
+        Pumping Repumper
+        Fiber AOMs 5 and 6
+        GRIN1and2 DDS
+        GRIN1 AOM
+        cooling DP
+
+    :param self:
+    :return:
+    """
+
+    op_dma_handle = self.core_dma.get_handle("chopped_optical_pumping")
+    if self.t_depumping + self.t_pumping > 1*ms:
+        delay(1500 * us)  # we need extra slack
+
+    self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+    self.ttl_exc0_switch.on() # turns off the excitation
+    self.dds_cooling_DP.sw.off()  # no cooling light
+    delay(10 * us)
+    self.dds_AOM_A1.sw.off()
+    self.dds_AOM_A2.sw.off()
+    self.dds_AOM_A3.sw.off()
+    self.dds_AOM_A4.sw.off()
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+    delay(10 * us)
+
+    if self.which_node == "alice":
+        self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+        ### This is split into GRIN1 and GRIN2 in Alice
+    else:
+        self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(-5.0))
+        ### This is just for GRIN1 in Bob
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
+    delay(1 * us)
+
+    ### Tunring on pumping RP:
+    self.ttl_pumping_repump_switch.off()
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    delay(1*ms)
+
+    ### so that D1 can pass
+    self.dds_GRIN1.sw.on()
+    self.ttl_GRIN1_switch.off()
+
+    ### set coils for pumping
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        channels=self.coil_channels)
+    delay(1 * ms)  # coil relaxation time
+
+    self.core_dma.playback_handle(op_dma_handle)
+    delay(self.t_depumping)
+    self.dds_GRIN2.sw.off() ### turning off D1 DP
+    self.ttl_pumping_repump_switch.on() ### turning off pumping RP
+
+    delay(2*us)
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+    delay(100 * us)
+
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
+    # self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=self.stabilizer_excitation.amplitudes[0])
+    delay(1*ms)
+    self.dds_GRIN1.sw.off()
+    self.ttl_GRIN1_switch.on()
+    delay(10*us)
+    # self.dds_cooling_DP.sw.off()
+
+@kernel
+def CW_optical_pumping_node1(self):
+    """
+    - Includes turning on or off some AOMs, or setting their powers, setting the coils, etc.
+    - D1 is on GRIN1
+    - I am bypassing GRIN1 AOM to increase the D1 power at the atom to speed up O.P.
+    - 2026-10-19: D1 now runs from an external RF source switched by
+      ttl_D1_pumping_switch and goes through the GRIN1 AOM; this function does
+      not open GRIN1 yet.
+    - Not used since the 2026-10-20 Node1 rewire (Node1's GRIN AOMs are wired
+      like Node2's); kept for rollback.
+    """
+
+    self.ttl_repump_switch.on()  # turns off the MOT RP AOM
+    self.ttl_exc0_switch.on() # turns off the excitation
+    self.dds_cooling_DP.sw.off()  # no cooling light
+    delay(5 * us)
+
+    ### Turning on fiber AOMs for delivery of the pumping repump
+    # self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-5.0))
+    # self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-5.0))
+    # self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-5.0))
+    # self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-5.0))
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
+
+    delay(5 * us)
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    # ### so that D1 can pass
+    # self.dds_GRIN1.set(frequency=self.f_excitation, amplitude=dB_to_V(5.0))
+    # delay(5 * us)
+    # self.dds_GRIN1.sw.on()
+    # self.ttl_GRIN1_switch.off()
+
+    ### set coils for pumping
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        channels=self.coil_channels)
+    ### Physical coil-relaxation time
+    # delay(0.4 * ms)  # coil relaxation time
+    delay(self.t_OP_coil_relax_time)
+
+    ### Optical pumping phase
+    ### D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
+    ### switched by ttl_D1_pumping_switch (active low: off() = D1 on), not
+    ### by the Urukul channel dds_GRIN2.
+    self.ttl_pumping_repump_switch.off()
+    self.ttl_D1_pumping_switch.off()  # D1 on
+
+    delay(self.t_pumping)
+
+    self.ttl_D1_pumping_switch.on()  # D1 off
+    delay(self.t_depumping)
+    self.ttl_pumping_repump_switch.on()
+
+    delay(2*us)
+
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+
+    delay(1 * us)
+
+    # self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
+    # self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
+    # self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
+    # self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
+    delay(5*us)
+    # self.dds_GRIN1.sw.off()
+    # self.ttl_GRIN1_switch.on()
+
+@kernel
+def CW_optical_pumping_node2(self):
+    """
+    *** previously named as "optical_pumping_GRIN1"
+    *** OP with GRIN1
+    optical pumping without chopping the FORT - swtching ON/OFF with TTL
+
+    ** OP AOM is driven with external RF source.
+    ** ONLY GRIN1 AOM is used to turn on/off the OP.
+
+    Note: the dds channels used for GRIN1 and GRIN2 kept their Node1 names
+    (GRIN1and2_dds, dds_D1_pumping_DP) until 2026-10-20; they are now named
+    after what they drive here:
+    dds_GRIN1   >>>>   GRIN1 dds
+    dds_GRIN2   >>>>   GRIN2 dds
+
+    Eunji - for Node2
+
+    """
+    self.dds_cooling_DP.sw.off()  # no MOT cooling light
+    self.ttl_repump_switch.on()   # no MOT RP AOM
+    self.ttl_exc0_switch.on()     # no excitation
+    self.ttl_D1_pumping_switch.on()      # no D1
+    delay(5 * us)
+
+    ### Turning on fiber AOMs 5 & 6 for delivery of the pumping repump
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq,amplitude=dB_to_V(-5.0))
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq,amplitude=dB_to_V(-5.0))
+    delay(5 * us)
+
+    self.dds_AOM_A5.sw.on()
+    self.dds_AOM_A6.sw.on()
+
+    ### set coils for pumping
+    self.zotino0.set_dac(
+        [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+        channels=self.coil_channels)
+    ### Physical coil-relaxation time
+    # delay(0.395 * ms)  # coil relaxation time
+    delay(self.t_OP_coil_relax_time)
+
+    ### so that D1 can pass
+    self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+    self.dds_GRIN1.sw.on()  ## GRIN1 RF ON but not yet activated with external switch
+    delay(5 * us)
+
+    with parallel:
+        self.ttl_pumping_repump_switch.off()  ## pumping repump ON
+        self.ttl_D1_pumping_switch.off()  ##turning D1 ON
+        self.ttl_GRIN1_switch.off()  ## turning D1 ON
+
+    delay(self.t_pumping)     ## pumping time
+
+    with parallel:
+        self.ttl_D1_pumping_switch.on()  ## turning D1 OFF
+        self.ttl_GRIN1_switch.on()  ## GRIN OFF
+
+    delay(self.t_depumping)    ## depumping time
+
+    self.ttl_pumping_repump_switch.on()  ## pumping repump OFF
+    delay(2 * us)
+
+    # self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1]) # back to science setpoint
+    # delay(1*us)
+
+    self.dds_AOM_A5.sw.off()
+    self.dds_AOM_A6.sw.off()
+    self.dds_GRIN1.sw.off()  ## GRIN1 RF OFF
+    delay(1 * us)
+
+    self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+    self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+    delay(5 * us)
+
+@kernel
+def record_CW_optical_pumping_node1(self):
+    """Not used since the 2026-10-20 Node1 rewire: both nodes play
+    record_CW_optical_pumping_node2, which keeps Node1's A1-A4 repump. Kept
+    for rollback.
+    """
+    with self.core_dma.record("CW_optical_pumping_node1"):
+        ### Turn off unused light
+        with parallel:
+            self.ttl_repump_switch.on()
+            self.ttl_exc0_switch.on()
+            self.dds_cooling_DP.sw.off()
+
+        ### Configure pumping-repump delivery AOMs
+        ### These must remain sequential if they share the same Urukul SPI bus
+        self.dds_AOM_A1.set(frequency=self.AOM_A1_freq,amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A2.set(frequency=self.AOM_A2_freq,amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A3.set(frequency=self.AOM_A3_freq,amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A4.set(frequency=self.AOM_A4_freq,amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+
+        with parallel:
+            self.dds_AOM_A1.sw.on()
+            self.dds_AOM_A2.sw.on()
+            self.dds_AOM_A3.sw.on()
+            self.dds_AOM_A4.sw.on()
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+
+        ### Program the coil voltages forward in time
+        self.zotino0.write_dac(self.coil_channels[0], self.AZ_bottom_volts_OP)
+        self.zotino0.write_dac(self.coil_channels[1], -self.AZ_bottom_volts_OP)
+        self.zotino0.write_dac(self.coil_channels[2], self.AX_volts_OP)
+        self.zotino0.write_dac(self.coil_channels[3], self.AY_volts_OP)
+        delay(1.5 * us)
+        self.zotino0.load()
+
+        ### Physical coil-relaxation time
+        # delay(0.4 * ms)
+        delay(self.t_OP_coil_relax_time)
+
+        ### Optical pumping
+        ### D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source
+        ### switched by ttl_D1_pumping_switch (active low: off() = D1 on), not
+        ### by the Urukul channel dds_GRIN2.
+        with parallel:
+            self.ttl_pumping_repump_switch.off()
+            self.ttl_D1_pumping_switch.off()  # D1 on
+
+        delay(self.t_pumping)
+
+        self.ttl_D1_pumping_switch.on()  # D1 off
+
+        delay(self.t_depumping)
+
+        ### Turn off all pumping RF/light paths
+        with parallel:
+            self.ttl_pumping_repump_switch.on()
+            self.dds_AOM_A1.sw.off()
+            self.dds_AOM_A2.sw.off()
+            self.dds_AOM_A3.sw.off()
+            self.dds_AOM_A4.sw.off()
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A1.set(frequency=self.AOM_A1_freq, amplitude=self.stabilizer_AOM_A1.amplitude)
+        self.dds_AOM_A2.set(frequency=self.AOM_A2_freq, amplitude=self.stabilizer_AOM_A2.amplitude)
+        self.dds_AOM_A3.set(frequency=self.AOM_A3_freq, amplitude=self.stabilizer_AOM_A3.amplitude)
+        self.dds_AOM_A4.set(frequency=self.AOM_A4_freq, amplitude=self.stabilizer_AOM_A4.amplitude)
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+
+@kernel
+def record_CW_optical_pumping_node2_without_coil(self):
+    with self.core_dma.record("CW_optical_pumping_node2_without_coil"):
+        ### Turn off unused light
+        with parallel:
+            self.dds_cooling_DP.sw.off()
+            self.ttl_repump_switch.on()
+            self.ttl_exc0_switch.on()
+            self.ttl_D1_pumping_switch.on()
+
+        ### Configure pumping-repump delivery AOMs
+        ### These must remain sequential if they share the same Urukul SPI bus
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=dB_to_V(-5.0))
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=dB_to_V(-5.0))
+
+        with parallel:
+            self.dds_AOM_A5.sw.on()
+            self.dds_AOM_A6.sw.on()
+
+        # ### Program the coil voltages forward in time
+        # self.zotino0.write_dac(self.coil_channels[0], self.AZ_bottom_volts_OP)
+        # self.zotino0.write_dac(self.coil_channels[1], -self.AZ_bottom_volts_OP)
+        # self.zotino0.write_dac(self.coil_channels[2], self.AX_volts_OP)
+        # self.zotino0.write_dac(self.coil_channels[3], self.AY_volts_OP)
+        # delay(1.5 * us)
+        # self.zotino0.load()
+        #
+        # ### Physical coil-relaxation time
+        # delay(0.395 * ms)
+        # # delay(self.dummy_variable)
+
+        ### Configure GRIN1 DDS
+        self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+        self.dds_GRIN1.sw.on()
+        delay(2*us)
+
+        ### Optical pumping
+        with parallel:
+            self.ttl_pumping_repump_switch.off()
+            self.ttl_D1_pumping_switch.off()
+            self.ttl_GRIN1_switch.off()
+
+        delay(self.t_pumping)
+
+        ### Turn off D1 pumping light
+        with parallel:
+            self.ttl_D1_pumping_switch.on()
+            self.ttl_GRIN1_switch.on()
+
+        delay(self.t_depumping)
+
+        ### Turn off all pumping RF/light paths
+        with parallel:
+            self.ttl_pumping_repump_switch.on()
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+            self.dds_GRIN1.sw.off()
+
+        ### Restore feedback amplitudes while RF switches are off
+        self.dds_AOM_A5.set(frequency=self.AOM_A5_freq, amplitude=self.stabilizer_AOM_A5.amplitude)
+        self.dds_AOM_A6.set(frequency=self.AOM_A6_freq, amplitude=self.stabilizer_AOM_A6.amplitude)
+        delay(1.7 * us)  ### to match the timing with node1
 
 @kernel
 def test_shot(self):

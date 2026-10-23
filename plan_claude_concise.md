@@ -291,6 +291,11 @@ come before cleanup (sections 3.1, 3.3).
   are kept but no longer called; AOMsCoils Node1 has combined
   `Node1_GRIN1_AOM_ON` / `Node1_GRIN2_AOM_ON` modes. Node1's GRIN values are
   placeholders to calibrate (sections 2.8, 11.7; D1 upgrade note).
+- **2026-10-23 (same branch):** one pumping DMA for every single-node
+  experiment: `record_CW_optical_pumping` (trace `CW_optical_pumping`; was
+  `record_CW_optical_pumping_node2`), pumping repump on A5/A6 only on both
+  nodes (Node1's A1-A4 dropped on 2026-10-21 after a test). Six dead pumping
+  helpers moved to `subroutines/experiment_functions_obsolete.py` (section 9.2).
 
 **Uncommitted:** check `git status`; under R26 uncommitted code may already
 have run.

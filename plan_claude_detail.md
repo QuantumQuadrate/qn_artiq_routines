@@ -307,7 +307,7 @@ against both mapping layers:
 The two GRIN aliases were renamed on 2026-10-20 (`GRIN1and2_dds` ->
 `dds_GRIN1`, `dds_D1_pumping_DP` -> `dds_GRIN2`): alias keys only, so every
 channel is unchanged; the archive `subroutines/experiment_functions_obsolete.py`
-keeps the old names. Guard: `test_every_dds_alias_list_matches_each_nodes_alias_map`.
+keeps the old names, except the six pumping helpers moved there on 2026-10-23. Guard: `test_every_dds_alias_list_matches_each_nodes_alias_map`.
 
 Since the Node1 GRIN rewire (2026-10-20, user) the GRIN aliases mean the same
 thing on both nodes (`documentation/upgrade_notes/D1_optical_pumping_merge_ideas.md`,
@@ -320,9 +320,14 @@ Status 2026-10-20, stages 3 and 4). The code was changed ahead of the cables:
   reprogram it to `f/p_GRIN2_excitation`).
 - Each node has a dedicated D1 gate, `ttl_D1_pumping_switch` (Node1 ttl15
   since 2026-10-19, Node2 ttl12); its D1 then passes the GRIN1 optical gate.
-- Node1 runs Node2's pumping DMA (`record_CW_optical_pumping_node2`, which also
-  switches A1-A4 on Node1) and excitation arming. `CW_optical_pumping_node1`
-  and its DMA version are no longer called; kept for rollback.
+- In single-node mode both nodes run one pumping DMA,
+  `record_CW_optical_pumping` (trace `CW_optical_pumping`; until 2026-10-23
+  `record_CW_optical_pumping_node2` / `CW_optical_pumping_node2`), with the
+  pumping repump on A5/A6 only (Node1's A1-A4 dropped on 2026-10-21 after a
+  test), and the same excitation arming. The old Node1 pumping functions are
+  in `subroutines/experiment_functions_obsolete.py` (section 9.2). The
+  two-node `record_CW_optical_pumping_both_nodes` still repumps Node1 through
+  A1-A6.
 - Before the rewire, Node1's `dds_GRIN1` (`urukul0_ch3`) fed both GRINs at
   `f/p_excitation`, and `dds_GRIN2` (`urukul2_ch2`) was the D1 DP AOM at
   373.075 MHz until 2026-10-19, then unused.
@@ -1364,8 +1369,8 @@ was 0). The rename (`e768d50`) split it:
 
 - OP coil relaxation: every optical-pumping sequence delays on
   `t_OP_coil_relax_time` (added `3257b1c`, 2026-09-03; read by
-  `CW_optical_pumping_node1/2` and `record_CW_optical_pumping_node1/2`); the
-  two-node recorder uses the larger node value. Code seed 0.4 ms (the
+  `record_CW_optical_pumping`, the one single-node pumping DMA since
+  2026-10-23); the two-node recorder uses the larger node value. Code seed 0.4 ms (the
   previously hardcoded value; Node2 had 0.395 ms). Live
   `t_OP_coil_relax_time_Node1/_Node2` = 1.5 ms each (checked 2026-10-14), so
   the 1.5 ms tuned on the dead `t_coil_relaxation_time_OP_NodeX` is now in the
@@ -1633,6 +1638,15 @@ two-node experiments and dead helpers), to
 `trap_frequency_experiment`, which had been commented out. Nothing imports
 that file and it has no imports of its own (user: none of it will be used),
 so the master's repository scan logs an import error for it; harmless.
+On 2026-10-23 six dead pumping helpers followed (`CW_optical_pumping_node1`,
+`CW_optical_pumping_node2`, `record_CW_optical_pumping_node1`,
+`record_CW_optical_pumping_node2_without_coil`, `chopped_optical_pumping`,
+`record_chopped_optical_pumping`; the last was recorded but never played by
+`beam_balancing_with_atoms_experiment`, whose record call went too), and
+`record_CW_optical_pumping_node2` became `record_CW_optical_pumping` (trace
+`CW_optical_pumping`), the D1 optical pumping of all twelve single-node
+experiments that pump with D1 (`microwave_freq_scan_experiment` prepares F=1
+inline with the pumping repump alone). The menu count stays 23.
 
 ### 9.3 Two-node module conventions
 
@@ -1822,8 +1836,9 @@ measurement does not run on an empty trap; loading-plus-survival probability
   single-detector event parity_10 never drained, so stale FIFO edges
   reappeared as false early counts and underflowed the `at_mu()` mapping
   jump.
-- sp9 Node2 optical pumping uses `record_CW_optical_pumping_node2` with the
-  coil setting (`e79b0fd`, 2026-10-05); its duplicate OP coil set is
+- sp9 optical pumping uses `record_CW_optical_pumping` (named
+  `record_CW_optical_pumping_node2` until 2026-10-23) with the coil setting
+  (`e79b0fd`, 2026-10-05); its duplicate OP coil set is
   commented out because the recorded trace already sets those DACs.
 - `record_CW_optical_pumping_both_nodes` records ONE DMA trace for both
   nodes. `playback_handle` ends with `delay_mu(advance_mu)`, so `with parallel`
@@ -3244,7 +3259,7 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   Node2's pumping and excitation code, its GRIN values are placeholders to
   calibrate (section 2.8). Prerequisite: the
   alias guard test (O-22, now added). Latent bugs recorded there and left alone:
-  `chopped_optical_pumping` has no Node2-correct path; several Node1-only
+  `chopped_optical_pumping` has no Node2-correct path (archived 2026-10-23); several Node1-only
   unconditional sequences mis-drive Node2; the `aom_feedback` GRIN special
   case never fires in two-node mode; Bob's `feedback_channels.json` references
   the undeclared `set_point_D1_DP`; Node1 pre-programmed `dds_GRIN2`
