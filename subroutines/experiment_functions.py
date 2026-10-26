@@ -1580,6 +1580,7 @@ def record_CW_optical_pumping(self):
         with parallel:
             self.ttl_D1_pumping_switch.on()
             self.ttl_GRIN1_switch.on()
+            self.dds_GRIN1.sw.off()
 
         delay(self.t_depumping)
 
@@ -1588,7 +1589,7 @@ def record_CW_optical_pumping(self):
             self.ttl_pumping_repump_switch.on()
             self.dds_AOM_A5.sw.off()
             self.dds_AOM_A6.sw.off()
-            self.dds_GRIN1.sw.off()
+            # self.dds_GRIN1.sw.off()
         # if self.which_node == "alice":
         #     delay(5 * us)
         #     with parallel:
