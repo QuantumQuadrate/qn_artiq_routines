@@ -81,6 +81,20 @@ def _load_standalone_scan_definitions():
 
 scan_options, scan_dict = _load_standalone_scan_definitions()
 
+# The pulse each frequency scan PLAYS, which sets its linewidth: a square pi
+# pulse gives FWHM = 0.80/t_pi, and fits to every frequency scan since
+# 2026-06 gave 0.78/t_pi on both nodes. Frequency_00/01 play t_microwave_pulse,
+# loaded from t_microwave_00/01_pulse by their override_items. Time scans use
+# scan_dict's own "pi_pulse".
+ADAPTIVE_SCAN_PULSE = {
+    "Frequency_00_Scan": "t_microwave_pulse",
+    "Frequency_01_Scan": "t_microwave_pulse",
+    "Frequency_11_Scan": "t_microwave_11_pulse",
+    "Frequency_m10_Scan": "t_microwave_m10_pulse",
+    "Frequency_m11_Scan": "t_MW_RF_pulse",
+}
+PI_PULSE_FWHM_TIMES_T_PI = 0.80
+
 
 class MicrowaveScanOptimizer_master_satellite(
     _DatasetRedirectMixin, EnvExperiment
@@ -137,6 +151,14 @@ class MicrowaveScanOptimizer_master_satellite(
             )
         self.setattr_argument('enable_fitting', BooleanValue(default=True), "General Scan Setting")
         self.setattr_argument('enable_geometric_frequency_scan', BooleanValue(default=True), "General Scan Setting")
+        self.setattr_argument(
+            'enable_node_specific_adaptive_scan',
+            BooleanValue(default=False),
+            "General Scan Setting",
+            tooltip="Size the scan from the selected node's pi time for this "
+                    "transition (see the [Node-specific adaptive] group) instead "
+                    "of the [Default]/[Geometric] kHz values and time_scan_sequence.",
+        )
 
         for scan_name in scan_options:
             self.setattr_argument(
@@ -157,6 +179,21 @@ class MicrowaveScanOptimizer_master_satellite(
 
         #### Time scan variables
         self.setattr_argument("time_scan_sequence", StringValue('np.arange(0,10,1)*us'), "Time Scan variables")
+
+        #### Used only when enable_node_specific_adaptive_scan is checked.
+        #### linewidth = 0.80/t_pi (FWHM), t_pi from the selected node.
+        adaptive_group = "[Node-specific adaptive] Scan variables - from the node's pi time"
+        self.setattr_argument("adaptive_half_range_linewidths", NumberValue(2.0, ndecimals=2, step=0.5), adaptive_group,
+                              tooltip="Frequency scans: half range = this x linewidth. Also the "
+                                      "[Geometric] half range; the broader search covers twice it.")
+        self.setattr_argument("adaptive_points_per_linewidth", NumberValue(3.0, ndecimals=1, step=1), adaptive_group,
+                              tooltip="Frequency scans: step = linewidth / this, for the [Default] list, "
+                                      "the refine list and the broader search. The [Geometric] minimum "
+                                      "step and re-centering step are 0.6 x that.")
+        self.setattr_argument("adaptive_time_scan_max_pi", NumberValue(2.0, ndecimals=2, step=0.5), adaptive_group,
+                              tooltip="Time scans: from 0 to this x t_pi (2 = a full 2-pi flop).")
+        self.setattr_argument("adaptive_time_scan_n_steps", NumberValue(10, ndecimals=0, step=1), adaptive_group,
+                              tooltip="Time scans: number of steps, so n_steps + 1 points including 0.")
 
     def prepare(self):
         """
@@ -251,6 +288,8 @@ class MicrowaveScanOptimizer_master_satellite(
             center = getattr(self, scan_dict[self.scan_type]["center"])
             self.center = center
             print("center: ", center)
+            if self.enable_node_specific_adaptive_scan:
+                self._size_frequency_scan_from_pi_time()
             if self.enable_geometric_frequency_scan:
                 self.scan_sequence1 = self.make_scan_list(center=center,
                                                           half_range_kHz=self.freq_scan_half_range_kHz,
@@ -262,7 +301,16 @@ class MicrowaveScanOptimizer_master_satellite(
                                                 self.freq_scan_step_size_kHz * kHz)
 
         elif self.scan_type.startswith(('Time', 'Ramsey')):
-            self.scan_sequence1 = eval(self.time_scan_sequence)
+            if (self.enable_node_specific_adaptive_scan
+                    and "pi_pulse" in scan_dict[self.scan_type]):
+                t_pi = self._selected_node_pulse_time(scan_dict[self.scan_type]["pi_pulse"])
+                self.scan_sequence1 = np.linspace(
+                    0.0, self.adaptive_time_scan_max_pi * t_pi,
+                    int(self.adaptive_time_scan_n_steps) + 1)
+                print(f"[adaptive] {self._selected_node} {self.scan_type}: t_pi {t_pi / us:.2f} us -> "
+                      f"0 to {self.adaptive_time_scan_max_pi:g} pi in {int(self.adaptive_time_scan_n_steps)} steps")
+            else:
+                self.scan_sequence1 = eval(self.time_scan_sequence)
         else:
             raise KeyError("There is no such scan type: ", self.scan_type)
 
@@ -753,9 +801,11 @@ class MicrowaveScanOptimizer_master_satellite(
                                 self.shrink_factor = self.shrink_factor * 2
                                 print("Manual scan range: - 2* self.freq_scan_range_left_kHz ~ +2* self.freq_scan_range_left_kHz, 20kHz step")
 
+                                broad_step_kHz = (self.freq_scan_step_size_kHz
+                                                  if self.enable_node_specific_adaptive_scan else 20.0)
                                 new_sequence1 = np.arange(self.center - 2 * self.freq_scan_range_left_kHz * kHz,
                                                           self.center + 2 * self.freq_scan_range_right_kHz * kHz,
-                                                          20 * kHz)
+                                                          broad_step_kHz * kHz)
 
                                 pending_sequence1 = list(new_sequence1)
                                 did_refine = True
@@ -964,7 +1014,14 @@ class MicrowaveScanOptimizer_master_satellite(
                 "freq_scan_min_step_size_kHz": 10.0,
 
                 # Time scan parameters
-                "time_scan_sequence": 'np.arange(0,10,1)*us'
+                "time_scan_sequence": 'np.arange(0,10,1)*us',
+
+                # Node-specific adaptive scan: the child derives its own ranges
+                "enable_node_specific_adaptive_scan": self.enable_node_specific_adaptive_scan,
+                "adaptive_half_range_linewidths": self.adaptive_half_range_linewidths,
+                "adaptive_points_per_linewidth": self.adaptive_points_per_linewidth,
+                "adaptive_time_scan_max_pi": self.adaptive_time_scan_max_pi,
+                "adaptive_time_scan_n_steps": self.adaptive_time_scan_n_steps,
             },
             "repo_rev": "N/A",
         }
@@ -993,6 +1050,42 @@ class MicrowaveScanOptimizer_master_satellite(
                     raise KeyError(f"Invalid override key: '{key}'. ")
 
         self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
+
+    def _selected_node_pulse_time(self, legacy_name):
+        """The running node's value of a pulse-time variable, after the
+        run-wide overrides (so a scan's override_items and the user's
+        override dictionary both count)."""
+        t_pi = float(getattr(
+            self, self.base.resolve_experiment_variable_target(legacy_name)))
+        if t_pi <= 0:
+            raise ValueError(
+                f"{legacy_name} is {t_pi} on {self._selected_node}; the "
+                "node-specific adaptive scan needs a positive pi time.")
+        return t_pi
+
+    def _size_frequency_scan_from_pi_time(self):
+        """Overwrite the run-local [Default]/[Geometric] kHz values from the
+        node's pi time. Everything downstream reads them: the first list,
+        the re-centering steps, the refine list and the broader search."""
+        t_pi = self._selected_node_pulse_time(ADAPTIVE_SCAN_PULSE[self.scan_type])
+        linewidth_kHz = PI_PULSE_FWHM_TIMES_T_PI / t_pi / kHz
+        half_range_kHz = self.adaptive_half_range_linewidths * linewidth_kHz
+        step_kHz = linewidth_kHz / self.adaptive_points_per_linewidth
+
+        self.freq_scan_range_left_kHz = half_range_kHz
+        # arange excludes its end; half a step more keeps the list symmetric
+        self.freq_scan_range_right_kHz = half_range_kHz + 0.5 * step_kHz
+        self.freq_scan_step_size_kHz = step_kHz
+        self.freq_scan_half_range_kHz = half_range_kHz
+        # make_scan_list stops at the first gap below this; 0.6 x step keeps
+        # the +-0.43 linewidth pair (9 points at the defaults).
+        self.freq_scan_min_step_size_kHz = 0.6 * step_kHz
+        # Gaussian sigma of a line this wide: the fixed 50/80 kHz guesses
+        # suit only some node x transition pairs.
+        self.initialise = dict(self.initialise, sigma=linewidth_kHz * kHz / 2.3548)
+        print(f"[adaptive] {self._selected_node} {self.scan_type}: t_pi {t_pi / us:.2f} us, "
+              f"linewidth {linewidth_kHz:.1f} kHz -> +-{half_range_kHz:.1f} kHz, "
+              f"step {step_kHz:.1f} kHz")
 
     def make_scan_list(self, center, half_range_kHz, min_step_kHz=10.0, method="center_geometric", mode="pair"):
         """

@@ -508,6 +508,85 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
             "the removed node-agnostic field is still being submitted",
         )
 
+    def _adaptive_offsets(self, node, scan, geometric, pulse_name, t_pi):
+        self.datasets[f"{pulse_name}_{node}"] = t_pi
+        experiment = self.make_experiment({
+            "which_node": node,
+            scan: True,
+            "enable_node_specific_adaptive_scan": True,
+            "enable_geometric_frequency_scan": geometric,
+        })
+        offsets = [value - experiment.center for value in experiment.scan_sequence1]
+        return experiment, offsets
+
+    def test_adaptive_frequency_scan_follows_each_nodes_pi_time(self):
+        """Node1's 01 line (17 us pulse, ~47 kHz wide) and Node2's (5.4 us,
+        ~148 kHz) get scans sized to their own linewidth."""
+        for node, t_pi in (("Node1", 17e-6), ("Node2", 5.4e-6)):
+            linewidth = 0.80 / t_pi
+            experiment, offsets = self._adaptive_offsets(
+                node, "Frequency_01_Scan", False, "t_microwave_01_pulse", t_pi)
+            self.assertEqual(len(offsets), 13)
+            self.assertAlmostEqual(offsets[0], -2.0 * linewidth, delta=1.0)
+            self.assertAlmostEqual(offsets[-1], 2.0 * linewidth, delta=1.0)
+            self.assertAlmostEqual(offsets[1] - offsets[0], linewidth / 3.0, delta=1.0)
+            self.assertAlmostEqual(
+                experiment.initialise["sigma"], linewidth / 2.3548, delta=1.0)
+            # The broader search and re-centering read the same run-local values.
+            self.assertAlmostEqual(
+                experiment.freq_scan_step_size_kHz * 1e3, linewidth / 3.0, delta=1.0)
+            self.assertAlmostEqual(
+                experiment.freq_scan_min_step_size_kHz * 1e3, 0.2 * linewidth, delta=1.0)
+            # The shared scan definition is not modified.
+            self.assertEqual(scan_dict["Frequency_01_Scan"]["initialise"], {"sigma": 50000.0})
+
+    def test_adaptive_geometric_list_is_in_linewidth_units(self):
+        linewidth = 0.80 / 4.4e-6
+        _, offsets = self._adaptive_offsets(
+            "Node1", "Frequency_11_Scan", True, "t_microwave_11_pulse", 4.4e-6)
+        self.assertAlmostEqual(max(abs(o) for o in offsets), 2.0 * linewidth, delta=1.0)
+        self.assertEqual(len(offsets), 9)
+        self.assertIn(0.0, offsets)
+
+    def test_adaptive_time_scan_runs_from_zero_to_two_pi(self):
+        self.datasets["t_microwave_11_pulse_Node2"] = 9e-6
+        experiment = self.make_experiment({
+            "which_node": "Node2",
+            "Time_11_Scan": True,
+            "enable_node_specific_adaptive_scan": True,
+        })
+        sequence = list(experiment.scan_sequence1)
+        self.assertEqual(len(sequence), 11)
+        self.assertEqual(sequence[0], 0.0)
+        self.assertAlmostEqual(sequence[-1], 18e-6, places=12)
+
+    def test_unchecked_adaptive_scan_keeps_the_gui_ranges(self):
+        self.datasets["t_microwave_01_pulse_Node1"] = 17e-6
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_01_Scan": True,
+            "enable_geometric_frequency_scan": False,
+        })
+        offsets = [value - experiment.center for value in experiment.scan_sequence1]
+        self.assertAlmostEqual(offsets[0], -125e3, delta=1.0)
+        self.assertAlmostEqual(offsets[1] - offsets[0], 20e3, delta=1.0)
+        self.assertEqual(experiment.initialise, {"sigma": 50000.0})
+
+    def test_resubmission_carries_the_adaptive_scan_setting(self):
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_11_Scan": True,
+            "enable_node_specific_adaptive_scan": True,
+            "adaptive_half_range_linewidths": 2.5,
+        })
+        experiment.submit_opt_exp_general()
+        _, expid, _ = self.scheduler.submitted[-1]
+        self.assertTrue(expid["arguments"]["enable_node_specific_adaptive_scan"])
+        self.assertEqual(expid["arguments"]["adaptive_half_range_linewidths"], 2.5)
+        for name in ("adaptive_points_per_linewidth", "adaptive_time_scan_max_pi",
+                     "adaptive_time_scan_n_steps"):
+            self.assertIn(name, expid["arguments"])
+
     def test_idle_node_overrides_do_not_block_the_running_node(self):
         """The optimizer had the same failure GeneralVariableScan did.
 
