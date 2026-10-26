@@ -271,16 +271,20 @@ SPCM_MONITOR_APPLET_SPECS = (
 #: (or monitors_for_atom_loading) is on; otherwise a hand-opened applet keeps
 #: showing the last field recorded.
 #:
-#: Each call of measure_Magnetometer (Node1) or
-#: measure_Magnetometer_Node2_X_Y_Z (Node2) -- the readers end_measurement and
-#: the loaders call -- samples three phases, setting the coils for each:
-#: Zero (all coils 0 V), OP (the OP coil voltages) and MOT (the MOT coil
-#: voltages), and appends to Magnetometer_<phase>_X/Y/Z. Hence three applets.
+#: end_measurement calls measure_Magnetometer_X_Y_Z on both nodes. Since
+#: 2026-10-23 that is a single-coil test: each phase drives ONE coil at 3 V
+#: (Zero = AZ bottom, OP = AZ top, MOT = AX, TEST = AY) and appends to
+#: Magnetometer_<phase>_X/Y/Z. The loaders call measure_Magnetometer, whose
+#: phases are Zero (all coils 0 V), OP and MOT (those coil voltages). Hence
+#: three applets; TEST has none.
 #: The legacy names resolve to the running node's ..._NodeX through the
 #: dataset redirect when the commands are built for a node; a hand-entered
 #: command names one node and stays on it. Base seeds the datasets and
-#: magnetometer_axis_labels in reset_result_state_for_scan_point, so each plot
-#: covers the current scan point and pts = n_measurements shows all of it.
+#: magnetometer_axis_labels once per run in initialize_result_datasets and
+#: never clears them between scan points, so each series grows over the
+#: whole run (user, 2026-10-23) and the h5 keeps all of it. The applet plots
+#: the last pts = n_measurements samples, a window that runs across scan
+#: point boundaries.
 #:
 #: The loaders also call the readers when monitors_for_atom_loading is on, so
 #: with both flags set the traces interleave loading and end-of-measurement

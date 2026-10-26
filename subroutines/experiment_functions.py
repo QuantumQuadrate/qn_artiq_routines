@@ -2273,9 +2273,15 @@ def test_magnetometer_experiment(self):
     self.measurement = 0
     while self.measurement < self.n_measurements:
         delay(100*ms)
-        measure_Magnetometer_Node2(self)
+        # measure_Magnetometer_Node2(self)
         # measure_Magnetometer_Node2_dummy_step(self)
-        delay(100*ms)
+        # measure_Magnetometer_X_Y_Z(self)
+        # delay(100*ms)
+
+        self.zotino0.set_dac(
+            [3.0, 3.0, 3.0, 3.0],
+            channels=self.coil_channels)
+        delay(200 * ms)
 
         self.measurement += 1
         self.set_dataset(self.measurements_progress, 100 * self.measurement / self.n_measurements, broadcast=True)
@@ -2388,7 +2394,7 @@ def measure_Magnetometer_Node2(self):
     delay(1*ms)
 
 @kernel
-def measure_Magnetometer_Node2_X_Y_Z(self):
+def measure_Magnetometer_X_Y_Z(self):
     ### x,y, and z axes are connected to Sampler2 Ch1,2, and 3, respectively.
     ### to test each coils separately
     ## Zero: 3V @ AZ_bot
@@ -2398,7 +2404,10 @@ def measure_Magnetometer_Node2_X_Y_Z(self):
 
 
     avgs = 1
-    mGauss_per_Volt = 1 #625
+    if self.which_node == 'alice':
+        mGauss_per_Volt = 350
+    else:
+        mGauss_per_Volt = 625 #625
 
     ### Re-arm slack before the first output. end_measurement calls this
     ### right after its set_dataset(measurements_progress) RPC, which is
@@ -2581,10 +2590,11 @@ def end_measurement(self):
 
     if self.monitor_magnetometer_in_end_measurement:
         if self.which_node == "alice":
-            measure_Magnetometer(self)
+            # measure_Magnetometer(self)
+            measure_Magnetometer_X_Y_Z(self)
         else:
             # measure_Magnetometer_Node2(self)
-            measure_Magnetometer_Node2_X_Y_Z(self)
+            measure_Magnetometer_X_Y_Z(self)
 
     delay(1*ms)
 

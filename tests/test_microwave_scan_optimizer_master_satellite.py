@@ -822,8 +822,8 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
     def test_magnetometer_results_exist_for_every_experiment_call(self):
         """measure_Magnetometer can append on every path the optimizer runs.
 
-        Base creates Magnetometer_*_NodeX in reset_result_state_for_scan_point,
-        which GVS calls and this optimizer did not, so with
+        Base creates Magnetometer_*_NodeX in initialize_result_datasets, once
+        per run; GVS calls it and this optimizer did not, so with
         monitor_magnetometer_in_end_measurement on the first append raised
         "Cannot mutate nonexistent dataset 'Magnetometer_Zero_X_Node1'" --
         RID 38965, in the health check. The harness's append_to_dataset raises
@@ -868,14 +868,20 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
                     "enable_geometric_frequency_scan": False,
                     "enable_fitting": False,
                 })
-                experiment.experiment_function = (
-                    lambda: appending_scan_point(experiment)
-                )
+                calls = []
+
+                def counting_scan_point():
+                    calls.append(None)
+                    appending_scan_point(experiment)
+
+                experiment.experiment_function = counting_scan_point
                 experiment.run()
-                # Reset at every scan point, so the last point's one sample.
+                # Seeded once per run and never cleared between scan points
+                # (user, 2026-10-23), so one sample per experiment call.
+                self.assertGreater(len(calls), 1)
                 self.assertEqual(
                     experiment.broadcast_sets[f"Magnetometer_Zero_Z_{node}"],
-                    [0.0, 1.0],
+                    [0.0] + [1.0] * len(calls),
                 )
 
     def test_retention_slicing_skips_the_dataset_seed(self):

@@ -462,6 +462,14 @@ class MicrowaveScanOptimizer_master_satellite(
         for var, val in self.authoritative_overrides.items():
             self.set_dataset(var, val)
 
+        # The node's Magnetometer_*_NodeX series, once per run, as GVS does:
+        # they collect every sample of the run and are never cleared between
+        # scan points (user, 2026-10-23). Without them, with
+        # monitor_magnetometer_in_end_measurement (or
+        # monitors_for_atom_loading) on, the first measure_Magnetometer append
+        # raised "Cannot mutate nonexistent dataset
+        # 'Magnetometer_Zero_X_Node1'" -- RID 38965.
+        self.base.initialize_result_datasets()
         self.base.initialize_result_state()
 
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
@@ -478,14 +486,9 @@ class MicrowaveScanOptimizer_master_satellite(
         typically these datasets are used for plotting which would be
         meaningless if we continued to append to the data.
         """
-        # Base's per-scan-point results, as GVS resets them: progress, the
-        # _current_iteration histograms, and the node's Magnetometer_*_NodeX.
-        # The magnetometer series were never created here before, so with
-        # monitor_magnetometer_in_end_measurement (or
-        # monitors_for_atom_loading) on, the first measure_Magnetometer append
-        # raised "Cannot mutate nonexistent dataset
-        # 'Magnetometer_Zero_X_Node1'" -- RID 38965. Every experiment call,
-        # the health checks included, is preceded by this method.
+        # Base's per-scan-point results, as GVS resets them: progress and the
+        # _current_iteration histograms. Not the magnetometer series, which
+        # initialize_datasets seeds once per run.
         self.base.reset_result_state_for_scan_point()
         self.set_dataset("test_dataset", [0], broadcast=True)
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)

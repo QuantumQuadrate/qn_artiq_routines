@@ -276,14 +276,30 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 experiment.measurements_progress, "measurements_progress"
             )
 
-    def test_magnetometer_result_reset_is_transient_and_side_effect_free(self):
+    def test_scan_point_reset_is_side_effect_free_and_keeps_magnetometers(self):
         experiment, base = self.build_and_prepare("single_node", "Node2")
         reads_before = list(experiment.dataset_reads)
         device_calls_before = list(experiment.setattr_device_calls)
         reset_calls_before = experiment.core.reset_calls
 
         base.initialize_result_datasets()
-        experiment.datasets["Magnetometer_MOT_X_Node2"] = [123.0]
+        for name in base.MAGNETOMETER_RESULT_DATASETS:
+            self.assertEqual(experiment.datasets[f"{name}_Node2"], [0.0])
+            self.assertNotIn(name, experiment.datasets)
+        # Seeded with the series: the legend for the magnetometer applet.
+        self.assertEqual(
+            experiment.datasets["magnetometer_axis_labels"], ["X", "Y", "Z"]
+        )
+        # Broadcast for the applets, never persisted: a persisted series
+        # would be written into the dataset DB, growing every run.
+        self.assertTrue(
+            all(
+                kwargs == {"broadcast": True, "persist": False}
+                for _, _, kwargs in experiment.dataset_writes
+            )
+        )
+        experiment.datasets["Magnetometer_MOT_X_Node2"] = [0.0, 123.0]
+        experiment.dataset_writes.clear()
         base.reset_result_state_for_scan_point()
 
         expected_names = {
@@ -296,21 +312,18 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             # slices the data. Asserted from the same list Base seeds from, so
             # the two cannot drift.
             *base.current_iteration_dataset_names(),
-            *(
-                f"{name}_Node2"
-                for name in base.MAGNETOMETER_RESULT_DATASETS
-            ),
-            # Legend for the magnetometer applet.
-            "magnetometer_axis_labels",
+            # NOT the magnetometer series: they collect the whole run, so a
+            # scan's h5 keeps every scan point (user, 2026-10-23; RID 39317
+            # kept only the last one).
         }
         written_names = {
             name for name, _, _ in experiment.dataset_writes
         }
         self.assertEqual(written_names, expected_names)
         self.assertEqual(experiment.datasets["measurements_progress"], 0.0)
-        for name in base.MAGNETOMETER_RESULT_DATASETS:
-            self.assertEqual(experiment.datasets[f"{name}_Node2"], [0.0])
-            self.assertNotIn(name, experiment.datasets)
+        self.assertEqual(
+            experiment.datasets["Magnetometer_MOT_X_Node2"], [0.0, 123.0]
+        )
         self.assertTrue(
             all(
                 kwargs == {"broadcast": True, "persist": False}
@@ -1206,11 +1219,13 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         )
 
     def test_progress_resets_in_both_modes_but_magnetometers_do_not(self):
-        """measurements_progress is run-global; the magnetometers are not.
+        """measurements_progress resets per scan point; the magnetometers never.
 
-        In two_nodes mode resolve_result_dataset_name is the identity, so both
-        nodes would resolve to one unsuffixed Magnetometer_MOT_X and the last
-        writer would win. The two-node loader samples no magnetometers anyway.
+        The magnetometer series are seeded once per run, by
+        initialize_result_datasets, and only in single_node mode. In two_nodes
+        mode resolve_result_dataset_name is the identity, so both nodes would
+        resolve to one unsuffixed Magnetometer_MOT_X and the last writer would
+        win. The two-node loader samples no magnetometers anyway.
         """
         for mode, node in (("single_node", "Node1"), ("two_nodes", None)):
             with self.subTest(mode=mode):
@@ -1220,11 +1235,25 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 written = [name for name, _, _ in experiment.dataset_writes]
 
                 self.assertIn("measurements_progress", written)
+                self.assertEqual(
+                    [n for n in written if n.startswith("Magnetometer_")], []
+                )
+
+                experiment.dataset_writes.clear()
+                base.initialize_result_datasets()
+                written = [name for name, _, _ in experiment.dataset_writes]
+                self.assertIn("measurements_progress", written)
                 magnetometer_writes = [
                     name for name in written if name.startswith("Magnetometer_")
                 ]
                 if mode == "single_node":
-                    self.assertTrue(magnetometer_writes)
+                    self.assertEqual(
+                        sorted(magnetometer_writes),
+                        sorted(
+                            f"{name}_Node1"
+                            for name in base.MAGNETOMETER_RESULT_DATASETS
+                        ),
+                    )
                 else:
                     self.assertEqual(magnetometer_writes, [])
 

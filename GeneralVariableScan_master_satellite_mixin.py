@@ -420,7 +420,8 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self._apply_run_wide_overrides()
         self.base.initialize_result_datasets()
 
-        # initialize_result_datasets() only covers the magnetometer results.
+        # initialize_result_datasets() only covers progress, the
+        # _current_iteration histograms and the magnetometer series.
         # The atom-physics functions also need the full result surface (SPCM
         # datasets, per-measurement buffers and the host scalars they read in
         # kernels), which the microwave optimizer already sets up this way.

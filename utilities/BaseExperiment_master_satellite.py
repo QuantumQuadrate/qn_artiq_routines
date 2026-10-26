@@ -736,8 +736,48 @@ class BaseExperimentMasterSatellite:
         self.experiment.scan_sequence2_dataset = "scan_sequence2"
 
     def initialize_result_datasets(self):
-        """Create the minimal transient per-scan-point results."""
+        """Create the transient results, once per run.
+
+        The per-scan-point ones through reset_result_state_for_scan_point,
+        plus the node's Magnetometer_*_NodeX series, which are seeded here and
+        nowhere else. They are never cleared between scan points, so the h5
+        keeps every sample of the run, like Magnetometer_TEST_* (seeded once in
+        initialize_result_state) and the standalone Base (user, 2026-10-23).
+        Until then reset_result_state_for_scan_point cleared them, and a
+        scan's h5 held only its last scan point -- RID 39317.
+
+        The magnetometer seeding is single_node-only. In two_nodes mode
+        resolve_result_dataset_name is the identity function, so both nodes
+        would resolve to one unsuffixed Magnetometer_MOT_X and whichever wrote
+        last would win -- and the two-node loader deliberately samples no
+        magnetometers anyway (measure_Magnetometer is alice-flavoured and
+        measure_GRIN1's sampler channel is a Node2 placeholder, so neither is
+        carried into the two-node path).
+        """
         self.reset_result_state_for_scan_point()
+
+        if self.experiment_mode != "single_node":
+            return
+
+        for legacy_dataset_name in self.MAGNETOMETER_RESULT_DATASETS:
+            dataset_name = self.resolve_result_dataset_name(
+                legacy_dataset_name
+            )
+            self.experiment.set_dataset(
+                dataset_name,
+                [0.0],
+                broadcast=True,
+                persist=False,
+            )
+        # Legend for the magnetometer applets
+        # (applets_master_satellite.MAGNETOMETER_APPLET_SPECS):
+        # plot_xy_multichannel.py takes its trace labels from a dataset.
+        self.experiment.set_dataset(
+            "magnetometer_axis_labels",
+            ["X", "Y", "Z"],
+            broadcast=True,
+            persist=False,
+        )
 
     def resolve_result_dataset_name(self, name):
         """Resolve hard-coded legacy result names for the selected node."""
@@ -785,13 +825,8 @@ class BaseExperimentMasterSatellite:
         method once per scan point (_execute_scan_point, ":518") and nothing
         else clears them.
 
-        The magnetometer reset stays single_node-only. In two_nodes mode
-        resolve_result_dataset_name is the identity function, so both nodes
-        would resolve to one unsuffixed Magnetometer_MOT_X and whichever wrote
-        last would win -- and the two-node loader deliberately samples no
-        magnetometers anyway (measure_Magnetometer is alice-flavoured and
-        measure_GRIN1's sampler channel is a Node2 placeholder, so neither is
-        carried into the two-node path).
+        The magnetometer series are NOT cleared here: they collect the whole
+        run. initialize_result_datasets seeds them once (user, 2026-10-23).
         """
         self.experiment.set_dataset(
             self.experiment.measurements_progress,
@@ -807,29 +842,6 @@ class BaseExperimentMasterSatellite:
                 broadcast=True,
                 persist=False,
             )
-
-        if self.experiment_mode != "single_node":
-            return
-
-        for legacy_dataset_name in self.MAGNETOMETER_RESULT_DATASETS:
-            dataset_name = self.resolve_result_dataset_name(
-                legacy_dataset_name
-            )
-            self.experiment.set_dataset(
-                dataset_name,
-                [0.0],
-                broadcast=True,
-                persist=False,
-            )
-        # Legend for the magnetometer applets
-        # (applets_master_satellite.MAGNETOMETER_APPLET_SPECS):
-        # plot_xy_multichannel.py takes its trace labels from a dataset.
-        self.experiment.set_dataset(
-            "magnetometer_axis_labels",
-            ["X", "Y", "Z"],
-            broadcast=True,
-            persist=False,
-        )
 
     @staticmethod
     def _node_variable_definitions(node):

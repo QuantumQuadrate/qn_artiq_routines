@@ -1728,8 +1728,8 @@ def end_measurement(self):
     magnetometer block is gone. It reads
 
         if self.monitor_magnetometer_in_end_measurement:
-            if self.which_node == "alice": measure_Magnetometer(self)
-            else:                          measure_Magnetometer_Node2_X_Y_Z(self)
+            if self.which_node == "alice": measure_Magnetometer_X_Y_Z(self)
+            else:                          measure_Magnetometer_X_Y_Z(self)
 
     and although that is dead in a two-node run (the flag is False on both
     nodes, and a two-node sequence samples no magnetometers), the ARTIQ
