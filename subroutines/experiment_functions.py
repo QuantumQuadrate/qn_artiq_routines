@@ -4957,14 +4957,10 @@ def microwave_map01_map11_experiment(self):
             self.ttl_microwave_switch.on()
             delay(2 * us)
 
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
-        delay(2*us)
-
+        ### The FORT stays at holding through both pulses: an extra up/down to
+        ### science between them cost Node1 0.1-0.2 retention (RIDs 39332-39339).
         self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
         delay(5 * us)
-
-        self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
-        delay(2 * us)
 
         ##### Mapping from |2,1> to |1,1>
         if self.t_microwave_11_pulse > 0.0:
