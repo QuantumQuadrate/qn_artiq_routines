@@ -425,6 +425,21 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertTrue(hasattr(experiment, "f_FORT_Node2"))
         self.assertFalse(hasattr(experiment, "f_FORT"))
 
+    def test_two_node_mode_has_one_lazy_waveplate_view_per_node(self):
+        """Two-node sequences move each node's rotators through its own view
+        of the one k10cr1_ndsp controller (Two_nodes_HOM_experiment sets both
+        nodes' 780 waveplates), and nothing connects until a move."""
+        from utilities.BaseExperiment_master_satellite import (
+            _NodeAxisK10CR1Proxy,
+        )
+        experiment, _ = self.build_and_prepare("two_nodes")
+        for node in ("Node1", "Node2"):
+            view = getattr(experiment, "k10cr1_ndsp_" + node)
+            self.assertIsInstance(view, _NodeAxisK10CR1Proxy)
+            self.assertIsNone(view._client)
+            self.assertEqual(view._resolve_axis("780_HWP"), "780_HWP_" + node)
+            self.assertEqual(view._resolve_axis("780_QWP"), "780_QWP_" + node)
+
     def test_single_node_refresh_updates_only_in_memory_projection(self):
         experiment, base = self.build_and_prepare("single_node", "Node2")
         reads_before = list(experiment.dataset_reads)

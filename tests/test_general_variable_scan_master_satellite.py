@@ -425,6 +425,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 # without this it would never be compiled by anything.
                 # Both shots node-resolved, for per-node retention.
                 "Two_nodes_alternating_retention_experiment",
+                # Port of the standalone Two_node_single_photon_2_experiment.
+                "Two_nodes_HOM_experiment",
             },
         )
         # The two registries must stay disjoint: the single-node one is built
@@ -550,6 +552,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 # without this it would never be compiled by anything.
                 # Both shots node-resolved, for per-node retention.
                 "Two_nodes_alternating_retention_experiment",
+                # Port of the standalone Two_node_single_photon_2_experiment.
+                "Two_nodes_HOM_experiment",
             },
         )
         self.assertIs(

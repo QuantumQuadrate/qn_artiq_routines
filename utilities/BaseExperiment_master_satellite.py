@@ -1250,6 +1250,16 @@ class BaseExperimentMasterSatellite:
         else:
             self.experiment.named_devices_Node1 = self.node_resolvers["Node1"]
             self.experiment.named_devices_Node2 = self.node_resolvers["Node2"]
+            # The same lazy controller view, once per node, so a two-node
+            # sequence names the node in the device as it does everywhere
+            # else: k10cr1_ndsp_Node2.move_to(pos, "780_HWP") moves
+            # 780_HWP_Node2. Nothing connects until a rotator is moved.
+            self.experiment.k10cr1_ndsp_Node1 = _NodeAxisK10CR1Proxy(
+                self.experiment, "Node1"
+            )
+            self.experiment.k10cr1_ndsp_Node2 = _NodeAxisK10CR1Proxy(
+                self.experiment, "Node2"
+            )
 
     def prepare(self):
         """Bind DDS aliases after suffixed authoritative variables exist."""

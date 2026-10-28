@@ -64,12 +64,17 @@ MASTER_SATELLITE_VARIABLES = (
     # collision and the name together.
     #
     # Not measurable by TTL loopback -- it needs a photon coincidence
-    # measurement (HOM dip / cross-correlation), which is the deferred herald
-    # work. Read today only by the single-photon experiments in
-    # subroutines/experiment_functions.py (":15291", ":15559", ":15681",
-    # ":16011"), which are reachable from neither master-satellite registry;
-    # they also hardcode 189 as the old zero-point, so when they are ported
-    # this variable should mean the delay directly.
+    # measurement (HOM dip / cross-correlation).
+    #
+    # Read since 2026-10-26 by Two_nodes_HOM_experiment
+    # (record_excitation_and_photon_collection_both_nodes in
+    # subroutines/experiment_functions_two_nodes.py), as THE DELAY ITSELF:
+    # Node2's whole excitation block moves by this minus t_Node2_rtio_offset_mu,
+    # positive = Node2 later. The default 189 is the standalone handshake's
+    # zero point and means nothing there; single-node arrival times put the
+    # coincidence near -143 with t_Node2_rtio_offset_mu = 0, which already
+    # includes the ~281 ns satellite counter lag. The two are coupled: setting
+    # t_Node2_rtio_offset_mu to ~281 moves the coincidence to ~ +138 here.
     Variable(
         "t_Node2_excitation_delay_mu",
         189,

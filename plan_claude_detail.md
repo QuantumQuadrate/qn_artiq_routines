@@ -1319,7 +1319,7 @@ initializer(s): <file>: <names>".
 |---|---|---|---|
 | `n_measurements` | 100 | 100 | Measurements per point; persisted by every run (section 6.9). Standalone declares 50. |
 | `t_Node2_rtio_offset_mu` | 0 | 0 | ELECTRICAL cross-node offset (section 7.5); unmeasured. |
-| `t_Node2_excitation_delay_mu` | 189 | 189 | OPTICAL photon-coincidence delay (section 7.5); unmeasured. Read by no code yet: a deliberate placeholder for the deferred photon-coincidence work (the unported single-photon code still reads the standalone `t_delay_in_bob_mu`; the skew probe only names it in its docstring). |
+| `t_Node2_excitation_delay_mu` | 189 | 189 | OPTICAL photon-coincidence delay (section 7.5). Read since 2026-10-26 by `Two_nodes_HOM_experiment` as the delay itself (Node2's excitation block moves by it minus `t_Node2_rtio_offset_mu`, positive = later); the 189 default is the standalone zero point and must be overridden. Single-node arrival times put the coincidence near -143 (unmeasured in two-node mode yet). |
 | `parallel_AOM_feedback` | True | True | Unread today (only tests name it), but it is the selector the retired PLAN.md designated for the future switch: False = sequential Node1/Node2 feedback, True = concurrent. Keep it declared (section 10.5). |
 | `dummy_variable` | 0.0 | | Scan placeholder. |
 | `two_atom_threshold` | 39000 | 42000 | Joint two-atom readout threshold (counts/s). Standalone declares 20000. |
@@ -1484,10 +1484,12 @@ separate.
   2026-10-20, when the ones no longer in use moved to
   `subroutines/experiment_functions_obsolete.py` (the four historical
   two-node functions too, so the exclusion now removes nothing; 51 before).
-- Two-node: only `subroutines/experiment_functions_two_nodes.py`: 3 functions
+- Two-node: only `subroutines/experiment_functions_two_nodes.py`: 4 functions
   (`master_satellite_namespace_sanity_experiment`,
   `Two_nodes_atom_loading_experiment` (the native one; same name as an
-  excluded historical function), `Two_nodes_alternating_retention_experiment`),
+  excluded historical function), `Two_nodes_alternating_retention_experiment`,
+  `Two_nodes_HOM_experiment` (2026-10-26, port of the standalone
+  `Two_node_single_photon_2_experiment`)),
   pinned by `test_registry_contains_exactly_the_intended_experiments`.
 - Function selection is registry lookup, never `eval()`. `eval` is used only
   for scan-sequence and override expressions.
@@ -3030,8 +3032,10 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   T-adapters and the skew probe (section 12.2); `t_Node2_rtio_offset_mu` is the
   default 0 and the alternating readout consumes it.
 - **O-3 `t_Node2_excitation_delay_mu` unmeasured** (189 default); needs a
-  photon-coincidence (HOM) measurement; two-node single-photon/herald work is
-  not ported.
+  photon-coincidence (HOM) measurement. `Two_nodes_HOM_experiment` (2026-10-26)
+  reads it directly; single-node arrival times predict ~-143. To be set from
+  one-node-excited runs (Analysis/master_satellite/2026_Two_Nodes_HOM_Analysis
+  .ipynb, section A).
 - **O-4 Parallel AOM/FORT feedback not implemented** (section 10.5); measure
   convergence first.
 - **O-5 Two-node FORT polarization optimizer not implemented** (waits on O-4).

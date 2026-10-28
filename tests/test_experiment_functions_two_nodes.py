@@ -277,6 +277,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 "Two_nodes_atom_loading_experiment",
                 # Both shots node-resolved, for per-node retention.
                 "Two_nodes_alternating_retention_experiment",
+                # Port of the standalone Two_node_single_photon_2_experiment.
+                "Two_nodes_HOM_experiment",
             },
         )
         module_functions = [
@@ -728,11 +730,18 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
     def test_gating_always_uses_all_four_canonical_detectors(self):
         """All four SPCMs see both nodes, so a gate must open all four.
 
-        Forgetting one reads a quarter low and still runs.
+        Forgetting one reads a quarter low and still runs. Counting gates use
+        the four *_counter devices; photon-timestamp gates (the excitation
+        trace) use the four TTL inputs themselves. Either way it is the whole
+        set of four, never a mix.
         """
-        expected = {
+        counters = {
             "ttl_SPCM0_counter", "ttl_SPCM1_counter",
             "ttl_SPCM0_OtherNode_counter", "ttl_SPCM1_OtherNode_counter",
+        }
+        timestamp_inputs = {
+            "ttl_SPCM0", "ttl_SPCM1",
+            "ttl_SPCM0_OtherNode", "ttl_SPCM1_OtherNode",
         }
         for node in self.tree.body:
             if not isinstance(node, ast.FunctionDef):
@@ -749,8 +758,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             }
             if not gated:
                 continue
-            self.assertEqual(
-                gated, expected,
+            self.assertIn(
+                gated, (counters, timestamp_inputs),
                 f"{node.name} gates {sorted(gated)}; it must gate all four "
                 f"canonical detectors.",
             )
@@ -766,6 +775,39 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 f"{name} is neither node-suffixed nor published bare, so the "
                 f"sanity check would look for something that cannot exist.",
             )
+
+    def test_waveplate_helper_moves_each_nodes_780_plates_to_its_targets(self):
+        """set_780_waveplates_both_nodes runs on the host, so neither the
+        compile check nor the AST guards see it: each node's two 780 plates go
+        to that node's targets, in that node's device units."""
+        from subroutines import experiment_functions_two_nodes as module
+
+        moves = []
+
+        class FakeView:
+            def __init__(self, node):
+                self.node = node
+
+            def move_to(self, position, axis):
+                moves.append((self.node, axis, position))
+
+        experiment = types.SimpleNamespace(
+            k10cr1_ndsp_Node1=FakeView("Node1"),
+            k10cr1_ndsp_Node2=FakeView("Node2"),
+            deg_to_pos_Node1=1000.0, deg_to_pos_Node2=2000.0,
+            target_780_HWP_Node1=10.0, target_780_QWP_Node1=20.5,
+            target_780_HWP_Node2=30.0, target_780_QWP_Node2=210.0,
+        )
+        module.set_780_waveplates_both_nodes(experiment)
+        self.assertEqual(
+            moves,
+            [
+                ("Node1", "780_HWP", 10000),
+                ("Node1", "780_QWP", 20500),
+                ("Node2", "780_HWP", 60000),
+                ("Node2", "780_QWP", 420000),
+            ],
+        )
 
 
 if __name__ == "__main__":
