@@ -188,6 +188,30 @@ TWO_NODE_APPLET_SPECS = (
           (("--scan_vars", "scan_variables"),
            ("--scan_sequence1", "scan_sequence1")),
           group=_GVS),
+    # The readout histograms, the two-node way: same datasets and titles as
+    # the single-node ones, but the exposure names resolve to the two-node
+    # gates (t_SPCM_first_shot_two_nodes etc., 20 ms since 2026-10-27, against
+    # 10 ms per node in single-node runs). Same titles on purpose: each mode's
+    # run then closes the other mode's copy (conflicting_applet_titles), so
+    # a histogram is never scaled by the other mode's gate.
+    _spec("All SPCMs RO1 histogram", "plot_hist_autosize.py",
+          ("AllSPCMs_RO1_current_iteration",),
+          (("--x", "photocount_bins"), ("--iteration", "iteration"),
+           ("--t_exposure", "t_SPCM_first_shot")),
+          group=_GVS),
+    _spec("All SPCMs RO2 histogram", "plot_hist_autosize.py",
+          ("AllSPCMs_RO2_current_iteration",),
+          (("--x", "photocount_bins"),
+           ("--color", "second_shot_hist_color"),
+           ("--iteration", "iteration"),
+           ("--t_exposure", "t_SPCM_second_shot")),
+          group=_GVS),
+    _spec("AllSPCMs atom check in loading histogram",
+          "plot_hist_autosize.py",
+          ("AllSPCMs_atom_check_in_loading",),
+          (("--x", "photocount_bins"),
+           ("--t_exposure", "t_atom_check_time")),
+          group=_GVS),
 )
 
 #: Applets that were defined but not enabled on Node1 (several were enabled
@@ -472,7 +496,10 @@ def conflicting_applet_titles():
     titles. Today that is "retention and loading AllSPCMs", which appears in
     each set with a different threshold -- single_atom_threshold_NodeX for one
     atom, two_atom_threshold for both. Same title, same unsuffixed
-    AllSPCMs_RO1/RO2, different criterion.
+    AllSPCMs_RO1/RO2, different criterion. And, since 2026-10-27, the three
+    readout histograms: the same datasets, but scaled by the two-node gates
+    (t_SPCM_first_shot_two_nodes etc., 20 ms) in one mode and by the
+    per-node ones (10 ms) in the other.
 
     Only THESE need retiring when the mode changes. The rest of the idle
     group's applets stay up on purpose: readout histograms and the atom
@@ -480,7 +507,7 @@ def conflicting_applet_titles():
     wants to keep watching them. Closing a whole group to fix one applet
     throws those away.
     """
-    single = {spec.title for spec in APPLET_SPECS}
+    single = {spec.title for spec in APPLET_SPECS + GVS_APPLET_SPECS}
     two_node = {spec.title for spec in TWO_NODE_APPLET_SPECS}
     return single & two_node
 
@@ -520,8 +547,9 @@ def conflicting_applet_paths():
 #: data, which is indistinguishable from a result.
 #:
 #: GVS_APPLET_SPECS is deliberately NOT here. Its atom-check histogram plots
-#: AllSPCMs_atom_check_in_loading, which the two-node JOINT loader writes too,
-#: so a two-node run must leave it alone rather than close it.
+#: AllSPCMs_atom_check_in_loading, which the two-node JOINT loader writes too;
+#: two-node runs replace it with their own copy (TWO_NODE_APPLET_SPECS, the
+#: two-node gate) through conflicting_applet_titles instead.
 EXCLUSIVE_APPLET_SPEC_SETS = (
     TWO_NODE_ALTERNATING_APPLET_SPECS,
     TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS,

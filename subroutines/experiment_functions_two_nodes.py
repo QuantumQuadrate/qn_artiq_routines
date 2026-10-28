@@ -1241,6 +1241,19 @@ def load_until_atom_in_both_nodes_recycle(self):
             channels=self.coil_channels_Node2)
         delay(1 * ms)
 
+        ### Lower both FORTs to their science set points BEFORE PGC, as the
+        ### single-node loaders do (load_MOT_and_FORT_until_atom_recycle).
+        ### Until 2026-10-27 this loader ran PGC at the loading depth (5.8x
+        ### science on Node1, 2.9x on Node2) and only first_shot stepped the
+        ### FORT down. Only a fresh load needs it: a reused atom is already at
+        ### science from the previous second shot. Feedback-corrected science
+        ### amplitude (amplitudes[1]), never p_FORT_*.
+        self.dds_FORT_Node1.set(frequency=self.f_FORT_Node1,
+                                amplitude=self.stabilizer_FORT_Node1.amplitudes[1])
+        self.dds_FORT_Node2.set(frequency=self.f_FORT_Node2,
+                                amplitude=self.stabilizer_FORT_Node2.amplitudes[1])
+        delay(5 * us)
+
         self.atom_loading_time = self.core.mu_to_seconds(t_after_atom - t_before_atom)
         self.append_to_dataset("Atom_loading_time", self.atom_loading_time)
         self.append_to_dataset("atom_loading_wall_clock", now_mu())

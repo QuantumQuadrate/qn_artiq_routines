@@ -766,13 +766,18 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                     self.created.append((args[0], kwargs.get("group")))
 
         conflicting = applets.conflicting_applet_titles()
-        self.assertEqual(conflicting, {"retention and loading AllSPCMs"})
+        # Since 2026-10-27 the readout histograms differ by mode too: the
+        # two-node gates are 20 ms (<x>_two_nodes), the per-node ones 10 ms.
+        self.assertEqual(conflicting, {
+            "retention and loading AllSPCMs",
+            "All SPCMs RO1 histogram",
+            "All SPCMs RO2 histogram",
+            "AllSPCMs atom check in loading histogram",
+        })
 
         # Applets that must survive a mode change, because they mean the same
         # thing either way.
         keep_open = {
-            "All SPCMs RO1 histogram",
-            "All SPCMs RO2 histogram",
             "Atom loading time (s)",
         }
         self.assertTrue(
@@ -871,14 +876,14 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         # them and every other run left them up showing stale data.
         self.assertEqual(
             {title for title, _ in live},
-            {"retention and loading AllSPCMs"}
+            conflicting
             | applets.exclusive_applet_titles(applets.TWO_NODE_APPLET_SPECS),
         )
         # What must NEVER be closed on a mode change still is not -- in the
         # live groups. The legacy per-node copies are a different matter.
         self.assertTrue(
             keep_open.isdisjoint({t for t, _ in live}),
-            "the histograms and loading-time plot must survive a mode change",
+            "the loading-time plot must survive a mode change",
         )
         self.assertEqual(legacy, legacy_paths)
         # Every retirement must name the path the CREATE side would use, or it

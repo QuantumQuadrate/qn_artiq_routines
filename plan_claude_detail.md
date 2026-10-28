@@ -2625,9 +2625,11 @@ histogram vs `single_atom_threshold_for_loading`); `SCAN_APPLET_SPECS` (Time
 without atom); `TWO_NODE_APPLET_SPECS` (retention on the joint
 `two_atom_threshold`, cutoff = `two_atom_threshold` x `t_SPCM_first_shot`,
 420 counts at the live 42000 against 140 / 170 single-node for Node1 / Node2;
-`t_SPCM_first_shot` is a shared global since 2026-10-27, before which this
-spec named `t_SPCM_first_shot_Node1` because the bare dataset was only the
-standalone stack's); `OPTIONAL_APPLET_SPECS` (e.g. `n_excitation_cycles`);
+`t_SPCM_first_shot` resolves to `t_SPCM_first_shot_two_nodes` in two-node mode
+since 2026-10-27, before which this spec named `t_SPCM_first_shot_Node1`
+because the bare dataset is only the standalone stack's; since the same day
+it also carries the RO1/RO2 and loading-check histograms, scaled by the
+two-node gates, which replace the single-node copies on a mode change); `OPTIONAL_APPLET_SPECS` (e.g. `n_excitation_cycles`);
 `SPCM_MONITOR_APPLET_SPECS` (five specs: the four per-SPCM count rates plus
 "All SPCMs count rate", MonitorSPCMinApplet only); `TWO_NODE_ALTERNATING_APPLET_SPECS` (gated by the empty
 `TWO_NODE_ALTERNATING_EXPERIMENTS`); `TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS`
