@@ -648,7 +648,8 @@ def _ms_unrecorded_overrides(f, node, arguments):
         if not isinstance(name, str) or name.endswith(other_tails):
             continue
         bare = bare_name(name)
-        if bare in scanned or bare in recorded or bare + tail in recorded:
+        if (bare in scanned or bare in recorded or bare + tail in recorded
+                or bare + "_two_nodes" in recorded):
             continue
         unrecorded[bare] = value
     return source, unrecorded, None
@@ -1094,13 +1095,13 @@ def compute_cost(retention, loading, cost_function):
 
 MS_TWO_NODES_NAME_FILTER = "GeneralVariableScan_master_satellite_two_nodes"
 
-#: The bare scalars a two-node sequence reads, e.g. self.t_SPCM_first_shot.
-#: The h5 holds only their _Node1/_Node2 pair: at run time
-#: BaseExperimentMasterSatellite._publish_agreeing_scalars publishes the bare
-#: name from the pair, and raises if the two differ. Copied from
-#: TWO_NODE_AGREEING_SCALARS in utilities/BaseExperiment_master_satellite.py,
-#: unchanged since that tuple was introduced (e768d50, 2026-10-07). Keep the
-#: two in step.
+#: The bare scalars a two-node sequence reads, e.g. self.t_SPCM_first_shot,
+#: rebuilt from their _Node1/_Node2 pair for files that hold only the pair.
+#: Files from 2026-10-27 on hold them bare (master-satellite globals) or as
+#: <x>_two_nodes (t_SPCM_first_shot, t_SPCM_second_shot, t_atom_check_time),
+#: and the loader uses those first; this list is only for older files.
+#: Until then these were TWO_NODE_AGREEING_SCALARS in Base (since e768d50,
+#: 2026-10-07), published bare only while the two nodes agreed.
 #:
 #: The archived *_two_node globals (t_SPCM_first_shot_two_node and friends)
 #: are NOT these. Nothing reads them except max_atom_check_tries_two_node, and
@@ -1120,6 +1121,24 @@ MS_TWO_NODES_JOINT_SCALARS = (
     "t_delay_between_shots",
     "t_FORT_loading",
     "t_MOT_dissipation",
+)
+
+#: The Two_nodes_HOM_experiment sequence settings, for files older than
+#: 2026-10-27 (newer ones hold <x>_two_nodes, published bare instead).
+#: Rebuilt SILENTLY and only when the pair agrees: two-node atom-loading
+#: runs never read them, so a differing pair there
+#: (t_photon_collection_time 100 vs 200 ns) is not worth a note.
+MS_TWO_NODES_SEQUENCE_SETTINGS = (
+    "n_excitation_attempts",
+    "max_excitation_cycles",
+    "atom_check_every_n",
+    "recool_every_n_OP",
+    "t_pumping",
+    "t_depumping",
+    "t_OP_coil_relax_time",
+    "t_recooling",
+    "t_SPCM_recool_and_shot",
+    "t_photon_collection_time",
 )
 
 #: Readouts seeded with a leading [0] that h5_archive_and_datasets_to_locals
@@ -1288,6 +1307,18 @@ def ms_two_nodes_archive_and_datasets_to_locals(f, parent_locals, quiet=False):
                          f"overrides): {name} {was} -> "
                          f"{_ms_format_value(value)}")
     raw["overrides_applied"] = applied
+
+    # The two-node sequence settings: the run read <x>_two_nodes as the bare
+    # <x> (datasets, i.e. a recorded override, already won over archive).
+    for name in list(raw):
+        if name.endswith("_two_nodes"):
+            raw[name[:-len("_two_nodes")]] = raw[name]
+    for base_name in MS_TWO_NODES_SEQUENCE_SETTINGS:
+        pair = [raw.get(f"{base_name}_{node}")
+                for node in MASTER_SATELLITE_NODES]
+        if (base_name not in raw and None not in pair
+                and pair[0] == pair[1]):
+            raw[base_name] = pair[0]
 
     for base_name in MS_TWO_NODES_JOINT_SCALARS:
         if base_name in raw:
