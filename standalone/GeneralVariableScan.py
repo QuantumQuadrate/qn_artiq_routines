@@ -14,6 +14,8 @@ Setting enable_Catch_UnderFlow retries an iteration that fails with RTIOUnderflo
 the "Catch Underflow" GUI group. This helps to catch OCCASIONAL Underflow errors; we need some management
 of Underflow in the experiment to use this Catch effectively. With the box unticked the scan behaves
 exactly like the original GeneralVariableScan (this file absorbed GeneralVariableScan_CatchUnderflow.py).
+A failed attempt leaves no data: its appends are cut from every list dataset before the retry (since
+2026-10-28; before that they stayed, and every later iteration was mislabelled by position).
 """
 
 
@@ -36,6 +38,53 @@ from subroutines.experiment_functions import *
 import subroutines.experiment_functions as exp_functions
 from subroutines.aom_feedback import AOMPowerStabilizer
 from artiq.coredevice.exceptions import RTIOUnderflow
+
+
+def snapshot_list_datasets(dataset_mgr):
+    """Every list dataset this run holds, and its length: {key: (list, length)}.
+
+    Archived datasets live in the DatasetManager's `local`, broadcast ones in its broadcaster's
+    raw_view (the same object when both). Taken before each attempt at an iteration.
+    Same as in GeneralVariableScan_master_satellite_mixin.py.
+    """
+    snapshot = {}
+    for key, value in dataset_mgr.local.items():
+        if isinstance(value, list):
+            snapshot[key] = (value, len(value))
+    for key, (_, value) in dataset_mgr._broadcaster.raw_view.items():
+        if isinstance(value, list) and key not in snapshot:
+            snapshot[key] = (value, len(value))
+    return snapshot
+
+
+def roll_back_list_datasets(dataset_mgr, snapshot):
+    """Cut each list in snapshot that has grown since back to its length; returns {key: entries removed}.
+
+    Per-measurement series grow in place (append_to_dataset), so a list that is still the same object
+    and longer holds the failed attempt's entries at its end. Lists replaced since (reset_datasets) and
+    datasets created since are left alone: the retry sets them again. The cut list is set again with the
+    flags it has, so the master and the dashboard get it, and a broadcast dataset stays broadcast (a
+    local write would delete it from the master DB). Same as in GeneralVariableScan_master_satellite_mixin.py.
+    """
+    broadcast_view = dataset_mgr._broadcaster.raw_view
+    removed = {}
+    for key, (value, length) in snapshot.items():
+        if key in dataset_mgr.local:
+            current = dataset_mgr.local[key]
+        elif key in broadcast_view:
+            current = broadcast_view[key][1]
+        else:
+            continue
+        if current is not value or len(value) <= length:
+            continue
+        removed[key] = len(value) - length
+        del value[length:]
+        broadcast = key in broadcast_view
+        dataset_mgr.set(key, value, broadcast=broadcast,
+                        persist=broadcast and broadcast_view[key][0],
+                        archive=key in dataset_mgr.local)
+    return removed
+
 
 class GeneralVariableScan(EnvExperiment):
 
@@ -73,12 +122,15 @@ class GeneralVariableScan(EnvExperiment):
         self.setattr_argument('experiment_function',
                               EnumerationValue(experiment_function_names_list))
 
-        # optional per-iteration RTIOUnderflow retry. the three retry values below
-        # only take effect when enable_Catch_UnderFlow is True.
-        self.setattr_argument("enable_Catch_UnderFlow", BooleanValue(False), "Catch Underflow")
+        # per-iteration RTIOUnderflow retry, on by default since 2026-10-28, when a retried iteration
+        # stopped keeping the failed attempt's data. the three retry values below only take effect
+        # when enable_Catch_UnderFlow is True. skip is off by default: a skipped iteration leaves no
+        # measurements, so analysis that maps measurements to iterations by position would mislabel
+        # every later one; with it off the run stops instead.
+        self.setattr_argument("enable_Catch_UnderFlow", BooleanValue(True), "Catch Underflow")
         self.setattr_argument("underflow_max_retries", NumberValue(10, ndecimals=0, step=1), "Catch Underflow")
         self.setattr_argument("underflow_backoff_ms", NumberValue(200.0, step=0.5), "Catch Underflow")
-        self.setattr_argument("skip_only_that_iteration_if_exhausted", BooleanValue(True), "Catch Underflow")
+        self.setattr_argument("skip_only_that_iteration_if_exhausted", BooleanValue(False), "Catch Underflow")
 
         # toggles an interleaved control experiment, but what this means or whether
         # it has an effect depends on experiment_function
@@ -284,8 +336,17 @@ class GeneralVariableScan(EnvExperiment):
         # the measurement loop.
         self.experiment_function()
 
+        self.save_results()
+
+    def save_results(self):
         # write and overwrite the file here so we can quit the experiment early without losing data
         self.write_results({'name': self.experiment_name[:-11] + "_scan_over_" + self.scan_var_filesuffix})
+
+    def record_underflow_retries(self, iteration, retries):
+        """underflow_retries_per_scan_point: the failed attempts of each iteration. Set before every
+        attempt, so the attempt that succeeds saves its iteration's final count with its results."""
+        self._underflow_retries_per_scan_point[iteration:] = [retries]
+        self.set_dataset('underflow_retries_per_scan_point', list(self._underflow_retries_per_scan_point))
 
     def run(self):
         """
@@ -305,6 +366,12 @@ class GeneralVariableScan(EnvExperiment):
         # scan in up to 2 dimensions. for each setting of the parameters, run experiment_function n_measurement times
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)
+
+        self._underflow_retries_per_scan_point = []
+        self._underflow_skipped_scan_points = []
+        if self.enable_Catch_UnderFlow:
+            # present, if empty, in every file of a run with the retry on
+            self.set_dataset('underflow_skipped_scan_points', [])
 
         # override specific variables. this will apply to the entire scan, so it is outside the loops
         for variable, value in self.override_ExperimentVariables_dict.items():
@@ -332,18 +399,26 @@ class GeneralVariableScan(EnvExperiment):
                 if not self.enable_Catch_UnderFlow:
                     self.run_iteration()
                 else:
-                    ### catching Underflow error
+                    ### catching Underflow error. Before a retry the failed attempt's appends are cut
+                    ### from every list dataset, so the iteration keeps exactly its one successful
+                    ### attempt, or nothing if it is skipped.
+                    dataset_mgr = self._HasEnvironment__dataset_mgr
                     retries = 0
                     while True:
+                        self.record_underflow_retries(iteration, retries)
+                        snapshot = snapshot_list_datasets(dataset_mgr)
                         try:
                             self.run_iteration()
                             break  ### exit retry loop, go to next iteration
 
                         except RTIOUnderflow as e:
+                            removed = roll_back_list_datasets(dataset_mgr, snapshot)
                             retries += 1
+                            self.record_underflow_retries(iteration, retries)
                             ### Tell the dashboard what happened
                             logging.warning(e)
-                            self.print_async(f"Underflow at iteration {iteration}, retry {retries}/{int(self.underflow_max_retries)}")
+                            self.print_async(f"Underflow at iteration {iteration}, retry {retries}/{int(self.underflow_max_retries)}; "
+                                             f"discarded the attempt's entries from {len(removed)} datasets")
                             self.recover_from_underflow(self.underflow_backoff_ms)
 
                             if retries >= int(self.underflow_max_retries):
@@ -351,6 +426,10 @@ class GeneralVariableScan(EnvExperiment):
                                 self.print_async(msg)
                                 if self.skip_only_that_iteration_if_exhausted:
                                     ### Skips the iteration and continues to the next iteration.
+                                    self._underflow_skipped_scan_points.append(iteration)
+                                    self.set_dataset('underflow_skipped_scan_points',
+                                                     list(self._underflow_skipped_scan_points))
+                                    self.save_results()
                                     break
                                 else:
                                     ### Stop the experiment entirely

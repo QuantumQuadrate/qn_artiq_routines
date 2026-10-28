@@ -57,6 +57,72 @@ def build_two_node_function_registry():
     return build_experiment_function_registry(functions)
 
 
+def snapshot_list_datasets(dataset_mgr):
+    """Every list dataset this run holds, and its length: {key: (list, length)}.
+
+    *dataset_mgr* is the run's ARTIQ DatasetManager. Archived datasets live in
+    its `local`, broadcast ones in its broadcaster's raw_view (the same object
+    when both). Taken before each attempt at a scan point, so that
+    roll_back_list_datasets can take out what a failed attempt appended.
+    """
+    snapshot = {}
+    for key, value in dataset_mgr.local.items():
+        if isinstance(value, list):
+            snapshot[key] = (value, len(value))
+    for key, (_, value) in dataset_mgr._broadcaster.raw_view.items():
+        if isinstance(value, list) and key not in snapshot:
+            snapshot[key] = (value, len(value))
+    return snapshot
+
+
+def roll_back_list_datasets(dataset_mgr, snapshot):
+    """Cut each list in *snapshot* that has grown since back to its length.
+
+    Returns {key: entries removed}.
+
+    Per-measurement series grow in place, through append_to_dataset, so a
+    list that is still the SAME object and longer holds the failed attempt's
+    entries at its end. A list replaced since (set_dataset, e.g. the
+    _current_iteration histograms at every scan point) is left alone, and so
+    is a dataset created since: the retry sets those again itself.
+
+    The cut list is set again with the flags it has, so the master's dataset
+    DB -- and with it the dashboard -- gets it too. A broadcast dataset must
+    stay broadcast: a local write to it would delete it from the master DB.
+    """
+    broadcast_view = dataset_mgr._broadcaster.raw_view
+    removed = {}
+    for key, (value, length) in snapshot.items():
+        if key in dataset_mgr.local:
+            current = dataset_mgr.local[key]
+        elif key in broadcast_view:
+            current = broadcast_view[key][1]
+        else:
+            continue
+        if current is not value or len(value) <= length:
+            continue
+        removed[key] = len(value) - length
+        del value[length:]
+        broadcast = key in broadcast_view
+        dataset_mgr.set(
+            key, value,
+            broadcast=broadcast,
+            persist=broadcast and broadcast_view[key][0],
+            archive=key in dataset_mgr.local,
+        )
+    return removed
+
+
+def _describe_rollback(removed):
+    """'none', or e.g. '37 entries from AllSPCMs_RO1 and 41 other datasets'."""
+    if not removed:
+        return "none"
+    key = max(sorted(removed), key=removed.get)
+    others = len(removed) - 1
+    return (f"{removed[key]} entries from {key}"
+            + (f" and {others} other dataset(s)" if others else ""))
+
+
 class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
     """Shared implementation for the public master-satellite GVS files.
 
@@ -128,11 +194,13 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                         f"name {node} variables that do not exist on the "
                         f"other node. Globals belong here too.",
             )
-        # Optional per-point RTIOUnderflow retry. The three retry values
-        # below take effect only when enable_Catch_UnderFlow is True.
+        # Per-point RTIOUnderflow retry, on by default since 2026-10-28, when
+        # a retried point stopped keeping the failed attempt's data
+        # (_run_scan_point). The three retry values below take effect only
+        # when enable_Catch_UnderFlow is True.
         self.setattr_argument(
             "enable_Catch_UnderFlow",
-            BooleanValue(False),
+            BooleanValue(True),
             "Catch Underflow",
         )
         self.setattr_argument(
@@ -145,9 +213,13 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             NumberValue(200.0, step=0.5),
             "Catch Underflow",
         )
+        # Off by default: a skipped point leaves no measurements, so analysis
+        # that maps measurements to scan points by position (n_measurements
+        # per point) would label every later point wrongly. With it off the
+        # run stops instead, and every point in the file is whole.
         self.setattr_argument(
             "skip_only_that_iteration_if_exhausted",
-            BooleanValue(True),
+            BooleanValue(False),
             "Catch Underflow",
         )
         self.setattr_argument(
@@ -573,7 +645,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self.base.reset_result_state_for_scan_point()
         self.set_dataset("iteration", iteration, broadcast=True)
         self._selected_experiment_function(self)
+        self._save_scan_point_results()
 
+    def _save_scan_point_results(self):
         # Saved per scan point, matching standalone GeneralVariableScan's
         # run_iteration: it lets a run be quit early without losing data, and
         # guards against ARTIQ corrupting the h5 during worker cleanup (see
@@ -595,14 +669,43 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         """Pause on the host; the retried point resets the core via Base."""
         time.sleep(max(0.0, float(self.underflow_backoff_ms)) / 1000.0)
 
+    def _record_underflow_retries(self, iteration, retries):
+        """underflow_retries_per_scan_point: the failed attempts of each point.
+
+        Set before every attempt, so the attempt that succeeds saves its
+        point's final count with the point's results.
+        """
+        self._underflow_retries_per_scan_point[iteration:] = [retries]
+        self.set_dataset(
+            "underflow_retries_per_scan_point",
+            list(self._underflow_retries_per_scan_point),
+            broadcast=False,
+            persist=False,
+        )
+
     def _run_scan_point(self, variable1_value, variable2_value, iteration):
         """Run one scan point, retrying only on RTIOUnderflow when enabled.
 
-        With enable_Catch_UnderFlow off (the default) the point executes
-        directly and any failure propagates unchanged. When it is on, only
+        With enable_Catch_UnderFlow off the point executes directly and any
+        failure propagates unchanged. When it is on (the default), only
         RTIOUnderflow is caught; a retried point repeats the full scan-point
         flow, including hardware initialization and its core reset. DRTIO,
         SPI, resolution, and all other failures always propagate.
+
+        A failed attempt leaves no data: before the retry, every list dataset
+        is cut back to its length before the attempt
+        (roll_back_list_datasets). Until 2026-10-28 the attempt's
+        measurements stayed in the series ahead of the retry's, so anything
+        that maps measurements to scan points by position (n_measurements per
+        point, as the analysis notebooks do) read every later point with the
+        wrong scan value -- RID 39594 held 502 measurements for 5 x 100. Now
+        each point holds exactly its one successful attempt, or nothing when
+        the retries run out and skip_only_that_iteration_if_exhausted is on.
+        The cut happens before the run stops, too, so the final h5 has no
+        partial point either.
+
+        Recorded: underflow_retries_per_scan_point (failed attempts per
+        point) and underflow_skipped_scan_points (iterations given up on).
         """
         if not self.enable_Catch_UnderFlow:
             self._execute_scan_point(
@@ -610,19 +713,26 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             )
             return
 
+        dataset_mgr = self._HasEnvironment__dataset_mgr
         retries = 0
         while True:
+            self._record_underflow_retries(iteration, retries)
+            snapshot = snapshot_list_datasets(dataset_mgr)
             try:
                 self._execute_scan_point(
                     variable1_value, variable2_value, iteration
                 )
                 return
             except RTIOUnderflow as error:
+                removed = roll_back_list_datasets(dataset_mgr, snapshot)
                 retries += 1
+                self._record_underflow_retries(iteration, retries)
                 maximum_retries = int(self.underflow_max_retries)
                 self._report_underflow(
                     f"RTIO underflow at iteration {iteration}, "
-                    f"retry {retries}/{maximum_retries}: {error}"
+                    f"retry {retries}/{maximum_retries}: {error}. "
+                    f"Discarded the attempt's data: "
+                    f"{_describe_rollback(removed)}"
                 )
                 if retries >= maximum_retries:
                     message = (
@@ -632,11 +742,25 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                     self._report_underflow(message)
                     if not self.skip_only_that_iteration_if_exhausted:
                         raise
+                    self._underflow_skipped_scan_points.append(iteration)
+                    self.set_dataset(
+                        "underflow_skipped_scan_points",
+                        list(self._underflow_skipped_scan_points),
+                        broadcast=False,
+                        persist=False,
+                    )
+                    self._save_scan_point_results()
                     return
                 self._underflow_backoff()
 
     def run(self):
         self._initialize_run_state()
+        self._underflow_retries_per_scan_point = []
+        self._underflow_skipped_scan_points = []
+        if self.enable_Catch_UnderFlow:
+            # present, if empty, in every file of a run with the retry on
+            self.set_dataset("underflow_skipped_scan_points", [],
+                             broadcast=False, persist=False)
 
         # Once per run, before the scan loop. single_node mode leaves the
         # other node out of the initialization lifecycle, so without this its

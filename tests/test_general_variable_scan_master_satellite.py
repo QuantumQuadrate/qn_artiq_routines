@@ -5,6 +5,8 @@ import json
 import ast
 from pathlib import Path
 
+import numpy as np
+
 
 def _identity_decorator(function=None, **kwargs):
     if function is not None:
@@ -112,6 +114,8 @@ from GeneralVariableScan_master_satellite_mixin import (  # noqa: E402
     build_experiment_function_registry,
     build_single_node_function_registry,
     build_two_node_function_registry,
+    roll_back_list_datasets,
+    snapshot_list_datasets,
 )
 from GeneralVariableScan_master_satellite_single_node import (  # noqa: E402
     GeneralVariableScan_master_satellite_single_node,
@@ -175,6 +179,60 @@ class _FakeStabilizer:
 
     def monitor(self):
         pass
+
+
+class _FakeBroadcaster:
+    """DatasetManager's broadcaster as ARTIQ 7 uses it: raw_view holds
+    (persist, value) per broadcast key, and every top-level write is
+    published to the master -- recorded here, with a copy of the value as
+    it was sent."""
+
+    def __init__(self):
+        self.raw_view = {}
+        self.published = []
+
+    def __setitem__(self, key, value):
+        self.raw_view[key] = value
+        persist, data = value
+        self.published.append(
+            ("setitem", key, persist,
+             list(data) if isinstance(data, list) else data)
+        )
+
+    def __delitem__(self, key):
+        del self.raw_view[key]
+        self.published.append(("delitem", key))
+
+
+class FakeDatasetManager:
+    """artiq.master.worker_db.DatasetManager (ARTIQ 7), the parts a scan
+    touches, with the same semantics: set() and append_to() are copied."""
+
+    def __init__(self):
+        self._broadcaster = _FakeBroadcaster()
+        self.local = {}
+
+    def set(self, key, value, broadcast=False, persist=False, archive=True):
+        if persist:
+            broadcast = True
+        if broadcast:
+            self._broadcaster[key] = persist, value
+        elif key in self._broadcaster.raw_view:
+            del self._broadcaster[key]
+        if archive:
+            self.local[key] = value
+        elif key in self.local:
+            del self.local[key]
+
+    def append_to(self, key, value):
+        target = self.local.get(key, None)
+        if key in self._broadcaster.raw_view:
+            if target is not None:
+                assert target is self._broadcaster.raw_view[key][1]
+            target = self._broadcaster.raw_view[key][1]
+        if target is None:
+            raise KeyError(f"Cannot mutate nonexistent dataset '{key}'")
+        target.append(value)
 
 
 class FakeBase:
@@ -1125,10 +1183,180 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         scan.experiment_name = "atom_loading_experiment"
         scan.scan_var_filesuffix = "f_FORT"
         scan.write_results = lambda kwargs={}: None
-        scan.set_dataset = lambda name, value, **kwargs: scan.dataset_writes.append(
-            (name, value, kwargs)
-        )
+        scan._HasEnvironment__dataset_mgr = FakeDatasetManager()
+
+        def set_dataset(name, value, **kwargs):
+            scan.dataset_writes.append((name, value, kwargs))
+            scan._HasEnvironment__dataset_mgr.set(name, value, **kwargs)
+
+        scan.set_dataset = set_dataset
         return scan
+
+    def _seed_result_series(self, scan):
+        """Run-wide series as initialize_result_state leaves them: broadcast
+        and archived, archived only, and broadcast-only and persistent."""
+        datasets = scan._HasEnvironment__dataset_mgr
+        datasets.set("AllSPCMs_RO1", [0], broadcast=True)
+        datasets.set("Atom_loading_time", [0.0])
+        datasets.set("p_AOM_A1_history_Node2", [-3.0], broadcast=True,
+                     persist=True, archive=False)
+        return datasets
+
+    @staticmethod
+    def _measure(experiment, n, fail_after=None):
+        """A stand-in experiment function: n measurements, each appending to
+        the series; a per-point display list replaced first, as Base's reset
+        does; raises RTIOUnderflow after fail_after measurements."""
+        datasets = experiment._HasEnvironment__dataset_mgr
+        experiment.attempts.append(experiment.f_FORT_Node2)
+        datasets.set("AllSPCMs_RO1_current_iteration", [0], broadcast=True)
+        for measurement in range(n):
+            if measurement == fail_after:
+                raise RTIOUnderflow("transient")
+            value = experiment.f_FORT_Node2
+            datasets.append_to("AllSPCMs_RO1", value)
+            datasets.append_to("AllSPCMs_RO1_current_iteration", value)
+            datasets.append_to("Atom_loading_time", value)
+            datasets.append_to("p_AOM_A1_history_Node2", value)
+
+    def test_catch_error_discards_the_failed_attempts_data(self):
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_master_satellite_two_nodes
+        )
+        datasets = self._seed_result_series(scan)
+        seeded = {key: datasets.local.get(key, datasets._broadcaster.raw_view.get(key, (None, None))[1])
+                  for key in ("AllSPCMs_RO1", "Atom_loading_time",
+                              "p_AOM_A1_history_Node2")}
+
+        def selected_function(experiment):
+            first = len(experiment.attempts) == 0
+            self._measure(experiment, 3, fail_after=2 if first else None)
+
+        scan._selected_experiment_function = selected_function
+        scan.run()
+
+        self.assertEqual(scan.attempts, [1.0, 1.0, 2.0])
+        whole_points = [1.0] * 3 + [2.0] * 3
+        self.assertEqual(datasets.local["AllSPCMs_RO1"], [0] + whole_points)
+        self.assertEqual(datasets.local["Atom_loading_time"], [0.0] + whole_points)
+        self.assertEqual(datasets._broadcaster.raw_view["p_AOM_A1_history_Node2"],
+                         (True, [-3.0] + whole_points))
+        self.assertEqual(datasets.local["AllSPCMs_RO1_current_iteration"],
+                         [0, 2.0, 2.0, 2.0])
+        # same objects, flags unchanged: broadcast stays broadcast (a local
+        # write would delete it from the master DB), archive-only stays
+        # local, and the persistent broadcast-only one is still both
+        self.assertIs(datasets.local["AllSPCMs_RO1"], seeded["AllSPCMs_RO1"])
+        self.assertEqual(datasets._broadcaster.raw_view["AllSPCMs_RO1"],
+                         (False, datasets.local["AllSPCMs_RO1"]))
+        self.assertNotIn("Atom_loading_time", datasets._broadcaster.raw_view)
+        self.assertNotIn("p_AOM_A1_history_Node2", datasets.local)
+        # the master (and so the dashboard) got the cut series: the seed,
+        # then the rollback (appends are not top-level writes)
+        def published(key):
+            return [m[2:] for m in datasets._broadcaster.published
+                    if m[0] == "setitem" and m[1] == key]
+        self.assertEqual(published("AllSPCMs_RO1"), [(False, [0])] * 2)
+        self.assertEqual(published("p_AOM_A1_history_Node2"),
+                         [(True, [-3.0])] * 2)
+        self.assertNotIn("delitem",
+                         [m[0] for m in datasets._broadcaster.published])
+        self.assertEqual(datasets.local["underflow_retries_per_scan_point"], [1, 0])
+        self.assertEqual(datasets.local["underflow_skipped_scan_points"], [])
+
+    def test_catch_error_exhausted_point_leaves_no_data(self):
+        def always_underflow_first_point(experiment):
+            self._measure(experiment, 3,
+                          fail_after=1 if experiment.f_FORT_Node2 == 1.0 else None)
+
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_master_satellite_two_nodes
+        )
+        datasets = self._seed_result_series(scan)
+        scan.underflow_max_retries = 2
+        scan.skip_only_that_iteration_if_exhausted = True
+        scan._selected_experiment_function = always_underflow_first_point
+        saves = []
+        scan.write_results = lambda kwargs={}: saves.append(
+            list(datasets.local["AllSPCMs_RO1"]))
+        scan.run()
+        self.assertEqual(datasets.local["AllSPCMs_RO1"], [0, 2.0, 2.0, 2.0])
+        self.assertEqual(datasets.local["underflow_retries_per_scan_point"], [2, 0])
+        self.assertEqual(datasets.local["underflow_skipped_scan_points"], [0])
+        # the skipped point is saved too, without its attempts' data
+        self.assertEqual(saves, [[0], [0, 2.0, 2.0, 2.0]])
+
+        # skip off: the run stops, and the h5 written then holds no part of
+        # the point
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_master_satellite_two_nodes
+        )
+        datasets = self._seed_result_series(scan)
+        scan.underflow_max_retries = 2
+        scan.skip_only_that_iteration_if_exhausted = False
+        scan._selected_experiment_function = always_underflow_first_point
+        with self.assertRaises(RTIOUnderflow):
+            scan.run()
+        self.assertEqual(datasets.local["AllSPCMs_RO1"], [0])
+        self.assertEqual(datasets.local["Atom_loading_time"], [0.0])
+        self.assertEqual(datasets.local["underflow_retries_per_scan_point"], [2])
+        self.assertEqual(datasets.local["underflow_skipped_scan_points"], [])
+
+    def test_disabled_catch_underflow_keeps_data_and_records_nothing(self):
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_master_satellite_two_nodes
+        )
+        datasets = self._seed_result_series(scan)
+        scan.enable_Catch_UnderFlow = False
+        scan._selected_experiment_function = (
+            lambda experiment: self._measure(experiment, 3, fail_after=2))
+        with self.assertRaises(RTIOUnderflow):
+            scan.run()
+        self.assertEqual(datasets.local["AllSPCMs_RO1"], [0, 1.0, 1.0])
+        self.assertNotIn("underflow_retries_per_scan_point", datasets.local)
+        self.assertNotIn("underflow_skipped_scan_points", datasets.local)
+
+    def test_roll_back_cuts_only_lists_grown_in_place(self):
+        datasets = FakeDatasetManager()
+        datasets.set("grown", [0, 1], broadcast=True)
+        datasets.set("replaced", [0, 1])
+        datasets.set("shrunk", [0, 1, 2])
+        datasets.set("scalar", 5, broadcast=True)
+        datasets.set("array", np.zeros(3))
+        snapshot = snapshot_list_datasets(datasets)
+        self.assertEqual(set(snapshot), {"grown", "replaced", "shrunk"})
+
+        datasets.append_to("grown", 2)
+        datasets.set("replaced", [0, 9, 9, 9])
+        del datasets.local["shrunk"][1:]
+        datasets.set("created", [0, 7])
+        datasets.set("scalar", 6, broadcast=True)
+        removed = roll_back_list_datasets(datasets, snapshot)
+
+        self.assertEqual(removed, {"grown": 1})
+        self.assertEqual(datasets.local["grown"], [0, 1])
+        self.assertEqual(datasets.local["replaced"], [0, 9, 9, 9])
+        self.assertEqual(datasets.local["shrunk"], [0])
+        self.assertEqual(datasets.local["created"], [0, 7])
+        self.assertEqual(datasets.local["scalar"], 6)
+        self.assertEqual(roll_back_list_datasets(datasets, snapshot), {})
+
+    def test_catch_underflow_defaults(self):
+        """On by default since 2026-10-28, and a point that keeps
+        underflowing stops the run rather than leaving a gap that would
+        shift every later point's label."""
+        defaults = {}
+        scan = self._make_repository_examination_experiment(
+            GeneralVariableScan_master_satellite_two_nodes
+        )
+        scan.setattr_argument = lambda name, processor=None, *args, **kwargs: (
+            defaults.__setitem__(
+                name, getattr(processor, "default_value", processor)),
+            setattr(scan, name, None),
+        )
+        scan.build()
+        self.assertIs(defaults["enable_Catch_UnderFlow"], True)
+        self.assertIs(defaults["skip_only_that_iteration_if_exhausted"], False)
 
     def test_disabled_catch_underflow_propagates_immediately(self):
         scan = self._make_catch_error_scan(
