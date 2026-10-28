@@ -2838,17 +2838,17 @@ def Two_nodes_HOM_experiment(self):
                 self.core_dma.playback_handle(recooling_handle)
                 delay(5 * us)
 
-                ### Back to the OP coils early, as single_photon_experiment_9
-                ### does: the pumping trace then finds the field already
-                ### moving from PGC to OP, the condition single-node pumping
-                ### was characterised under.
-                self.zotino0_Node1.set_dac(
-                    [self.AZ_bottom_volts_OP_Node1, -self.AZ_bottom_volts_OP_Node1, self.AX_volts_OP_Node1, self.AY_volts_OP_Node1],
-                    channels=self.coil_channels_Node1)
-                self.zotino0_Node2.set_dac(
-                    [self.AZ_bottom_volts_OP_Node2, -self.AZ_bottom_volts_OP_Node2, self.AX_volts_OP_Node2, self.AY_volts_OP_Node2],
-                    channels=self.coil_channels_Node2)
-                delay(0.4 * ms)
+                # ### Back to the OP coils early, as single_photon_experiment_9
+                # ### does: the pumping trace then finds the field already
+                # ### moving from PGC to OP, the condition single-node pumping
+                # ### was characterised under.
+                # self.zotino0_Node1.set_dac(
+                #     [self.AZ_bottom_volts_OP_Node1, -self.AZ_bottom_volts_OP_Node1, self.AX_volts_OP_Node1, self.AY_volts_OP_Node1],
+                #     channels=self.coil_channels_Node1)
+                # self.zotino0_Node2.set_dac(
+                #     [self.AZ_bottom_volts_OP_Node2, -self.AZ_bottom_volts_OP_Node2, self.AX_volts_OP_Node2, self.AY_volts_OP_Node2],
+                #     channels=self.coil_channels_Node2)
+                # delay(0.4 * ms)
 
             ############################# both atoms still there? every atom_check_every_n cycles
             if (excitation_cycle + 1) % atom_check_every_n == 0:
@@ -2941,13 +2941,13 @@ def Two_nodes_HOM_experiment(self):
                 ### back to the OP coils, as single_photon_experiment_9 does
                 ### after a passed check (the gate read above left no slack)
                 self.core.break_realtime()
-                self.zotino0_Node1.set_dac(
-                    [self.AZ_bottom_volts_OP_Node1, -self.AZ_bottom_volts_OP_Node1, self.AX_volts_OP_Node1, self.AY_volts_OP_Node1],
-                    channels=self.coil_channels_Node1)
-                self.zotino0_Node2.set_dac(
-                    [self.AZ_bottom_volts_OP_Node2, -self.AZ_bottom_volts_OP_Node2, self.AX_volts_OP_Node2, self.AY_volts_OP_Node2],
-                    channels=self.coil_channels_Node2)
-                delay(0.4 * ms)
+                # self.zotino0_Node1.set_dac(
+                #     [self.AZ_bottom_volts_OP_Node1, -self.AZ_bottom_volts_OP_Node1, self.AX_volts_OP_Node1, self.AY_volts_OP_Node1],
+                #     channels=self.coil_channels_Node1)
+                # self.zotino0_Node2.set_dac(
+                #     [self.AZ_bottom_volts_OP_Node2, -self.AZ_bottom_volts_OP_Node2, self.AX_volts_OP_Node2, self.AY_volts_OP_Node2],
+                #     channels=self.coil_channels_Node2)
+                # delay(0.4 * ms)
 
             delay(5 * us)
 

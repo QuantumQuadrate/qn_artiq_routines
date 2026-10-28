@@ -6319,10 +6319,10 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
 
                 # if not (excitation_cycle + 1) % self.atom_check_every_n == 0:
                 ## set coils for pumping
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-                    channels=self.coil_channels)
-                delay(0.4*ms)
+                # self.zotino0.set_dac(
+                #     [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                #     channels=self.coil_channels)
+                # delay(0.4*ms)
 
             ############################# readout to see if the atom survived every self.atom_check_every_n
             if (excitation_cycle + 1) % self.atom_check_every_n == 0:
@@ -6385,11 +6385,11 @@ def single_photon_experiment_9_atom_loading_advance_AllSPCM(self):
                 ##############################
 
                 ### set coils for pumping
-                self.zotino0.set_dac(
-                    [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
-                    channels=self.coil_channels)
-                # delay(5*ms)
-                delay(0.4 * ms)
+                # self.zotino0.set_dac(
+                #     [self.AZ_bottom_volts_OP, -self.AZ_bottom_volts_OP, self.AX_volts_OP, self.AY_volts_OP],
+                #     channels=self.coil_channels)
+                # # delay(5*ms)
+                # delay(0.4 * ms)
 
             delay(5 * us)
 
