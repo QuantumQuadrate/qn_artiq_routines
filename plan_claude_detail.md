@@ -975,7 +975,7 @@ not rewritten; the distinction is documented in `_bind_shared_spcms`.
 constants: `VALID_MODES` (`single_node`, `two_nodes`), `NODE_LEGACY_NAMES`,
 `SATELLITE_DESTINATION = 1`, `SPCM_DEVICES`, `LEGACY_SPCM_ALIASES`,
 `NODE_TTL_ALIASES`, `EDGE_COUNTERS`, `SINGLE_NODE_WIRING_METADATA`,
-`TWO_NODE_AGREEING_SCALARS`, `MAGNETOMETER_RESULT_DATASETS`,
+`TWO_NODES_SUFFIX`, `MAGNETOMETER_RESULT_DATASETS`,
 `MICROWAVE_CALIBRATION_DATASETS`, `POLARIZATION_RESULT_DATASETS`.
 The standalone `utilities/BaseExperiment.py` is unchanged in role.
 
@@ -1057,24 +1057,42 @@ raises. Never call it per scan point.
   driving both crates) was removed in `e768d50` (2026-10-07) after
   `laser_stabilizer_Node2` drove Node1's repump, cooling DP and fiber AOMs
   through it. Despite its name, `_publish_broadcast_aliases` now publishes
-  only the legacy SPCM aliases, the agreeing scalars and `which_node =
-  'alice'` (the last only so `end_measurement`'s dead magnetometer branch
-  type-checks).
-- `TWO_NODE_AGREEING_SCALARS` are published bare only while Node1 and Node2
-  agree; `_publish_agreeing_scalars` raises `RuntimeError` on divergence. It
-  runs at prepare and in every `refresh_variable_dependent_state` (after
-  overrides and each scan point), so asymmetric overrides raise and scans of
-  an agreeing scalar take effect. The 13 scalars:
-  `monitor_magnetometer_in_end_measurement`, `monitors_for_atom_loading`,
-  `use_chopped_readout`, `no_first_shot`, `require_D1_lock_to_advance`,
-  `enable_laser_feedback`, `Luca_trigger_for_feedback_verification`,
-  `t_SPCM_first_shot`, `t_SPCM_second_shot`, `t_atom_check_time`,
-  `t_delay_between_shots`, `t_FORT_loading`, `t_MOT_dissipation`. The timing
-  ones are joint because one hardware event consumes each (one gate of all
-  four SPCMs; one interval on the shared timeline).
+  only the legacy SPCM aliases and `which_node = 'alice'` (the last only so
+  `end_measurement`'s dead magnetometer branch type-checks).
+- **Shared settings (2026-10-27, user decision; replaces
+  `TWO_NODE_AGREEING_SCALARS`).** Two kinds, both declared in
+  `ExperimentVariables_master_satellite_global.py`:
+  - **Plain globals, one value for both nodes in every mode:**
+    `t_SPCM_first_shot`, `t_SPCM_second_shot`, `t_atom_check_time`,
+    `t_delay_between_shots`, `t_MOT_dissipation`, `enable_laser_feedback`,
+    `Luca_trigger_for_feedback_verification`, `use_chopped_readout`,
+    `require_D1_lock_to_advance`, `monitor_magnetometer_in_end_measurement`,
+    `monitors_for_atom_loading`. Their `_Node1`/`_Node2` declarations were
+    removed. They share their keys with the standalone stack's bare datasets
+    (like `n_measurements`); the values were equal when this was done, so no
+    seeding was needed. `no_first_shot` and `t_FORT_loading` had no
+    master-satellite reader and were removed outright.
+  - **Two-node sequence settings `<x>_two_nodes`:**
+    `n_excitation_attempts`, `max_excitation_cycles`, `atom_check_every_n`
+    (min 1), `recool_every_n_OP` (min 1), `t_pumping`, `t_depumping`,
+    `t_OP_coil_relax_time`, `t_recooling`, `t_SPCM_recool_and_shot`,
+    `t_photon_collection_time` (150 ns, stored 1.5000000000000002e-07).
+    Loaded only in two_nodes mode, where Base publishes the bare `self.<x>`
+    from them (`compatibility_variable_map` = `two_node_shared_variable_map`,
+    `refresh_compatibility_variables`), exactly as single_node publishes
+    `self.<x>` from `<x>_NodeX`. So the two-node sequence reads plain names
+    and single-node experiments keep their own per-node values (Node1 100 ns,
+    Node2 200 ns collection). In two_nodes a bare name, from either
+    dictionary or as a scan variable, resolves to `<x>_two_nodes`; the
+    per-node names of these ten raise there. Seeded with `artiq_client
+    set-dataset --persist` before the declarations were saved.
+  - The old agreeing-scalar check ran at prepare, BEFORE overrides, so a
+    per-node mismatch (e.g. `monitor_magnetometer_in_end_measurement` True on
+    Node2 only, 2026-10-27 11:26-11:41) failed every two-node run and no
+    override could rescue it.
 - Deliberately per node and addressed explicitly:
   `PGC_and_RO_with_on_chip_beams`, `do_PGC_after_loading`, `t_FORT_drop`
-  (removed from the agreeing list in `e768d50`), `t_PGC_after_loading`,
+  (per node since `e768d50`), `t_PGC_after_loading`,
   `single_atom_threshold`, every `f_*`, `p_*` and coil voltage.
 - Per-node `ampl_*` and wiring metadata are suffixed.
 
@@ -1087,11 +1105,11 @@ raises. Never call it per scan point.
   selected suffixed names are accepted and other-node names rejected; in
   two_nodes without a node, suffixes are required ("Ambiguous ... use
   X_Node1 or X_Node2"); unknown names are rejected clearly.
-- `refresh_compatibility_variables()`: single_node only; copies authoritative
-  suffixed attributes to legacy names; no dataset I/O.
+- `refresh_compatibility_variables()`: copies authoritative attributes to
+  the bare names: `<x>_NodeX` in single_node, `<x>_two_nodes` in two_nodes;
+  no dataset I/O.
 - `refresh_variable_dependent_state()`: refreshes DDS frequency/power caches
-  and per-node `ampl_*`; in two_nodes re-publishes the agreeing scalars and
-  WRITES the derived broadcast dataset `t_alternating_RO_exposure =
+  and per-node `ampl_*`; in two_nodes WRITES the derived broadcast dataset `t_alternating_RO_exposure =
   n_alternating_RO_windows_per_node * t_alternating_RO_window`. No prepare,
   rebinding, hardware init or core reset. (The retired spec said "no dataset
   I/O"; that is no longer true in two_nodes.)
@@ -1324,11 +1342,11 @@ initializer(s): <file>: <names>".
 | `dummy_variable` | 0.0 | | Scan placeholder. |
 | `two_atom_threshold` | 39000 | 42000 | Joint two-atom readout threshold (counts/s). Standalone declares 20000. |
 | `two_atom_threshold_for_loading` | 89000 | 100000 | Joint loading threshold. Standalone declares 84000. |
-| `t_atom_check_time_two_node` | 0.01 s | | UNREAD (joint timing moved to agreeing scalars). |
-| `t_SPCM_first_shot_two_node` | 0.01 s | | UNREAD. |
-| `t_SPCM_second_shot_two_node` | 0.01 s | | UNREAD. |
-| `t_delay_between_shots_two_node` | 0.0 s | | UNREAD. |
-| `t_MOT_dissipation_two_node` | 0.05 s | | UNREAD. |
+| `t_SPCM_first_shot`, `t_SPCM_second_shot`, `t_atom_check_time` | 0.01 s | 0.01 s | Shared by both nodes in every mode since 2026-10-27 (section 6.6). The five unread `*_two_node` timing globals were removed the same day. |
+| `t_delay_between_shots`, `t_MOT_dissipation` | 0.0 / 0.05 s | 0.0 / 0.05 s | Shared, as above. |
+| `enable_laser_feedback`, `Luca_trigger_for_feedback_verification`, `use_chopped_readout`, `require_D1_lock_to_advance`, `monitor_magnetometer_in_end_measurement`, `monitors_for_atom_loading` | True / False x5 | same | Shared, as above (one switch for both nodes; override per run). |
+| `n_excitation_attempts_two_nodes`, `max_excitation_cycles_two_nodes`, `atom_check_every_n_two_nodes`, `recool_every_n_OP_two_nodes` | 5 / 2000 / 50 / 1 | seeded 2026-10-27 | Two-node loop shape, read bare in two_nodes only (section 6.6); the last two min 1. |
+| `t_pumping_two_nodes`, `t_depumping_two_nodes`, `t_OP_coil_relax_time_two_nodes`, `t_recooling_two_nodes`, `t_SPCM_recool_and_shot_two_nodes`, `t_photon_collection_time_two_nodes` | 100 us / 2 us / 1.5 ms / 0.6 ms / 10 ms / 150 ns | seeded 2026-10-27 | Two-node sequence durations, as above. 150 ns is stored 1.5000000000000002e-07 because `seconds_to_mu` floors. |
 | `max_atom_check_tries_two_node` | 100 | | Two-node loader bound. |
 | `max_loading_rounds` | 20 | 20 | Bounds the two-node loader's outer retry and every confirm-by-first-shot loop. Renamed from `max_loading_rounds_two_node` (`2fb2fbf`, 2026-10-13); hand-seeded before the rename landed. |
 | `advance_if_atom_in_first_shot` | False | **True** | Confirm-by-first-shot flag (section 9.7). Live True, so the confirm loop is the default behaviour. |
@@ -1400,11 +1418,10 @@ was 0). The rename (`e768d50`) split it:
 
 ### 7.7 Unread declarations and orphans
 
-- Seven globals are read by no code: the five `*_two_node` timings above,
-  `parallel_AOM_feedback` and `t_Node2_excitation_delay_mu`. The five timings
-  could be removed (removing a declaration is safe; adding one is not). Keep
-  the other two: `t_Node2_excitation_delay_mu` is a deliberate placeholder,
-  and `parallel_AOM_feedback` is the designated selector for the future
+- The five unread `*_two_node` timing globals were removed on 2026-10-27
+  (their datasets stay in the DB as orphans). `t_Node2_excitation_delay_mu`
+  is read since 2026-10-26 (`Two_nodes_HOM_experiment`). Keep
+  `parallel_AOM_feedback`: it is the designated selector for the future
   sequential/concurrent feedback switch, so deleting it now and re-adding it
   later would cost an R12 failure window.
 - Orphan persistent dataset still in `dataset_db.pyon` (2026-10-14):
@@ -2604,11 +2621,11 @@ Spec sets: `APPLET_SPECS` (progress bar, retention and loading AllSPCMs,
 RO1/RO2 histograms, Atom loading time); `GVS_APPLET_SPECS` (atom-check loading
 histogram vs `single_atom_threshold_for_loading`); `SCAN_APPLET_SPECS` (Time
 without atom); `TWO_NODE_APPLET_SPECS` (retention on the joint
-`two_atom_threshold`, cutoff = `two_atom_threshold` x `t_SPCM_first_shot_Node1`,
+`two_atom_threshold`, cutoff = `two_atom_threshold` x `t_SPCM_first_shot`,
 420 counts at the live 42000 against 140 / 170 single-node for Node1 / Node2;
-uses
-`t_SPCM_first_shot_Node1` because the bare name resolves to a stale standalone
-dataset); `OPTIONAL_APPLET_SPECS` (e.g. `n_excitation_cycles`);
+`t_SPCM_first_shot` is a shared global since 2026-10-27, before which this
+spec named `t_SPCM_first_shot_Node1` because the bare dataset was only the
+standalone stack's); `OPTIONAL_APPLET_SPECS` (e.g. `n_excitation_cycles`);
 `SPCM_MONITOR_APPLET_SPECS` (five specs: the four per-SPCM count rates plus
 "All SPCMs count rate", MonitorSPCMinApplet only); `TWO_NODE_ALTERNATING_APPLET_SPECS` (gated by the empty
 `TWO_NODE_ALTERNATING_EXPERIMENTS`); `TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS`
@@ -2726,8 +2743,10 @@ two-photon runs yet.
   filtered by `experiment_function`.
   `ms_two_nodes_archive_and_datasets_to_locals` keeps every suffix, applies
   unrecorded overrides under the name the run resolved them to, rebuilds
-  the bare joint scalars (`MS_TWO_NODES_JOINT_SCALARS`, a copy of
-  `TWO_NODE_AGREEING_SCALARS`) from their agreeing `_Node1`/`_Node2` pair,
+  the bare shared settings for files older than 2026-10-27
+  (`MS_TWO_NODES_JOINT_SCALARS`) from their agreeing `_Node1`/`_Node2` pair
+  (newer files hold them bare, or as `<x>_two_nodes`, which the loader also
+  publishes bare),
   strips the seed from the four `SPCM*_OtherNode_RO*` series too, and
   injects expid arguments. The archived `*_two_node` timing globals are
   not what the sequence read (RID 39108: `t_atom_check_time_two_node`
@@ -3219,10 +3238,10 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   `parallel-aom-feedback-grouping.md` (iteration cap 200 vs live 100) are
   stale. The root `README.md` describes only the standalone era.
 - **O-26 Orphan dataset** `max_loading_rounds_two_node` in `dataset_db.pyon`
-  (delete with `artiq_client del-dataset` when the user agrees). Of the seven
-  declared but unread globals, the five `*_two_node` timings could be
-  removed; keep `parallel_AOM_feedback` (future feedback selector) and
-  `t_Node2_excitation_delay_mu` (placeholder) (section 7.7).
+  (delete with `artiq_client del-dataset` when the user agrees). Since
+  2026-10-27 also orphaned: the five `*_two_node` timings and the
+  `_Node1`/`_Node2` copies of the 13 former agreeing scalars (section 6.6);
+  keep `parallel_AOM_feedback` (future feedback selector) (section 7.7).
 - **O-27 `ms_node_of` misclassification risk** (section 15.4).
 - **O-28 `alternating_shot_threshold_for_loading_NodeX`**: live 50000/45000
   vs declared 62000/60000; irrelevant while O-1 stands.

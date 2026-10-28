@@ -184,7 +184,11 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         # two-node run opens ONE gate across all four master-local SPCM
         # counters, so there is one duration, and the thresholds above are
         # rates compared against counts/t, so gate and threshold must be the
-        # same joint quantity.
+        # same joint quantity. On 2026-10-27 the per-node copies of the
+        # settings both nodes share became plain globals (no suffix in any
+        # mode), the unread *_two_node timing globals went, and the two-node
+        # sequence settings joined as <x>_two_nodes (read bare in two_nodes
+        # mode only; see BaseExperimentMasterSatellite.TWO_NODES_SUFFIX).
         self.assertEqual(
             experiment.datasets,
             {
@@ -203,11 +207,17 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 "dummy_variable": 0.0,
                 "two_atom_threshold": 39000.0,
                 "two_atom_threshold_for_loading": 89000.0,
-                "t_atom_check_time_two_node": 0.01,
-                "t_SPCM_first_shot_two_node": 0.01,
-                "t_SPCM_second_shot_two_node": 0.01,
-                "t_delay_between_shots_two_node": 0.0,
-                "t_MOT_dissipation_two_node": 0.05,
+                "t_SPCM_first_shot": 0.01,
+                "t_SPCM_second_shot": 0.01,
+                "t_atom_check_time": 0.01,
+                "t_delay_between_shots": 0.0,
+                "t_MOT_dissipation": 0.05,
+                "enable_laser_feedback": True,
+                "Luca_trigger_for_feedback_verification": False,
+                "use_chopped_readout": False,
+                "require_D1_lock_to_advance": False,
+                "monitor_magnetometer_in_end_measurement": False,
+                "monitors_for_atom_loading": False,
                 "max_atom_check_tries_two_node": 100,
                 "max_loading_rounds": 20,
                 # Joined on 2026-10-12, merging Two_nodes_atom_loading_2
@@ -223,6 +233,17 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 # Seconds, not milliseconds: the unit kwarg is display only.
                 "t_alternating_RO_window": 0.001,
                 "t_alternating_RO_pad": 0.0001,
+                "n_excitation_attempts_two_nodes": 5,
+                "max_excitation_cycles_two_nodes": 2000,
+                "atom_check_every_n_two_nodes": 50,
+                "recool_every_n_OP_two_nodes": 1,
+                "t_pumping_two_nodes": 0.0001,
+                "t_depumping_two_nodes": 2e-06,
+                "t_OP_coil_relax_time_two_nodes": 0.0015,
+                "t_recooling_two_nodes": 0.0006,
+                "t_SPCM_recool_and_shot_two_nodes": 0.01,
+                # 150*ns; seconds_to_mu floors, 1.5e-07 would give 149 mu
+                "t_photon_collection_time_two_nodes": 1.5000000000000002e-07,
             },
         )
         # The two Node2 timing globals name the node they apply TO, in the

@@ -186,6 +186,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             name for name in vars(experiment)
             if not name.endswith(("_Node1", "_Node2"))
         } | _ALLOWED_NON_DEVICE
+        # the two-node sequence settings, read bare from <x>_two_nodes
+        cls.two_node_settings = set(base.two_node_shared_variable_map)
 
     def test_module_touches_self_attributes_at_all(self):
         """Guard the guard: if the walk finds nothing, the rest proves nothing."""
@@ -228,9 +230,32 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             + "\n  ".join(offenders),
         )
 
+    def test_two_node_sequence_settings_are_never_read_per_node(self):
+        """self.t_pumping, never self.t_pumping_Node1, for the ten settings.
+
+        In two_nodes mode Base still loads both nodes' per-node copies
+        (t_photon_collection_time_Node1 = 100 ns, _Node2 = 200 ns), so a read
+        of one compiles and runs -- with the single-node value, ignoring
+        t_photon_collection_time_two_nodes and every two-node override of
+        it (those resolve to _two_nodes). Nothing else would catch that.
+        """
+        self.assertTrue(self.two_node_settings)
+        offenders = []
+        for name, line in self.self_attributes:
+            for tail in ("_Node1", "_Node2"):
+                if (name.endswith(tail)
+                        and name[:-len(tail)] in self.two_node_settings):
+                    offenders.append(f"{_MODULE_PATH}:{line}: self.{name}")
+        self.assertEqual(
+            offenders, [],
+            "Two-node sequence settings are read bare (Base publishes them "
+            "from <name>_two_nodes):\n  " + "\n  ".join(offenders),
+        )
+
     def test_bare_names_are_ones_base_actually_publishes(self):
-        """A bare name must be a broadcast alias, a shared detector, or an
-        agreeing scalar -- not a per-node name someone forgot to suffix."""
+        """A bare name must be a broadcast alias, a shared detector, or a
+        shared setting (a plain global, or a <x>_two_nodes one) -- not a
+        per-node name someone forgot to suffix."""
         offenders = []
         for name, line in self.self_attributes:
             if name.endswith(("_Node1", "_Node2")) or name.startswith("_"):
@@ -241,8 +266,10 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
         self.assertEqual(
             offenders, [],
             "Not published bare in two-node mode. Either suffix it with the "
-            "node, or add it to TWO_NODE_AGREEING_SCALARS if both nodes "
-            "genuinely share one value:\n  " + "\n  ".join(offenders),
+            "node, or, if both nodes share one value, declare it in "
+            "ExperimentVariables_master_satellite_global.py: as a plain "
+            "global, or as <name>_two_nodes for a two-node sequence "
+            "setting:\n  " + "\n  ".join(offenders),
         )
 
     def test_no_raw_physical_device_names(self):

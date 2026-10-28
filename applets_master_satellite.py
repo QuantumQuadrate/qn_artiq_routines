@@ -177,17 +177,14 @@ SCAN_APPLET_SPECS = (
 #: from the single-node retention applet: "loaded" here means an atom in BOTH
 #: traps, and "retained" means both survived.
 #:
-#: t_SPCM_first_shot is named WITH Node1's suffix on purpose. The bare name
-#: resolves to a leftover STANDALONE dataset in two-node mode (it is 0.01 in
-#: dataset_db today, which merely happens to match), and reading a stale
-#: standalone value to scale a live threshold is the n_measurements trap over
-#: again. Node1's copy is provably equal to Node2's: t_SPCM_first_shot is in
-#: TWO_NODE_AGREEING_SCALARS, so prepare and every scan point RAISE if the two
-#: ever diverge.
+#: t_SPCM_first_shot is a master-satellite global since 2026-10-27, one value
+#: for both nodes in every mode, so the bare name is the value the run used.
+#: (Before that it was named t_SPCM_first_shot_Node1 here, because the bare
+#: dataset was then only the standalone stack's.)
 TWO_NODE_APPLET_SPECS = (
     _spec("retention and loading AllSPCMs", "plot_retention_and_loading.py",
           ("AllSPCMs_RO1", "AllSPCMs_RO2", "n_measurements",
-           "two_atom_threshold", "t_SPCM_first_shot_Node1"),
+           "two_atom_threshold", "t_SPCM_first_shot"),
           (("--scan_vars", "scan_variables"),
            ("--scan_sequence1", "scan_sequence1")),
           group=_GVS),
@@ -318,8 +315,9 @@ SHARED_APPLET_GROUP = "Both nodes"
 #: removes the duplicates.
 #:
 #: What does differ per node is only the VARIABLES some applets take as
-#: options -- single_atom_threshold_NodeX for the retention plot,
-#: t_SPCM_*_NodeX and t_atom_check_time_NodeX for the histograms' exposure.
+#: options -- single_atom_threshold_NodeX for the retention plot. (The
+#: histograms' exposure, t_SPCM_* and t_atom_check_time, are shared globals
+#: since 2026-10-27, the same for both nodes.)
 #: Those need no special handling: every run re-issues every applet, and
 #: ccb_create_applet replaces an existing name+group whose command CHANGED and
 #: restarts it at its previous position. So switching node re-opens the
@@ -344,10 +342,8 @@ TWO_NODE_APPLET_GROUP = "TwoNodes"
 #: valley between the two populations.
 #:
 #: --t_exposure is t_alternating_RO_exposure, which Base derives and
-#: broadcasts. NOT t_atom_check_time: that is the joint gate's duration, and
-#: in two-node mode it resolves to a bare name this stack never declares as a
-#: dataset, so the applet would be answered by a leftover STANDALONE value of
-#: 20 ms -- twice the real exposure.
+#: broadcasts. NOT t_atom_check_time: that is the joint gate's duration (a
+#: shared global), not the alternating windows' total exposure.
 #:
 #: No --iteration: like the joint atom-check histogram, these accumulate over
 #: the whole run and are never reset per scan point, so a per-iteration title

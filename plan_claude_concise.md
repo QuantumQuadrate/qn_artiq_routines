@@ -124,8 +124,8 @@ come before cleanup (sections 3.1, 3.3).
   (AOMsCoils never calls it).
 - **two_nodes:** suffixed names only, so a bare device name fails to
   compile. Functions come only from `experiment_functions_two_nodes.py`
-  (3 registered). The 13 agreeing scalars are published bare only while the
-  nodes agree.
+  (4 registered). Settings both nodes share are plain globals, or
+  `<x>_two_nodes` globals read bare in two_nodes mode (2026-10-27).
 - Neither mode is the removed legacy `two_nodes` node mode (section 4.6).
 
 **Explorer** (section 4.5):

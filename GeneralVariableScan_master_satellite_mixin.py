@@ -116,7 +116,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         # One override dictionary per node, and deliberately no shared one:
         # both may stay populated at once, so switching selected_node is the
         # only edit needed to move a scan between nodes. Globals such as
-        # n_measurements go in the running node's dictionary.
+        # n_measurements go in the running node's dictionary; in two_nodes
+        # mode a global, or a two-node sequence setting written bare
+        # ({'t_pumping': ...} = t_pumping_two_nodes), goes in ONE of them.
         for node in self.VALID_NODES:
             self.setattr_argument(
                 f"override_ExperimentVariables_{node}",

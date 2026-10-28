@@ -182,11 +182,14 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(experiment.sampler0.name, "sampler3")
         self.assertEqual(experiment.f_FORT, experiment.f_FORT_Node2)
         self.assertFalse(hasattr(experiment, "f_FORT_Node1"))
+        # The two-node sequence settings (<x>_two_nodes) are loaded only in
+        # two_nodes mode, so a missing one cannot stop a single-node run.
         self.assertEqual(
             set(experiment.dataset_reads),
             {
                 variable.name
                 for variable in NODE2_VARIABLES + MASTER_SATELLITE_VARIABLES
+                if not variable.name.endswith("_two_nodes")
             },
         )
         base.prepare()
@@ -680,10 +683,11 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         single_atom_threshold would count one-atom events as loaded and make
         the retention denominator wrong.
 
-        The exposure must also be the SUFFIXED name. Bare t_SPCM_first_shot
-        still exists in dataset_db as a standalone leftover, so a two-node
-        applet pointed at the bare name would scale a live threshold by a
-        stale standalone value -- the same collision class as n_measurements.
+        The exposure is t_SPCM_first_shot, a master-satellite global since
+        2026-10-27 (one value for both nodes, in every mode), so the bare
+        name is the value the run gated with. Before that this applet had
+        to name t_SPCM_first_shot_Node1, because the bare dataset was only
+        the standalone stack's.
         """
         from applets_master_satellite import (
             APPLET_SPECS,
@@ -709,11 +713,10 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 f"threshold: {argument}",
             )
         self.assertIn(
-            "t_SPCM_first_shot_Node1", arguments,
-            "the exposure must be the suffixed name; the bare one is a "
-            "standalone leftover in dataset_db",
+            "t_SPCM_first_shot", arguments,
+            "the exposure is the shared global the run gated with",
         )
-        self.assertNotIn("t_SPCM_first_shot", arguments)
+        self.assertNotIn("t_SPCM_first_shot_Node1", arguments)
 
         # Single-node keeps the one-atom criterion. Pinned so a shared edit
         # cannot quietly change what single-node retention means.
@@ -1036,41 +1039,94 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertIn("single_atom_threshold_Node2", command("Node2", retention))
         self.assertNotIn("single_atom_threshold_Node2", command("Node1", retention))
 
-    def test_agreeing_scalars_are_rederived_after_overrides(self):
-        """The bare shared scalars must follow the per-node values.
+    def test_two_node_sequence_settings_follow_their_two_nodes_globals(self):
+        """two_nodes publishes self.<x> from <x>_two_nodes, not from a node.
 
-        They used to be published only from prepare(), which broke two things
-        at once, because the sequence reads the BARE name:
-
-          * overriding or scanning an agreeing scalar had NO EFFECT -- the bare
-            name stayed frozen at its pre-override value;
-          * an ASYMMETRIC override did not raise, because prepare() compared
-            the two still-equal dataset values, and the later setattr of the
-            suffixed names left the bare name holding Node1's value. Node2 then
-            silently ran with Node1's exposure time, which is the single
-            failure _publish_agreeing_scalars exists to prevent.
-
-        refresh_variable_dependent_state is the one hook both the override path
-        and the per-scan-point path run through, so the re-derivation belongs
-        there and this test pins it.
+        The two-node sequence reads plain names (self.t_pumping), like
+        single-node code. In two_nodes mode those come from the global
+        <x>_two_nodes, so a two-node run neither depends on nor disturbs the
+        per-node values single-node experiments use, and the copy is redone
+        after every override and scan point (the mixin calls
+        refresh_compatibility_variables there).
         """
         experiment, base = self.build_and_prepare("two_nodes")
+        self.assertTrue(base.two_node_shared_variable_map)
+        for bare, stored in base.two_node_shared_variable_map.items():
+            self.assertEqual(stored, bare + "_two_nodes")
+            self.assertEqual(getattr(experiment, bare),
+                             getattr(experiment, stored), bare)
+        # 150 ns, not Node1's 100 or Node2's 200: the shared value wins
+        self.assertEqual(experiment.t_photon_collection_time,
+                         experiment.t_photon_collection_time_two_nodes)
+        # ARTIQ's seconds_to_mu is int64(s // ref_period): it floors, so the
+        # stored 150 ns must not be 1.5e-07 (which gives 149)
+        self.assertEqual(
+            int(experiment.t_photon_collection_time // 1e-9), 150)
 
-        # Agreeing override: the bare name must pick the new value up.
-        experiment.t_SPCM_first_shot_Node1 = 0.042
-        experiment.t_SPCM_first_shot_Node2 = 0.042
-        base.refresh_variable_dependent_state()
-        self.assertAlmostEqual(experiment.t_SPCM_first_shot, 0.042)
+        experiment.t_pumping_two_nodes = 7e-5
+        experiment.t_pumping_Node1 = 1e-3
+        base.refresh_compatibility_variables()
+        self.assertEqual(experiment.t_pumping, 7e-5)
 
-        # Asymmetric override of a JOINT scalar: one gate cannot have two
-        # durations, so this must raise and name the offender.
-        experiment.t_SPCM_first_shot_Node2 = 0.043
-        with self.assertRaises(RuntimeError) as caught:
-            base.refresh_variable_dependent_state()
-        self.assertIn("t_SPCM_first_shot", str(caught.exception))
+    def test_two_node_settings_resolve_per_mode(self):
+        """Overrides and scans address the value the sequence reads."""
+        _, base = self.build_and_prepare("two_nodes")
+        resolve = base.resolve_experiment_variable_target
+        # bare, from either node's dictionary or as a scan variable
+        self.assertEqual(resolve("t_pumping", "Node1"), "t_pumping_two_nodes")
+        self.assertEqual(resolve("t_pumping", "Node2"), "t_pumping_two_nodes")
+        self.assertEqual(resolve("t_pumping"), "t_pumping_two_nodes")
+        self.assertEqual(resolve("t_pumping_two_nodes"), "t_pumping_two_nodes")
+        # the per-node values are not read in two_nodes: refuse, do not ignore
+        for name in ("t_pumping_Node1", "n_excitation_attempts_Node2"):
+            with self.assertRaises(ValueError) as caught:
+                resolve(name)
+            self.assertIn("not read in two_nodes", str(caught.exception))
+        with self.assertRaises(ValueError):
+            resolve("t_pumping_Node1", "Node1")
+        # plain globals stay themselves, in both modes
+        self.assertEqual(resolve("t_SPCM_first_shot", "Node1"), "t_SPCM_first_shot")
+        # per-node settings that are not two-node settings are untouched
+        self.assertEqual(resolve("t_FORT_drop", "Node2"), "t_FORT_drop_Node2")
+
+        experiment, base = self.build_and_prepare("single_node", "Node2")
+        resolve = base.resolve_experiment_variable_target
+        self.assertEqual(resolve("t_pumping", "Node2"), "t_pumping_Node2")
+        self.assertEqual(resolve("t_SPCM_first_shot", "Node2"), "t_SPCM_first_shot")
+        with self.assertRaises(ValueError) as caught:
+            resolve("t_pumping_two_nodes")
+        self.assertIn("two_nodes", str(caught.exception))
+        # single_node neither loads the two-node settings nor reads them
+        self.assertFalse(hasattr(experiment, "t_pumping_two_nodes"))
+        self.assertEqual(experiment.t_photon_collection_time,
+                         experiment.t_photon_collection_time_Node2)
+
+    def test_shared_settings_are_one_global_in_both_modes(self):
+        """t_SPCM_first_shot and friends: declared once, never per node."""
+        shared = ("t_SPCM_first_shot", "t_SPCM_second_shot", "t_atom_check_time",
+                  "t_delay_between_shots", "t_MOT_dissipation",
+                  "enable_laser_feedback", "Luca_trigger_for_feedback_verification",
+                  "use_chopped_readout", "require_D1_lock_to_advance",
+                  "monitor_magnetometer_in_end_measurement",
+                  "monitors_for_atom_loading")
+        for mode, node in (("two_nodes", None), ("single_node", "Node1"),
+                           ("single_node", "Node2")):
+            experiment, base = self.build_and_prepare(mode, node)
+            for name in shared:
+                self.assertIn(name, base.global_variable_names, name)
+                self.assertTrue(hasattr(experiment, name), (mode, name))
+                for suffix in ("_Node1", "_Node2"):
+                    self.assertFalse(hasattr(experiment, name + suffix),
+                                     (mode, name + suffix))
+            # no master-satellite reader, so removed altogether
+            for name in ("no_first_shot", "t_FORT_loading"):
+                for suffix in ("", "_Node1", "_Node2"):
+                    self.assertFalse(hasattr(experiment, name + suffix))
 
     def test_per_node_flags_are_not_forced_to_agree(self):
-        """Genuinely per-node names must stay OFF the agreeing list.
+        """Genuinely per-node names must stay per node.
+
+        Not plain globals and not two-node settings (<x>_two_nodes).
 
         PGC_and_RO_with_on_chip_beams selects A5/A6, a per-node AOM pair;
         do_PGC_after_loading gates a per-node stage whose duration already
@@ -1085,15 +1141,15 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             "do_PGC_after_loading",
             "t_FORT_drop",
         )
+        experiment, base = self.build_and_prepare("two_nodes")
         for name in per_node_only:
             self.assertNotIn(
                 name,
-                BaseExperimentMasterSatellite.TWO_NODE_AGREEING_SCALARS,
+                set(base.global_variable_names)
+                | set(base.two_node_shared_variable_map),
                 f"{name} is per node; sharing it would make Node2 follow "
                 f"Node1 silently.",
             )
-
-        experiment, base = self.build_and_prepare("two_nodes")
 
         # Diverging them is legal and must not raise.
         experiment.PGC_and_RO_with_on_chip_beams_Node1 = True

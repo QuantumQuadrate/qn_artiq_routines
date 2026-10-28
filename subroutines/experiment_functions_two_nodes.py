@@ -49,14 +49,16 @@ Beyond naming, these need genuinely different code per node:
    which are a per-node AOM pair. Each node's branch is written out, so one
    node can take a stage the other skips.
 
-SCALARS the two nodes agree on are still published bare by Base, and that is
-about values rather than devices: t_SPCM_first_shot and friends are consumed by
-ONE hardware event (a single gate of all four master-local SPCMs, or a single
-interval on the one shared timeline), so there is only one value to have. Base
-RAISES if the nodes ever diverge on one, rather than handing the sequence one
-node's value, and the check runs after overrides and at every scan point --
-not only at prepare time. A duration that merely happens to be equal today
-does not qualify. See BaseExperimentMasterSatellite.TWO_NODE_AGREEING_SCALARS.
+SHARED SETTINGS are read bare, and that is about values rather than devices.
+Two kinds, both declared in ExperimentVariables_master_satellite_global.py:
+  * one value for both nodes in every mode (t_SPCM_first_shot and friends,
+    enable_laser_feedback): consumed by ONE hardware event -- a single gate of
+    all four master-local SPCMs, or a single interval on the one shared
+    timeline -- so there is only one value to have;
+  * the two-node sequence settings (n_excitation_attempts, t_pumping,
+    t_photon_collection_time, ...): Base publishes self.<x> from the global
+    <x>_two_nodes in two_nodes mode, leaving the per-node values single-node
+    experiments use alone. See BaseExperimentMasterSatellite.TWO_NODES_SUFFIX.
 
 WHAT IS COPIED FROM experiment_functions.py
 -------------------------------------------
@@ -218,11 +220,10 @@ def record_CW_optical_pumping_both_nodes(self):
     opens and closes on one timestamp for both nodes, and both Zotinos latch
     on one timestamp, so the stages really are simultaneous.
 
-    STAGE DURATIONS ARE THE LARGER OF THE TWO NODES', so a stage never ends
-    before the slower node has finished it. Where the values differ, the node
-    with the shorter one is pumped longer than its own calibration, so check
-    that t_pumping, t_depumping and t_OP_coil_relax_time agree across the
-    nodes before trusting this on hardware.
+    STAGE DURATIONS ARE SHARED: t_pumping, t_depumping and t_OP_coil_relax_time
+    are the two-node settings (t_pumping_two_nodes etc., read here under the
+    bare names), one value for both nodes, since both nodes' stages open and
+    close on the same timestamps.
 
     NO t_Node2_rtio_offset_mu CORRECTION, deliberately. That cancels the
     electrical skew between the two crates' output pins and only matters where
@@ -239,17 +240,10 @@ def record_CW_optical_pumping_both_nodes(self):
     were dropped here on 2026-10-23, following the single-node
     record_CW_optical_pumping after the user's 2026-10-21 test on Node1.
     """
-    ### Larger of the two nodes' values. Computed BEFORE the recording: a
-    ### float compare is host arithmetic and has no business inside a trace.
-    t_coil_relax = self.t_OP_coil_relax_time_Node1
-    if self.t_OP_coil_relax_time_Node2 > t_coil_relax:
-        t_coil_relax = self.t_OP_coil_relax_time_Node2
-    t_pumping = self.t_pumping_Node1
-    if self.t_pumping_Node2 > t_pumping:
-        t_pumping = self.t_pumping_Node2
-    t_depumping = self.t_depumping_Node1
-    if self.t_depumping_Node2 > t_depumping:
-        t_depumping = self.t_depumping_Node2
+    ### The shared two-node settings (t_OP_coil_relax_time_two_nodes etc.)
+    t_coil_relax = self.t_OP_coil_relax_time
+    t_pumping = self.t_pumping
+    t_depumping = self.t_depumping
 
     with self.core_dma.record("CW_optical_pumping_both_nodes"):
         ### Turn off unused light. Eight events, so two groups.
@@ -299,7 +293,7 @@ def record_CW_optical_pumping_both_nodes(self):
         self.zotino0_Node1.load()
         self.zotino0_Node2.load()
 
-        ### Physical coil-relaxation time, the longer of the two nodes'
+        ### Physical coil-relaxation time, shared by both nodes
         delay(t_coil_relax)
 
         ### Both nodes' D1 reaches the atom through GRIN1, so the GRIN1 tone
@@ -380,16 +374,14 @@ def record_recooling_both_nodes(self):
     repump open; it is cut the same way, so each atom is recooled for exactly
     the recooling time.
 
-    The duration is the LARGER of the two nodes' t_recooling, as for the
-    pumping stages in record_CW_optical_pumping_both_nodes.
+    The duration is the shared t_recooling (t_recooling_two_nodes), as for
+    the pumping stages in record_CW_optical_pumping_both_nodes.
 
     Leaves the coils at the PGC setting, like the original. The caller sets
     the OP coils again afterwards (Two_nodes_HOM_experiment does, as
     single_photon_experiment_9 does after record_recooling).
     """
-    t_recooling = self.t_recooling_Node1
-    if self.t_recooling_Node2 > t_recooling:
-        t_recooling = self.t_recooling_Node2
+    t_recooling = self.t_recooling
 
     with self.core_dma.record("recooling_both_nodes"):
         ### PGC coils on both nodes, loaded on one timestamp
@@ -612,8 +604,9 @@ def record_excitation_and_photon_collection_both_nodes(self) -> TInt64:
 
     ONE GATE FOR BOTH PHOTONS. The four SPCMs are shared, so they are gated
     once, over the union of the two nodes' (shifted) gates:
-        gate_start = min(G1, G2 + D),  gate_end = max(G1 + L1, G2 + D + L2)
-    where G = gate_start_offset_mu and L = t_photon_collection_time per node.
+        gate_start = min(G1, G2 + D),  gate_end = max(G1, G2 + D) + L
+    where G = gate_start_offset_mu per node and L = t_photon_collection_time,
+    the shared two-node setting (t_photon_collection_time_two_nodes).
 
     BOTH FORTS DARK FOR THE WHOLE GATE. Node k's FORT goes off at
     t1 + gate_start - Gk and back on at t1 + 50 + gate_end - Gk: its own
@@ -622,9 +615,7 @@ def record_excitation_and_photon_collection_both_nodes(self) -> TInt64:
     and from FORT-on to gate-close (Gk - 50), so no FORT light from either node
     reaches the SPCMs while they count. The two nodes' FORT edges are G2 - G1
     apart in programmed time (140 mu live) at every D, which is what aligns
-    them at the detectors. Both FORTs stay dark for 50 + gate length, so with
-    unequal collection times (100/200 ns stored) the shorter node pays the
-    longer window: give both nodes the same t_photon_collection_time.
+    them at the detectors. Both FORTs stay dark for 50 + gate length.
 
     THE SIGN AND SIZE OF D. Positive moves Node2 LATER. With both blocks
     started together, Node2's photons arrive ~143 ns after Node1's
@@ -661,8 +652,9 @@ def record_excitation_and_photon_collection_both_nodes(self) -> TInt64:
     pulse_Node2 = self.core.seconds_to_mu(self.t_excitation_pulse_Node2)
     gate_offset_Node1 = int64(self.gate_start_offset_mu_Node1)
     gate_offset_Node2 = int64(self.gate_start_offset_mu_Node2)
-    collection_Node1 = self.core.seconds_to_mu(self.t_photon_collection_time_Node1)
-    collection_Node2 = self.core.seconds_to_mu(self.t_photon_collection_time_Node2)
+    ### one collection time for both nodes (t_photon_collection_time_two_nodes)
+    collection_Node1 = self.core.seconds_to_mu(self.t_photon_collection_time)
+    collection_Node2 = collection_Node1
 
     ### the shared gate: the union of the two (shifted) gates
     gate_start = gate_offset_Node1
@@ -2151,8 +2143,10 @@ def end_measurement(self):
             if self.which_node == "alice": measure_Magnetometer_X_Y_Z(self)
             else:                          measure_Magnetometer_X_Y_Z(self)
 
-    and although that is dead in a two-node run (the flag is False on both
-    nodes, and a two-node sequence samples no magnetometers), the ARTIQ
+    and although a two-node run must not take it (monitor_magnetometer_in_end
+    _measurement is one shared global since 2026-10-27, and a two-node
+    sequence samples no magnetometers -- which is why the block is gone), the
+    ARTIQ
     compiler types every branch it can reach -- so it still demands bare
     coil_channels, zotino0 and Magnetometer_*_ch, and coil_channels genuinely
     differs per node ([0,1,13,14] vs [0,1,2,3]). That one dead branch is why
@@ -2595,12 +2589,14 @@ def Two_nodes_HOM_experiment(self):
     = -150.0 (or _Node1): that GRIN2 DDS then gets no RF, while everything
     else, the dark node's FORT switching included, runs unchanged.
 
-    SETTINGS BOTH NODES MUST SHARE. n_excitation_attempts,
-    max_excitation_cycles, atom_check_every_n and recool_every_n_OP shape the
-    ONE loop, so the run stops with an error if the nodes' values differ.
-    Shared durations (t_recooling, the pumping times, t_SPCM_recool_and_shot)
-    take the larger of the two. Give both nodes the same
-    t_photon_collection_time too: both FORTs stay dark for the longer one.
+    SHARED SETTINGS. The loop shape (n_excitation_attempts,
+    max_excitation_cycles, atom_check_every_n, recool_every_n_OP) and the
+    shared durations (t_pumping, t_depumping, t_OP_coil_relax_time,
+    t_recooling, t_SPCM_recool_and_shot, t_photon_collection_time) are the
+    two-node settings <x>_two_nodes, read here under the bare names. The
+    per-node values single-node experiments use are not read. Override one
+    for a run with the bare name in ONE node's dictionary, e.g.
+    {'t_photon_collection_time': 150*ns}.
 
     The OP coils are set right after each recooling and each passed atom
     check, with 0.4 ms to settle, before the pumping trace sets them again --
@@ -2610,26 +2606,16 @@ def Two_nodes_HOM_experiment(self):
     self.core.reset()
     delay(1 * ms)
 
-    ### The loop is shared, so its shape must be too
-    if self.n_excitation_attempts_Node1 != self.n_excitation_attempts_Node2:
-        raise ValueError("n_excitation_attempts differs between Node1 and Node2; set both the same")
-    if self.max_excitation_cycles_Node1 != self.max_excitation_cycles_Node2:
-        raise ValueError("max_excitation_cycles differs between Node1 and Node2; set both the same")
-    if self.atom_check_every_n_Node1 != self.atom_check_every_n_Node2:
-        raise ValueError("atom_check_every_n differs between Node1 and Node2; set both the same")
-    if self.recool_every_n_OP_Node1 != self.recool_every_n_OP_Node2:
-        raise ValueError("recool_every_n_OP differs between Node1 and Node2; set both the same")
-    n_excitation_attempts = self.n_excitation_attempts_Node1
-    max_excitation_cycles = self.max_excitation_cycles_Node1
-    atom_check_every_n = self.atom_check_every_n_Node1
-    recool_every_n_OP = self.recool_every_n_OP_Node1
+    ### The shared loop shape (n_excitation_attempts_two_nodes etc.)
+    n_excitation_attempts = self.n_excitation_attempts
+    max_excitation_cycles = self.max_excitation_cycles
+    atom_check_every_n = self.atom_check_every_n
+    recool_every_n_OP = self.recool_every_n_OP
 
-    ### One readout gate for both atoms in the atom check: the longer of the two
-    t_atom_check = self.t_SPCM_recool_and_shot_Node1
-    if self.t_SPCM_recool_and_shot_Node2 > t_atom_check:
-        t_atom_check = self.t_SPCM_recool_and_shot_Node2
-    do_pumping = self.t_pumping_Node1 > 0.0 or self.t_pumping_Node2 > 0.0
-    do_recooling = self.t_recooling_Node1 > 0.0 or self.t_recooling_Node2 > 0.0
+    ### One readout gate for both atoms in the atom check
+    t_atom_check = self.t_SPCM_recool_and_shot
+    do_pumping = self.t_pumping > 0.0
+    do_recooling = self.t_recooling > 0.0
 
     ### photon rows kept per measurement, as in single_photon_experiment_9
     short_timestamps_length = int(max_excitation_cycles * 0.5)
