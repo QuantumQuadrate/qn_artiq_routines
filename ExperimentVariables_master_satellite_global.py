@@ -139,10 +139,11 @@ MASTER_SATELLITE_VARIABLES = (
     # before overrides, so a mismatch could not be fixed by an override, and a
     # shared setting had to be edited twice. Now each is declared once, here.
     #
-    # Why they are shared: the four SPCMs are master-local and see both traps
-    # through the Bell-state-analyser beamsplitter, so a two-node run has ONE
-    # gate (first shot, second shot, atom check) and one interval on the one
-    # shared timeline; the feedback and monitor switches are run-wide.
+    # Why they are shared: a two-node run has one interval on the one shared
+    # timeline between its joint shots, and the feedback and monitor switches
+    # are run-wide. The joint GATES (first shot, second shot, loading check)
+    # are two-node settings below instead (t_SPCM_first_shot_two_nodes etc.,
+    # 20 ms), so single-node runs keep their own per-node 10 ms.
     #
     # The names are the standalone stack's names too, so these keys are shared
     # with standalone/ExperimentVariables.py, like n_measurements and
@@ -154,27 +155,6 @@ MASTER_SATELLITE_VARIABLES = (
     # because nothing in master-satellite read them: no_first_shot,
     # t_FORT_loading. Also removed: the five unread *_two_node timing
     # globals (t_atom_check_time_two_node and friends).
-    Variable(
-        "t_SPCM_first_shot",
-        0.01,
-        NumberValue,
-        {"type": "float", "unit": "ms"},
-        "shared by both nodes",
-    ),
-    Variable(
-        "t_SPCM_second_shot",
-        0.01,
-        NumberValue,
-        {"type": "float", "unit": "ms"},
-        "shared by both nodes",
-    ),
-    Variable(
-        "t_atom_check_time",
-        0.01,
-        NumberValue,
-        {"type": "float", "unit": "ms"},
-        "shared by both nodes",
-    ),
     Variable(
         "t_delay_between_shots",
         0.0,
@@ -334,6 +314,15 @@ MASTER_SATELLITE_VARIABLES = (
     #
     # Times are SECONDS. seconds_to_mu floors, so 150 ns is stored as
     # 1.5000000000000002e-07 (= 150*ns); 1.5e-07 would give a 149 mu gate.
+    #
+    # The last three are the joint gates of all four master-local SPCMs (the
+    # four see both traps through the beamsplitter): the first and second
+    # shot and the loading check. 20 ms since 2026-10-27, against 10 ms in
+    # single-node runs, because the joint two-atom readout separates worse
+    # (Node1's readout signal halved on 2026-10-21; see
+    # documentation/upgrade_notes/two_atom_threshold_and_node1_fluorescence.md).
+    # The two-atom thresholds are rates (counts/s), so they do not change
+    # with the gate length.
     Variable(
         "n_excitation_attempts_two_nodes",
         5,
@@ -402,6 +391,27 @@ MASTER_SATELLITE_VARIABLES = (
         1.5000000000000002e-07,
         NumberValue,
         {"type": "float", "unit": "ns"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_atom_check_time_two_nodes",
+        0.02,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_SPCM_first_shot_two_nodes",
+        0.02,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_SPCM_second_shot_two_nodes",
+        0.02,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
         "two-node sequence",
     ),
 )

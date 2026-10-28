@@ -177,10 +177,10 @@ SCAN_APPLET_SPECS = (
 #: from the single-node retention applet: "loaded" here means an atom in BOTH
 #: traps, and "retained" means both survived.
 #:
-#: t_SPCM_first_shot is a master-satellite global since 2026-10-27, one value
-#: for both nodes in every mode, so the bare name is the value the run used.
-#: (Before that it was named t_SPCM_first_shot_Node1 here, because the bare
-#: dataset was then only the standalone stack's.)
+#: t_SPCM_first_shot is named bare: in two-node mode it resolves to
+#: t_SPCM_first_shot_two_nodes, the joint first-shot gate the run used (since
+#: 2026-10-27; before that this spec named t_SPCM_first_shot_Node1, because
+#: the bare dataset is only the standalone stack's).
 TWO_NODE_APPLET_SPECS = (
     _spec("retention and loading AllSPCMs", "plot_retention_and_loading.py",
           ("AllSPCMs_RO1", "AllSPCMs_RO2", "n_measurements",
@@ -315,9 +315,8 @@ SHARED_APPLET_GROUP = "Both nodes"
 #: removes the duplicates.
 #:
 #: What does differ per node is only the VARIABLES some applets take as
-#: options -- single_atom_threshold_NodeX for the retention plot. (The
-#: histograms' exposure, t_SPCM_* and t_atom_check_time, are shared globals
-#: since 2026-10-27, the same for both nodes.)
+#: options -- single_atom_threshold_NodeX for the retention plot,
+#: t_SPCM_*_NodeX and t_atom_check_time_NodeX for the histograms' exposure.
 #: Those need no special handling: every run re-issues every applet, and
 #: ccb_create_applet replaces an existing name+group whose command CHANGED and
 #: restarts it at its previous position. So switching node re-opens the
@@ -342,8 +341,9 @@ TWO_NODE_APPLET_GROUP = "TwoNodes"
 #: valley between the two populations.
 #:
 #: --t_exposure is t_alternating_RO_exposure, which Base derives and
-#: broadcasts. NOT t_atom_check_time: that is the joint gate's duration (a
-#: shared global), not the alternating windows' total exposure.
+#: broadcasts. NOT t_atom_check_time: that is the loading check's gate
+#: (t_atom_check_time_two_nodes in two-node mode), not the alternating
+#: windows' total exposure.
 #:
 #: No --iteration: like the joint atom-check histogram, these accumulate over
 #: the whole run and are never reset per scan point, so a per-iteration title

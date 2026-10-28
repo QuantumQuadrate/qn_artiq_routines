@@ -207,9 +207,6 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 "dummy_variable": 0.0,
                 "two_atom_threshold": 39000.0,
                 "two_atom_threshold_for_loading": 89000.0,
-                "t_SPCM_first_shot": 0.01,
-                "t_SPCM_second_shot": 0.01,
-                "t_atom_check_time": 0.01,
                 "t_delay_between_shots": 0.0,
                 "t_MOT_dissipation": 0.05,
                 "enable_laser_feedback": True,
@@ -244,6 +241,11 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 "t_SPCM_recool_and_shot_two_nodes": 0.01,
                 # 150*ns; seconds_to_mu floors, 1.5e-07 would give 149 mu
                 "t_photon_collection_time_two_nodes": 1.5000000000000002e-07,
+                # the joint gates of two-node runs, 20 ms; single-node runs
+                # keep their per-node 10 ms
+                "t_atom_check_time_two_nodes": 0.02,
+                "t_SPCM_first_shot_two_nodes": 0.02,
+                "t_SPCM_second_shot_two_nodes": 0.02,
             },
         )
         # The two Node2 timing globals name the node they apply TO, in the

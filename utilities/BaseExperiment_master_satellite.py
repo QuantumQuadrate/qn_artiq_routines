@@ -132,7 +132,7 @@ class BaseExperimentMasterSatellite:
     #: rejected (resolve_experiment_variable_target).
     #:
     #: Settings that are one value in BOTH modes are plain globals instead
-    #: (t_SPCM_first_shot, enable_laser_feedback, ...), declared once in
+    #: (t_delay_between_shots, enable_laser_feedback, ...), declared once in
     #: ExperimentVariables_master_satellite_global.py.
     TWO_NODES_SUFFIX = "_two_nodes"
     NODE_LEGACY_NAMES = {"Node1": "alice", "Node2": "bob"}
@@ -1518,9 +1518,9 @@ class BaseExperimentMasterSatellite:
         #
         # Applets can only read broadcast DATASETS, and three of the five
         # inputs to "retention and loading AllSPCMs" are read that way:
-        # AllSPCMs_RO1/RO2 are seeded below, single_atom_threshold is a
-        # persistent per-node variable and t_SPCM_first_shot a persistent
-        # global -- and
+        # AllSPCMs_RO1/RO2 are seeded below, single_atom_threshold and
+        # t_SPCM_first_shot are persistent variables (per node, or
+        # t_SPCM_first_shot_two_nodes in two_nodes mode) -- and
         # n_measurements was nothing at all. The master-satellite stack kept it
         # as an experiment ATTRIBUTE only (it reaches an h5 through `archive`,
         # never `datasets`), where the standalone Base broadcasts it in
@@ -1782,8 +1782,8 @@ class BaseExperimentMasterSatellite:
         # breaks the moment anyone scans n_alternating_RO_windows_per_node or
         # t_alternating_RO_window -- at which point a histogram would be
         # scaled by the wrong exposure and a threshold read off it would be
-        # wrong without looking wrong. (t_atom_check_time is the joint atom
-        # check's gate, a shared global, not this exposure.)
+        # wrong without looking wrong. (t_atom_check_time is the loading
+        # check's gate, t_atom_check_time_two_nodes here, not this exposure.)
         if self.experiment_mode == "two_nodes":
             experiment.set_dataset(
                 "t_alternating_RO_exposure",

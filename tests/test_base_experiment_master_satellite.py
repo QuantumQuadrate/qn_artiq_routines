@@ -683,11 +683,9 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         single_atom_threshold would count one-atom events as loaded and make
         the retention denominator wrong.
 
-        The exposure is t_SPCM_first_shot, a master-satellite global since
-        2026-10-27 (one value for both nodes, in every mode), so the bare
-        name is the value the run gated with. Before that this applet had
-        to name t_SPCM_first_shot_Node1, because the bare dataset was only
-        the standalone stack's.
+        The exposure is t_SPCM_first_shot, which in two_nodes mode resolves
+        to t_SPCM_first_shot_two_nodes, the gate the run used. Never the
+        bare dataset: that is the standalone stack's.
         """
         from applets_master_satellite import (
             APPLET_SPECS,
@@ -713,9 +711,10 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 f"threshold: {argument}",
             )
         self.assertIn(
-            "t_SPCM_first_shot", arguments,
-            "the exposure is the shared global the run gated with",
+            "t_SPCM_first_shot_two_nodes", arguments,
+            "the exposure is the two-node gate the run used",
         )
+        self.assertNotIn("t_SPCM_first_shot", arguments)
         self.assertNotIn("t_SPCM_first_shot_Node1", arguments)
 
         # Single-node keeps the one-atom criterion. Pinned so a shared edit
@@ -1085,14 +1084,17 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve("t_pumping_Node1", "Node1")
         # plain globals stay themselves, in both modes
-        self.assertEqual(resolve("t_SPCM_first_shot", "Node1"), "t_SPCM_first_shot")
+        self.assertEqual(resolve("t_delay_between_shots", "Node1"), "t_delay_between_shots")
+        # the joint gates are two-node settings
+        self.assertEqual(resolve("t_SPCM_first_shot", "Node1"), "t_SPCM_first_shot_two_nodes")
         # per-node settings that are not two-node settings are untouched
         self.assertEqual(resolve("t_FORT_drop", "Node2"), "t_FORT_drop_Node2")
 
         experiment, base = self.build_and_prepare("single_node", "Node2")
         resolve = base.resolve_experiment_variable_target
         self.assertEqual(resolve("t_pumping", "Node2"), "t_pumping_Node2")
-        self.assertEqual(resolve("t_SPCM_first_shot", "Node2"), "t_SPCM_first_shot")
+        self.assertEqual(resolve("t_SPCM_first_shot", "Node2"), "t_SPCM_first_shot_Node2")
+        self.assertEqual(resolve("t_delay_between_shots", "Node2"), "t_delay_between_shots")
         with self.assertRaises(ValueError) as caught:
             resolve("t_pumping_two_nodes")
         self.assertIn("two_nodes", str(caught.exception))
@@ -1100,11 +1102,12 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertFalse(hasattr(experiment, "t_pumping_two_nodes"))
         self.assertEqual(experiment.t_photon_collection_time,
                          experiment.t_photon_collection_time_Node2)
+        self.assertEqual(experiment.t_SPCM_first_shot,
+                         experiment.t_SPCM_first_shot_Node2)
 
     def test_shared_settings_are_one_global_in_both_modes(self):
         """t_SPCM_first_shot and friends: declared once, never per node."""
-        shared = ("t_SPCM_first_shot", "t_SPCM_second_shot", "t_atom_check_time",
-                  "t_delay_between_shots", "t_MOT_dissipation",
+        shared = ("t_delay_between_shots", "t_MOT_dissipation",
                   "enable_laser_feedback", "Luca_trigger_for_feedback_verification",
                   "use_chopped_readout", "require_D1_lock_to_advance",
                   "monitor_magnetometer_in_end_measurement",

@@ -1063,7 +1063,6 @@ raises. Never call it per scan point.
   `TWO_NODE_AGREEING_SCALARS`).** Two kinds, both declared in
   `ExperimentVariables_master_satellite_global.py`:
   - **Plain globals, one value for both nodes in every mode:**
-    `t_SPCM_first_shot`, `t_SPCM_second_shot`, `t_atom_check_time`,
     `t_delay_between_shots`, `t_MOT_dissipation`, `enable_laser_feedback`,
     `Luca_trigger_for_feedback_verification`, `use_chopped_readout`,
     `require_D1_lock_to_advance`, `monitor_magnetometer_in_end_measurement`,
@@ -1076,7 +1075,10 @@ raises. Never call it per scan point.
     `n_excitation_attempts`, `max_excitation_cycles`, `atom_check_every_n`
     (min 1), `recool_every_n_OP` (min 1), `t_pumping`, `t_depumping`,
     `t_OP_coil_relax_time`, `t_recooling`, `t_SPCM_recool_and_shot`,
-    `t_photon_collection_time` (150 ns, stored 1.5000000000000002e-07).
+    `t_photon_collection_time` (150 ns, stored 1.5000000000000002e-07), and
+    the joint gates `t_SPCM_first_shot`, `t_SPCM_second_shot`,
+    `t_atom_check_time` (20 ms; plain globals for a few hours on 2026-10-27,
+    then moved here so single-node runs keep their per-node 10 ms).
     Loaded only in two_nodes mode, where Base publishes the bare `self.<x>`
     from them (`compatibility_variable_map` = `two_node_shared_variable_map`,
     `refresh_compatibility_variables`), exactly as single_node publishes
@@ -1342,7 +1344,7 @@ initializer(s): <file>: <names>".
 | `dummy_variable` | 0.0 | | Scan placeholder. |
 | `two_atom_threshold` | 39000 | 42000 | Joint two-atom readout threshold (counts/s). Standalone declares 20000. |
 | `two_atom_threshold_for_loading` | 89000 | 100000 | Joint loading threshold. Standalone declares 84000. |
-| `t_SPCM_first_shot`, `t_SPCM_second_shot`, `t_atom_check_time` | 0.01 s | 0.01 s | Shared by both nodes in every mode since 2026-10-27 (section 6.6). The five unread `*_two_node` timing globals were removed the same day. |
+| `t_SPCM_first_shot_two_nodes`, `t_SPCM_second_shot_two_nodes`, `t_atom_check_time_two_nodes` | 0.02 s | 0.02 s | The joint gates of two-node runs (section 6.6); single-node runs use the per-node 10 ms values. The five unread `*_two_node` timing globals were removed the same day. |
 | `t_delay_between_shots`, `t_MOT_dissipation` | 0.0 / 0.05 s | 0.0 / 0.05 s | Shared, as above. |
 | `enable_laser_feedback`, `Luca_trigger_for_feedback_verification`, `use_chopped_readout`, `require_D1_lock_to_advance`, `monitor_magnetometer_in_end_measurement`, `monitors_for_atom_loading` | True / False x5 | same | Shared, as above (one switch for both nodes; override per run). |
 | `n_excitation_attempts_two_nodes`, `max_excitation_cycles_two_nodes`, `atom_check_every_n_two_nodes`, `recool_every_n_OP_two_nodes` | 5 / 2000 / 50 / 1 | seeded 2026-10-27 | Two-node loop shape, read bare in two_nodes only (section 6.6); the last two min 1. |

@@ -51,11 +51,12 @@ Beyond naming, these need genuinely different code per node:
 
 SHARED SETTINGS are read bare, and that is about values rather than devices.
 Two kinds, both declared in ExperimentVariables_master_satellite_global.py:
-  * one value for both nodes in every mode (t_SPCM_first_shot and friends,
-    enable_laser_feedback): consumed by ONE hardware event -- a single gate of
-    all four master-local SPCMs, or a single interval on the one shared
-    timeline -- so there is only one value to have;
-  * the two-node sequence settings (n_excitation_attempts, t_pumping,
+  * one value for both nodes in every mode (t_delay_between_shots,
+    t_MOT_dissipation, enable_laser_feedback): one interval on the one shared
+    timeline, or a run-wide switch, so there is only one value to have;
+  * the two-node sequence settings (the joint gates t_SPCM_first_shot,
+    t_SPCM_second_shot and t_atom_check_time -- ONE gate of all four
+    master-local SPCMs each -- and n_excitation_attempts, t_pumping,
     t_photon_collection_time, ...): Base publishes self.<x> from the global
     <x>_two_nodes in two_nodes mode, leaving the per-node values single-node
     experiments use alone. See BaseExperimentMasterSatellite.TWO_NODES_SUFFIX.
