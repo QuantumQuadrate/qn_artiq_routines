@@ -1785,7 +1785,11 @@ measurement does not run on an empty trap; loading-plus-survival probability
 - Flag: global `advance_if_atom_in_first_shot` (declared False, live True);
   bound: global `max_loading_rounds` (20). On exhaustion the measurement is
   kept (simply advances). The try count of each kept measurement is appended
-  to `n_first_shot_confirm_tries`.
+  to `n_first_shot_confirm_tries`. The two-node loops (atom loading, HOM) also
+  append `Atom_loading_time_first_shot_alive` since 2026-10-27: seconds from
+  the first load attempt to the passing first shot (now_mu difference), which
+  the "First shot alive atom loading time (s)" applet plots; the single-node
+  sites do not write it.
 - Single-node form (pilot `0edd7ce` on `microwave_Rabi_2_experiment`, then
   `f36a225` (10 microwave), `34bff1e` (9 single-photon), `b770aa0` (parity 2,
   3, 6_node2, 8), `5e10655` (parity 4, 5, 6, 7, 9, 10, 11), all 2026-10-13; 31
@@ -2634,7 +2638,10 @@ two-node gates, which replace the single-node copies on a mode change); `OPTIONA
 "All SPCMs count rate", MonitorSPCMinApplet only); `TWO_NODE_ALTERNATING_APPLET_SPECS` (gated by the empty
 `TWO_NODE_ALTERNATING_EXPERIMENTS`); `TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS`
 (4 histograms + 2 retention plots for the alternating retention experiment,
-which retires the joint trio); `K10CR1_APPLET_SPECS` (waveplate trajectory);
+which retires the joint trio); `FIRST_SHOT_ALIVE_APPLET_SPECS` ("First shot
+alive atom loading time (s)", `Atom_loading_time_first_shot_alive`; two-node
+GVS runs of `FIRST_SHOT_ALIVE_EXPERIMENTS` with `advance_if_atom_in_first_shot`
+on, exclusive otherwise; 2026-10-27); `K10CR1_APPLET_SPECS` (waveplate trajectory);
 `SHARED_APPLET_SPECS` (per node: Microwaves Health Check, feedback RF, FORT APD
 normalized setpoint, FORT MM normalized to ref, FORT MM over APD normalized
 via `plot_FORT_MM_norm_to_power.py`).

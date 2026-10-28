@@ -689,6 +689,38 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             f"or use `with parallel` and drop the anchor.",
         )
 
+    def test_every_confirm_loop_records_its_first_shot_alive_time(self):
+        """Each confirm loop writes Atom_loading_time_first_shot_alive, and the
+        applet is asked for by exactly those experiments.
+
+        A confirm loop is recognised by its n_first_shot_confirm_tries append.
+        A new one that forgets the time would leave the applet showing the
+        previous run's times; a name missing from FIRST_SHOT_ALIVE_EXPERIMENTS
+        would never open it.
+        """
+        import applets_master_satellite as applets
+
+        def appends(node, name):
+            return any(
+                isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Attribute)
+                and item.func.attr == "append_to_dataset"
+                and item.args
+                and isinstance(item.args[0], ast.Constant)
+                and item.args[0].value == name
+                for item in ast.walk(node)
+            )
+
+        functions = [node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)]
+        confirm = {node.name for node in functions
+                   if appends(node, "n_first_shot_confirm_tries")}
+        timed = {node.name for node in functions
+                 if appends(node, "Atom_loading_time_first_shot_alive")}
+        self.assertTrue(confirm, "found no confirm loop at all")
+        self.assertEqual(timed, confirm)
+        self.assertEqual(set(applets.FIRST_SHOT_ALIVE_EXPERIMENTS), confirm)
+
     def test_every_amplitude_index_read_is_an_index_fed_back(self):
         """A setpoint index the sequence READS must be one feedback WRITES.
 

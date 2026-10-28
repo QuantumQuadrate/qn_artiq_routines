@@ -2277,7 +2277,9 @@ def Two_nodes_atom_loading_experiment(self):
       True
         Advance only once the first shot really saw two atoms, retrying
         load+first_shot up to max_loading_rounds times and recording
-        the attempt count in n_first_shot_confirm_tries. Gives a FIXED number
+        the attempt count in n_first_shot_confirm_tries (and, since
+        2026-10-27, the time from the first attempt to the passing shot in
+        Atom_loading_time_first_shot_alive). Gives a FIXED number
         of confirmed two-atom events per scan point, which matters when the
         loading rate itself depends on the scanned parameter and would
         otherwise widen the error bars unevenly across the scan.
@@ -2323,6 +2325,10 @@ def Two_nodes_atom_loading_experiment(self):
             ### atoms. Safe to retry because first_shot writes NO datasets --
             ### every append happens in end_measurement -- so a rejected
             ### attempt leaves no trace in any histogram or h5.
+            ### Start of this measurement's whole load-until-alive span, for
+            ### Atom_loading_time_first_shot_alive below. An elapsed-time
+            ### stamp only, never an at_mu anchor.
+            t_first_shot_alive_start = now_mu()
             atom_confirmed = False
             confirm_tries = 0
             while (not atom_confirmed
@@ -2351,6 +2357,15 @@ def Two_nodes_atom_loading_experiment(self):
                     ### the rejected attempt's host RPCs advanced the wall
                     ### clock while the cursor stood still
                     self.core.break_realtime()
+
+            ### The time it really took to get this measurement going: every
+            ### load attempt, its PGC and first shot, until one shot saw both
+            ### atoms (or max_loading_rounds ran out). Atom_loading_time has
+            ### each load's MOT time only, so with the confirm on it leaves out
+            ### the rejected loads and everything between a load and its shot.
+            self.append_to_dataset(
+                'Atom_loading_time_first_shot_alive',
+                self.core.mu_to_seconds(now_mu() - t_first_shot_alive_start))
 
             ### Loading probability is 1 / mean(this series): the confirm loop
             ### makes n_atom_loaded_per_iteration count loads across attempts
@@ -2685,6 +2700,10 @@ def Two_nodes_HOM_experiment(self):
         if self.advance_if_atom_in_first_shot:
             ### Keep a measurement only once the first shot really saw two
             ### atoms, as in Two_nodes_atom_loading_experiment.
+            ### Start of this measurement's whole load-until-alive span, for
+            ### Atom_loading_time_first_shot_alive below. An elapsed-time
+            ### stamp only, never an at_mu anchor.
+            t_first_shot_alive_start = now_mu()
             atom_confirmed = False
             confirm_tries = 0
             while (not atom_confirmed
@@ -2708,6 +2727,14 @@ def Two_nodes_HOM_experiment(self):
                     self.AllSPCMs_RO2 = 0
                     self.core.break_realtime()
 
+            ### The time it really took to get this measurement going: every
+            ### load attempt, its PGC and first shot, until one shot saw both
+            ### atoms (or max_loading_rounds ran out). Atom_loading_time has
+            ### each load's MOT time only, so with the confirm on it leaves out
+            ### the rejected loads and everything between a load and its shot.
+            self.append_to_dataset(
+                'Atom_loading_time_first_shot_alive',
+                self.core.mu_to_seconds(now_mu() - t_first_shot_alive_start))
             self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
             self.core.break_realtime()
 

@@ -1725,6 +1725,12 @@ class BaseExperimentMasterSatellite:
             "SPCM0_FORT_science",
             "FORT_MM_science_volts",
             "Atom_loading_time",
+            # One entry per KEPT measurement while advance_if_atom_in_first_shot
+            # is on: seconds from the first load attempt to the first shot that
+            # saw the atoms, rejected attempts included (Atom_loading_time has
+            # each load's MOT time only). Written by the two-node confirm loops,
+            # plotted by FIRST_SHOT_ALIVE_APPLET_SPECS.
+            "Atom_loading_time_first_shot_alive",
             "time_without_atom",
             "atom_loading_wall_clock",
             "GRIN1_D1_monitor",

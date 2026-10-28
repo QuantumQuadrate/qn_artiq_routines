@@ -1283,6 +1283,7 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         for required in (
             "AllSPCMs_RO1", "AllSPCMs_RO2", "AllSPCMs_atom_check_in_loading",
             "Atom_loading_time", "time_without_atom", "atom_loading_wall_clock",
+            "Atom_loading_time_first_shot_alive",
             "photocount_bins", "AllSPCMs_alternating_RO_alice",
             "AllSPCMs_alternating_RO_bob",
         ):

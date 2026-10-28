@@ -214,6 +214,29 @@ TWO_NODE_APPLET_SPECS = (
           group=_GVS),
 )
 
+#: Asked for ONLY while advance_if_atom_in_first_shot is on, and only by the
+#: experiments whose confirm loop writes the dataset (user, 2026-10-27). With
+#: the confirm on, "Atom loading time (s)" shows each LOAD's MOT time, but a
+#: measurement may need several loads before a first shot sees the atoms.
+#: This plots the time it really took, one point per kept measurement: from
+#: the first load attempt to the first shot that passed, rejected loads, PGC
+#: and the shots included. In EXCLUSIVE_APPLET_SPEC_SETS, so a run that does
+#: not write it closes it instead of leaving the last confirm run's times up.
+FIRST_SHOT_ALIVE_APPLET_SPECS = (
+    _spec("First shot alive atom loading time (s)", "plot_xy_multichannel.py",
+          ("Atom_loading_time_first_shot_alive", "n_measurements"),
+          group=_MON),
+)
+
+#: The experiment_functions whose confirm loop appends
+#: Atom_loading_time_first_shot_alive (a test derives this from the source).
+#: Two-node only: the single-node confirm sites in experiment_functions.py
+#: do not write it.
+FIRST_SHOT_ALIVE_EXPERIMENTS = (
+    "Two_nodes_atom_loading_experiment",
+    "Two_nodes_HOM_experiment",
+)
+
 #: Applets that were defined but not enabled on Node1 (several were enabled
 #: on Node2). Pass them explicitly when you want them:
 #:     create_applets_for(self, self.base,
@@ -531,7 +554,8 @@ def applet_paths_for_titles(titles):
         (spec.title, spec.group)
         for spec in (APPLET_SPECS + TWO_NODE_APPLET_SPECS + GVS_APPLET_SPECS
                      + TWO_NODE_ALTERNATING_APPLET_SPECS
-                     + TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS)
+                     + TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS
+                     + FIRST_SHOT_ALIVE_APPLET_SPECS)
         if spec.title in wanted
     }
 
@@ -553,6 +577,8 @@ def conflicting_applet_paths():
 EXCLUSIVE_APPLET_SPEC_SETS = (
     TWO_NODE_ALTERNATING_APPLET_SPECS,
     TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS,
+    # written only by a confirm loop with advance_if_atom_in_first_shot on
+    FIRST_SHOT_ALIVE_APPLET_SPECS,
 )
 
 #: The spec sets create_applets_for used to place under a PER-NODE group

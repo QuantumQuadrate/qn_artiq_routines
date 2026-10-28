@@ -509,6 +509,8 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 )
             else:
                 from applets_master_satellite import (
+                    FIRST_SHOT_ALIVE_APPLET_SPECS,
+                    FIRST_SHOT_ALIVE_EXPERIMENTS,
                     SCAN_APPLET_SPECS,
                     SHARED_APPLET_SPECS,
                     TWO_NODE_ALTERNATING_APPLET_SPECS,
@@ -539,6 +541,13 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 if self.experiment_name in TWO_NODE_PER_NODE_RETENTION_EXPERIMENTS:
                     specs = TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS
                     retire_titles = TWO_NODE_PER_NODE_RETENTION_RETIRES
+                # The time each kept measurement really took to load when the
+                # first shot has to confirm the atoms. Only the experiments
+                # whose confirm loop writes it, and only with the flag on;
+                # otherwise it is not created, and so it is closed.
+                if (self.advance_if_atom_in_first_shot
+                        and self.experiment_name in FIRST_SHOT_ALIVE_EXPERIMENTS):
+                    specs = specs + FIRST_SHOT_ALIVE_APPLET_SPECS
 
                 # NOT create_shared_applets_for: that deliberately runs no
                 # retirement pass, so a single-node run's "retention and

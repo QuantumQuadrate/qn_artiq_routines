@@ -929,6 +929,39 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 "node-agnostic override_ExperimentVariables field",
             )
 
+    def test_first_shot_alive_applet_only_with_the_confirm_on(self):
+        """Two-node runs ask for it only with advance_if_atom_in_first_shot on
+        AND an experiment whose confirm loop writes the time."""
+        import applets_master_satellite as applets
+
+        title = applets.FIRST_SHOT_ALIVE_APPLET_SPECS[0].title
+        cases = (
+            ("Two_nodes_HOM_experiment", True, True),
+            ("Two_nodes_atom_loading_experiment", True, True),
+            ("Two_nodes_HOM_experiment", False, False),
+            ("Two_nodes_alternating_retention_experiment", True, False),
+        )
+        original = applets.create_two_node_applets_for
+        try:
+            for experiment_name, flag, expected in cases:
+                calls = []
+                applets.create_two_node_applets_for = (
+                    lambda experiment, base, **kwargs:
+                    calls.append(kwargs) or []
+                )
+                scan = GeneralVariableScan_master_satellite_two_nodes()
+                scan.create_applets = True
+                scan.base = types.SimpleNamespace(which_node=None)
+                scan.experiment_name = experiment_name
+                scan.advance_if_atom_in_first_shot = flag
+                scan._create_node_applets()
+                self.assertEqual(len(calls), 1, experiment_name)
+                titles = {spec.title for spec in calls[0]["specs"]}
+                self.assertEqual(title in titles, expected,
+                                 (experiment_name, flag))
+        finally:
+            applets.create_two_node_applets_for = original
+
     def test_magnetometer_append_names_resolve_to_selected_node(self):
         for node in ("Node1", "Node2"):
             base = FakeBase("single_node", node)
