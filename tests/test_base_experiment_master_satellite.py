@@ -1303,6 +1303,8 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             "AllSPCMs_alternating_RO_bob",
         ):
             self.assertIn(required, written, required)
+        # the passes of each parity scan point, for the retention applet
+        self.assertEqual(seeded.get("n_passes_per_iteration"), [0])
 
         # The host scalars and per-measurement buffers the kernels index. These
         # must EXIST before compilation, not merely before running.

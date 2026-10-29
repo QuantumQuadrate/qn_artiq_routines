@@ -182,11 +182,17 @@ SCAN_APPLET_SPECS = (
 #: 2026-10-27; before that this spec named t_SPCM_first_shot_Node1, because
 #: the bare dataset is only the standalone stack's).
 TWO_NODE_APPLET_SPECS = (
+    # --passes_per_point: Two_nodes_atom_atom_parity_experiment counts heralds
+    # in n_measurements but writes the shots once per pass, so it records the
+    # passes of each scan point and the plot groups by them; in every other
+    # two-node experiment the dataset stays at its seed and the plot groups
+    # by n_measurements as before.
     _spec("retention and loading AllSPCMs", "plot_retention_and_loading.py",
           ("AllSPCMs_RO1", "AllSPCMs_RO2", "n_measurements",
            "two_atom_threshold", "t_SPCM_first_shot"),
           (("--scan_vars", "scan_variables"),
-           ("--scan_sequence1", "scan_sequence1")),
+           ("--scan_sequence1", "scan_sequence1"),
+           ("--passes_per_point", "n_passes_per_iteration")),
           group=_GVS),
     # The readout histograms, the two-node way: same datasets and titles as
     # the single-node ones, but the exposure names resolve to the two-node

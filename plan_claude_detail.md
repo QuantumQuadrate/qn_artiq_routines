@@ -2667,7 +2667,11 @@ without atom); `TWO_NODE_APPLET_SPECS` (retention on the joint
 since 2026-10-27, before which this spec named `t_SPCM_first_shot_Node1`
 because the bare dataset is only the standalone stack's; since the same day
 it also carries the RO1/RO2 and loading-check histograms, scaled by the
-two-node gates, which replace the single-node copies on a mode change); `OPTIONAL_APPLET_SPECS` (e.g. `n_excitation_cycles`);
+two-node gates, which replace the single-node copies on a mode change; since
+2026-10-29 the retention plot takes `--passes_per_point n_passes_per_iteration`:
+`Two_nodes_atom_atom_parity_experiment` counts heralds in `n_measurements` but
+writes the shots once per pass, so it appends each scan point's passes and the
+plot groups by them, otherwise by `n_measurements`); `OPTIONAL_APPLET_SPECS` (e.g. `n_excitation_cycles`);
 `SPCM_MONITOR_APPLET_SPECS` (five specs: the four per-SPCM count rates plus
 "All SPCMs count rate", MonitorSPCMinApplet only); `TWO_NODE_ALTERNATING_APPLET_SPECS` (gated by the empty
 `TWO_NODE_ALTERNATING_EXPERIMENTS`); `TWO_NODE_PER_NODE_RETENTION_APPLET_SPECS`

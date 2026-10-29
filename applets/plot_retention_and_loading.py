@@ -5,6 +5,12 @@ and background.
 applet command:
 python "C:\..\qn_artiq_routines\applets\plot_retention_and_loading.py"
 SPCM0_RO1 SPCM0_RO2 n_measurements iteration single_atom_threshold t_SPCM_first_shot
+
+--passes_per_point <dataset> (optional): the shots each scan point holds, one
+entry per point after a seed. Two_nodes_atom_atom_parity_experiment needs it:
+its n_measurements counts heralds, but the shots are written once per pass.
+Without it, or while it holds only its seed, the shots are grouped by
+n_measurements.
 """
 
 #!/usr/bin/env python3
@@ -15,6 +21,20 @@ from PyQt5.QtCore import QTimer
 import pyqtgraph
 from skimage.filters import threshold_otsu
 from artiq.applets.simple import TitleApplet
+
+
+def point_slices(n_shots, measurements, passes_per_point=None):
+    """(start, stop) of each complete scan point's shots.
+
+    passes_per_point: the shots of each point (seed already dropped), or None
+    / empty to use measurements per point.
+    """
+    if passes_per_point is not None and len(passes_per_point):
+        stops = np.cumsum(np.asarray(passes_per_point, dtype=int))
+        stops = stops[stops <= n_shots]
+        starts = np.concatenate([[0], stops[:-1]]).astype(int)
+        return list(zip(starts, stops))
+    return [(i*measurements, (i+1)*measurements) for i in range(n_shots//measurements)]
 
 
 class XYPlot(pyqtgraph.PlotWidget):
@@ -38,7 +58,14 @@ class XYPlot(pyqtgraph.PlotWidget):
             t_exposure = data[self.args.t_exposure][1]
             cutoff = int(t_exposure*threshold_cts_per_s)
 
-            iteration = len(counts_shot1)//measurements
+            passes_per_point = None
+            if getattr(self.args, "passes_per_point", None):
+                try:
+                    passes_per_point = np.array(data[self.args.passes_per_point][1][1:], dtype=int)
+                except (KeyError, TypeError, ValueError):
+                    passes_per_point = None
+            slices = point_slices(len(counts_shot1), measurements, passes_per_point)
+            iteration = len(slices)
             if iteration > 0:
                 if len(counts_shot1) == len(counts_shot2):
 
@@ -57,12 +84,12 @@ class XYPlot(pyqtgraph.PlotWidget):
                         pass
 
                     # if iteration > 0:
-                    for i in range(iteration):
-                        shot1 = counts_shot1[i * measurements:(i + 1) * measurements]
-                        shot2 = counts_shot2[i * measurements:(i + 1) * measurements]
+                    for i, (start, stop) in enumerate(slices):
+                        shot1 = counts_shot1[start:stop]
+                        shot2 = counts_shot2[start:stop]
                         atoms_loaded = [x > cutoff for x in shot1]
                         n_atoms_loaded = sum(atoms_loaded)
-                        loading_fraction = n_atoms_loaded / measurements
+                        loading_fraction = n_atoms_loaded / (stop - start)
 
                         # could be helpful if the readout background is drifting, but needs to be tested for reliability
                         # if loading_fraction > 0.3:  # apparent very low rate loading might be wrongly classified background
@@ -73,7 +100,7 @@ class XYPlot(pyqtgraph.PlotWidget):
 
                         n_atoms_loaded_array[i] = n_atoms_loaded
                         atoms_retained = [x > cutoff and y for x, y in zip(shot2, atoms_loaded)]
-                        loading_fraction = n_atoms_loaded / measurements
+                        loading_fraction = n_atoms_loaded / (stop - start)
                         loading_rate_array[i] = loading_fraction
                         retention_fraction = 0 if not n_atoms_loaded > 0 else sum(atoms_retained) / n_atoms_loaded
                         retention_array[i] = retention_fraction
@@ -125,6 +152,7 @@ def main():
     applet.add_dataset("t_exposure", "the atom readout exposure time")
     applet.add_dataset("scan_vars", "the names of the scan variable(s)", required=False)
     applet.add_dataset("scan_sequence1", "the scan steps", required=False)
+    applet.add_dataset("passes_per_point", "shots per scan point, if not n_measurements", required=False)
 
     applet.run()
 

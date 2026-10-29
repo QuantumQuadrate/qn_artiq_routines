@@ -3233,7 +3233,9 @@ def Two_nodes_atom_atom_parity_experiment(self):
       parity_angle_780_HWP/QWP_Node1/_Node2: the scan point's waveplate targets
     and per pass, heralded or not: n_photon_events (attempts with any click),
     n_excitation_cycles, AllSPCMs_RO_atom_check and everything end_measurement
-    writes.
+    writes (AllSPCMs_RO1/RO2 among them). Per scan point: n_passes_per_iteration,
+    the passes it took, by which the retention-and-loading applet groups the
+    per-pass shots (n_measurements counts heralds here, not passes).
     """
 
     self.core.reset()
@@ -3313,8 +3315,12 @@ def Two_nodes_atom_atom_parity_experiment(self):
     blow_away_handle = self.core_dma.get_handle("chopped_blow_away_both_nodes")
     self.core.break_realtime()
 
+    ### passes this scan point takes: n_measurements counts heralds, but the
+    ### first and second shot are written once per pass
+    n_passes = 0
     self.measurement = 0
     while self.measurement < self.n_measurements:
+        n_passes += 1
 
         AllSPCMs_RO_atom_check_array = [0] * int(max_excitation_cycles / atom_check_every_n)
         n_click_attempts = 0
@@ -3683,3 +3689,4 @@ def Two_nodes_atom_atom_parity_experiment(self):
 
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+    self.append_to_dataset('n_passes_per_iteration', n_passes)

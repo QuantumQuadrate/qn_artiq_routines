@@ -1704,6 +1704,13 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO_atom_check_in_loading_Node2",
                 "n_feedback_per_iteration",
                 "n_atom_loaded_per_iteration",
+                # One entry per scan point of
+                # Two_nodes_atom_atom_parity_experiment: the passes it took.
+                # Its n_measurements counts heralds while the shots are
+                # written once per pass, so the retention-and-loading applet
+                # groups the shots by this. Stays at its seed in every other
+                # experiment, and the applet then groups by n_measurements.
+                "n_passes_per_iteration",
                 # One entry per KEPT measurement of
                 # Two_nodes_atom_loading_2_experiment: how many
                 # load-plus-first-shot attempts that measurement needed.

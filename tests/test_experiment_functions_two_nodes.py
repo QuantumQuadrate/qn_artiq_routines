@@ -750,6 +750,41 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
         self.assertEqual(timed, confirm)
         self.assertEqual(set(applets.FIRST_SHOT_ALIVE_EXPERIMENTS), confirm)
 
+    def test_parity_passes_per_point_feed_the_retention_applet(self):
+        """The parity run counts heralds in n_measurements but writes the
+        shots once per pass, so it records each scan point's passes, and the
+        two-node retention applet groups the shots by them.
+
+        Only the parity experiment appends n_passes_per_iteration; in every
+        other two-node experiment it stays at its seed and the applet groups
+        by n_measurements, as those write one shot per measurement.
+        """
+        import applets_master_satellite as applets
+
+        def appends(node, name):
+            return any(
+                isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Attribute)
+                and item.func.attr == "append_to_dataset"
+                and item.args
+                and isinstance(item.args[0], ast.Constant)
+                and item.args[0].value == name
+                for item in ast.walk(node)
+            )
+
+        functions = [node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)]
+        self.assertEqual(
+            {node.name for node in functions
+             if appends(node, "n_passes_per_iteration")},
+            {"Two_nodes_atom_atom_parity_experiment"},
+        )
+        retention = next(spec for spec in applets.TWO_NODE_APPLET_SPECS
+                         if spec.title == "retention and loading AllSPCMs")
+        self.assertIn(("--passes_per_point", "n_passes_per_iteration"),
+                      retention.options)
+        self.assertIn("two_atom_threshold", retention.args)
+
     def test_every_amplitude_index_read_is_an_index_fed_back(self):
         """A setpoint index the sequence READS must be one feedback WRITES.
 
