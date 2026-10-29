@@ -114,7 +114,10 @@ from GeneralVariableScan_master_satellite_mixin import (  # noqa: E402
     build_experiment_function_registry,
     build_single_node_function_registry,
     build_two_node_function_registry,
+    parse_underflow_message,
+    repository_frames,
     roll_back_list_datasets,
+    rtio_channel_names,
     snapshot_list_datasets,
 )
 from GeneralVariableScan_master_satellite_single_node import (  # noqa: E402
@@ -1301,6 +1304,147 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(datasets.local["Atom_loading_time"], [0.0])
         self.assertEqual(datasets.local["underflow_retries_per_scan_point"], [2])
         self.assertEqual(datasets.local["underflow_skipped_scan_points"], [])
+
+    def test_parse_underflow_message(self):
+        self.assertEqual(
+            parse_underflow_message(
+                "RTIO underflow at 123456789 mu, channel 65540, slack -1250 mu"),
+            (123456789, 65540, -1250))
+        # a DMA playback reports no slack
+        self.assertEqual(
+            parse_underflow_message("RTIO underflow at 42 mu, channel 7"),
+            (42, 7, None))
+        self.assertIsNone(parse_underflow_message("transient"))
+
+    CORE_TRACEBACK = (
+        'Core Device Traceback:\n'
+        'Traceback (most recent call first):\n'
+        '  File "ksupport/lib.rs", line 417, column 21, in (Rust function)\n'
+        '    <unknown>\n'
+        '  File "<artiq>/coredevice/dma.py", line 112, column 9, in '
+        'artiq.coredevice.dma.CoreDMA.playback_handle (RA=+0x5c)\n'
+        '    dma_playback(now_mu(), ptr)\n'
+        '  File "C:\\Networking Experiment\\artiq codes\\artiq-master\\repository'
+        '\\qn_artiq_routines\\subroutines\\experiment_functions_two_nodes.py", '
+        'line 2862, column 17, in '
+        'subroutines.experiment_functions_two_nodes.Two_nodes_HOM_experiment '
+        '(RA=+0x3a0)\n'
+        '    self.core_dma.playback_handle(recooling_handle)\n'
+        'RTIOUnderflow(0): RTIO underflow at 3250000 mu, channel 65540\n'
+        '\nEnd of Core Device Traceback\n')
+
+    def test_repository_frames_and_channel_names(self):
+        self.assertEqual(
+            repository_frames(self.CORE_TRACEBACK),
+            ["experiment_functions_two_nodes.py:2862 Two_nodes_HOM_experiment"])
+        self.assertEqual(repository_frames(""), [])
+        device_db = {
+            "ttl14_Node2": {"type": "local", "module": "artiq.coredevice.ttl",
+                            "class": "TTLOut", "arguments": {"channel": 0x010004}},
+            "ttl_repump_switch_Node2": "ttl14_Node2",
+            "repump": "ttl_repump_switch_Node2",
+            "core": {"type": "local", "module": "artiq.coredevice.core",
+                     "class": "Core", "arguments": {"host": "x"}},
+            "loop_a": "loop_b",
+            "loop_b": "loop_a",
+        }
+        self.assertEqual(rtio_channel_names(device_db),
+                         {0x010004: "ttl14_Node2/ttl_repump_switch_Node2/repump"})
+
+    def test_catch_error_records_where_each_underflow_happened(self):
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_master_satellite_two_nodes
+        )
+        datasets = self._seed_result_series(scan)
+        datasets.set("n_first_shot_confirm_tries", [0])
+        datasets.set("atom_loading_wall_clock", [0])
+        scan.get_device_db = lambda: {
+            "ttl14_Node2": {"type": "local", "module": "artiq.coredevice.ttl",
+                            "class": "TTLOut", "arguments": {"channel": 0x010004}},
+            "ttl_repump_switch_Node2": "ttl14_Node2",
+        }
+        core_traceback = self.CORE_TRACEBACK
+
+        class CoreException:
+            def __str__(self):
+                return core_traceback
+
+        def selected_function(experiment):
+            # three measurements; the first attempt fails in the third, after
+            # its load and first-shot confirm but before its readouts
+            first = len(experiment.attempts) == 0
+            experiment.attempts.append(experiment.f_FORT_Node2)
+            for measurement in range(3):
+                datasets.append_to("atom_loading_wall_clock",
+                                   1000000 * (measurement + 1))
+                datasets.append_to("n_first_shot_confirm_tries", 1)
+                if first and measurement == 2:
+                    error = RTIOUnderflow("RTIO underflow at 3250000 mu, "
+                                          "channel 65540, slack -300 mu")
+                    error.artiq_core_exception = CoreException()
+                    raise error
+                datasets.append_to("AllSPCMs_RO1", experiment.f_FORT_Node2)
+
+        scan._selected_experiment_function = selected_function
+        scan.run()
+
+        self.assertEqual(datasets.local["AllSPCMs_RO1"],
+                         [0] + [1.0] * 3 + [2.0] * 3)
+        self.assertEqual(len(datasets.local["n_first_shot_confirm_tries"]), 7)
+        self.assertEqual(datasets.local["underflow_retries_per_scan_point"], [1, 0])
+        expected = {
+            "underflow_iteration": [0],
+            "underflow_retry": [1],
+            "underflow_channel": [0x010004],
+            "underflow_timestamp_mu": [3250000],
+            "underflow_slack_mu": [-300.0],
+            "underflow_measurements_done": [2],
+            "underflow_confirmed_measurements": [3],
+            "underflow_mu_after_last_load": [250000.0],
+        }
+        for key, value in expected.items():
+            self.assertEqual(datasets.local[key], value, key)
+        self.assertEqual(
+            datasets.local["underflow_sites"],
+            "iteration 0 retry 1: CPU write, slack -300 mu, channel 0x10004 = "
+            "ttl14_Node2/ttl_repump_switch_Node2; at "
+            "experiment_functions_two_nodes.py:2862 Two_nodes_HOM_experiment; "
+            "the attempt had finished 2 measurement(s), 3 past the first-shot "
+            "confirm, 0.250 ms after its last load stamp")
+        self.assertIn("slack -300 mu", datasets.local["underflow_messages"])
+        self.assertIn("End of Core Device Traceback",
+                      datasets.local["underflow_messages"])
+        # archived, never broadcast or persisted
+        for name, _, kwargs in scan.dataset_writes:
+            if name.startswith("underflow_"):
+                self.assertFalse(kwargs.get("broadcast", False), name)
+                self.assertFalse(kwargs.get("persist", False), name)
+
+    def test_catch_error_records_an_unparsed_underflow(self):
+        scan = self._make_catch_error_scan(
+            GeneralVariableScan_master_satellite_single_node
+        )
+        datasets = self._seed_result_series(scan)
+
+        def selected_function(experiment):
+            first = len(experiment.attempts) == 0
+            self._measure(experiment, 3, fail_after=1 if first else None)
+
+        scan._selected_experiment_function = selected_function
+        scan.run()
+        self.assertEqual(datasets.local["underflow_channel"], [-1])
+        self.assertEqual(datasets.local["underflow_timestamp_mu"], [-1])
+        self.assertTrue(np.isnan(datasets.local["underflow_slack_mu"][0]))
+        self.assertTrue(np.isnan(datasets.local["underflow_mu_after_last_load"][0]))
+        self.assertEqual(datasets.local["underflow_measurements_done"], [1])
+        self.assertEqual(datasets.local["underflow_confirmed_measurements"], [0])
+        self.assertEqual(
+            datasets.local["underflow_sites"],
+            "iteration 0 retry 1: unparsed message; at unknown line; the "
+            "attempt had finished 1 measurement(s), 0 past the first-shot "
+            "confirm")
+        self.assertEqual(datasets.local["underflow_messages"],
+                         "iteration 0 retry 1: transient\n")
 
     def test_disabled_catch_underflow_keeps_data_and_records_nothing(self):
         scan = self._make_catch_error_scan(

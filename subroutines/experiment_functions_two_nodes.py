@@ -378,9 +378,9 @@ def record_recooling_both_nodes(self):
     The duration is the shared t_recooling (t_recooling_two_nodes), as for
     the pumping stages in record_CW_optical_pumping_both_nodes.
 
-    Leaves the coils at the PGC setting, like the original. The caller sets
-    the OP coils again afterwards (Two_nodes_HOM_experiment does, as
-    single_photon_experiment_9 does after record_recooling).
+    Leaves the coils at the PGC setting, like the original. The next pumping
+    trace (record_CW_optical_pumping_both_nodes) sets the OP coils and waits
+    t_OP_coil_relax_time.
     """
     t_recooling = self.t_recooling
 
@@ -1286,16 +1286,25 @@ def load_until_atom_in_both_nodes_recycle(self):
         self.dds_AOM_A4_Node1.sw.on()
         self.dds_AOM_A4_Node2.sw.on()
         delay(0.1 * ms)
-        ### on-chip beams: each node's own pair, on its own flag
+        ### on-chip beams: each node's own pair, on its own flag. The else
+        ### branches switch them OFF, as the single-node loaders do: a fresh
+        ### load leaves A5/A6 on from the MOT, so without them PGC ran with
+        ### six beams after a load and with four after a reused atom.
         if (self.do_PGC_after_loading_Node1
                 and not self.PGC_and_RO_with_on_chip_beams_Node1):
             self.dds_AOM_A5_Node1.sw.on()
             self.dds_AOM_A6_Node1.sw.on()
+        else:
+            self.dds_AOM_A5_Node1.sw.off()
+            self.dds_AOM_A6_Node1.sw.off()
         if (self.do_PGC_after_loading_Node2
                 and not self.PGC_and_RO_with_on_chip_beams_Node2):
             self.dds_AOM_A5_Node2.sw.on()
             self.dds_AOM_A6_Node2.sw.on()
-            delay(5 * us)
+        else:
+            self.dds_AOM_A5_Node2.sw.off()
+            self.dds_AOM_A6_Node2.sw.off()
+        delay(5 * us)
 
         ### `with parallel` does BOTH jobs the at_mu bookkeeping used to do:
         ### every statement in the block starts at the block's entry time, and
@@ -1726,16 +1735,25 @@ def load_until_atom_in_both_nodes_alternating_shot_recycle(self):
         self.dds_AOM_A4_Node1.sw.on()
         self.dds_AOM_A4_Node2.sw.on()
         delay(0.1 * ms)
-        ### on-chip beams: each node's own pair, on its own flag
+        ### on-chip beams: each node's own pair, on its own flag. The else
+        ### branches switch them OFF, as the single-node loaders do: a fresh
+        ### load leaves A5/A6 on from the MOT, so without them PGC ran with
+        ### six beams after a load and with four after a reused atom.
         if (self.do_PGC_after_loading_Node1
                 and not self.PGC_and_RO_with_on_chip_beams_Node1):
             self.dds_AOM_A5_Node1.sw.on()
             self.dds_AOM_A6_Node1.sw.on()
+        else:
+            self.dds_AOM_A5_Node1.sw.off()
+            self.dds_AOM_A6_Node1.sw.off()
         if (self.do_PGC_after_loading_Node2
                 and not self.PGC_and_RO_with_on_chip_beams_Node2):
             self.dds_AOM_A5_Node2.sw.on()
             self.dds_AOM_A6_Node2.sw.on()
-            delay(5 * us)
+        else:
+            self.dds_AOM_A5_Node2.sw.off()
+            self.dds_AOM_A6_Node2.sw.off()
+        delay(5 * us)
 
         ### `with parallel` does BOTH jobs the at_mu bookkeeping used to do:
         ### every statement in the block starts at the block's entry time, and
@@ -2627,9 +2645,10 @@ def Two_nodes_HOM_experiment(self):
     for a run with the bare name in ONE node's dictionary, e.g.
     {'t_photon_collection_time': 150*ns}.
 
-    The OP coils are set right after each recooling and each passed atom
-    check, with 0.4 ms to settle, before the pumping trace sets them again --
-    as in single_photon_experiment_9.
+    The OP coils are set by the pumping trace alone, which waits
+    t_OP_coil_relax_time itself. Until 2026-10-28 13:43 they were also set
+    right after each recooling and each passed atom check, with 0.4 ms to
+    settle, as in single_photon_experiment_9.
     """
 
     self.core.reset()
@@ -2835,6 +2854,11 @@ def Two_nodes_HOM_experiment(self):
 
             ############################ recooling, both nodes
             if do_recooling and (excitation_cycle + 1) % recool_every_n_OP == 0:
+                ### The last attempt's photon reads return only ~1-2 us before
+                ### this trace's first event (less after a click): 20 us lead.
+                slack = now_mu() - self.core.get_rtio_counter_mu()
+                if slack < 20000:
+                    delay_mu(20000 - slack)
                 self.core_dma.playback_handle(recooling_handle)
                 delay(5 * us)
 
@@ -2915,6 +2939,11 @@ def Two_nodes_HOM_experiment(self):
                     delay(100 * us)
                     break
 
+                ### The gate read returns a few us before the switch-offs
+                ### below, which sit 10 us after the gate: 20 us lead first.
+                slack = now_mu() - self.core.get_rtio_counter_mu()
+                if slack < 20000:
+                    delay_mu(20000 - slack)
                 delay(10 * us)
                 self.dds_cooling_DP_Node1.sw.off()
                 self.dds_cooling_DP_Node2.sw.off()
@@ -2938,8 +2967,8 @@ def Two_nodes_HOM_experiment(self):
                     self.dds_AOM_A5_Node2.sw.off()
                     self.dds_AOM_A6_Node2.sw.off()
 
-                ### back to the OP coils, as single_photon_experiment_9 does
-                ### after a passed check (the gate read above left no slack)
+                ### resync for the next cycle's pumping trace, which sets the
+                ### OP coils itself (the switch-offs above left little slack)
                 self.core.break_realtime()
                 # self.zotino0_Node1.set_dac(
                 #     [self.AZ_bottom_volts_OP_Node1, -self.AZ_bottom_volts_OP_Node1, self.AX_volts_OP_Node1, self.AY_volts_OP_Node1],

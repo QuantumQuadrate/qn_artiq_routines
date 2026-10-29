@@ -6,6 +6,7 @@ experiment; the runnable experiments live in the mode-named GVS files.
 
 import inspect
 import logging
+import re
 import time
 
 import numpy as np
@@ -121,6 +122,60 @@ def _describe_rollback(removed):
     others = len(removed) - 1
     return (f"{removed[key]} entries from {key}"
             + (f" and {others} other dataset(s)" if others else ""))
+
+
+# ARTIQ 7 RTIOUnderflow texts: a CPU write (firmware ksupport/rtio.rs) reports
+# the slack, a DMA playback (ksupport/lib.rs, dma_playback) does not.
+_UNDERFLOW_MESSAGE = re.compile(
+    r"RTIO underflow at (-?\d+) mu, channel (\d+)(?:, slack (-?\d+) mu)?")
+_CORE_TRACEBACK_FRAME = re.compile(
+    r'File "([^"]+)", line (\d+)(?:, column \d+)?, in ([^\s(]+)')
+
+
+def parse_underflow_message(text):
+    """(timestamp_mu, channel, slack_mu) from an RTIOUnderflow message, with
+    slack_mu None for a DMA playback; None if the text does not parse."""
+    match = _UNDERFLOW_MESSAGE.search(text)
+    if match is None:
+        return None
+    timestamp, channel, slack = match.groups()
+    return int(timestamp), int(channel), None if slack is None else int(slack)
+
+
+def repository_frames(core_traceback):
+    """'file:line function' of each frame from this repository in a core
+    device traceback (str of the exception's artiq_core_exception), in the
+    order ARTIQ prints them."""
+    frames = []
+    for path, line, function in _CORE_TRACEBACK_FRAME.findall(core_traceback):
+        path = path.replace("\\", "/")
+        if "qn_artiq_routines/" in path:
+            frames.append(f"{path.rsplit('/', 1)[-1]}:{line} "
+                          f"{function.rsplit('.', 1)[-1]}")
+    return frames
+
+
+def rtio_channel_names(device_db):
+    """{RTIO channel: 'device/alias/...'} from a device_db. Satellite channels
+    carry their destination in the upper bits there, as in RTIO errors."""
+    names = {}
+    for name, entry in device_db.items():
+        if isinstance(entry, dict) and entry.get("type") == "local":
+            channel = entry.get("arguments", {}).get("channel")
+            if isinstance(channel, int):
+                names.setdefault(channel, []).append(name)
+    for alias, target in device_db.items():
+        if not isinstance(target, str):
+            continue
+        seen = {alias}
+        while isinstance(target, str) and target not in seen:
+            seen.add(target)
+            target = device_db.get(target)
+        if isinstance(target, dict) and target.get("type") == "local":
+            channel = target.get("arguments", {}).get("channel")
+            if isinstance(channel, int):
+                names.setdefault(channel, []).append(alias)
+    return {channel: "/".join(found) for channel, found in names.items()}
 
 
 class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
@@ -665,6 +720,93 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         logging.warning(message)
         print(message)
 
+    def _underflow_context(self, snapshot):
+        """What a failed attempt got through, read from its own appends before
+        roll_back_list_datasets cuts them: measurements finished, measurements
+        past the first-shot confirm (one more than finished = it failed inside
+        a measurement's excitation loop or second shot), and its last
+        atom_loading_wall_clock stamp in mu."""
+        def appended(name):
+            entry = snapshot.get(self.base.resolve_result_dataset_name(name))
+            if entry is None:
+                return []
+            value, length = entry
+            return value[length:]
+
+        loads = appended("atom_loading_wall_clock")
+        return {
+            "measurements": len(appended("AllSPCMs_RO1")),
+            "confirmed": len(appended("n_first_shot_confirm_tries")),
+            "last_load_mu": int(loads[-1]) if loads else None,
+        }
+
+    def _rtio_channel_name(self, channel):
+        if self._rtio_channel_names is None:
+            try:
+                self._rtio_channel_names = rtio_channel_names(
+                    self.get_device_db())
+            except (AttributeError, KeyError, TypeError):
+                self._rtio_channel_names = {}
+        return self._rtio_channel_names.get(channel, "unknown device")
+
+    def _record_underflow(self, error, iteration, retry, context):
+        """Keep each underflow in the h5: the rollback leaves nothing of the
+        failed attempt and the warning reaches only the dashboard log.
+
+        underflow_channel, _timestamp_mu (-1: message not parsed),
+        _slack_mu (NaN for a DMA playback), _measurements_done,
+        _confirmed_measurements, _mu_after_last_load (NaN: no load in the
+        attempt) per underflow; underflow_sites (one line each) and
+        underflow_messages (message and core device traceback) as text.
+
+        Returns (one-line summary, core device traceback or '').
+        """
+        parsed = parse_underflow_message(str(error))
+        timestamp, channel, slack = parsed if parsed else (-1, -1, None)
+        core_exception = getattr(error, "artiq_core_exception", None)
+        traceback = str(core_exception) if core_exception is not None else ""
+        frames = repository_frames(traceback)
+        last_load = context["last_load_mu"]
+        after_load = (timestamp - last_load
+                      if parsed and last_load is not None else None)
+
+        if parsed is None:
+            kind = "unparsed message"
+        else:
+            kind = (("DMA playback" if slack is None else f"CPU write, slack {slack} mu")
+                    + f", channel {channel:#x} = {self._rtio_channel_name(channel)}")
+        summary = (
+            f"{kind}; at {', '.join(frames) if frames else 'unknown line'}; "
+            f"the attempt had finished {context['measurements']} measurement(s), "
+            f"{context['confirmed']} past the first-shot confirm"
+            + ("" if after_load is None
+               else f", {after_load / 1e6:.3f} ms after its last load stamp"))
+
+        events = self._underflow_events
+        events["underflow_iteration"].append(iteration)
+        events["underflow_retry"].append(retry)
+        events["underflow_channel"].append(channel)
+        events["underflow_timestamp_mu"].append(timestamp)
+        events["underflow_slack_mu"].append(
+            float("nan") if slack is None else float(slack))
+        events["underflow_measurements_done"].append(context["measurements"])
+        events["underflow_confirmed_measurements"].append(context["confirmed"])
+        events["underflow_mu_after_last_load"].append(
+            float("nan") if after_load is None else float(after_load))
+        self._underflow_sites.append(
+            f"iteration {iteration} retry {retry}: {summary}")
+        self._underflow_messages.append(
+            f"iteration {iteration} retry {retry}: {error}\n{traceback}")
+        # fresh lists every time, so a later attempt's rollback leaves them be
+        for key, values in events.items():
+            self.set_dataset(key, list(values), broadcast=False, persist=False)
+        self.set_dataset("underflow_sites", "\n".join(self._underflow_sites),
+                         broadcast=False, persist=False)
+        self.set_dataset("underflow_messages",
+                         "\n\n".join(self._underflow_messages),
+                         broadcast=False, persist=False)
+        return summary, traceback
+
     def _underflow_backoff(self):
         """Pause on the host; the retried point resets the core via Base."""
         time.sleep(max(0.0, float(self.underflow_backoff_ms)) / 1000.0)
@@ -724,16 +866,22 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 )
                 return
             except RTIOUnderflow as error:
+                ### read what the attempt got through before the cut
+                context = self._underflow_context(snapshot)
                 removed = roll_back_list_datasets(dataset_mgr, snapshot)
                 retries += 1
                 self._record_underflow_retries(iteration, retries)
                 maximum_retries = int(self.underflow_max_retries)
+                summary, traceback = self._record_underflow(
+                    error, iteration, retries, context)
                 self._report_underflow(
                     f"RTIO underflow at iteration {iteration}, "
-                    f"retry {retries}/{maximum_retries}: {error}. "
+                    f"retry {retries}/{maximum_retries}: {error}. {summary}. "
                     f"Discarded the attempt's data: "
                     f"{_describe_rollback(removed)}"
                 )
+                if traceback:
+                    self._report_underflow(traceback)
                 if retries >= maximum_retries:
                     message = (
                         f"RTIO underflow at iteration {iteration} exceeded "
@@ -757,6 +905,14 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self._initialize_run_state()
         self._underflow_retries_per_scan_point = []
         self._underflow_skipped_scan_points = []
+        self._underflow_events = {key: [] for key in (
+            "underflow_iteration", "underflow_retry", "underflow_channel",
+            "underflow_timestamp_mu", "underflow_slack_mu",
+            "underflow_measurements_done", "underflow_confirmed_measurements",
+            "underflow_mu_after_last_load")}
+        self._underflow_sites = []
+        self._underflow_messages = []
+        self._rtio_channel_names = None
         if self.enable_Catch_UnderFlow:
             # present, if empty, in every file of a run with the retry on
             self.set_dataset("underflow_skipped_scan_points", [],
