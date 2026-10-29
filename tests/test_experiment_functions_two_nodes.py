@@ -106,6 +106,33 @@ if _experiment_stub is not None:
     for _name, _value in _stub_exports.items():
         if not hasattr(_experiment_stub, _name):
             setattr(_experiment_stub, _name, _value)
+
+    # The two-node functions import the AD9910 phase modes (parity mapping),
+    # and the GVS mixin the RTIOUnderflow exception. Same block the GVS,
+    # optimizer and microwave test modules carry; setdefault so whichever
+    # test module loads first wins and the others extend rather than clobber.
+    _coredevice = types.ModuleType("artiq.coredevice")
+    _exceptions = types.ModuleType("artiq.coredevice.exceptions")
+
+    class _RTIOUnderflow(Exception):
+        pass
+
+    _exceptions.RTIOUnderflow = _RTIOUnderflow
+    _ad9910 = types.ModuleType("artiq.coredevice.ad9910")
+    for _constant in (
+        "PHASE_MODE_ABSOLUTE",
+        "PHASE_MODE_CONTINUOUS",
+        "PHASE_MODE_TRACKING",
+        "RAM_DEST_ASF",
+        "RAM_MODE_RAMPUP",
+    ):
+        setattr(_ad9910, _constant, 0)
+    _urukul = types.ModuleType("artiq.coredevice.urukul")
+    _urukul.CFG_MASK_NU = 0
+    sys.modules.setdefault("artiq.coredevice", _coredevice)
+    sys.modules.setdefault("artiq.coredevice.exceptions", _exceptions)
+    sys.modules.setdefault("artiq.coredevice.ad9910", _ad9910)
+    sys.modules.setdefault("artiq.coredevice.urukul", _urukul)
     if hasattr(_experiment_stub, "__all__"):
         _experiment_stub.__all__ = sorted(
             set(_experiment_stub.__all__) | set(_stub_exports)
@@ -306,6 +333,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 "Two_nodes_alternating_retention_experiment",
                 # Port of the standalone Two_node_single_photon_2_experiment.
                 "Two_nodes_HOM_experiment",
+                # Two-photon herald, then each node's parity readout.
+                "Two_nodes_atom_atom_parity_experiment",
             },
         )
         module_functions = [

@@ -1637,6 +1637,13 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO1_Node2",
                 "AllSPCMs_alternating_RO2_Node1",
                 "AllSPCMs_alternating_RO2_Node2",
+                # Each node's readout after the parity mapping and blow-away,
+                # one entry per herald, written by Two_nodes_atom_atom_parity
+                # _experiment. The "alternating" infix for the same reason as
+                # the shots above: it is the alternating readout, and the
+                # stripped name collides with nothing.
+                "AllSPCMs_alternating_parity_RO_Node1",
+                "AllSPCMs_alternating_parity_RO_Node2",
                 "AllSPCMs_RO_atom_check",
                 "AllSPCMs_atom_check_in_loading",
                 # Per-node counterparts, written by
@@ -1717,6 +1724,15 @@ class BaseExperimentMasterSatellite:
             experiment.set_dataset(dataset_name, [[0.0, 0.0]], broadcast=True)
 
         for dataset_name in ("angle_780_HWP", "angle_780_QWP"):
+            experiment.set_dataset(dataset_name, [], broadcast=True)
+
+        # Per herald, per node: Two_nodes_atom_atom_parity_experiment. Not
+        # angle_780_HWP_NodeX, which the single-node loader would strip onto
+        # angle_780_HWP above and report as a collision in every file.
+        for dataset_name in ("parity_angle_780_HWP_Node1",
+                             "parity_angle_780_HWP_Node2",
+                             "parity_angle_780_QWP_Node1",
+                             "parity_angle_780_QWP_Node2"):
             experiment.set_dataset(dataset_name, [], broadcast=True)
 
         experiment.set_dataset("iteration", 0, broadcast=True)

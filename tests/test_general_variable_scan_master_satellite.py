@@ -488,6 +488,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 "Two_nodes_alternating_retention_experiment",
                 # Port of the standalone Two_node_single_photon_2_experiment.
                 "Two_nodes_HOM_experiment",
+                # Two-photon herald, then each node's parity readout.
+                "Two_nodes_atom_atom_parity_experiment",
             },
         )
         # The two registries must stay disjoint: the single-node one is built
@@ -615,6 +617,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 "Two_nodes_alternating_retention_experiment",
                 # Port of the standalone Two_node_single_photon_2_experiment.
                 "Two_nodes_HOM_experiment",
+                # Two-photon herald, then each node's parity readout.
+                "Two_nodes_atom_atom_parity_experiment",
             },
         )
         self.assertIs(
@@ -1001,6 +1005,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             ("Two_nodes_atom_loading_experiment", True, True),
             ("Two_nodes_HOM_experiment", False, False),
             ("Two_nodes_alternating_retention_experiment", True, False),
+            ("Two_nodes_atom_atom_parity_experiment", True, True),
+            ("Two_nodes_atom_atom_parity_experiment", False, False),
         )
         original = applets.create_two_node_applets_for
         try:
@@ -1304,6 +1310,49 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(datasets.local["Atom_loading_time"], [0.0])
         self.assertEqual(datasets.local["underflow_retries_per_scan_point"], [2])
         self.assertEqual(datasets.local["underflow_skipped_scan_points"], [])
+
+    def test_paired_scan_steps_both_variables_together(self):
+        seen = []
+
+        def selected_function(experiment):
+            seen.append((experiment.f_FORT_Node2, experiment.dummy_variable))
+
+        for paired, expected in (
+            (True, [(1.0, 10.0), (2.0, 20.0)]),
+            (False, [(1.0, 10.0), (1.0, 20.0), (2.0, 10.0), (2.0, 20.0)]),
+        ):
+            with self.subTest(paired=paired):
+                del seen[:]
+                scan = self._make_catch_error_scan(
+                    GeneralVariableScan_master_satellite_two_nodes
+                )
+                scan.scan_variable2 = "dummy_variable"
+                scan.scan_sequence2 = [10.0, 20.0]
+                scan.pair_scan_sequences = paired
+                scan._selected_experiment_function = selected_function
+                scan.run()
+                self.assertEqual(seen, expected)
+                iteration_writes = [value for name, value, _ in
+                                    scan.dataset_writes if name == "iteration"]
+                self.assertEqual(iteration_writes,
+                                 [0] + list(range(len(expected))))
+
+    def test_paired_scan_validation(self):
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        self.assertIs(scan.pair_scan_sequences, False)
+        scan._validate_paired_scan()  # off: nothing to check
+
+        scan.pair_scan_sequences = True
+        scan.scan_sequence1 = [0.0, 10.0]
+        scan.scan_variable2 = None
+        scan.scan_sequence2 = [0.0]
+        with self.assertRaisesRegex(ValueError, "scan_variable2_name"):
+            scan._validate_paired_scan()
+        scan.scan_variable2 = "target_780_HWP_Node2"
+        with self.assertRaisesRegex(ValueError, "equally long"):
+            scan._validate_paired_scan()
+        scan.scan_sequence2 = [5.0, 15.0]
+        scan._validate_paired_scan()
 
     def test_parse_underflow_message(self):
         self.assertEqual(

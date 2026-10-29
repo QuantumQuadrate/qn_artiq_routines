@@ -186,6 +186,10 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
     """
 
     VALID_NODES = ("Node1", "Node2")
+    # The GUI argument of the same name overrides this per run; the class
+    # value serves scans built without build() (repository examination, the
+    # hand-built scans of the unit tests).
+    pair_scan_sequences = False
     LEGACY_NODE_NAMES = {"Node1": "alice", "Node2": "bob"}
     EXPERIMENT_MODE = None
     # Overridden by tests to inject a stand-in for AOMPowerStabilizer; None
@@ -233,6 +237,18 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self.setattr_argument("scan_variable2_name", StringValue(""))
         self.setattr_argument(
             "scan_sequence2", StringValue("np.zeros(1)")
+        )
+        # Off: the full grid, every scan_sequence2 value at every
+        # scan_sequence1 value. On: the two step together, point i using the
+        # i-th value of each -- e.g. both nodes' target_780_HWP rotated
+        # together in Two_nodes_atom_atom_parity_experiment.
+        self.setattr_argument(
+            "pair_scan_sequences",
+            BooleanValue(False),
+            tooltip="Step scan_variable2 together with scan_variable1 (point "
+                    "i takes the i-th value of both sequences) instead of the "
+                    "full grid. Needs scan_variable2_name and two equally "
+                    "long sequences.",
         )
         # One override dictionary per node, and deliberately no shared one:
         # both may stay populated at once, so switching selected_node is the
@@ -433,6 +449,7 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         else:
             self.scan_variable2 = None
             self.scan_sequence2 = np.zeros(1)
+        self._validate_paired_scan()
 
         self.authoritative_overrides = self._collect_authoritative_overrides()
 
@@ -716,6 +733,28 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                     + "_scan_over_" + self.scan_var_filesuffix
         })
 
+    def _validate_paired_scan(self):
+        """A paired scan needs a second variable and equally long sequences."""
+        if not self.pair_scan_sequences:
+            return
+        if self.scan_variable2 is None:
+            raise ValueError(
+                "pair_scan_sequences steps scan_variable2 with "
+                "scan_variable1: set scan_variable2_name too.")
+        if len(self.scan_sequence2) != len(self.scan_sequence1):
+            raise ValueError(
+                f"pair_scan_sequences needs equally long sequences: "
+                f"scan_sequence1 has {len(self.scan_sequence1)} values, "
+                f"scan_sequence2 {len(self.scan_sequence2)}.")
+
+    def _scan_points(self):
+        """(variable1, variable2) per scan point, in run order."""
+        if self.pair_scan_sequences:
+            return list(zip(self.scan_sequence1, self.scan_sequence2))
+        return [(variable1_value, variable2_value)
+                for variable1_value in self.scan_sequence1
+                for variable2_value in self.scan_sequence2]
+
     def _report_underflow(self, message):
         logging.warning(message)
         print(message)
@@ -931,12 +970,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
 
         iteration = 0
         self.set_dataset("iteration", iteration, broadcast=True)
-        for variable1_value in self.scan_sequence1:
-            for variable2_value in self.scan_sequence2:
-                self._run_scan_point(
-                    variable1_value, variable2_value, iteration
-                )
-                iteration += 1
+        for variable1_value, variable2_value in self._scan_points():
+            self._run_scan_point(variable1_value, variable2_value, iteration)
+            iteration += 1
 
         print(
             "**************** General Variable Scan master-satellite DONE "

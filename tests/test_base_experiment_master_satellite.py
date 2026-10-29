@@ -1258,18 +1258,33 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             f"AllSPCMs_alternating_RO{shot}_{node}"
             for shot in (1, 2)
             for node in ("Node1", "Node2")
+        } | {
+            # The same alternating readout after the parity mapping and
+            # blow-away of Two_nodes_atom_atom_parity_experiment, one entry
+            # per herald.
+            f"AllSPCMs_alternating_parity_RO_{node}"
+            for node in ("Node1", "Node2")
+        }
+        # Each node's waveplate targets per herald (the parity experiment).
+        # Seeded [] like the single-node angle_780_HWP/QWP; "parity_" because
+        # angle_780_HWP_NodeX would strip onto angle_780_HWP.
+        per_node_angles = {
+            f"parity_angle_780_{plate}_{node}"
+            for plate in ("HWP", "QWP")
+            for node in ("Node1", "Node2")
         }
         self.assertEqual(
             {name for name in written if name.endswith(("_Node1", "_Node2"))},
-            per_node_monitors | per_node_readouts,
+            per_node_monitors | per_node_readouts | per_node_angles,
             "two-node measurement results are joint and must not be "
             "node-suffixed; the only suffixed names here are the per-node "
-            "hardware monitors and the per-node alternating readouts",
+            "hardware monitors, the per-node alternating readouts and the "
+            "parity experiment's per-node waveplate angles",
         )
         # Seeded empty and broadcast, which is what makes the first
         # append_to_dataset legal rather than a KeyError.
         seeded = {name: value for name, value, _ in experiment.dataset_writes}
-        for name in sorted(per_node_monitors):
+        for name in sorted(per_node_monitors | per_node_angles):
             self.assertEqual(
                 seeded.get(name), [],
                 f"{name} must be seeded as an empty broadcast list, or the "
