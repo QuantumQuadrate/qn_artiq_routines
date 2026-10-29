@@ -2756,7 +2756,9 @@ def Two_nodes_HOM_experiment(self):
             optical pumping           record_CW_optical_pumping_both_nodes
             n_excitation_attempts x   record_excitation_and_photon_collection
                                       _both_nodes, first click of each SPCM
-                                      timestamped
+                                      timestamped. A click on any SPCM ends
+                                      the cycle's attempts: the next attempt
+                                      runs only after one with no click.
             recooling every recool_every_n_OP cycles  record_recooling_both_nodes
             atom check every atom_check_every_n cycles: both atoms'
               fluorescence on the four SPCMs against two_atom_threshold
@@ -2771,6 +2773,15 @@ def Two_nodes_HOM_experiment(self):
     passed check. An HOM coincidence is a row with clicks on two SPCMs. The
     arrival time is click - t1, with the same t1 as in the single-node
     experiments.
+
+    ONE CLICK ENDS THE CYCLE (since 2026-10-29). A click on any SPCM stops
+    that cycle's attempts; it goes on to recooling, the atom check and the
+    next pumping as after its last attempt. Both nodes' atom-photon
+    entanglement must come from the same attempt, which a later attempt
+    after one node's photon would break. So a cycle holds at most one row,
+    and (n_excitation_cycles + 1) x n_excitation_attempts is now the most
+    attempts a measurement can have played, not the number; the cycle count
+    stays exact.
 
     THE NODE2 DELAY is t_Node2_excitation_delay_mu, used directly as the delay
     (see record_excitation_and_photon_collection_both_nodes): about -143 to
@@ -2996,6 +3007,13 @@ def Two_nodes_HOM_experiment(self):
                     if SPCM0_OtherNode_click_time > 0: self.ttl_SPCM0_OtherNode.count(t_end_SPCM)
                     if SPCM1_OtherNode_click_time > 0: self.ttl_SPCM1_OtherNode.count(t_end_SPCM)
 
+                    ### Any click ends this cycle's attempts: the next attempt
+                    ### runs only after one with no click at all, so both
+                    ### nodes' atom-photon entanglement comes from the same
+                    ### attempt. On to recooling, the atom check and the next
+                    ### pumping, as after the last attempt.
+                    break
+
                 delay(5 * us)
 
             ############################ recooling, both nodes
@@ -3200,7 +3218,11 @@ def Two_nodes_atom_atom_parity_experiment(self):
        a. load an atom in both nodes; first shot (the confirm loop, as in HOM)
        b. excitation cycles exactly as in Two_nodes_HOM_experiment: OP,
           n_excitation_attempts attempts with the shared HOM gate, recooling,
-          the atom check every atom_check_every_n cycles. Until
+          the atom check every atom_check_every_n cycles. Any click ends the
+          cycle's attempts: a herald (c), or with one, three or four SPCMs
+          clicked, on to recooling, the atom check and the next pumping. The
+          next attempt runs only after one with no click at all, so both
+          nodes' atom-photon entanglement comes from the same attempt. Until
        c. a HERALD: exactly two of the four SPCMs click in one attempt. Then,
           with no resync between the photon reads and it, both nodes' parity
           mapping (record_parity_mapping_both_nodes) at herald +
@@ -3485,6 +3507,15 @@ def Two_nodes_atom_atom_parity_experiment(self):
                 if SPCM1_click_time > 0: self.ttl_SPCM1.count(t_end_SPCM)
                 if SPCM0_OtherNode_click_time > 0: self.ttl_SPCM0_OtherNode.count(t_end_SPCM)
                 if SPCM1_OtherNode_click_time > 0: self.ttl_SPCM1_OtherNode.count(t_end_SPCM)
+
+                ### Any other click (one, three or four SPCMs) ends this
+                ### cycle's attempts too: the next attempt runs only after one
+                ### with no click at all, so both nodes' atom-photon
+                ### entanglement comes from the same attempt. On to
+                ### recooling, the atom check and the next pumping, as after
+                ### the last attempt.
+                if n_clicked > 0:
+                    break
 
                 delay(5 * us)
 

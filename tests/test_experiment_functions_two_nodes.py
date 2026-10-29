@@ -785,6 +785,54 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                       retention.options)
         self.assertIn("two_atom_threshold", retention.args)
 
+    def test_any_click_ends_the_cycles_excitation_attempts(self):
+        """In HOM and parity, the attempt loop stops at the first attempt with
+        a click on any SPCM (user, 2026-10-29): both nodes' atom-photon
+        entanglement must come from the same attempt, so a later attempt may
+        only follow one with no click at all.
+
+        Pinned structurally: the `for excitation_attempt` loop holds a
+        `break` under an `if` that tests the click times (HOM) or n_clicked
+        (parity), and in parity that break comes after the herald's.
+        """
+        def attempt_loop(function_name):
+            function = next(node for node in self.tree.body
+                            if isinstance(node, ast.FunctionDef)
+                            and node.name == function_name)
+            return next(node for node in ast.walk(function)
+                        if isinstance(node, ast.For)
+                        and isinstance(node.target, ast.Name)
+                        and node.target.id == "excitation_attempt")
+
+        def breaking_ifs(loop):
+            """The ifs in the loop whose own body breaks, with the names
+            their test reads."""
+            return [(node, {item.id for item in ast.walk(node.test)
+                            if isinstance(item, ast.Name)})
+                    for node in ast.walk(loop)
+                    if isinstance(node, ast.If)
+                    and any(isinstance(item, ast.Break) for item in node.body)]
+
+        clicks = {"SPCM0_click_time", "SPCM1_click_time",
+                  "SPCM0_OtherNode_click_time", "SPCM1_OtherNode_click_time"}
+        hom = breaking_ifs(attempt_loop("Two_nodes_HOM_experiment"))
+        self.assertTrue(any(clicks <= tested for _, tested in hom),
+                        [tested for _, tested in hom])
+
+        parity = breaking_ifs(attempt_loop("Two_nodes_atom_atom_parity_experiment"))
+
+        def on_n_clicked(op):
+            return [node for node, _ in parity
+                    if isinstance(node.test, ast.Compare)
+                    and isinstance(node.test.left, ast.Name)
+                    and node.test.left.id == "n_clicked"
+                    and isinstance(node.test.ops[0], op)]
+
+        herald, any_click = on_n_clicked(ast.Eq), on_n_clicked(ast.Gt)
+        self.assertEqual(len(herald), 1)
+        self.assertEqual(len(any_click), 1)
+        self.assertLess(herald[0].lineno, any_click[0].lineno)
+
     def test_every_amplitude_index_read_is_an_index_fed_back(self):
         """A setpoint index the sequence READS must be one feedback WRITES.
 

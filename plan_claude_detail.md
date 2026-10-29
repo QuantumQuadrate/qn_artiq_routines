@@ -3466,6 +3466,15 @@ files that are no longer true.
 - **2026-10-29** `override_ExperimentVariables_global` in the GVS (section
   8.5): shared variables were going in Node1's dictionary, which the user
   found confusing. Globals in a node field keep working with a warning.
+- **2026-10-29** In `Two_nodes_HOM_experiment` and
+  `Two_nodes_atom_atom_parity_experiment` a click on any SPCM ends that
+  cycle's excitation attempts (the user's request): the next attempt runs
+  only after one with no click at all, so both nodes' atom-photon
+  entanglement comes from the same attempt. Until then HOM played every
+  attempt and parity stopped only on a herald. A cycle now holds at most one
+  photon row; (n_excitation_cycles + 1) x n_excitation_attempts is the most
+  attempts a measurement played, and the cycle count stays exact. Pinned by
+  `test_any_click_ends_the_cycles_excitation_attempts`.
 
 Other superseded claims from the retired files:
 
