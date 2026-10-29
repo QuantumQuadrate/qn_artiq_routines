@@ -833,6 +833,42 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
         self.assertEqual(len(any_click), 1)
         self.assertLess(herald[0].lineno, any_click[0].lineno)
 
+    def test_photon_rows_record_their_excitation_attempt(self):
+        """HOM (per photon row) and parity (per herald) write each row's
+        attempt within its cycle beside its t1, so the analysis can keep the
+        first attempt only (2026-10-29). Pinned: exactly those two functions
+        append excitation_attempt_of_row, each as often as
+        reference_tStamps_t1, and the HOM row index stores the loop's
+        excitation_attempt.
+        """
+        def appends(node, name):
+            return sum(
+                1 for item in ast.walk(node)
+                if isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Attribute)
+                and item.func.attr == "append_to_dataset"
+                and item.args
+                and isinstance(item.args[0], ast.Constant)
+                and item.args[0].value == name)
+
+        functions = {node.name: node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)}
+        writers = {name for name, node in functions.items()
+                   if appends(node, "excitation_attempt_of_row")}
+        self.assertEqual(writers, {"Two_nodes_HOM_experiment",
+                                   "Two_nodes_atom_atom_parity_experiment"})
+        for name in writers:
+            self.assertEqual(appends(functions[name], "excitation_attempt_of_row"),
+                             appends(functions[name], "reference_tStamps_t1"), name)
+        stored = [item for item in ast.walk(functions["Two_nodes_HOM_experiment"])
+                  if isinstance(item, ast.Assign)
+                  and isinstance(item.targets[0], ast.Subscript)
+                  and isinstance(item.targets[0].value, ast.Name)
+                  and item.targets[0].value.id == "attempt_of_row"
+                  and isinstance(item.value, ast.Name)
+                  and item.value.id == "excitation_attempt"]
+        self.assertEqual(len(stored), 1)
+
     def test_every_amplitude_index_read_is_an_index_fed_back(self):
         """A setpoint index the sequence READS must be one feedback WRITES.
 

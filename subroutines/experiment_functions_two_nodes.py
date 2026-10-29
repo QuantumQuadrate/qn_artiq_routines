@@ -2767,8 +2767,10 @@ def Two_nodes_HOM_experiment(self):
     DATA. The compact format of single_photon_experiment_9, so the existing
     analysis code applies: one row per attempt in which any SPCM clicked --
     SPCM0/SPCM1/SPCM0_OtherNode/SPCM1_OtherNode_SinglePhoton_reduced_tStamps
-    (first click, seconds, -1 if none) and reference_tStamps_t1 (that
-    attempt's t1); per measurement n_photon_events (rows) and
+    (first click, seconds, -1 if none), reference_tStamps_t1 (that
+    attempt's t1) and, since 2026-10-29, excitation_attempt_of_row (that
+    attempt within its cycle, 0 = the first); per measurement n_photon_events
+    (rows) and
     n_excitation_cycles (loop index at exit); AllSPCMs_RO_atom_check for every
     passed check. An HOM coincidence is a row with clicks on two SPCMs. The
     arrival time is click - t1, with the same t1 as in the single-node
@@ -2866,6 +2868,7 @@ def Two_nodes_HOM_experiment(self):
         SPCM1_timestamps = [-1.0] * short_timestamps_length
         SPCM0_OtherNode_timestamps = [-1.0] * short_timestamps_length
         SPCM1_OtherNode_timestamps = [-1.0] * short_timestamps_length
+        attempt_of_row = [0] * short_timestamps_length
         Any_SPCM_click_counter = 0
 
         self.core.break_realtime()
@@ -2999,6 +3002,7 @@ def Two_nodes_HOM_experiment(self):
                         if SPCM1_OtherNode_click_time > 0:
                             SPCM1_OtherNode_timestamps[Any_SPCM_click_counter] = self.core.mu_to_seconds(SPCM1_OtherNode_click_time)
                         tStamps_t1[Any_SPCM_click_counter] = self.core.mu_to_seconds(t1)
+                        attempt_of_row[Any_SPCM_click_counter] = excitation_attempt
                         Any_SPCM_click_counter += 1
 
                     ### Drain all additional edges, including when the row buffer is already full
@@ -3191,6 +3195,7 @@ def Two_nodes_HOM_experiment(self):
             self.append_to_dataset('SPCM0_OtherNode_SinglePhoton_reduced_tStamps', SPCM0_OtherNode_timestamps[i])
             self.append_to_dataset('SPCM1_OtherNode_SinglePhoton_reduced_tStamps', SPCM1_OtherNode_timestamps[i])
             self.append_to_dataset('reference_tStamps_t1', tStamps_t1[i])
+            self.append_to_dataset('excitation_attempt_of_row', attempt_of_row[i])
 
         ### Number of compact timestamp rows saved during this measurement
         self.append_to_dataset('n_photon_events', Any_SPCM_click_counter)
@@ -3248,6 +3253,8 @@ def Two_nodes_atom_atom_parity_experiment(self):
         two-hot)
       SPCM*_SinglePhoton_reduced_tStamps, reference_tStamps_t1: the four click
         times and t1 in seconds (-1.0 = no click), the HOM row format
+      excitation_attempt_of_row: the heralding attempt within its cycle,
+        0 = the first (since 2026-10-29)
       AllSPCMs_alternating_parity_RO_Node1/_Node2: each node's counts after the
         blow-away over n_alternating_RO_windows_per_node windows; compare
         counts / t_alternating_RO_exposure with alternating_shot_threshold
@@ -3440,6 +3447,7 @@ def Two_nodes_atom_atom_parity_experiment(self):
         herald_SPCM1_mu = int64(-1)
         herald_SPCM0_OtherNode_mu = int64(-1)
         herald_SPCM1_OtherNode_mu = int64(-1)
+        herald_attempt = 0
 
         excitation_cycle = 0
         for excitation_cycle in range(max_excitation_cycles):
@@ -3499,6 +3507,7 @@ def Two_nodes_atom_atom_parity_experiment(self):
                     herald_SPCM1_mu = SPCM1_click_time
                     herald_SPCM0_OtherNode_mu = SPCM0_OtherNode_click_time
                     herald_SPCM1_OtherNode_mu = SPCM1_OtherNode_click_time
+                    herald_attempt = excitation_attempt
                     break
 
                 ### No herald: drain every clicked channel's extra edges, or
@@ -3661,6 +3670,7 @@ def Two_nodes_atom_atom_parity_experiment(self):
             self.append_to_dataset('SPCM1_OtherNode_SinglePhoton_reduced_tStamps',
                                    self.core.mu_to_seconds(herald_SPCM1_OtherNode_mu) if herald_SPCM1_OtherNode_mu > 0 else -1.0)
             self.append_to_dataset('reference_tStamps_t1', self.core.mu_to_seconds(herald_t1_mu))
+            self.append_to_dataset('excitation_attempt_of_row', herald_attempt)
             self.append_to_dataset('AllSPCMs_alternating_parity_RO_Node1', parity_RO_Node1)
             self.append_to_dataset('AllSPCMs_alternating_parity_RO_Node2', parity_RO_Node2)
             self.append_to_dataset('parity_angle_780_HWP_Node1', self.target_780_HWP_Node1)

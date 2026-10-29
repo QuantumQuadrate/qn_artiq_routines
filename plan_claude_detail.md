@@ -3475,6 +3475,13 @@ files that are no longer true.
   photon row; (n_excitation_cycles + 1) x n_excitation_attempts is the most
   attempts a measurement played, and the cycle count stays exact. Pinned by
   `test_any_click_ends_the_cycles_excitation_attempts`.
+- **2026-10-29** Both also write `excitation_attempt_of_row` (seeded `[0]` by
+  Base): per HOM photon row and per parity herald, that attempt within its
+  cycle, 0 = the first, so the HOM notebook's block B.1 can keep first-attempt
+  photons only. Earlier files cannot be split: t1 timing places only 24-44% of
+  their rows (the attempts of a cycle are 134.0 us apart, but with ~20 cycles
+  between photons and an atom check every 30 cycles the cycle pattern does
+  not carry from one photon to the next).
 
 Other superseded claims from the retired files:
 

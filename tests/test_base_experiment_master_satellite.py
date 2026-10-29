@@ -1305,6 +1305,7 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             self.assertIn(required, written, required)
         # the passes of each parity scan point, for the retention applet
         self.assertEqual(seeded.get("n_passes_per_iteration"), [0])
+        self.assertEqual(seeded.get("excitation_attempt_of_row"), [0])
 
         # The host scalars and per-measurement buffers the kernels index. These
         # must EXIST before compilation, not merely before running.

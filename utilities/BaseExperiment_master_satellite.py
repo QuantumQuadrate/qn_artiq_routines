@@ -1711,6 +1711,12 @@ class BaseExperimentMasterSatellite:
                 # groups the shots by this. Stays at its seed in every other
                 # experiment, and the applet then groups by n_measurements.
                 "n_passes_per_iteration",
+                # One entry per saved photon row of Two_nodes_HOM_experiment
+                # and per herald of Two_nodes_atom_atom_parity_experiment,
+                # beside reference_tStamps_t1: that attempt within its
+                # excitation cycle, 0 = the first. Lets the analysis keep the
+                # first attempt only (2026-10-29).
+                "excitation_attempt_of_row",
                 # One entry per KEPT measurement of
                 # Two_nodes_atom_loading_2_experiment: how many
                 # load-plus-first-shot attempts that measurement needed.
