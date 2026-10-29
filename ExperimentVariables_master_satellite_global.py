@@ -150,8 +150,9 @@ MASTER_SATELLITE_VARIABLES = (
     # dummy_variable. The values were the same in both stacks when this was
     # done.
     #
-    # Override for one run in the running node's dictionary; in two_nodes mode
-    # name it in ONE node's dictionary only. Removed with the per-node copies,
+    # Override for one run in override_ExperimentVariables_global (since
+    # 2026-10-29; a node's dictionary still works, with a warning). Removed
+    # with the per-node copies,
     # because nothing in master-satellite read them: no_first_shot,
     # t_FORT_loading. Also removed: the five unread *_two_node timing
     # globals (t_atom_check_time_two_node and friends).
@@ -308,9 +309,10 @@ MASTER_SATELLITE_VARIABLES = (
     #
     # Loaded only in two_nodes mode, so a missing one can never stop a
     # single-node experiment. In a two-node override write the bare name
-    # ({'t_photon_collection_time': 150*ns}) in ONE node's dictionary; the
-    # per-node names (t_photon_collection_time_Node1) are rejected there,
-    # since the two-node sequence does not read them.
+    # ({'t_photon_collection_time': 150*ns}) in
+    # override_ExperimentVariables_global; the per-node names
+    # (t_photon_collection_time_Node1) are rejected, since the two-node
+    # sequence does not read them.
     #
     # Times are SECONDS. seconds_to_mu floors, so 150 ns is stored as
     # 1.5000000000000002e-07 (= 150*ns); 1.5e-07 would give a 149 mu gate.

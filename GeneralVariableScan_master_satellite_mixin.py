@@ -250,12 +250,26 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                     "full grid. Needs scan_variable2_name and two equally "
                     "long sequences.",
         )
-        # One override dictionary per node, and deliberately no shared one:
-        # both may stay populated at once, so switching selected_node is the
-        # only edit needed to move a scan between nodes. Globals such as
-        # n_measurements go in the running node's dictionary; in two_nodes
-        # mode a global, or a two-node sequence setting written bare
-        # ({'t_pumping': ...} = t_pumping_two_nodes), goes in ONE of them.
+        # What both nodes share goes in the global dictionary, read in both
+        # modes: the master-satellite globals and, in two_nodes mode, the
+        # two-node sequence settings written bare ({'t_pumping': ...} =
+        # t_pumping_two_nodes). A per-node name there raises
+        # (merge_per_node_override_dictionaries). Then one dictionary per
+        # node; both may stay populated at once, so switching selected_node
+        # is the only edit needed to move a scan between nodes. A global in
+        # a node's dictionary still works (saved submissions) but logs a
+        # warning.
+        self.setattr_argument(
+            "override_ExperimentVariables_global",
+            StringValue("{}"),
+            tooltip="Overrides of variables both nodes share: the "
+                    "master-satellite globals (two_atom_threshold, "
+                    "t_delay_between_shots, ...) and, in two_nodes mode, the "
+                    "two-node sequence settings written bare (t_pumping = "
+                    "t_pumping_two_nodes, n_excitation_attempts, "
+                    "t_OP_coil_relax_time, ...). Per-node variables are "
+                    "refused here; they go in the node fields.",
+        )
         for node in self.VALID_NODES:
             self.setattr_argument(
                 f"override_ExperimentVariables_{node}",
@@ -263,7 +277,8 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 tooltip=f"Overrides applied only when {node} runs. Otherwise "
                         f"ignored entirely -- not even evaluated, so it may "
                         f"name {node} variables that do not exist on the "
-                        f"other node. Globals belong here too.",
+                        f"other node. Shared variables go in "
+                        f"override_ExperimentVariables_global.",
             )
         # Per-point RTIOUnderflow retry, on by default since 2026-10-28, when
         # a retried point stopped keeping the failed attempt's data
@@ -365,7 +380,7 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         return tuple(self.VALID_NODES)
 
     def _collect_authoritative_overrides(self):
-        """Merge this run's per-node override dictionaries.
+        """Merge this run's global and per-node override dictionaries.
 
         The merge itself lives in the base module and is shared with
         MicrowaveScanOptimizer_master_satellite, so both experiments treat
@@ -382,6 +397,7 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             active_nodes=self._active_override_nodes(),
             resolve_target=self.base.resolve_experiment_variable_target,
             eval_globals=globals(),
+            global_variable_names=self.base.global_variable_names,
         )
 
     def prepare(self):

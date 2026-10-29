@@ -1,6 +1,7 @@
 """Base hardware orchestration for the master-satellite architecture."""
 
 import json
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -32,8 +33,9 @@ def merge_per_node_override_dictionaries(
     resolve_target,
     eval_globals,
     argument_prefix="override_ExperimentVariables",
+    global_variable_names=None,
 ):
-    """Merge the per-node experiment-variable override dictionaries.
+    """Merge the global and per-node experiment-variable override dictionaries.
 
     An experiment declares one override field per node --
     override_ExperimentVariables_Node1 and _Node2 -- and only the running
@@ -55,13 +57,21 @@ def merge_per_node_override_dictionaries(
     accepts a bare name here while still rejecting one for a scan variable:
     the field names the node, so nothing is ambiguous.
 
-    There is deliberately no node-agnostic field. Globals such as
-    n_measurements resolve to themselves, so put them in the running node's
-    dictionary; in two_nodes mode name a global in one node's dictionary
-    only, since naming it in both reads as overriding one variable twice.
-    The same goes for a two-node sequence setting written bare in two_nodes
-    mode ({'t_pumping': ...} means t_pumping_two_nodes there; see
-    BaseExperimentMasterSatellite.TWO_NODES_SUFFIX).
+    THE GLOBAL FIELD (since 2026-10-29; the GVS passes global_variable_names,
+    the microwave optimizer does not). f"{argument_prefix}_global" holds what
+    both nodes share: the master-satellite globals (two_atom_threshold,
+    t_delay_between_shots, ...) and, in two_nodes mode, the two-node sequence
+    settings written bare ({'t_pumping': ...} means t_pumping_two_nodes there;
+    see BaseExperimentMasterSatellite.TWO_NODES_SUFFIX). It is read in both
+    modes, and every entry must resolve to a global: a per-node variable
+    there raises and names the node fields instead. Unlike the old shared
+    override_ExperimentVariables (removed 2026-10-01), it cannot silently do
+    nothing -- it holds only names no node field owns.
+
+    A global in a node's field still works, so a submission saved before the
+    global field existed runs unchanged, but it is reported with a warning:
+    the global field is where it belongs. Without global_variable_names (the
+    microwave optimizer) a node's field takes globals silently, as before.
 
     eval_globals is the CALLING MODULE's globals(), so override text keeps
     being evaluated in the namespace it always was -- entries like
@@ -74,12 +84,12 @@ def merge_per_node_override_dictionaries(
     merged = {}
     provenance = {}
 
-    for node in active_nodes:
-        argument_name = f"{argument_prefix}_{node}"
+    def evaluate(argument_name):
         expression = getattr(experiment, argument_name, None)
-        # A cleared field means "no overrides", not a syntax error.
+        # A cleared field, or one an older submission does not carry,
+        # means "no overrides", not a syntax error.
         if expression is None or not str(expression).strip():
-            continue
+            return {}
 
         try:
             overrides = eval(expression, eval_globals, {"self": experiment})
@@ -92,22 +102,59 @@ def merge_per_node_override_dictionaries(
             raise ValueError(
                 f"{argument_name} must evaluate to a dictionary."
             )
+        return overrides
 
-        for name, value in overrides.items():
+    def add(target, value, source):
+        if target in merged:
+            raise ValueError(
+                f"Experiment variable {target!r} is overridden twice: "
+                f"once via {provenance[target]} and again via "
+                f"{source}. Remove one of them."
+            )
+        merged[target] = value
+        provenance[target] = source
+
+    node_fields = f"{argument_prefix}_" + " or _".join(active_nodes)
+    if global_variable_names is not None:
+        argument_name = f"{argument_prefix}_global"
+        for name, value in evaluate(argument_name).items():
+            # No owning node: a bare name is either a global (or, in
+            # two_nodes, a two-node sequence setting) or an error.
+            try:
+                target = resolve_target(str(name))
+            except ValueError as error:
+                raise ValueError(
+                    f"{argument_name}: {name!r} is not a global ({error}). "
+                    f"Per-node variables go in {node_fields}."
+                ) from error
+            if target not in global_variable_names:
+                raise ValueError(
+                    f"{argument_name}: {name!r} is the per-node variable "
+                    f"{target!r}. Per-node variables go in {node_fields}."
+                )
+            add(target, value, f"{name!r} in {argument_name}")
+
+    misplaced = []
+    for node in active_nodes:
+        argument_name = f"{argument_prefix}_{node}"
+        for name, value in evaluate(argument_name).items():
             # The owning node is passed so a BARE node-specific name resolves
             # against this dictionary's node. In single_node that was already
             # the behaviour, via the compatibility map; in two_nodes a bare
             # name used to raise "ambiguous", which it is not here -- the
             # field itself says which node the entry belongs to.
             target = resolve_target(str(name), node)
-            if target in merged:
-                raise ValueError(
-                    f"Experiment variable {target!r} is overridden twice: "
-                    f"once via {provenance[target]} and again via "
-                    f"{argument_name}. Remove one of them."
-                )
-            merged[target] = value
-            provenance[target] = argument_name
+            if (global_variable_names is not None
+                    and target in global_variable_names):
+                misplaced.append(f"{name!r} in {argument_name}")
+            add(target, value, f"{name!r} in {argument_name}")
+
+    if misplaced:
+        logging.warning(
+            "Shared (global) variables given in a node's override field: "
+            "%s. They are applied, but belong in %s_global.",
+            ", ".join(misplaced), argument_prefix,
+        )
 
     return merged
 
@@ -1003,7 +1050,9 @@ class BaseExperimentMasterSatellite:
                         f"{name!r} is not read in two_nodes mode: the "
                         f"two-node sequence reads one shared {bare!r} "
                         f"({self.two_node_shared_variable_map[bare]!r}). "
-                        f"Write {bare!r} in ONE node's dictionary."
+                        f"Write {bare!r} instead, in "
+                        f"override_ExperimentVariables_global (or as the "
+                        f"scan variable)."
                     )
 
         if node is not None:

@@ -253,6 +253,10 @@ class FakeBase:
         self.stabilizer_preparations = 0
         self.result_resets = 0
         self.force_off_calls = 0
+        self.global_variable_names = frozenset({
+            "n_measurements", "t_Node2_excitation_delay_mu",
+            "t_Node2_rtio_offset_mu", "parallel_AOM_feedback",
+            "t_pumping_two_nodes"})
 
     def resolve_experiment_variable_target(self, name, node=None):
         """Mirror the real resolver, including its node-aware override path.
@@ -263,10 +267,11 @@ class FakeBase:
         ambiguous in two_nodes mode there.
         """
         self.resolve_calls.append(name)
-        globals_ = {"n_measurements", "t_Node2_excitation_delay_mu",
-                    "t_Node2_rtio_offset_mu", "parallel_AOM_feedback"}
-        if name in globals_:
+        if name in self.global_variable_names:
             return name
+        # a two-node sequence setting: the bare name is the shared global
+        if self.mode == "two_nodes" and name == "t_pumping":
+            return "t_pumping_two_nodes"
         if node is not None:
             if name.endswith(f"_{node}"):
                 return name
@@ -884,19 +889,103 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             scan._collect_authoritative_overrides()
 
     def test_globals_and_bare_names_resolve_inside_the_node_dictionary(self):
-        """There is no shared field, so globals go in the node's dictionary.
+        """A global in a node's dictionary still works, with a warning.
 
-        A global resolves to itself and a bare name to the running node's
-        suffixed attribute, both from the same dictionary.
+        Submissions saved before override_ExperimentVariables_global existed
+        put globals there. A global resolves to itself and a bare name to the
+        running node's suffixed attribute, both from the same dictionary.
         """
         scan = self._make_override_scan("Node2")
         scan.override_ExperimentVariables_Node2 = (
             "{'n_measurements': 5, 'f_FORT': 243.0}"
         )
-        self.assertEqual(
-            scan._collect_authoritative_overrides(),
-            {"n_measurements": 5, "f_FORT_Node2": 243.0},
+        with self.assertLogs(level="WARNING") as logs:
+            self.assertEqual(
+                scan._collect_authoritative_overrides(),
+                {"n_measurements": 5, "f_FORT_Node2": 243.0},
+            )
+        self.assertIn("override_ExperimentVariables_global", logs.output[0])
+        self.assertIn("'n_measurements' in override_ExperimentVariables_Node2",
+                      logs.output[0])
+        self.assertNotIn("f_FORT", logs.output[0])
+
+    def test_global_field_takes_the_shared_variables_in_both_modes(self):
+        """A global in either mode; in two_nodes also a two-node sequence
+        setting written bare. No warning: this is where they belong."""
+        import logging
+        scan = self._make_override_scan("Node1")
+        scan.override_ExperimentVariables_global = "{'n_measurements': 5}"
+        scan.override_ExperimentVariables_Node1 = "{'f_FORT': 241.0}"
+        ### Python 3.9 has no assertNoLogs: the sentinel must be the only line
+        with self.assertLogs(level="WARNING") as logs:
+            self.assertEqual(
+                scan._collect_authoritative_overrides(),
+                {"n_measurements": 5, "f_FORT_Node1": 241.0},
+            )
+            logging.getLogger().warning("sentinel")
+        self.assertEqual(logs.output, ["WARNING:root:sentinel"])
+
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        scan.base = FakeBase("two_nodes", None)
+        scan.base.experiment = scan
+        scan.override_ExperimentVariables_global = (
+            "{'t_pumping': 2e-4, 'n_measurements': 7}"
         )
+        scan.override_ExperimentVariables_Node1 = "{'f_FORT': 241.0}"
+        scan.override_ExperimentVariables_Node2 = "{'f_FORT_Node2': 242.0}"
+        with self.assertLogs(level="WARNING") as logs:
+            self.assertEqual(
+                scan._collect_authoritative_overrides(),
+                {"t_pumping_two_nodes": 2e-4, "n_measurements": 7,
+                 "f_FORT_Node1": 241.0, "f_FORT_Node2": 242.0},
+            )
+            logging.getLogger().warning("sentinel")
+        self.assertEqual(logs.output, ["WARNING:root:sentinel"])
+
+    def test_global_field_refuses_per_node_variables(self):
+        """A per-node name there would silently pick a node (single_node)
+        or be ambiguous (two_nodes): it raises and names the node fields."""
+        scan = self._make_override_scan("Node1")
+        scan.override_ExperimentVariables_global = "{'f_FORT': 241.0}"
+        with self.assertRaisesRegex(
+                ValueError, "per-node variable 'f_FORT_Node1'.*"
+                            "override_ExperimentVariables_Node1"):
+            scan._collect_authoritative_overrides()
+
+        for text in ("{'f_FORT': 241.0}", "{'f_FORT_Node2': 242.0}"):
+            scan = GeneralVariableScan_master_satellite_two_nodes()
+            scan.base = FakeBase("two_nodes", None)
+            scan.base.experiment = scan
+            scan.override_ExperimentVariables_global = text
+            with self.assertRaisesRegex(
+                    ValueError, "override_ExperimentVariables_global.*"
+                                "Per-node variables go in "
+                                "override_ExperimentVariables_Node1 or _Node2"):
+                scan._collect_authoritative_overrides()
+
+    def test_global_named_in_global_and_node_field_raises(self):
+        """One variable in both fields is overridden twice, as between the
+        two node fields."""
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        scan.base = FakeBase("two_nodes", None)
+        scan.base.experiment = scan
+        scan.override_ExperimentVariables_global = "{'t_pumping': 2e-4}"
+        scan.override_ExperimentVariables_Node1 = "{'t_pumping': 3e-4}"
+        scan.override_ExperimentVariables_Node2 = "{}"
+        with self.assertRaisesRegex(
+                ValueError, "'t_pumping_two_nodes' is overridden twice: once "
+                            "via 't_pumping' in "
+                            "override_ExperimentVariables_global and again via "
+                            "'t_pumping' in override_ExperimentVariables_Node1"):
+            scan._collect_authoritative_overrides()
+
+    def test_missing_or_blank_global_field_means_no_overrides(self):
+        """A submission saved before the field existed has no attribute."""
+        scan = self._make_override_scan("Node1")
+        self.assertFalse(hasattr(scan, "override_ExperimentVariables_global"))
+        self.assertEqual(scan._collect_authoritative_overrides(), {})
+        scan.override_ExperimentVariables_global = "  "
+        self.assertEqual(scan._collect_authoritative_overrides(), {})
 
     def test_wrong_node_name_inside_a_node_dictionary_still_raises(self):
         """The exemption is per-field, not blanket.
@@ -979,11 +1068,11 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 experiment_class
             )
             scan.build()
-            for node in ("Node1", "Node2"):
+            for field in ("Node1", "Node2", "global"):
                 self.assertTrue(
-                    hasattr(scan, f"override_ExperimentVariables_{node}"),
+                    hasattr(scan, f"override_ExperimentVariables_{field}"),
                     f"{experiment_class.__name__} does not declare "
-                    f"override_ExperimentVariables_{node}",
+                    f"override_ExperimentVariables_{field}",
                 )
             # The node-agnostic field was removed deliberately: with per-node
             # dictionaries it is never read, and leaving it on the dashboard

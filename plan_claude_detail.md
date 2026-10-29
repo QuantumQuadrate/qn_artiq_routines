@@ -1484,6 +1484,7 @@ files fix `EXPERIMENT_MODE` as a class constant (split `025c027`,
 2026-08-31). `_single_node` adds `selected_node` (Node1|Node2); `_two_nodes`
 has no node argument. GUI: `n_measurements`, `scan_variable1_name` /
 `scan_sequence1`, `scan_variable2_name` / `scan_sequence2`,
+`pair_scan_sequences`, `override_ExperimentVariables_global`,
 `override_ExperimentVariables_Node1`, `override_ExperimentVariables_Node2`,
 `control_experiment`, `experiment_function` (enumeration from the mode's
 registry), `create_applets` (default True), and the "Catch Underflow" group.
@@ -1558,21 +1559,37 @@ per point.
 
 ### 8.5 Overrides
 
-- One dictionary per node, `override_ExperimentVariables_Node1` and
-  `_Node2`; the shared `override_ExperimentVariables` field was removed
-  (`5c1f508`, 2026-10-01). Only the active nodes' dictionaries are read (the
-  selected node in single_node, both in two_nodes); the idle node's text is
-  never evaluated, since its attributes are not even loaded.
-- Names may be bare or suffixed and resolve against the owning field's node
-  (`6a89075`): `{'t_pumping': ...}` in the `_Node1` field means
-  `t_pumping_Node1`, even in two_nodes. Globals go in the running node's
-  dictionary (name a global in one dictionary only). A target named in two
-  dictionaries raises, listing both sources. Empty means no overrides.
+- A global dictionary, `override_ExperimentVariables_global` (since
+  2026-10-29, the user's request), and one dictionary per node,
+  `override_ExperimentVariables_Node1` and `_Node2`.
+  - The old shared `override_ExperimentVariables` field was removed
+    (`5c1f508`, 2026-10-01) because, next to the per-node dictionaries, it was
+    never read.
+  - The global field is read in both modes and takes only names that resolve
+    to a global: the master-satellite globals and, in two_nodes, the two-node
+    sequence settings written bare (`t_pumping` = `t_pumping_two_nodes`). A
+    per-node name there raises and names the node fields.
+  - Only the active nodes' dictionaries are read (the selected node in
+    single_node, both in two_nodes). The idle node's text is never
+    evaluated, since its attributes are not even loaded.
+- Names in a node field may be bare or suffixed and resolve against the
+  owning field's node (`6a89075`): `{'t_FORT_drop': ...}` in the `_Node1`
+  field means `t_FORT_drop_Node1`, even in two_nodes. A global in a node's
+  field still works, so submissions saved before 2026-10-29 run unchanged,
+  but it logs a warning naming the global field. A target named in two
+  fields (global and node, or both nodes) raises, listing both sources.
+  Empty or missing means no overrides.
 - Merging is shared by GVS and `MicrowaveScanOptimizer` through
   `merge_per_node_override_dictionaries` in the Base module; each caller
-  evaluates in its own `globals()` with `{'self': experiment}`.
-  `submit_opt_exp_general` forwards both fields; old expids fall back to
-  empty dictionaries.
+  evaluates in its own `globals()` with `{'self': experiment}`. Only the GVS
+  passes `global_variable_names`: the optimizer has no global field and
+  takes globals in the node field without a warning. The optimizer's
+  `submit_opt_exp_general` forwards both node fields; old expids fall back
+  to empty dictionaries.
+- Analysis: `ms_overrides` returns the global dictionary under the key
+  `global`, so `ms_print_overrides` prints it with the node ones; the
+  single-node `override_ExperimentVariables` alias appends it when it is not
+  empty.
 - Recording (`ef55cae`, 2026-10-14): each applied, non-scanned override is
   also written as a LOCAL dataset, `set_dataset(target, value,
   broadcast=False, persist=False)`, under the name the run read (suffixed per
@@ -1605,15 +1622,32 @@ never changed by a run.
 
 ### 8.7 Underflow retry
 
-Built into the mixin behind `enable_Catch_UnderFlow` (default off), mirroring
-the standalone GVS (`9904f9b`, 2026-08-31; the separate
+Built into the mixin behind `enable_Catch_UnderFlow`, mirroring the
+standalone GVS (`9904f9b`, 2026-08-31; the separate
 `GeneralVariableScan_CatchError_master_satellite_*` files and
 `_CatchUnderflowRetryMixin` were deleted the same day). GUI group "Catch
-Underflow": `underflow_max_retries` 10, `underflow_backoff_ms` 200,
-`skip_only_that_iteration_if_exhausted` True. Only `RTIOUnderflow` is caught;
-a retried point re-runs the full scan-point flow including the core reset.
-DRTIO, SPI, resolution and all other errors propagate. With the flag off
-there is no exception handling.
+Underflow": `enable_Catch_UnderFlow` True, `underflow_max_retries` 10 (the
+total number of failed attempts before giving up), `underflow_backoff_ms`
+200, `skip_only_that_iteration_if_exhausted` False (defaults since `314c7f7`,
+2026-10-28).
+- Only `RTIOUnderflow` is caught; a retried point re-runs the full scan-point
+  flow including the core reset. DRTIO, SPI, resolution and all other errors
+  propagate. With the flag off there is no exception handling.
+- Rollback (`314c7f7`): before a retry, every list dataset is cut back to its
+  length before the failed attempt, so a point keeps only its successful
+  attempt.
+- Exhausted retries: with skip on, the point is recorded in
+  `underflow_skipped_scan_points`, saved, and the scan goes on to the next
+  point; the skipped point holds no measurements and no per-point entries
+  (`n_atom_loaded_per_iteration` ...). With skip off the run stops and the h5
+  holds whole points only.
+- Records: `underflow_retries_per_scan_point`, `underflow_skipped_scan_points`
+  and, since 2026-10-28 evening, the site of each underflow (`underflow_*`,
+  with the kernel traceback).
+- Analysis: only `2026_Two_Nodes_Parity_Analysis` reads
+  `underflow_skipped_scan_points`. The notebooks that map measurements to
+  scan points by position (n_measurements per point) mislabel every point
+  after a skipped one.
 
 ### 8.8 Two-node specifics
 
@@ -3425,6 +3459,9 @@ files that are no longer true.
   `monitor_magnetometer_in_end_measurement` was on and close otherwise; at
   the user's request they became manual-only the same evening, before
   anything was committed.
+- **2026-10-29** `override_ExperimentVariables_global` in the GVS (section
+  8.5): shared variables were going in Node1's dictionary, which the user
+  found confusing. Globals in a node field keep working with a warning.
 
 Other superseded claims from the retired files:
 

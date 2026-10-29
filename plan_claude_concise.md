@@ -149,8 +149,9 @@ come before cleanup (sections 3.1, 3.3).
 
 **GVS flow** (sections 8.3, 8.4):
 1. Prepare: `configure_execution` -> `base.prepare()` ->
-   `prepare_laser_stabilizer()` -> resolve the scans and the per-node
-   override dictionaries.
+   `prepare_laser_stabilizer()` -> resolve the scans and the global and
+   per-node override dictionaries (shared variables in
+   `override_ExperimentVariables_global` since 2026-10-29).
 2. Run: reload if queued -> apply the overrides, recording them first
    (R17) -> seed the result state -> force the idle node off.
 3. Each scan point: `initialize_hardware()` (core reset) -> reset the

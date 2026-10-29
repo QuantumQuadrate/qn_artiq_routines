@@ -464,6 +464,10 @@ def ms_overrides(source):
     node-tagged GVS files on disk, 18 are of the older shape and 12 of the
     newer, so this is not a transitional nicety.
 
+    GVS runs from 2026-10-29 on also carry override_ExperimentVariables_global,
+    the dictionary of variables both nodes share; it comes back under the key
+    "global" (also when it is "{}", so a listing shows the field was there).
+
     Returns {} for a run that recorded no override argument at all.
     """
     handle, to_close = _ms_handle(source)
@@ -474,6 +478,8 @@ def ms_overrides(source):
             for node in MASTER_SATELLITE_NODES
             if f"override_ExperimentVariables_{node}" in arguments
         }
+        if "override_ExperimentVariables_global" in arguments:
+            found["global"] = arguments["override_ExperimentVariables_global"]
         if found:
             return found
         if "override_ExperimentVariables" in arguments:
@@ -489,7 +495,8 @@ def ms_print_overrides(source, label="override"):
 
     Replaces the `print("override:", override_ExperimentVariables)` line the
     ported notebooks carried. That name no longer exists: each node has its
-    own dictionary now, and this prints both.
+    own dictionary now, and this prints both (and the global one, when the
+    run had it).
     """
     found = ms_overrides(source)
     if not found:
@@ -765,10 +772,10 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
         resolved.setdefault(key, value)
 
     # The ONE submitted argument this stack does not spell the way the
-    # notebooks read it. GVS takes one override dictionary PER NODE and
-    # deliberately no shared one (see "deliberately no shared one" in
-    # GeneralVariableScan_master_satellite_mixin.py), so an expid carries
-    # override_ExperimentVariables_Node1 and _Node2 and no bare name -- while
+    # notebooks read it. GVS takes one override dictionary PER NODE, and since
+    # 2026-10-29 a global one for what both nodes share
+    # (override_ExperimentVariables_global), so an expid carries no bare
+    # override_ExperimentVariables -- while
     # every ported notebook prints the bare one, and dozens of cells across a
     # dozen notebooks do it. Injecting the arguments verbatim above therefore
     # fixed experiment_function, scan_sequence1 and the rest but left this one
@@ -776,12 +783,19 @@ def ms_archive_and_datasets_to_locals(f, parent_locals, quiet=False,
     #
     # The running node's dictionary IS the right value: a single-node run only
     # ever applied its own node's overrides, and the other node's were not
-    # even evaluated. Two-node files never reach here -- ms_node_of raises on
-    # them first.
+    # even evaluated. A non-empty global dictionary is appended, since the
+    # notebooks only print this. Two-node files never reach here --
+    # ms_node_of raises on them first.
     if node is not None:
         per_node_override = arguments.get(
             f"override_ExperimentVariables_{node}"
         )
+        global_override = arguments.get("override_ExperimentVariables_global")
+        if (per_node_override is not None and global_override is not None
+                and str(global_override).strip() not in ("", "{}")):
+            per_node_override = (
+                f"{per_node_override}  [global: {global_override}]"
+            )
         if per_node_override is not None:
             resolved.setdefault(
                 "override_ExperimentVariables", per_node_override

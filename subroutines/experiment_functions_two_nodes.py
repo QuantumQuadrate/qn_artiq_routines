@@ -2788,7 +2788,7 @@ def Two_nodes_HOM_experiment(self):
     t_recooling, t_SPCM_recool_and_shot, t_photon_collection_time) are the
     two-node settings <x>_two_nodes, read here under the bare names. The
     per-node values single-node experiments use are not read. Override one
-    for a run with the bare name in ONE node's dictionary, e.g.
+    for a run with the bare name in override_ExperimentVariables_global, e.g.
     {'t_photon_collection_time': 150*ns}.
 
     The OP coils are set by the pumping trace alone, which waits
