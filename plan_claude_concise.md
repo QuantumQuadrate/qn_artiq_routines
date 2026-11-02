@@ -156,6 +156,17 @@ come before cleanup (sections 3.1, 3.3).
    (R17) -> seed the result state -> force the idle node off.
 3. Each scan point: `initialize_hardware()` (core reset) -> reset the
    results -> call the function -> save a named h5 copy.
+4. `run_health_check` (2026-10-29, section 8.9): before every n-th point
+   (never point 0, outside the underflow retry) the GVS runs
+   `MicrowaveScanOptimizer_master_satellite` per selected node x transition
+   at 99, one at a time, waiting inside its own run (core closed before each
+   `pause()`), resubmits it until it passes (outcome from
+   `health_check_result_for_parent_<RID>`; a failed check at once, a crashed
+   chain after a 60 s backoff; both counted apart on the "MW health check
+   status" applet), re-reads only that center, then republishes its own
+   datasets; check runs 200 measurements, its optimization scans 100;
+   Terminate ends the scan cleanly and deletes nothing from the queue;
+   priority < 99 and the main pipeline required.
 
 ## 5. Essential invariants
 

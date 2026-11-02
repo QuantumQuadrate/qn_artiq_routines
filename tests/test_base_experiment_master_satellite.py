@@ -916,6 +916,63 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             groups["retention and loading AllSPCMs"], [two, "GVS and Cycler"]
         )
 
+    def test_health_check_status_applet_is_shared_and_never_retired(self):
+        """The GVS health check's status applet (2026-10-29): the same command
+        and group in every mode, and no retirement a run issues reaches it --
+        its re-optimization count is the user's sign to relock the lasers."""
+        import applets_master_satellite as applets
+
+        class RecordingCCB:
+            def __init__(self):
+                self.created = []
+                self.disabled = []
+
+            def issue(self, action, *args, **kwargs):
+                if action == "create_applet":
+                    self.created.append((args[0], args[1],
+                                         list(kwargs.get("group"))))
+                elif action in ("disable_applet", "disable_applet_group"):
+                    self.disabled.append((args, kwargs))
+
+        title = "MW health check status"
+        group = [applets.SHARED_APPLET_GROUP, "GVS health check"]
+        for mode, node in (("single_node", "Node1"), ("single_node", "Node2"),
+                           ("two_nodes", None)):
+            with self.subTest(mode=mode, node=node):
+                experiment, base = self.build_and_prepare(mode, node)
+                ccb = RecordingCCB()
+                experiment.ccb = ccb
+                applets.create_shared_applets_for(
+                    experiment, base,
+                    shared_specs=applets.HEALTH_CHECK_STATUS_APPLET_SPECS)
+                self.assertEqual(len(ccb.created), 1)
+                created_title, command, created_group = ccb.created[0]
+                self.assertEqual((created_title, created_group), (title, group))
+                self.assertIn("health_check_status.py", command)
+                self.assertEqual(command.split()[-1], "health_check_status")
+                self.assertEqual(ccb.disabled, [])
+
+                # every retirement pass of a run, in either mode, leaves it be
+                ccb = RecordingCCB()
+                experiment.ccb = ccb
+                if mode == "single_node":
+                    applets.create_applets_for(
+                        experiment, base, specs=applets.APPLET_SPECS,
+                        shared_specs=applets.SHARED_APPLET_SPECS)
+                else:
+                    applets.create_two_node_applets_for(
+                        experiment, base,
+                        specs=applets.TWO_NODE_APPLET_SPECS,
+                        shared_specs=applets.SHARED_APPLET_SPECS)
+                for args, _ in ccb.disabled:
+                    self.assertNotEqual(args[0], title)
+                    self.assertNotIn("GVS health check", args)
+                    self.assertNotEqual(args[0], applets.SHARED_APPLET_GROUP)
+        self.assertEqual(applets.applet_paths_for_titles([title]), set())
+        self.assertNotIn(applets.SHARED_APPLET_GROUP,
+                         applets.execution_applet_groups(None))
+        self.assertNotIn(title, applets.conflicting_applet_titles())
+
     def test_magnetometer_applets_are_manual_only(self):
         """No run creates or closes the magnetometer applets on its own.
 

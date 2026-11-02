@@ -832,6 +832,20 @@ SHARED_APPLET_SPECS = (
 )
 
 
+#: The GVS microwave health check's status: what it is doing now and how
+#: often each node x transition needed re-optimizing this run -- a growing
+#: count is the sign to relock the lasers. One text applet, asked for by the
+#: GVS whenever run_health_check is on, in either mode, through
+#: create_shared_applets_for: SHARED_APPLET_GROUP is never retired, and its
+#: own functional group keeps it out of every retirement by title too. Its
+#: dataset is broadcast and not persisted, so after a master restart it is
+#: empty until a GVS with the check on writes it again.
+HEALTH_CHECK_STATUS_APPLET_SPECS = (
+    _spec("MW health check status", "health_check_status.py",
+          ("health_check_status",), group="GVS health check"),
+)
+
+
 def resolve_applet_dataset(base, name):
     """Map a legacy dataset name to what the running node actually writes."""
     try:

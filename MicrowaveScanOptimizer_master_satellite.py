@@ -14,9 +14,18 @@ node-suffixed through the dataset-redirect layer, so Node1 and Node2 results
 stay separate. fit_parameter_* and parent_rid remain unsuffixed run state.
 
 Resubmission contract: this experiment resubmits itself (health-check
-failures) with its own file/class name and carries which_node forward.
-Future master-satellite HealthCheck files must do the same; the standalone
-HealthCheck files keep targeting the standalone optimizer.
+failures) with its own file/class name and carries which_node, parent_rid,
+target_fidelity, show_shared_applets and n_measurements_optimization_scan
+forward (the scan runs with that many measurements per point when it is
+above 0, else with the check's n_measurements). The master-satellite GVS
+health check (run_health_check, since 2026-10-29) delegates to this class: it
+submits the check run with parent_rid = its own RID, waits inside its run
+until no run of this class with that parent_rid is left -- the scan a failed
+check submits included -- and then reads health_check_result_for_parent_<its
+RID>, which health_check_general broadcasts at its end (beside the latest-run
+health_check_result_* for people). Keep those names and parent_rid carried
+forward. The standalone HealthCheck files keep targeting the
+standalone optimizer.
 """
 
 import ast
@@ -135,6 +144,13 @@ class MicrowaveScanOptimizer_master_satellite(
         )
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Scan Setting")
+        self.setattr_argument(
+            "n_measurements_optimization_scan",
+            NumberValue(0, ndecimals=0, step=1),
+            "General Scan Setting",
+            tooltip="n_measurements of the optimization scan a failed health "
+                    "check submits. 0 = the same as n_measurements.",
+        )
         # One override dictionary per node, and deliberately no shared one:
         # both may stay populated at once, so switching which_node is the only
         # edit needed to move a scan between nodes. Globals such as
@@ -954,9 +970,53 @@ class MicrowaveScanOptimizer_master_satellite(
             if self.scan_type.startswith("Time"):
                 self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2),
                                  broadcast=True, persist=True)
-            return True
+            passed = True
         else:
-            return False
+            passed = False
+        self._publish_health_check_result(fidelity, passed)
+        return passed
+
+    def _publish_health_check_result(self, fidelity, passed):
+        """The outcome of every health_check_general call (check or fit check,
+        pass or fail), for the GVS health check that submitted this run.
+
+        Broadcast and NOT persisted: run state that a waiting GVS reads from
+        the master DB, not a calibration. Unrounded fidelity, unlike
+        health_check_uw_*.
+
+        health_check_result_<name>: the latest result of ANY run of this
+        class, for a person looking at the dashboard.
+
+        health_check_result_for_parent_<parent_rid>, [rid, node, scan,
+        fidelity, passed]: what the GVS reads. Keyed by parent because the
+        latest result is not safe to read: a run queued between the GVS's
+        priority and 99 (a user's own optimizer, another GVS's chain) runs
+        while the GVS is paused and would overwrite it before the GVS
+        resumes. Only runs submitted on someone's behalf (parent_rid not
+        this run's own RID) write it; not archived, since a mixed list does
+        not go into the h5. A chain that crashed before writing it, or a
+        failed check whose scan never wrote one, counts as crashed: the GVS
+        resubmits it after a backoff.
+        """
+        rid = int(self.scheduler.rid)
+        parent = int(self.parent_rid)
+        result = (
+            ("rid", rid),
+            ("parent_rid", parent),
+            ("node", str(self._selected_node)),
+            ("scan", str(self.scan_type)),
+            ("fidelity", float(fidelity)),
+            ("passed", bool(passed)),
+        )
+        for name, value in result:
+            self.set_dataset(f"health_check_result_{name}", value,
+                             broadcast=True, persist=False)
+        if parent != rid:
+            self.set_dataset(
+                f"health_check_result_for_parent_{parent}",
+                [rid, str(self._selected_node), str(self.scan_type),
+                 float(fidelity), int(bool(passed))],
+                broadcast=True, persist=False, archive=False)
 
     def _set_calibration_attribute(self, legacy_name, value):
         """Set a calibration through its authoritative suffixed attribute."""
@@ -971,9 +1031,24 @@ class MicrowaveScanOptimizer_master_satellite(
         Schedules an optimization run of THIS master-satellite class when a
         health check fails, carrying which_node forward. Future
         master-satellite HealthCheck files must submit the same expid shape.
+
+        Also carried forward, so the scan judges its fit check by the same
+        standard as the check that failed and keeps the dashboard as the
+        submitter wanted: target_fidelity (hard-coded 0.80 until 2026-10-29)
+        and show_shared_applets (omitted, so True, until then). parent_rid is
+        how a waiting GVS health check finds this scan (module docstring).
+
+        n_measurements of the scan: n_measurements_optimization_scan when it
+        is above 0 (the GVS health check: 200 for the check, 100 per scan
+        point), else this run's n_measurements, as before 2026-10-29. The
+        argument itself is carried on too.
         """
         print("submitting another experiment")
         ## 99 seems to be the highest priority that can be set to.
+
+        scan_n_measurements = int(self.n_measurements_optimization_scan)
+        if scan_n_measurements <= 0:
+            scan_n_measurements = self._execution_n_measurements
 
         default_expid = {
             "log_level": 30,
@@ -983,9 +1058,12 @@ class MicrowaveScanOptimizer_master_satellite(
                 "which_node": self._selected_node,
                 "parent_rid": self.parent_rid,
                 "run_health_check_and_optimize": False,
-                "target_fidelity": 0.80,
+                "target_fidelity": self.target_fidelity,
+                "show_shared_applets": self.show_shared_applets,
 
-                "n_measurements": self._execution_n_measurements,
+                "n_measurements": scan_n_measurements,
+                "n_measurements_optimization_scan":
+                    self.n_measurements_optimization_scan,
                 "override_ExperimentVariables_Node1": "{}",
                 "override_ExperimentVariables_Node2": "{}",
                 "enable_fitting": True,

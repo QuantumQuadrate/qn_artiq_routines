@@ -77,6 +77,9 @@ def _artiq_experiment_stub_or_none():
 _experiment_stub = _artiq_experiment_stub_or_none()
 if _experiment_stub is not None:
     _stub_exports = {
+        # the GVS health check catches it around scheduler.pause()
+        "TerminationRequested": type(
+            "TerminationRequested", (Exception,), {}),
         "EnvExperiment": object,
         "kernel": _identity_decorator,
         "rpc": _identity_decorator,

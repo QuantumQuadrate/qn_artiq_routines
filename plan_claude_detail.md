@@ -1487,7 +1487,8 @@ has no node argument. GUI: `n_measurements`, `scan_variable1_name` /
 `pair_scan_sequences`, `override_ExperimentVariables_global`,
 `override_ExperimentVariables_Node1`, `override_ExperimentVariables_Node2`,
 `control_experiment`, `experiment_function` (enumeration from the mode's
-registry), `create_applets` (default True), and the "Catch Underflow" group.
+registry), `create_applets` (default True), the "Catch Underflow" group and
+the "Health Check" group (section 8.9).
 Do not grow the standalone GVS into an architecture switch; the stacks stay
 separate.
 
@@ -1654,6 +1655,148 @@ total number of failed attempts before giving up), `underflow_backoff_ms`
 Scan variable names must be suffixed or global. Results are unsuffixed
 (joint). Feedback runs per node via `laser_stabilizer_Node1/_Node2`. The
 result tag is `TwoNodes`. No `force_other_node_off`.
+
+### 8.9 Health check (2026-10-29, "pause and delegate")
+
+Why: the FORT polarization drifts, so the AC Stark shift and the microwave
+transition frequencies drift during a long scan. The GVS re-centres them
+itself, inside ONE run and one h5 file; it never terminates and resubmits
+itself (the user's earlier workaround, patched together in analysis).
+
+- GUI group "Health Check", all inert unless `run_health_check` (default
+  False; also a class attribute, so hand-built test scans keep working):
+  `health_check_every_n_ite` (1), `health_check_node_selection`
+  (Node1 | Node2 | both_nodes, in either mode; default Node1 only because
+  ARTIQ raises `DefaultMissing` for an expid without the key),
+  `Frequency_00/01/11/m10/m11_Scan` (none preselected), `target_fidelity`
+  (0.80, one target for every check), `health_check_n_measurements` (200,
+  the check run's), `health_check_optimization_n_measurements` (100, per
+  point of the re-optimization scan a failed check submits; 0 = the
+  check's), `health_check_adaptive_half_range_linewidths` (1.0),
+  `health_check_adaptive_points_per_linewidth` (4.0). No name collides with
+  an ExperimentVariable. Class attributes (no GUI):
+  `health_check_poll_interval` (0.5 s), `health_check_crash_backoff_s`
+  (60 s); tests set both 0.
+- When: before scan point i with i > 0 and i % every_n == 0, never before
+  point 0, in `run()` OUTSIDE `_run_scan_point`, so an underflow retry never
+  repeats it. i is the flat point index (grid and paired scans alike).
+- What, one at a time: for each selected node, then each ticked transition
+  in the order 00, 01, 11, m10, m11 (11 and m11 pulse 01 first, m10 pulses 00
+  first), `_run_one_health_check`:
+  1. submit `MicrowaveScanOptimizer_master_satellite` at priority 99 in the
+     main pipeline (`_health_check_expid`): `which_node`, `parent_rid` = the
+     GVS RID, `run_health_check_and_optimize` True, only that frequency flag
+     True (all 13 flags given), `n_measurements` =
+     `health_check_n_measurements`, `n_measurements_optimization_scan` =
+     `health_check_optimization_n_measurements` (the optimizer gives its
+     scan that many), `target_fidelity`, fitting, geometric and
+     node-specific adaptive scan on with the two GUI adaptive values,
+     `show_shared_applets` False, the forwarded dictionary in that node's
+     override field and `"{}"` in the other;
+  2. `_wait_for_health_check_chain`: `self.core.comm.close()`
+     (`_release_core`) before EVERY `scheduler.pause()`, polling
+     `get_status()` for optimizer runs with `parent_rid` = this RID (the scan a
+     failed check submits carries it on) until none is left that is not
+     run_done / analyzing / deleting; `pause()` only when `check_pause()`,
+     otherwise sleep `health_check_poll_interval` (0.5 s). ARTIQ 7 `pause()`
+     yields only to a prepared run with a higher priority key, so any queued
+     run with a priority between the GVS's and 99 also runs then (accepted).
+     `check_termination()` is asked before every `check_pause()`: a Terminate
+     raised through `pause()` would arrive only after ARTIQ had run every
+     prepared chain run (with the lasers unlocked, possibly never: load until
+     atom); asked first, the scan ends at once and the chain stays queued;
+  3. outcome from `health_check_result_for_parent_<GVS RID>` = [rid, node,
+     scan, fidelity, passed] (read with `archive=False`), NOT the latest-run
+     `health_check_result_*`: a run in the priority band above (a user's own
+     optimizer, another GVS's chain) runs while the GVS is paused and would
+     overwrite those before it resumes. The result is the chain's if it is
+     no older than the chain and for this node and transition
+     (`_read_health_check_result` -> "passed" / "failed" / "crashed").
+     Failed (a result that did not pass): the SAME expid again at once, at
+     99 so it runs next. Crashed (no result of its own: none, an earlier
+     attempt's, or only the CHECK's failure -- a failed check always submits
+     a scan and the scan always publishes its fit check, so the scan crashed,
+     e.g. a FitError, or an exception in prepare/run): the same, after
+     `health_check_crash_backoff_s` (60 s, `_health_check_crash_backoff`,
+     `check_termination()` about once a second, so Terminate still ends the
+     scan cleanly). Both without limit: the growing count on the status
+     applet is the signal to relock the lasers. Which n decides "passed": a
+     check that passes at once, its own 200 (`health_check_n_measurements`);
+     a chain that re-optimized, the scan's fit check, which runs in the scan
+     run with ITS n_measurements, i.e. `health_check_optimization_n_measurements`
+     (100; fidelity error about 0.04 against about 0.028 at 200). Open
+     question for the user whether that last pass should be 200 instead;
+  4. re-read only that center, `<center>_<node>`, with `archive=False`, set
+     the GVS's suffixed attribute and `_refresh_runtime_variable_state()`
+     (single_node: only for the selected node; another node's center is read
+     for the record only). Never `reload_experiment_variables()` or
+     `_apply_run_wide_overrides()` mid-run (re-archiving; local re-writes of
+     broadcast keys delete them from the master DB).
+- After the event: single_node with another node checked,
+  `force_other_node_off()` again; `republish_run_datasets` (every
+  non-persistent broadcast key plus `n_measurements`, same object and flags,
+  like the rollback; never feedback `p_*_NodeX` or calibrations) because the
+  optimizer runs overwrote the master DB's copies; `_create_node_applets()`
+  and the status applet again; `_save_scan_point_results()`.
+- Forwarded overrides (`_health_check_forwarded_overrides`; the user: "the
+  shared global values should be overwritten in the optimizer as well
+  because they depend on that"): two_nodes, ALL 13 shared two-node settings
+  written bare with the GVS's current `<bare>_two_nodes` value (the
+  optimizer's node field resolves them to the node's twin); a SCANNED shared
+  setting gets the run's value from before the scan (captured in
+  `_initialize_health_check_records`), not the current point's; the run's
+  overrides of that node's own variables (a two-node run cannot override a
+  shared setting's per-node twin such as `t_pumping_Node1`: its resolver
+  refuses it, so no twin entry meets the bare one, "overridden twice"); the
+  run's overrides of plain globals. Dropped: `n_measurements`, the scan
+  variables, and every MW
+  calibration (`f_microwaves_*dds*`, `t_microwave_*pulse*`,
+  `t_MW_RF_pulse*`, `health_check_uw_*`). numpy scalars become Python
+  numbers, arrays `array([...])`, NaN `float('nan')`. Logged with each check.
+- Prepare refuses (`_prepare_health_check`): priority >= 99 (a GVS at 99
+  never yields to its 99 chain), a pipeline other than main, no transition
+  ticked, every_n < 1, a selected center that the run overrides or scans,
+  and a forwarded dictionary the optimizer's own merge would refuse
+  (`_validate_forwarded_overrides`). RID 0 (artiq_run's DummyScheduler, the
+  offline compile sweep): each check is skipped with a log line.
+- Records, LOCAL and never suffixed (`gvs_health_check_*`), one entry per
+  completed (node, transition): `scan_point`, `node` (1/2), `transition`
+  (index into `gvs_health_check_transition_labels` = "00,01,11,m10,m11"),
+  `fidelity`, `resubmissions` (all), `crashes` (how many of them followed a
+  crashed chain; the rest followed a failed check), `center_before_Hz`,
+  `center_after_Hz`, `time_start`, `time_end`; text
+  `gvs_health_check_chain_rids` and `gvs_health_check_log`.
+- Status: broadcast, non-persistent `health_check_status` (now: "Node1
+  freq11: checking since HH:MM:SS, RID ..., resubmissions this check n (c
+  after a crash)", or "... crashed; resubmitting at HH:MM:SS"; then per node
+  x transition "n failed (at scan point ...), c crashed (at scan point
+  ...)" and the totals), shown by `applets/health_check_status.py`
+  (`HEALTH_CHECK_STATUS_APPLET_SPECS`, "Both nodes" / "GVS health check",
+  never retired), requested whenever `run_health_check` is on -- also with
+  `create_applets` off (the one exception, stated in its tooltip), since the
+  count is the relock signal.
+- Terminate (confirmed by the user, 2026-10-29): `TerminationRequested` from
+  `pause()`, or `check_termination()` while waiting, before a submission or
+  in a crash backoff, ends the scan cleanly
+  (`_end_scan_on_health_check_termination`) and DELETES NOTHING: every
+  optimizer run of the chain stays queued, a running one finishes (the user:
+  with the lasers unlocked nothing should run until they are relocked
+  anyway; "don't delete the existing queue"). Logs the RIDs still queued and
+  running, records `gvs_health_check_terminated_at_scan_point`, saves,
+  returns from `run()`.
+- Optimizer side (`MicrowaveScanOptimizer_master_satellite`):
+  `health_check_general` broadcasts `health_check_result_rid`, `_parent_rid`,
+  `_node`, `_scan`, `_fidelity` (unrounded) and `_passed` (persist False) at
+  the end of every call, for people, and, when run for someone else
+  (`parent_rid` not its own RID), `health_check_result_for_parent_<parent_rid>`
+  (broadcast, persist False, archive False: a mixed list), which the GVS
+  reads; `submit_opt_exp_general` carries `target_fidelity` and
+  `show_shared_applets` (hard-coded 0.80 / omitted before) and the new
+  argument `n_measurements_optimization_scan` (section 11.1).
+- Tests: `GeneralVariableScanHealthCheckTests` (a scheduler that steps each
+  chain through pending -> prepare_done -> gone and scripts the optimizer);
+  the optimizer file runs the GVS-built expid through the optimizer's
+  `build()`/`prepare()` and pins the GVS's copy of the flags and centers.
 
 ---
 
@@ -2098,9 +2241,18 @@ Committed behaviour (`1277477`, 2026-09-01, with later fixes):
   val)` in `initialize_datasets`.
 - Health-check failure resubmits THIS class (`default_expid`: file
   `qn_artiq_routines/MicrowaveScanOptimizer_master_satellite.py`,
-  `which_node`, both override dictionaries, `parent_rid`). Future
+  `which_node`, both override dictionaries, `parent_rid`, and since
+  2026-10-29 `target_fidelity`, `show_shared_applets` and
+  `n_measurements_optimization_scan`). That GUI argument ("General Scan
+  Setting", default 0) sets the scan's `n_measurements` when above 0;
+  0 keeps the scan at the run's own `n_measurements`, so manual runs behave
+  as before. The GVS health check sets it to 100 (check runs: 200). Future
   master-satellite HealthCheck files must submit the same expid shape; none
-  exist yet.
+  exist yet. The GVS health check (section 8.9) is a consumer: it submits the
+  check run with `parent_rid` = its RID, waits for the chain by `parent_rid`,
+  and reads `health_check_result_for_parent_<its RID>`, which
+  `health_check_general` broadcasts beside the latest-run
+  `health_check_result_*`.
 - Applets via `create_applets_for` (so it gets the retirement pass) plus the
   shared set.
 - Fixes: `cb7a0ab` (2026-08-31) one `experiment_name` instead of
@@ -2655,7 +2807,7 @@ follow the node, and a node switch restarts only the applets whose command
 changed); `TWO_NODE_APPLET_GROUP = "TwoNodes"`; `SHARED_APPLET_GROUP = "Both
 nodes"` (node-pinned per-node applets, never retired). Functional subgroups:
 "GVS and Cycler", "Optimization", "Monitor in each measurement", "Single
-Photon Experiment", "K10CR1".
+Photon Experiment", "K10CR1", "GVS health check" (under "Both nodes").
 
 Spec sets: `APPLET_SPECS` (progress bar, retention and loading AllSPCMs,
 RO1/RO2 histograms, Atom loading time); `GVS_APPLET_SPECS` (atom-check loading
@@ -2682,7 +2834,11 @@ GVS runs of `FIRST_SHOT_ALIVE_EXPERIMENTS` with `advance_if_atom_in_first_shot`
 on, exclusive otherwise; 2026-10-27); `K10CR1_APPLET_SPECS` (waveplate trajectory);
 `SHARED_APPLET_SPECS` (per node: Microwaves Health Check, feedback RF, FORT APD
 normalized setpoint, FORT MM normalized to ref, FORT MM over APD normalized
-via `plot_FORT_MM_norm_to_power.py`).
+via `plot_FORT_MM_norm_to_power.py`); `HEALTH_CHECK_STATUS_APPLET_SPECS`
+("MW health check status", `applets/health_check_status.py` on the broadcast,
+non-persistent `health_check_status`; "Both nodes" / "GVS health check", never
+retired; requested by either GVS whenever `run_health_check` is on, through
+`create_shared_applets_for`, 2026-10-29).
 
 `MAGNETOMETER_APPLET_SPECS` (`bfca64d`, O-35): three applets under
 "Monitor in each measurement", "Magnetometer (Zero)", "Magnetometer (OP)" and
@@ -2702,7 +2858,8 @@ scales 350 mG/V, Node2 `mGauss_per_Volt = 1` (volts).
 Entry points: `create_applets_for` (single_node only, with retirement),
 `create_two_node_applets_for` (two_nodes only), `create_shared_applets_for`
 (either mode, no retirement). Callers: single GVS (APPLET + GVS, shared +
-SCAN); two GVS (TWO_NODE + variants, shared + SCAN); MicrowaveScanOptimizer
+SCAN); two GVS (TWO_NODE + variants, shared + SCAN); either GVS with
+`run_health_check` (HEALTH_CHECK_STATUS, shared only); MicrowaveScanOptimizer
 (APPLET, shared + SCAN); FORT optimizer (shared + K10CR1); SamplerMOT
 (shared); MonitorSPCMinApplet (APPLET + SPCM_MONITOR).
 
@@ -3482,6 +3639,40 @@ files that are no longer true.
   their rows (the attempts of a cycle are 134.0 us apart, but with ~20 cycles
   between photons and an atom check every 30 cycles the cycle pattern does
   not carry from one photon to the next).
+- **2026-10-29** GVS microwave health check (section 8.9), the user's
+  design: pause and delegate to `MicrowaveScanOptimizer_master_satellite`
+  inside the running GVS rather than terminating and resubmitting it (one h5
+  per run); no atom-loading run is scheduled; a failed check is resubmitted
+  without limit and counted on a status applet (a growing count means relock
+  the lasers); one `target_fidelity` for every check; every iteration by
+  default; the shared two-node settings and the run's overrides are forwarded
+  to the optimizer. The optimizer now carries `target_fidelity` and
+  `show_shared_applets` into its scan and broadcasts `health_check_result_*`
+  plus the parent-keyed `health_check_result_for_parent_<GVS RID>` the GVS
+  reads (review: an optimizer run inside the pause overwrote the latest-run
+  keys and turned a passed check into a resubmission). In two_nodes all 13
+  shared settings are forwarded, a scanned one at its pre-scan value.
+  Termination during a
+  check is implemented but not yet confirmed; Terminate is checked before
+  every pause so a prepared chain run is deleted, not run (superseded by
+  the next entry: nothing is deleted).
+- **2026-10-29** Health check, the user's review of the above: (1) Terminate
+  deletes NOTHING ("if the lasers are unlocked there is no point running
+  the next experiment until they are relocked ... don't delete the existing
+  queue"): the scan still ends cleanly, the queued optimizer runs stay and
+  their RIDs are logged; Terminate is still asked before every pause, so
+  the scan ends at once instead of after the chain. (2) A chain with no
+  result of its own (a crash, including a failed check whose scan left no
+  fit check) is resubmitted after a 60 s backoff
+  (`health_check_crash_backoff_s`, Terminate asked about once a second); a
+  genuine failure at once, at 99 so it runs next; crashes counted apart
+  from failed checks (`gvs_health_check_crashes`, status applet). (3) Check
+  runs 200 measurements, optimization scans 100:
+  `health_check_n_measurements` default 200 (prepare refuses below 1:
+  every check would crash and be resubmitted for ever) and the new
+  `health_check_optimization_n_measurements` (100), passed to the
+  optimizer's new `n_measurements_optimization_scan` (default 0 = same as
+  `n_measurements`, so manual optimizer runs are unchanged).
 
 Other superseded claims from the retired files:
 
