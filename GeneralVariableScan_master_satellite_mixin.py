@@ -668,8 +668,7 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self._validate_paired_scan()
 
         self.authoritative_overrides = self._collect_authoritative_overrides()
-        if self.EXPERIMENT_MODE == "two_nodes":
-            self._check_two_node_MOT_coil_targets()
+        self._check_MOT_coil_targets()
 
         self.experiment_name = str(self.experiment_function)
         # Filename suffix built the same way standalone GeneralVariableScan
@@ -719,22 +718,27 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self.base.refresh_compatibility_variables()
         self.base.refresh_variable_dependent_state()
 
-    def _check_two_node_MOT_coil_targets(self):
-        """Refuse a MOT coil override or scan the two-node loader would ignore.
+    def _check_MOT_coil_targets(self):
+        """Refuse a MOT coil override or scan the loader would ignore.
 
-        The loader reads <coil>_for_two_nodes_NodeX or <coil>_NodeX depending
-        on the global override_coils_with_two_nodes_setting AS THIS RUN SETS
-        IT, so an override of the flag counts. A scan over the flag itself
-        uses both sets, so nothing is refused then.
+        two_nodes: the loader reads <coil>_for_two_nodes_NodeX or <coil>_NodeX
+        depending on the global override_coils_with_two_nodes_setting AS THIS
+        RUN SETS IT, so an override of the flag counts; a scan over the flag
+        itself uses both sets, so nothing is refused then. single_node: the
+        flag and the two-node set are never read. Called at prepare and again
+        after a run-start reload, which may bring a changed stored flag.
         """
         flag = BaseExperimentMasterSatellite.TWO_NODE_MOT_COIL_FLAG
         scanned = {self.scan_variable1, self.scan_variable2} - {None}
+        targets = set(self.authoritative_overrides) | scanned
+        if self.EXPERIMENT_MODE != "two_nodes":
+            self.base.check_single_node_MOT_coil_targets(targets)
+            return
         if flag in scanned:
             return
         use_two_node_coils = self.authoritative_overrides.get(
             flag, getattr(self, flag))
-        self.base.check_two_node_MOT_coil_targets(
-            set(self.authoritative_overrides) | scanned, use_two_node_coils)
+        self.base.check_two_node_MOT_coil_targets(targets, use_two_node_coils)
 
     def _apply_run_wide_overrides(self):
         # A scanned variable takes its value from the scan at every point, so
@@ -798,6 +802,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             self.base.reload_experiment_variables()
             # n_measurements is a run-local GUI value, not a persistent write.
             self.n_measurements = self.execution_n_measurements
+            # The stored override_coils_with_two_nodes_setting may have changed
+            # since prepare; checked before any override is recorded.
+            self._check_MOT_coil_targets()
 
         self._apply_run_wide_overrides()
         self.base.initialize_result_datasets()

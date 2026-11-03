@@ -260,6 +260,14 @@ class FakeBase:
             "n_measurements", "t_Node2_excitation_delay_mu",
             "t_Node2_rtio_offset_mu", "parallel_AOM_feedback",
             "t_pumping_two_nodes"})
+        self.MOT_coil_checks = []
+
+    def check_single_node_MOT_coil_targets(self, targets):
+        self.MOT_coil_checks.append(("single_node", set(targets)))
+
+    def check_two_node_MOT_coil_targets(self, targets, use_two_node_coils):
+        self.MOT_coil_checks.append(
+            ("two_nodes", set(targets), use_two_node_coils))
 
     def resolve_experiment_variable_target(self, name, node=None):
         """Mirror the real resolver, including its node-aware override path.
@@ -952,28 +960,65 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
         override_coils_with_two_nodes_setting counts; a scan over the flag
         uses both sets, so there is nothing to check.
         """
-        calls = []
         scan = GeneralVariableScan_master_satellite_two_nodes()
-        scan.base = types.SimpleNamespace(
-            check_two_node_MOT_coil_targets=(
-                lambda targets, use: calls.append((set(targets), use))))
+        scan.base = FakeBase("two_nodes", None)
         scan.override_coils_with_two_nodes_setting = False  # stored value
         scan.scan_variable1 = "AX_volts_MOT_for_two_nodes_Node1"
         scan.scan_variable2 = None
 
         scan.authoritative_overrides = {"f_FORT_Node1": 241.0}
-        scan._check_two_node_MOT_coil_targets()
+        scan._check_MOT_coil_targets()
         scan.authoritative_overrides = {
             "override_coils_with_two_nodes_setting": True}
-        scan._check_two_node_MOT_coil_targets()
+        scan._check_MOT_coil_targets()
         scan.scan_variable1 = "override_coils_with_two_nodes_setting"
-        scan._check_two_node_MOT_coil_targets()
+        scan._check_MOT_coil_targets()
 
-        self.assertEqual(calls, [
-            ({"f_FORT_Node1", "AX_volts_MOT_for_two_nodes_Node1"}, False),
-            ({"override_coils_with_two_nodes_setting",
-              "AX_volts_MOT_for_two_nodes_Node1"}, True),
+        self.assertEqual(scan.base.MOT_coil_checks, [
+            ("two_nodes",
+             {"f_FORT_Node1", "AX_volts_MOT_for_two_nodes_Node1"}, False),
+            ("two_nodes", {"override_coils_with_two_nodes_setting",
+                           "AX_volts_MOT_for_two_nodes_Node1"}, True),
         ])
+
+    def test_single_node_runs_check_their_MOT_coil_targets(self):
+        scan = GeneralVariableScan_master_satellite_single_node()
+        scan.base = FakeBase("single_node", "Node1")
+        scan.scan_variable1 = "f_FORT_Node1"
+        scan.scan_variable2 = None
+        scan.authoritative_overrides = {
+            "override_coils_with_two_nodes_setting": True}
+        scan._check_MOT_coil_targets()
+        self.assertEqual(scan.base.MOT_coil_checks, [
+            ("single_node",
+             {"f_FORT_Node1", "override_coils_with_two_nodes_setting"}),
+        ])
+
+    def test_MOT_coil_targets_are_checked_again_after_a_run_start_reload(self):
+        """A stored flag changed between prepare and run is seen, before any
+        override is recorded."""
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        scan.base = FakeBase("two_nodes", None)
+        order = []
+        scan.base.reload_experiment_variables = (
+            lambda: order.append("reload")
+            or setattr(scan, "override_coils_with_two_nodes_setting", True))
+        scan.base.check_two_node_MOT_coil_targets = (
+            lambda targets, use: order.append(("check", use)))
+        scan._apply_run_wide_overrides = lambda: order.append("overrides")
+        scan.base.initialize_result_datasets = lambda: None
+        scan.base.initialize_result_state = lambda: None
+        scan.override_coils_with_two_nodes_setting = False
+        scan.needs_experiment_variable_reload = True
+        scan.execution_n_measurements = 3
+        scan.authoritative_overrides = {"AZ_bottom_volts_MOT_Node1": 6.4}
+        scan.scan_variable1 = "dummy_variable"
+        scan.scan_variable2 = None
+        try:
+            scan._initialize_run_state()
+        except Exception:  # noqa: BLE001 - only the order matters here
+            pass
+        self.assertEqual(order[:3], ["reload", ("check", True), "overrides"])
 
     def test_global_field_refuses_per_node_variables(self):
         """A per-node name there would silently pick a node (single_node)

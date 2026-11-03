@@ -91,8 +91,12 @@ BOTH NODES (which_node = both_nodes)
 
 * Coils: the two-node coil set, <coil>_for_two_nodes_NodeX, is what is tuned
   and saved, whatever override_coils_with_two_nodes_setting says; that flag
-  only decides whether the two-node experiments load with it. The single-node
-  coils are never touched. Set points: each node's set_point_PD*_AOM_A*_NodeX
+  only decides whether the two-node experiments load with it (prepare warns
+  when it is off). The single-node coils are never touched. When the coils
+  are NOT tuned, the run loads with the coils the two-node experiments use
+  now (Base's MOT_coil_volts_NodeX, chosen by the flag), so beam powers are
+  tuned under the field they will be used with. Set points: each node's
+  set_point_PD*_AOM_A*_NodeX
   (there is no separate two-node set). Parameter order: Node1's 4 coils,
   Node2's 4 coils, then the set-point multipliers Node1 A1..A4[,A5,A6] and
   Node2 A1..A4[,A5,A6]. The coil bounds must be differential (+-dV around each
@@ -510,6 +514,31 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
                                            max_boundary=max_bounds)
         print("prepare - done")
 
+    def _check_saved_values_unchanged(self):
+        """Refuse to start when a value this run would save changed after prepare.
+
+        ARTIQ prepares a queued run while the run ahead of it is still
+        running. An optimizer queued behind another one therefore read its
+        starting values -- the centre of its coil bounds, the set points the
+        beam search scales, and what "keep the previous values" writes back --
+        before that run saved its result, and saving at the end would
+        silently undo it. A both_nodes run saves both nodes' set points, so a
+        Node1 or Node2 run followed by a both_nodes run is exactly that.
+        Checked before anything touches the hardware: resubmit, and the new
+        run starts from the new values.
+        """
+        changed = []
+        for name, value in self.describe_parameters(self.previous_params):
+            stored = float(self.get_dataset(name, archive=False))
+            if stored != value:
+                changed.append(f"{name} {value!r} at prepare, {stored!r} now")
+        if changed:
+            raise RuntimeError(
+                "Values this run would save changed after it was prepared, "
+                "most likely saved by a run queued ahead of it: "
+                + "; ".join(changed) + ". Nothing was run or written; "
+                "resubmit to start from the new values.")
+
     def _prepare_both_nodes(self):
         """The rest of prepare() for which_node = both_nodes.
 
@@ -542,9 +571,23 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
             for name in self.COIL_VOLT_VARIABLES
         ]
         start_volts = [float(getattr(self, name)) for name in self.volt_datasets]
+        if self.tune_coils:
+            loading_volts = start_volts
+            if not getattr(self, self.base.TWO_NODE_MOT_COIL_FLAG):
+                print("WARNING both_nodes: tuning the two-node coil set "
+                      "(<coil>_for_two_nodes_NodeX), but "
+                      f"{self.base.TWO_NODE_MOT_COIL_FLAG} is False, so the "
+                      "two-node experiments keep loading with each node's "
+                      "single-node coils until it is switched on.")
+        else:
+            ### Not tuned: load with the coils the two-node experiments use
+            ### now -- the single-node set, or the two-node set when the flag
+            ### is on (Base) -- so the beam powers are tuned under that field.
+            loading_volts = (list(self.MOT_coil_volts_Node1)
+                             + list(self.MOT_coil_volts_Node2))
         ### Overwritten by optimization_routine_both_nodes with each tried value.
-        self.coil_values_Node1 = np.array(start_volts[:4])
-        self.coil_values_Node2 = np.array(start_volts[4:])
+        self.coil_values_Node1 = np.array(loading_volts[:4])
+        self.coil_values_Node2 = np.array(loading_volts[4:])
         self.setpoint_datasets = [
             self.base.resolve_experiment_variable_target(name, node)
             for node in nodes
@@ -634,6 +677,8 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
         print("prepare - done")
 
     def run(self):
+        if self.set_best_parameters_at_finish:
+            self._check_saved_values_unchanged()
         self.initialize_hardware()
         if self.both_nodes:
             ### initialize_hardware initialized both crates (every DDS off,

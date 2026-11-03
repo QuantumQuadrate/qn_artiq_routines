@@ -1601,6 +1601,18 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             base.check_two_node_MOT_coil_targets(
                 {"AZ_top_volts_MOT_for_two_nodes_Node1"}, False)
 
+    def test_single_node_runs_refuse_the_two_node_coils_and_flag(self):
+        _, base = self.build_and_prepare("single_node", "Node2")
+        base.check_single_node_MOT_coil_targets(
+            {"AX_volts_MOT_Node2", "f_FORT_Node2"})
+        for target in ("override_coils_with_two_nodes_setting",
+                       "AX_volts_MOT_for_two_nodes_Node2"):
+            with self.subTest(target=target):
+                with self.assertRaisesRegex(
+                        ValueError, f"{target} would not be used: only "
+                                    "two_nodes runs read"):
+                    base.check_single_node_MOT_coil_targets({target})
+
     def test_refresh_variable_dependent_state_updates_node2_dds_cache(self):
         experiment, base = self.build_and_prepare("single_node", "Node2")
         resolver = base.node_resolvers["Node2"]

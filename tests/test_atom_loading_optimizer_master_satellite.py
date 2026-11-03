@@ -633,6 +633,30 @@ class BothNodesTests(_OptimizerHarness):
         self.assertEqual(list(both.previous_params), start + [1.0] * 12)
         self.assertEqual(len(both.best_params), 20)
 
+    def test_untuned_coils_follow_what_two_node_experiments_load_with(self):
+        """Beam powers are tuned under the coils the two-node experiments
+        use now (MOT_coil_volts_NodeX, chosen by the flag); tuned coils start
+        from the two-node set whatever the flag says."""
+        for node in ("Node1", "Node2"):
+            for coil in self.COILS:
+                self.datasets[f"{coil}_for_two_nodes_{node}"] = (
+                    self.datasets[f"{coil}_{node}"] + 0.5)
+        single = [self.datasets[f"{coil}_{node}"]
+                  for node in ("Node1", "Node2") for coil in self.COILS]
+        two_node = [value + 0.5 for value in single]
+        for flag, expected in ((False, single), (True, two_node)):
+            self.datasets["override_coils_with_two_nodes_setting"] = flag
+            beams = self.make_experiment({
+                "which_node": "both_nodes", "what_to_tune": "beam powers only"})
+            self.assertEqual(
+                list(beams.coil_values_Node1) + list(beams.coil_values_Node2),
+                expected, f"flag {flag}")
+            coils = self.make_experiment({
+                "which_node": "both_nodes", "what_to_tune": "coils only"})
+            self.assertEqual(
+                list(coils.coil_values_Node1) + list(coils.coil_values_Node2),
+                two_node, f"flag {flag}")
+
     def test_absolute_coil_bounds_are_refused(self):
         experiment = OptimizerExperiment()
         experiment.initialize_environment(self.devices, self.datasets, self.log)
@@ -716,6 +740,43 @@ class BothNodesTests(_OptimizerHarness):
             lambda params: calls.append(("single", list(params))) or -2000)
         single.get_next_cost_dict_for_mloop({"params": single.previous_params})
         self.assertEqual([kind for kind, _ in calls], ["single"])
+
+
+class SavedValuesUnchangedTests(_OptimizerHarness):
+    """A run prepared while another optimizer was running read its starting
+    values before that run saved; it must not start and write them back."""
+
+    def test_unchanged_values_pass(self):
+        for node in ("Node1", "Node2", "both_nodes"):
+            with self.subTest(node=node):
+                experiment = self.make_experiment({
+                    "which_node": node,
+                    "what_to_tune": "coils and beam powers"})
+                experiment._check_saved_values_unchanged()
+
+    def test_a_value_saved_after_prepare_stops_the_run(self):
+        for node, name in (
+                ("Node1", "AZ_bottom_volts_MOT_Node1"),
+                ("Node2", "set_point_PD3_AOM_A3_Node2"),
+                ("both_nodes", "set_point_PD1_AOM_A1_Node1"),
+                ("both_nodes", "AY_volts_MOT_for_two_nodes_Node2")):
+            with self.subTest(node=node, name=name):
+                experiment = self.make_experiment({
+                    "which_node": node,
+                    "what_to_tune": "coils and beam powers"})
+                original = self.datasets[name]
+                self.datasets[name] = original + 0.01
+                try:
+                    with self.assertRaisesRegex(RuntimeError, name):
+                        experiment._check_saved_values_unchanged()
+                finally:
+                    self.datasets[name] = original
+
+    def test_only_the_values_this_run_saves_are_checked(self):
+        experiment = self.make_experiment({
+            "which_node": "both_nodes", "what_to_tune": "coils only"})
+        self.datasets["set_point_PD1_AOM_A1_Node1"] += 0.01
+        experiment._check_saved_values_unchanged()
 
 
 class ComparePreviousAndOptimizedTests(_OptimizerHarness):
@@ -1056,25 +1117,91 @@ class BothNodesSwitchEventGuardTests(unittest.TestCase):
             return name in ("delay", "delay_mu", "at_mu", "break_realtime")
         return False
 
-    def _runs(self, statements, problems, label):
-        """Anything that neither emits nor advances (assignments, RPCs such
-        as append_to_dataset, stabilizer runs) continues the run; a loop or
-        an if is walked on its own and then ends the run, and `with
-        parallel:` here only gates the SPCM counters."""
-        run = []
+    def _walk(self, statements, run, problems, label):
+        """Return the open run after `statements`, starting from `run`.
+
+        Anything that neither emits nor advances (assignments, RPCs such as
+        append_to_dataset, stabilizer runs) continues the run. An if carries
+        the open run into both branches and continues with the longer; a
+        loop is walked twice (the end of one iteration runs into the start
+        of the next) and may also run zero times. `with parallel:` starts
+        every branch at its entry time, so its event calls (gate_rising
+        included) all count there; any other `with` is sequential.
+        """
+        run = list(run)
         for stmt in statements:
             if self._is_event(stmt):
                 run.append(stmt.lineno)
                 if len(run) > self.MAX_EVENTS_PER_TIMESTAMP:
-                    problems.append(f"{label}: lines {list(run)}")
+                    problems.add(f"{label}: lines {run}")
             elif self._advances(stmt):
                 run = []
-            elif isinstance(stmt, (ast.If, ast.For, ast.While)):
-                self._runs(stmt.body, problems, label)
-                self._runs(stmt.orelse, problems, label)
-                run = []
+            elif isinstance(stmt, ast.If):
+                body = self._walk(stmt.body, run, problems, label)
+                orelse = self._walk(stmt.orelse, run, problems, label)
+                run = max(body, orelse, key=len)
+            elif isinstance(stmt, (ast.For, ast.While)):
+                once = self._walk(stmt.body, run, problems, label)
+                twice = self._walk(stmt.body, once, problems, label)
+                run = max(run, twice, key=len)
             elif isinstance(stmt, ast.With):
-                run = []
+                parallel = any(
+                    isinstance(item.context_expr, ast.Name)
+                    and item.context_expr.id == "parallel"
+                    for item in stmt.items)
+                if parallel:
+                    for branch in stmt.body:
+                        if self._is_event(branch) or self._is_gate(branch):
+                            run.append(branch.lineno)
+                    if len(run) > self.MAX_EVENTS_PER_TIMESTAMP:
+                        problems.add(f"{label}: lines {run}")
+                    run = []  # the block ends after its longest branch
+                else:
+                    run = self._walk(stmt.body, run, problems, label)
+        return run
+
+    @staticmethod
+    def _is_gate(stmt):
+        return (isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call)
+                and isinstance(stmt.value.func, ast.Attribute)
+                and stmt.value.func.attr.startswith("gate_"))
+
+    def _runs(self, statements, problems, label):
+        self._walk(statements, [], problems, label)
+
+    def test_the_walk_catches_the_patterns_it_must(self):
+        """Positive controls: 5 events across an if, in a with parallel,
+        and across a loop boundary are all flagged; 4 are not."""
+        cases = {
+            "across_if": (
+                "def k(self):\n"
+                "    self.a.sw.on(); self.b.sw.on(); self.c.sw.on()\n"
+                "    if x:\n"
+                "        self.d.sw.on(); self.e.sw.on()\n", True),
+            "in_parallel": (
+                "def k(self):\n"
+                "    with parallel:\n"
+                "        self.a.sw.on(); self.b.sw.on(); self.c.sw.on()\n"
+                "        self.d.sw.on(); self.e.sw.on()\n", True),
+            "across_loop": (
+                "def k(self):\n"
+                "    for i in range(3):\n"
+                "        self.a.sw.on(); self.b.sw.on(); self.c.sw.on()\n"
+                "        delay(1)\n"
+                "        self.d.sw.on(); self.e.sw.on()\n", True),
+            "four_then_delay": (
+                "def k(self):\n"
+                "    self.a.sw.on(); self.b.sw.on(); self.c.sw.on()\n"
+                "    self.d.sw.on()\n"
+                "    delay(5)\n"
+                "    self.e.sw.on()\n", False),
+        }
+        for name, (source, flagged) in cases.items():
+            with self.subTest(case=name):
+                problems = set()
+                function = ast.parse(source).body[0]
+                self._runs(function.body, problems, name)
+                self.assertEqual(bool(problems), flagged, problems)
 
     def test_both_nodes_kernels_group_switch_events_in_fours(self):
         source = (
@@ -1083,13 +1210,13 @@ class BothNodesSwitchEventGuardTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         tree = ast.parse(source)
         found = []
-        problems = []
+        problems = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef) and node.name in self.KERNELS:
                 found.append(node.name)
                 self._runs(node.body, problems, node.name)
         self.assertEqual(sorted(found), sorted(self.KERNELS))
-        self.assertEqual(problems, [])
+        self.assertEqual(problems, set())
 
 
 if __name__ == "__main__":

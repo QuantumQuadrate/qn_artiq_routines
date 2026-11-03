@@ -1448,6 +1448,27 @@ class BaseExperimentMasterSatellite:
                      node, use_two_node_coils)],
             )
 
+    def check_single_node_MOT_coil_targets(self, targets):
+        """Refuse a single-node run that sets the flag or a two-node coil.
+
+        Only two_nodes runs read TWO_NODE_MOT_COIL_FLAG and the
+        <coil>_for_two_nodes_NodeX set; a single_node run loads with
+        <coil>_NodeX, so setting them would do nothing.
+        """
+        two_node_only = {self.TWO_NODE_MOT_COIL_FLAG} | {
+            name
+            for node in self.VALID_NODES
+            for name in self.two_node_MOT_coil_names(node, True)
+        }
+        named = sorted(set(targets) & two_node_only)
+        if named:
+            raise ValueError(
+                f"{', '.join(named)} would not be used: only two_nodes runs "
+                f"read {self.TWO_NODE_MOT_COIL_FLAG} and the "
+                f"<coil>_for_two_nodes_NodeX coils; a single_node run loads "
+                f"with <coil>_NodeX."
+            )
+
     def check_two_node_MOT_coil_targets(self, targets, use_two_node_coils):
         """Refuse a two-node run that sets a MOT coil its loader will not read.
 
