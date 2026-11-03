@@ -701,7 +701,7 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
             if self.tune_coils:
                 self.print_async("BEST coil values:", params[:4])
                 self.best_params[:4] = params[:4]
-                param_idx = 3
+                param_idx = 4  # the set points follow the 4 coil values
             if self.tune_beams:
                 for i in range(4):
                     self.best_params[param_idx + i] = self.default_setpoints[i] * setpoint_multipliers[i]
@@ -869,7 +869,7 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
             if self.tune_coils:
                 self.print_async("BEST coil values:", params[:4])
                 self.best_params[:4] = params[:4]
-                param_idx = 3
+                param_idx = 4  # the set points follow the 4 coil values
             if self.tune_beams:
                 for i in range(4):
                     self.best_params[param_idx + i] = self.default_setpoints[i] * setpoint_multipliers[i]
