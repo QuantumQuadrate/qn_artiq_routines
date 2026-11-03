@@ -945,6 +945,36 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             logging.getLogger().warning("sentinel")
         self.assertEqual(logs.output, ["WARNING:root:sentinel"])
 
+    def test_two_node_runs_check_the_MOT_coil_set_their_loader_reads(self):
+        """Base refuses an override or scan of the unread MOT coil set.
+
+        Which set is read is the flag AS THE RUN SETS IT, so an override of
+        override_coils_with_two_nodes_setting counts; a scan over the flag
+        uses both sets, so there is nothing to check.
+        """
+        calls = []
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        scan.base = types.SimpleNamespace(
+            check_two_node_MOT_coil_targets=(
+                lambda targets, use: calls.append((set(targets), use))))
+        scan.override_coils_with_two_nodes_setting = False  # stored value
+        scan.scan_variable1 = "AX_volts_MOT_for_two_nodes_Node1"
+        scan.scan_variable2 = None
+
+        scan.authoritative_overrides = {"f_FORT_Node1": 241.0}
+        scan._check_two_node_MOT_coil_targets()
+        scan.authoritative_overrides = {
+            "override_coils_with_two_nodes_setting": True}
+        scan._check_two_node_MOT_coil_targets()
+        scan.scan_variable1 = "override_coils_with_two_nodes_setting"
+        scan._check_two_node_MOT_coil_targets()
+
+        self.assertEqual(calls, [
+            ({"f_FORT_Node1", "AX_volts_MOT_for_two_nodes_Node1"}, False),
+            ({"override_coils_with_two_nodes_setting",
+              "AX_volts_MOT_for_two_nodes_Node1"}, True),
+        ])
+
     def test_global_field_refuses_per_node_variables(self):
         """A per-node name there would silently pick a node (single_node)
         or be ambiguous (two_nodes): it raises and names the node fields."""

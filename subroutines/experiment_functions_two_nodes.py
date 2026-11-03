@@ -1240,15 +1240,13 @@ def load_until_atom_in_both_nodes_recycle(self):
             atom_loaded = True
 
     if not atom_loaded:
-        ### Set the coils to MOT loading setting
-        self.zotino0_Node1.set_dac(
-            [self.AZ_bottom_volts_MOT_Node1, self.AZ_top_volts_MOT_Node1,
-             self.AX_volts_MOT_Node1, self.AY_volts_MOT_Node1],
-            channels=self.coil_channels_Node1)
-        self.zotino0_Node2.set_dac(
-            [self.AZ_bottom_volts_MOT_Node2, self.AZ_top_volts_MOT_Node2,
-             self.AX_volts_MOT_Node2, self.AY_volts_MOT_Node2],
-            channels=self.coil_channels_Node2)
+        ### Set the coils to MOT loading setting: MOT_coil_volts_NodeX is
+        ### <coil>_NodeX, or <coil>_for_two_nodes_NodeX when the global
+        ### override_coils_with_two_nodes_setting is on (Base).
+        self.zotino0_Node1.set_dac(self.MOT_coil_volts_Node1,
+                                   channels=self.coil_channels_Node1)
+        self.zotino0_Node2.set_dac(self.MOT_coil_volts_Node2,
+                                   channels=self.coil_channels_Node2)
         delay(1 * ms)
 
         ### set the cooling DP AOM to the MOT settings
@@ -1590,15 +1588,13 @@ def load_until_atom_in_both_nodes_alternating_shot_recycle(self):
             atom_loaded = True
 
     if not atom_loaded:
-        ### Set the coils to MOT loading setting
-        self.zotino0_Node1.set_dac(
-            [self.AZ_bottom_volts_MOT_Node1, self.AZ_top_volts_MOT_Node1,
-             self.AX_volts_MOT_Node1, self.AY_volts_MOT_Node1],
-            channels=self.coil_channels_Node1)
-        self.zotino0_Node2.set_dac(
-            [self.AZ_bottom_volts_MOT_Node2, self.AZ_top_volts_MOT_Node2,
-             self.AX_volts_MOT_Node2, self.AY_volts_MOT_Node2],
-            channels=self.coil_channels_Node2)
+        ### Set the coils to MOT loading setting: MOT_coil_volts_NodeX is
+        ### <coil>_NodeX, or <coil>_for_two_nodes_NodeX when the global
+        ### override_coils_with_two_nodes_setting is on (Base).
+        self.zotino0_Node1.set_dac(self.MOT_coil_volts_Node1,
+                                   channels=self.coil_channels_Node1)
+        self.zotino0_Node2.set_dac(self.MOT_coil_volts_Node2,
+                                   channels=self.coil_channels_Node2)
         delay(1 * ms)
 
         ### set the cooling DP AOM to the MOT settings

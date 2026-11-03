@@ -1512,6 +1512,95 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         ):
             base.resolve_experiment_variable_target("f_FORT")
 
+    def test_two_node_MOT_coils_follow_the_global_flag(self):
+        """MOT_coil_volts_NodeX are the coils two-node loading writes.
+
+        <coil>_NodeX with override_coils_with_two_nodes_setting off,
+        <coil>_for_two_nodes_NodeX with it on. Recomputed by
+        refresh_variable_dependent_state, so an override or scan of the flag
+        or of either set reaches the loader; in memory only, and the
+        single-node set itself is never touched.
+        """
+        experiment, base = self.build_and_prepare("two_nodes")
+        nodes = ("Node1", "Node2")
+        single = {
+            node: [getattr(experiment, f"{name}_{node}")
+                   for name in base.MOT_COIL_VOLT_VARIABLES]
+            for node in nodes
+        }
+        self.assertEqual(
+            base.MOT_COIL_VOLT_VARIABLES,
+            ("AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT",
+             "AY_volts_MOT"),
+        )
+        self.assertFalse(experiment.override_coils_with_two_nodes_setting)
+        for node in nodes:
+            self.assertEqual(
+                getattr(experiment, f"MOT_coil_volts_{node}"), single[node])
+
+        offsets = {"Node1": 0.25, "Node2": -0.5}
+        for node in nodes:
+            for name in base.MOT_COIL_VOLT_VARIABLES:
+                setattr(experiment, f"{name}_for_two_nodes_{node}",
+                        getattr(experiment, f"{name}_{node}") + offsets[node])
+        experiment.override_coils_with_two_nodes_setting = True
+        reads_before = list(experiment.dataset_reads)
+        writes_before = len(experiment.dataset_writes)
+
+        base.refresh_variable_dependent_state()
+
+        for node in nodes:
+            self.assertEqual(
+                getattr(experiment, f"MOT_coil_volts_{node}"),
+                [value + offsets[node] for value in single[node]])
+            self.assertEqual(
+                [getattr(experiment, f"{name}_{node}")
+                 for name in base.MOT_COIL_VOLT_VARIABLES],
+                single[node])
+        self.assertEqual(experiment.dataset_reads, reads_before)
+        self.assertEqual(
+            [write[0] for write in experiment.dataset_writes[writes_before:]],
+            ["t_alternating_RO_exposure"])
+
+        experiment.override_coils_with_two_nodes_setting = False
+        base.refresh_variable_dependent_state()
+        for node in nodes:
+            self.assertEqual(
+                getattr(experiment, f"MOT_coil_volts_{node}"), single[node])
+
+    def test_single_node_mode_publishes_no_two_node_MOT_coils(self):
+        for node in ("Node1", "Node2"):
+            with self.subTest(node=node):
+                experiment, base = self.build_and_prepare("single_node", node)
+                base.refresh_variable_dependent_state()
+                self.assertFalse(hasattr(experiment, "MOT_coil_volts_Node1"))
+                self.assertFalse(hasattr(experiment, "MOT_coil_volts_Node2"))
+
+    def test_two_node_MOT_coil_targets_refuse_the_set_the_loader_ignores(self):
+        _, base = self.build_and_prepare("two_nodes")
+        resolve = base.resolve_experiment_variable_target
+        self.assertEqual(resolve("AX_volts_MOT_for_two_nodes", "Node2"),
+                         "AX_volts_MOT_for_two_nodes_Node2")
+        self.assertEqual(resolve("AX_volts_MOT_for_two_nodes_Node1"),
+                         "AX_volts_MOT_for_two_nodes_Node1")
+        self.assertEqual(resolve("override_coils_with_two_nodes_setting"),
+                         "override_coils_with_two_nodes_setting")
+
+        base.check_two_node_MOT_coil_targets(
+            {"AX_volts_MOT_for_two_nodes_Node2", "f_FORT_Node1"}, True)
+        base.check_two_node_MOT_coil_targets({"AX_volts_MOT_Node2"}, False)
+        with self.assertRaisesRegex(
+                ValueError,
+                "AX_volts_MOT_Node2 would not be used: "
+                "override_coils_with_two_nodes_setting is True"):
+            base.check_two_node_MOT_coil_targets({"AX_volts_MOT_Node2"}, True)
+        with self.assertRaisesRegex(
+                ValueError,
+                "AZ_top_volts_MOT_for_two_nodes_Node1 would not be used: "
+                "override_coils_with_two_nodes_setting is False"):
+            base.check_two_node_MOT_coil_targets(
+                {"AZ_top_volts_MOT_for_two_nodes_Node1"}, False)
+
     def test_refresh_variable_dependent_state_updates_node2_dds_cache(self):
         experiment, base = self.build_and_prepare("single_node", "Node2")
         resolver = base.node_resolvers["Node2"]

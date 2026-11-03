@@ -89,6 +89,17 @@ NODE1_VARIABLES = (
     Variable('AZ_top_volts_MOT_Node1', 6.385540374379314, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AX_volts_MOT_Node1', -0.10801331267361453, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AY_volts_MOT_Node1', -0.42919894698328526, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
+    # The two-node experiments' own MOT coils. A two_nodes run loads with
+    # these instead of the four above when the global
+    # override_coils_with_two_nodes_setting is on (Base publishes the
+    # chosen four as MOT_coil_volts_Node1), so coils tuned for joint
+    # loading never disturb the values single-node experiments use.
+    # AtomLoadingOptimizer with which_node = both_nodes tunes and saves
+    # these. Seeded 2026-11-03 from the four above.
+    Variable('AZ_bottom_volts_MOT_for_two_nodes_Node1', 6.461131086728818, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
+    Variable('AZ_top_volts_MOT_for_two_nodes_Node1', 6.579541841143014, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
+    Variable('AX_volts_MOT_for_two_nodes_Node1', 0.002402105538498156, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
+    Variable('AY_volts_MOT_for_two_nodes_Node1', -1.0023217998932161, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AZ_bottom_volts_PGC_Node1', -0.3, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AX_volts_PGC_Node1', 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AY_volts_PGC_Node1', -0.3, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),

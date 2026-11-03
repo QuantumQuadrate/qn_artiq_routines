@@ -207,6 +207,11 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 "dummy_variable": 0.0,
                 "two_atom_threshold": 39000.0,
                 "two_atom_threshold_for_loading": 89000.0,
+                # Joined on 2026-11-03: which MOT coils two-node loading
+                # writes, each node's single-node set or its
+                # <coil>_for_two_nodes_NodeX set. One switch for the joint
+                # load, so global; False keeps the single-node coils.
+                "override_coils_with_two_nodes_setting": False,
                 "t_delay_between_shots": 0.0,
                 "t_MOT_dissipation": 0.05,
                 "enable_laser_feedback": True,

@@ -132,6 +132,24 @@ MASTER_SATELLITE_VARIABLES = (
         {"type": "float"},
         "Thresholds and cut-offs",
     ),
+    # Which MOT coils a two_nodes run loads with. False: each node's
+    # AZ_bottom/AZ_top/AX/AY_volts_MOT_NodeX, the values single-node
+    # experiments use. True: <coil>_for_two_nodes_NodeX instead (declared
+    # next to them in each node's file), so coils can be tuned for joint
+    # loading -- AtomLoadingOptimizer with which_node = both_nodes tunes that
+    # set -- without touching the single-node values. Read in two_nodes mode
+    # only (Base._compute_two_node_MOT_coils -> MOT_coil_volts_NodeX, which
+    # the two-node loader writes); single_node runs always use the
+    # single-node set. Can be overridden for one run in
+    # override_ExperimentVariables_global; a two-node GVS then refuses an
+    # override or scan of the set the loader will not read.
+    Variable(
+        "override_coils_with_two_nodes_setting",
+        False,
+        BooleanValue,
+        {},
+        "MOT coil settings",
+    ),
     # Settings that are ONE value for both nodes, in single_node and two_nodes
     # mode alike. Until 2026-10-27 these were declared per node and a two-node
     # run published the bare name only while _Node1 and _Node2 agreed

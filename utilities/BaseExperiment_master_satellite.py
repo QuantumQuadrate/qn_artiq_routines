@@ -406,6 +406,19 @@ class BaseExperimentMasterSatellite:
         "health_check_uw_freqm11",
     )
 
+    #: The four MOT coils, in the order a loader writes them to a node's
+    #: coil_channels. A two_nodes run loads with <coil>_NodeX, or with
+    #: <coil>_for_two_nodes_NodeX when the global TWO_NODE_MOT_COIL_FLAG is
+    #: on; _compute_two_node_MOT_coils publishes the chosen four as
+    #: MOT_coil_volts_NodeX.
+    MOT_COIL_VOLT_VARIABLES = (
+        "AZ_bottom_volts_MOT",
+        "AZ_top_volts_MOT",
+        "AX_volts_MOT",
+        "AY_volts_MOT",
+    )
+    TWO_NODE_MOT_COIL_FLAG = "override_coils_with_two_nodes_setting"
+
     # The shim-tuning path inside the reused atom-loading functions writes
     # MOT coil calibrations by their standalone names.
     COIL_CALIBRATION_DATASETS = (
@@ -1141,6 +1154,8 @@ class BaseExperimentMasterSatellite:
             self._compute_derived_amplitudes(node)
 
         if self.experiment_mode == "two_nodes":
+            # The flag and both coil sets can be overridden or scanned.
+            self._compute_two_node_MOT_coils()
             # The alternating exposure is derived from two scannable
             # variables, so a scan over either would otherwise leave the
             # applets scaling histograms by a stale value.
@@ -1400,7 +1415,62 @@ class BaseExperimentMasterSatellite:
             self._compute_derived_amplitudes(node)
 
         if self.experiment_mode == "two_nodes":
+            self._compute_two_node_MOT_coils()
             self._publish_broadcast_aliases()
+
+    def two_node_MOT_coil_names(self, node, use_two_node_coils):
+        """The four MOT coil variables of one node, in loader order.
+
+        <coil>_for_two_nodes_<node> when use_two_node_coils, else <coil>_<node>.
+        """
+        tag = "_for_two_nodes" if use_two_node_coils else ""
+        return [f"{name}{tag}_{node}" for name in self.MOT_COIL_VOLT_VARIABLES]
+
+    def _compute_two_node_MOT_coils(self):
+        """Publish MOT_coil_volts_NodeX, the MOT coils two-node loading writes.
+
+        The global TWO_NODE_MOT_COIL_FLAG chooses each node's two-node set
+        (<coil>_for_two_nodes_NodeX) over its single-node set (<coil>_NodeX).
+        Derived like the RF amplitudes: recomputed by
+        refresh_variable_dependent_state after every override and scan point,
+        so a run may override or scan the flag or either set. Nothing is
+        written to the dataset DB; the h5 archives the flag and both sets.
+        """
+        use_two_node_coils = bool(
+            getattr(self.experiment, self.TWO_NODE_MOT_COIL_FLAG)
+        )
+        for node in self.active_nodes:
+            setattr(
+                self.experiment,
+                f"MOT_coil_volts_{node}",
+                [float(getattr(self.experiment, name))
+                 for name in self.two_node_MOT_coil_names(
+                     node, use_two_node_coils)],
+            )
+
+    def check_two_node_MOT_coil_targets(self, targets, use_two_node_coils):
+        """Refuse a two-node run that sets a MOT coil its loader will not read.
+
+        targets: the variables the run overrides or scans. With the flag on
+        the loader reads <coil>_for_two_nodes_NodeX, so setting <coil>_NodeX
+        would do nothing, and the other way round with it off.
+        """
+        unused = {
+            name
+            for node in self.VALID_NODES
+            for name in self.two_node_MOT_coil_names(
+                node, not use_two_node_coils)
+        }
+        named = sorted(set(targets) & unused)
+        if named:
+            used = self.two_node_MOT_coil_names("Node1", use_two_node_coils)[0]
+            raise ValueError(
+                f"{', '.join(named)} would not be used: "
+                f"{self.TWO_NODE_MOT_COIL_FLAG} is {bool(use_two_node_coils)} "
+                f"for this run, so two-node loading reads the other coil set "
+                f"(e.g. {used}). Set those instead, or change "
+                f"{self.TWO_NODE_MOT_COIL_FLAG}."
+            )
 
     def _publish_broadcast_aliases(self):
         """Publish bare names that act on BOTH crates at once.
