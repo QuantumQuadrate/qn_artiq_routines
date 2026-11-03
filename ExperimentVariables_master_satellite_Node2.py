@@ -79,6 +79,9 @@ NODE2_VARIABLES = (
     Variable('t_microwave_m10_pulse_Node2', 9.4e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_microwave_m1m1_pulse_Node2', 6e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_MW_RF_pulse_Node2', 6.96e-05, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
+    # pi time of the MW+RF (m11) pulse, from the map01_MWRFm11 time scan;
+    # t_MW_RF_pulse above is what the sequences play (0 = Z basis)
+    Variable('t_MW_RF_pi_pulse_Node2', 6.96e-05, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_MW_00_ramp_Node2', 2e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_MW_01_ramp_Node2', 4e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_MW_11_ramp_Node2', 2e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
