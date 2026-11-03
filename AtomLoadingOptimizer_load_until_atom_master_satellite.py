@@ -570,6 +570,18 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
 
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
         self.set_dataset(self.AllSPCMs_rate_dataset, [0.0], broadcast=True)
+        ### Re-armed because of the set_dataset just above: from a kernel it
+        ### is a BLOCKING RPC here (_DatasetRedirectMixin.set_dataset has no
+        ### async flag, unlike stock ARTIQ's), so the cursor stands still
+        ### while the host and the master answer, and the delay(1 ms) above
+        ### was its only margin. 11 runs between 10-02 and 10-31 died between
+        ### here and the end of the helper's first stabilizer pass; the one
+        ### traceback kept is an RTIOUnderflow on its first event, the FORT
+        ### dds.set (channel 36, slack -2432 mu). The 0.1 ms is the margin
+        ### the GVS call sites give this helper. Still before t_before_atom,
+        ### so no measured loading time changes.
+        self.core.break_realtime()
+        delay(0.1 * ms)
 
         ### The final feedback before measuring, and the one place this
         ### experiment records the FORT MM and APD powers. The standalone file
@@ -762,6 +774,11 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
 
         ### reset the counts dataset each run so we don't overwhelm the dashboard when plotting
         self.set_dataset(self.AllSPCMs_rate_dataset, [0.0], broadcast=True)
+        ### Re-armed exactly as after the same set_dataset in
+        ### optimization_routine: with tune_coils the zotino write below is
+        ### the next RTIO event, behind the same 1 ms margin.
+        self.core.break_realtime()
+        delay(0.1 * ms)
 
         for i in range(self.n_measurements):
             if self.tune_coils:
