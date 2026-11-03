@@ -82,10 +82,16 @@ from artiq.experiment import *
 import numpy as np
 import logging
 
-### Imports for M-LOOP
+### Imports for M-LOOP. Only mloop.interfaces is imported here, because
+### MLOOPInterface below subclasses it. mloop.controllers (it loads
+### TensorFlow, ~8.6 s) is imported in prepare() and mloop.visualizations in
+### analyze(), where they are used: ARTIQ 7 kills any build -- module import
+### plus build() -- that takes over 15 s (artiq/master/worker.py,
+### Worker.build timeout=15.0), and with all three here the build took ~10.6 s
+### of M-LOOP imports alone. Submitted while another run kept the master busy,
+### 40267 and 40268 (11-02) died in build. prepare() and analyze() have no
+### such timeout.
 import mloop.interfaces as mli
-import mloop.controllers as mlc
-import mloop.visualizations as mlv
 
 ### Imported by name rather than with the `import *` MicrowaveScanOptimizer
 ### uses: this file needs exactly one function from that 9,500-line module, and
@@ -334,6 +340,7 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
                          broadcast=True)
 
         ### instantiate the M-LOOP interface
+        import mloop.controllers as mlc  # here, not at the top: see the imports
         interface = MLOOPInterface()
         interface.get_next_cost_dict = self.get_next_cost_dict_for_mloop
 
@@ -1061,6 +1068,7 @@ class AtomLoadingOptimizer_load_until_atom_master_satellite(
         ### RID 38545 completed its comparison correctly and was still marked
         ### failed for exactly that reason.
         try:
+            import mloop.visualizations as mlv  # see the imports at the top
             mlv.show_all_default_visualizations(self.mloop_controller)
         except Exception as error:
             print(f"M-LOOP visualizations skipped: "
