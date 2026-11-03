@@ -1344,6 +1344,7 @@ initializer(s): <file>: <names>".
 | `dummy_variable` | 0.0 | | Scan placeholder. |
 | `two_atom_threshold` | 39000 | 42000 | Joint two-atom readout threshold (counts/s). Standalone declares 20000. |
 | `two_atom_threshold_for_loading` | 89000 | 100000 | Joint loading threshold. Standalone declares 84000. |
+| `override_coils_with_two_nodes_setting` | False | seeded 2026-11-03 | Which MOT coils a two_nodes run loads with: False each node's `<coil>_NodeX`, True its `<coil>_for_two_nodes_NodeX` (AZ_bottom/AZ_top/AX/AY_volts_MOT, declared per node next to the single-node four, seeded from them). Base publishes the chosen four as `MOT_coil_volts_NodeX` (prepare and `refresh_variable_dependent_state`), which `load_until_atom_in_both_nodes_recycle` writes; single_node runs always use `<coil>_NodeX`. The GVS refuses an override or scan the loader would ignore (`_check_MOT_coil_targets`, at prepare and again after a run-start reload): in two_nodes the coil set the flag (as the run sets it) does not select, in single_node the flag and the two-node set. AtomLoadingOptimizer `both_nodes` tunes and saves the two-node set (section 11.3). |
 | `t_SPCM_first_shot_two_nodes`, `t_SPCM_second_shot_two_nodes`, `t_atom_check_time_two_nodes` | 0.02 s | 0.02 s | The joint gates of two-node runs (section 6.6); single-node runs use the per-node 10 ms values. The five unread `*_two_node` timing globals were removed the same day. |
 | `t_delay_between_shots`, `t_MOT_dissipation` | 0.0 / 0.05 s | 0.0 / 0.05 s | Shared, as above. |
 | `enable_laser_feedback`, `Luca_trigger_for_feedback_verification`, `use_chopped_readout`, `require_D1_lock_to_advance`, `monitor_magnetometer_in_end_measurement`, `monitors_for_atom_loading` | True / False x5 | same | Shared, as above (one switch for both nodes; override per run). |
@@ -2362,6 +2363,34 @@ IndexError (RID 38545 had been marked failed for that alone). Hardware RIDs
 38540-38562 (2026-10-01..02). M-LOOP aborts before `run()` in the compile
 harness, so `set_experiment_variables_to_best_params` was compiled
 separately.
+
+2026-11-03 (user's request): `which_node` Node1|Node2|**both_nodes**, and the
+loading-check threshold became `atom_counts_per_s_threshold_node1` (55000),
+`_node2` (45000) and `_both_nodes` (100000); saved expids still carrying the
+old `atom_counts_per_s_threshold` run at the new defaults (ARTIQ ignores
+unknown arguments). `both_nodes` runs Base in two_nodes mode with its own
+kernels (`warm_up_both_nodes`, `optimization_routine_both_nodes`; the host
+dispatches in `run` and `measure_cost`; the single-node kernels are
+unchanged). It tunes the two-node coil set `<coil>_for_two_nodes_NodeX`
+(section 7.4; never the single-node coils) and/or both nodes'
+`set_point_PD*_AOM_A*_NodeX`, in the order Node1 coils, Node2 coils, Node1
+multipliers, Node2 multipliers, with differential coil bounds required. Each
+measurement loads like `load_until_atom_in_both_nodes_recycle` (MOT coils per
+load, both MOTs and FORTs in switch groups of at most 4, Node1 UV, 20 ms joint
+checks of the four SPCMs; coils to PGC after) but starts from empty traps and
+a dissipated MOT and gives up after 100 checks (10e9 s). It records
+`both_nodes_loading_time` and the first/last check rate per measurement,
+seeds `FORT_MM/APD_monitor_Node1/_Node2` for the two-node feedback helper, and
+saves on the host (`save_best_params_both_nodes`, the pairs
+`describe_parameters` prints; joint keep/revert). The joint cost follows the
+slower node. With coils not tuned it loads with Base's `MOT_coil_volts_NodeX`
+(what two-node experiments use now); tuning coils with the flag off prints a
+warning. In every mode, `run()` refuses to start (before any hardware) when a
+value it would save changed after prepare -- ARTIQ prepares a queued run while
+the one ahead runs, so an optimizer queued behind another would otherwise
+write the old values back. The same day: `mloop.controllers`/`visualizations` imported where
+used (the build had ~10.6 s of M-LOOP imports against ARTIQ's 15 s build
+limit; 40267/40268 died in build) and the "best params" display index fixed.
 
 ### 11.4 `SamplerMOTCoilAndBeamBalanceTune_master_satellite`
 
@@ -3422,7 +3451,8 @@ Each item has an ID for citation. "Evidence" is where to verify it.
   mode must not", followed by "Both modes now"); `_create_node_applets`
   docstring (says `prepare_laser_stabilizer` is skipped in two-node); Base
   `_compute_derived_amplitudes` docstring ("prepare_laser_stabilizer refuses
-  outside single_node"); `AtomLoadingOptimizer` module docstring (same claim);
+  outside single_node"); `AtomLoadingOptimizer` module docstring (same claim;
+  fixed 2026-11-03 with `which_node = both_nodes`);
   Base `_bind_other_node_dds_switches` comment ("AOMsCoils relies on that";
   AOMsCoils configures in prepare); `initialize_result_state` comment naming
   the removed `Two_nodes_atom_loading_2_experiment`; references to the deleted

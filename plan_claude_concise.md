@@ -125,14 +125,18 @@ come before cleanup (sections 3.1, 3.3).
 - **two_nodes:** suffixed names only, so a bare device name fails to
   compile. Functions come only from `experiment_functions_two_nodes.py`
   (4 registered). Settings both nodes share are plain globals, or
-  `<x>_two_nodes` globals read bare in two_nodes mode (2026-10-27).
+  `<x>_two_nodes` globals read bare in two_nodes mode (2026-10-27). MOT
+  coils: `<coil>_NodeX`, or the two-node set `<coil>_for_two_nodes_NodeX`
+  when the global `override_coils_with_two_nodes_setting` is on (2026-11-03;
+  Base `MOT_coil_volts_NodeX`).
 - Neither mode is the removed legacy `two_nodes` node mode (section 4.6).
 
 **Explorer** (section 4.5):
 - GVS `_single_node`/`_two_nodes` and AOMsCoils `_Node1`/`_Node2`.
 - ExperimentVariables `_Node1`/`_Node2`/`_global`.
 - The single-node experiments MicrowaveScanOptimizer,
-  FORT_Polarization_Optimizer, AtomLoadingOptimizer,
+  FORT_Polarization_Optimizer, AtomLoadingOptimizer (also `both_nodes`
+  since 2026-11-03, two_nodes Base, tunes the two-node coil set),
   SamplerMOTCoilAndBeamBalanceTune and MonitorMagnetometer.
 - `tests/MonitorSPCMinApplet` (Node1).
 - `_mixin` files are private (section 4.4).
