@@ -1,6 +1,7 @@
 """Base hardware orchestration for the master-satellite architecture."""
 
 import json
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -32,8 +33,9 @@ def merge_per_node_override_dictionaries(
     resolve_target,
     eval_globals,
     argument_prefix="override_ExperimentVariables",
+    global_variable_names=None,
 ):
-    """Merge the per-node experiment-variable override dictionaries.
+    """Merge the global and per-node experiment-variable override dictionaries.
 
     An experiment declares one override field per node --
     override_ExperimentVariables_Node1 and _Node2 -- and only the running
@@ -49,20 +51,31 @@ def merge_per_node_override_dictionaries(
     eval, before resolution is ever reached.
 
     Names may be written BARE or already suffixed, in either mode: the owning
-    node is handed to resolve_experiment_variable_target, so {'t_pumping': ...}
-    in override_ExperimentVariables_Node1 means t_pumping_Node1 and
-    {'t_pumping_Node1': ...} means the same thing. This is why two_nodes mode
+    node is handed to resolve_experiment_variable_target, so {'t_FORT_drop': ...}
+    in override_ExperimentVariables_Node1 means t_FORT_drop_Node1 and
+    {'t_FORT_drop_Node1': ...} means the same thing. This is why two_nodes mode
     accepts a bare name here while still rejecting one for a scan variable:
     the field names the node, so nothing is ambiguous.
 
-    There is deliberately no node-agnostic field. Globals such as
-    n_measurements resolve to themselves, so put them in the running node's
-    dictionary; in two_nodes mode name a global in one node's dictionary
-    only, since naming it in both reads as overriding one variable twice.
+    THE GLOBAL FIELD (since 2026-10-29; the GVS passes global_variable_names,
+    the microwave optimizer does not). f"{argument_prefix}_global" holds what
+    both nodes share: the master-satellite globals (two_atom_threshold,
+    t_delay_between_shots, ...) and, in two_nodes mode, the two-node sequence
+    settings written bare ({'t_pumping': ...} means t_pumping_two_nodes there;
+    see BaseExperimentMasterSatellite.TWO_NODES_SUFFIX). It is read in both
+    modes, and every entry must resolve to a global: a per-node variable
+    there raises and names the node fields instead. Unlike the old shared
+    override_ExperimentVariables (removed 2026-10-01), it cannot silently do
+    nothing -- it holds only names no node field owns.
+
+    A global in a node's field still works, so a submission saved before the
+    global field existed runs unchanged, but it is reported with a warning:
+    the global field is where it belongs. Without global_variable_names (the
+    microwave optimizer) a node's field takes globals silently, as before.
 
     eval_globals is the CALLING MODULE's globals(), so override text keeps
     being evaluated in the namespace it always was -- entries like
-    {'t_FORT_loading': 5*ms} depend on the units and numpy names each
+    {'t_FORT_drop': 5*us} depend on the units and numpy names each
     experiment file imports.
 
     A target named by two of these fields raises rather than letting
@@ -71,12 +84,12 @@ def merge_per_node_override_dictionaries(
     merged = {}
     provenance = {}
 
-    for node in active_nodes:
-        argument_name = f"{argument_prefix}_{node}"
+    def evaluate(argument_name):
         expression = getattr(experiment, argument_name, None)
-        # A cleared field means "no overrides", not a syntax error.
+        # A cleared field, or one an older submission does not carry,
+        # means "no overrides", not a syntax error.
         if expression is None or not str(expression).strip():
-            continue
+            return {}
 
         try:
             overrides = eval(expression, eval_globals, {"self": experiment})
@@ -89,22 +102,59 @@ def merge_per_node_override_dictionaries(
             raise ValueError(
                 f"{argument_name} must evaluate to a dictionary."
             )
+        return overrides
 
-        for name, value in overrides.items():
+    def add(target, value, source):
+        if target in merged:
+            raise ValueError(
+                f"Experiment variable {target!r} is overridden twice: "
+                f"once via {provenance[target]} and again via "
+                f"{source}. Remove one of them."
+            )
+        merged[target] = value
+        provenance[target] = source
+
+    node_fields = f"{argument_prefix}_" + " or _".join(active_nodes)
+    if global_variable_names is not None:
+        argument_name = f"{argument_prefix}_global"
+        for name, value in evaluate(argument_name).items():
+            # No owning node: a bare name is either a global (or, in
+            # two_nodes, a two-node sequence setting) or an error.
+            try:
+                target = resolve_target(str(name))
+            except ValueError as error:
+                raise ValueError(
+                    f"{argument_name}: {name!r} is not a global ({error}). "
+                    f"Per-node variables go in {node_fields}."
+                ) from error
+            if target not in global_variable_names:
+                raise ValueError(
+                    f"{argument_name}: {name!r} is the per-node variable "
+                    f"{target!r}. Per-node variables go in {node_fields}."
+                )
+            add(target, value, f"{name!r} in {argument_name}")
+
+    misplaced = []
+    for node in active_nodes:
+        argument_name = f"{argument_prefix}_{node}"
+        for name, value in evaluate(argument_name).items():
             # The owning node is passed so a BARE node-specific name resolves
             # against this dictionary's node. In single_node that was already
             # the behaviour, via the compatibility map; in two_nodes a bare
             # name used to raise "ambiguous", which it is not here -- the
             # field itself says which node the entry belongs to.
             target = resolve_target(str(name), node)
-            if target in merged:
-                raise ValueError(
-                    f"Experiment variable {target!r} is overridden twice: "
-                    f"once via {provenance[target]} and again via "
-                    f"{argument_name}. Remove one of them."
-                )
-            merged[target] = value
-            provenance[target] = argument_name
+            if (global_variable_names is not None
+                    and target in global_variable_names):
+                misplaced.append(f"{name!r} in {argument_name}")
+            add(target, value, f"{name!r} in {argument_name}")
+
+    if misplaced:
+        logging.warning(
+            "Shared (global) variables given in a node's override field: "
+            "%s. They are applied, but belong in %s_global.",
+            ", ".join(misplaced), argument_prefix,
+        )
 
     return merged
 
@@ -119,16 +169,29 @@ class BaseExperimentMasterSatellite:
 
     VALID_MODES = ("single_node", "two_nodes")
     VALID_NODES = ("Node1", "Node2")
+    #: A global named <x>_two_nodes is what a two_nodes run reads as the bare
+    #: self.<x>, the way a single_node run reads self.<x> from <x>_NodeX
+    #: (compatibility_variable_map, refresh_compatibility_variables). So the
+    #: two-node sequence reads plain names, like single-node code, and a
+    #: two-node run cannot disturb the per-node values single-node experiments
+    #: use. These globals are loaded only in two_nodes mode, and in two_nodes
+    #: mode the bare name resolves to them while the per-node names are
+    #: rejected (resolve_experiment_variable_target).
+    #:
+    #: Settings that are one value in BOTH modes are plain globals instead
+    #: (t_delay_between_shots, enable_laser_feedback, ...), declared once in
+    #: ExperimentVariables_master_satellite_global.py.
+    TWO_NODES_SUFFIX = "_two_nodes"
     NODE_LEGACY_NAMES = {"Node1": "alice", "Node2": "bob"}
     SATELLITE_DESTINATION = 1
 
     DDS_ALIASES = (
         "dds_FORT",
         "dds_cooling_DP",
-        "dds_D1_pumping_DP",
+        "dds_GRIN2",
         "dds_MW_RF",
         "dds_microwaves",
-        "GRIN1and2_dds",
+        "dds_GRIN1",
         "dds_AOM_A1",
         "dds_AOM_A2",
         "dds_AOM_A3",
@@ -161,44 +224,64 @@ class BaseExperimentMasterSatellite:
         "ttl11_counter",
     )
 
+    # The standalone two-node handshake cables were removed on 2026-10-19:
+    # Node1 ttl10, ttl11, ttl12, ttl15 and Node2 ttl9, ttl10, ttl15 (unified
+    # ttl25, ttl26, ttl31) were left with nothing connected. Node1 ttl15 has
+    # since become Node1's ttl_D1_pumping_switch (below). The legacy handshake
+    # aliases stay so old code still builds, but each now points at its
+    # node's dummy TTL, a channel with nothing connected:
+    #   Node1: dummy input ttl3, dummy output ttl12
+    #   Node2: dummy input ttl8, dummy output ttl15 (unified ttl24, ttl31)
+    # Inputs go to the dummy input and outputs to the dummy output. Each
+    # node's dummies are its own, so no alias reaches across DRTIO.
     NODE_TTL_ALIASES = {
         "Node1": {
             "ttl_microwave_switch": "ttl4",
             "ttl_repump_switch": "ttl5",
             "ttl_exc0_switch": "ttl6",
             "ttl_pumping_repump_switch": "ttl7",
-            "ttl_node2_input1": "ttl11",
-            "ttl_node1_output1": "ttl12",
+
             "ttl_GRIN2_switch": "ttl13",
             "ttl_GRIN1_switch": "ttl14",
-            "ttl_node1_output2": "ttl15",
+            "ttl_D1_pumping_switch": "ttl15",
+
+            ########## dummy
+            "ttl_node2_input1": "ttl3",
+            "ttl_node1_output1": "ttl12",
+            "ttl_node1_output2": "ttl12",
         },
         "Node2": {
             "ttl_microwave_switch": "ttl4",
             "ttl_repump_switch": "ttl5",
             "ttl_exc0_switch": "ttl6",
             "ttl_pumping_repump_switch": "ttl7",
-            "ttl_node1_input1": "ttl8",
-            "ttl_node1_input2": "ttl9",
-            "ttl_D1_pumping": "ttl12",
+
+            "ttl_D1_pumping_switch": "ttl12",
             "ttl_GRIN2_switch": "ttl13",
             "ttl_GRIN1_switch": "ttl14",
+
+            ########## dummy
+            "ttl_node1_input1": "ttl8",
+            "ttl_node1_input2": "ttl8",
             "ttl_node2_output1": "ttl15",
         },
     }
 
     # Dummy aliases are retained only for legacy single-node presentation.
+    # They follow the same per-node dummies. Node2's two outputs used to sit
+    # on ttl5, its real repump switch. Node1's ttl_D1_pumping_switch is no longer a
+    # dummy (NODE_TTL_ALIASES): an entry here would override it in
+    # single-node mode.
     COMPATIBILITY_DUMMY_TTL_ALIASES = {
         "Node1": {
-            "ttl_node2_output1": "ttl15",
+            "ttl_node2_output1": "ttl12",
             "ttl_node1_input1": "ttl3",
             "ttl_node1_input2": "ttl3",
-            "ttl_D1_pumping": "ttl3",
         },
         "Node2": {
-            "ttl_node2_input1": "ttl11",
-            "ttl_node1_output1": "ttl5",
-            "ttl_node1_output2": "ttl5",
+            "ttl_node2_input1": "ttl8",
+            "ttl_node1_output1": "ttl15",
+            "ttl_node1_output2": "ttl15",
         },
     }
 
@@ -249,6 +332,33 @@ class BaseExperimentMasterSatellite:
         },
     }
 
+    #: Per-detector readout scalars the reused experiment_functions read and
+    #: write. A class constant rather than a local because the per-iteration
+    #: display datasets below are derived from it, and those are needed in two
+    #: places that must not drift apart.
+    DETECTOR_RESULT_NAMES = (
+        "SPCM0_RO1", "SPCM0_RO2", "SPCM1_RO1", "SPCM1_RO2",
+        "SPCM0_OtherNode_RO1", "SPCM0_OtherNode_RO2",
+        "SPCM1_OtherNode_RO1", "SPCM1_OtherNode_RO2",
+    )
+
+    #: The non-detector per-iteration display datasets, appended to the
+    #: derived per-detector ones by current_iteration_dataset_names().
+    CURRENT_ITERATION_EXTRA_NAMES = (
+        "AllSPCMs_RO1_current_iteration",
+        "AllSPCMs_RO2_current_iteration",
+        "AllSPCMs_alternating_RO_Node1_current_iteration",
+        "AllSPCMs_alternating_RO_Node2_current_iteration",
+        "AllSPCMs_alternating_RO_alice_current_iteration",
+        "AllSPCMs_alternating_RO_bob_current_iteration",
+        # The four per-node readout histograms: two shots x two nodes.
+        "AllSPCMs_alternating_RO1_Node1_current_iteration",
+        "AllSPCMs_alternating_RO1_Node2_current_iteration",
+        "AllSPCMs_alternating_RO2_Node1_current_iteration",
+        "AllSPCMs_alternating_RO2_Node2_current_iteration",
+        "test_dataset",
+    )
+
     MAGNETOMETER_RESULT_DATASETS = (
         "Magnetometer_Zero_X",
         "Magnetometer_Zero_Y",
@@ -295,6 +405,19 @@ class BaseExperimentMasterSatellite:
         "health_check_uw_freqm10",
         "health_check_uw_freqm11",
     )
+
+    #: The four MOT coils, in the order a loader writes them to a node's
+    #: coil_channels. A two_nodes run loads with <coil>_NodeX, or with
+    #: <coil>_for_two_nodes_NodeX when the global TWO_NODE_MOT_COIL_FLAG is
+    #: on; _compute_two_node_MOT_coils publishes the chosen four as
+    #: MOT_coil_volts_NodeX.
+    MOT_COIL_VOLT_VARIABLES = (
+        "AZ_bottom_volts_MOT",
+        "AZ_top_volts_MOT",
+        "AX_volts_MOT",
+        "AY_volts_MOT",
+    )
+    TWO_NODE_MOT_COIL_FLAG = "override_coils_with_two_nodes_setting"
 
     # The shim-tuning path inside the reused atom-loading functions writes
     # MOT coil calibrations by their standalone names.
@@ -346,6 +469,12 @@ class BaseExperimentMasterSatellite:
         self.global_variable_names = frozenset(
             variable.name for variable in MASTER_SATELLITE_VARIABLES
         )
+        # bare name -> <bare>_two_nodes; see TWO_NODES_SUFFIX
+        self.two_node_shared_variable_map = {
+            variable.name[:-len(self.TWO_NODES_SUFFIX)]: variable.name
+            for variable in MASTER_SATELLITE_VARIABLES
+            if variable.name.endswith(self.TWO_NODES_SUFFIX)
+        }
         self.node_variable_names = {
             node: frozenset(
                 variable.name
@@ -653,8 +782,8 @@ class BaseExperimentMasterSatellite:
         * RUN-GLOBAL DATASET NAMES -- measurements_progress and the
           *_rate_dataset / scan_* name strings. These are unsuffixed in both
           modes: they name run state, not one node's hardware, and
-          plan_codex_detail.md already fixes that policy for
-          measurements_progress.
+          plan_claude_detail.md section 6.9 already fixes that policy
+          for measurements_progress.
 
         Was _install_single_node_wiring_metadata, which returned immediately
         outside single_node mode and so left two-node code with no coil
@@ -689,30 +818,17 @@ class BaseExperimentMasterSatellite:
         self.experiment.scan_sequence2_dataset = "scan_sequence2"
 
     def initialize_result_datasets(self):
-        """Create the minimal transient per-scan-point results."""
-        self.reset_result_state_for_scan_point()
+        """Create the transient results, once per run.
 
-    def resolve_result_dataset_name(self, name):
-        """Resolve hard-coded legacy result names for the selected node."""
-        if self.experiment_mode == "single_node":
-            if name in self._single_node_redirect_names:
-                return f"{name}_{self.which_node}"
-            resolved_feedback_name = self.feedback_dataset_map.get(name)
-            if resolved_feedback_name is not None:
-                return resolved_feedback_name
-        return name
+        The per-scan-point ones through reset_result_state_for_scan_point,
+        plus the node's Magnetometer_*_NodeX series, which are seeded here and
+        nowhere else. They are never cleared between scan points, so the h5
+        keeps every sample of the run, like Magnetometer_TEST_* (seeded once in
+        initialize_result_state) and the standalone Base (user, 2026-10-23).
+        Until then reset_result_state_for_scan_point cleared them, and a
+        scan's h5 held only its last scan point -- RID 39317.
 
-    def reset_result_state_for_scan_point(self):
-        """Clear transient per-scan-point results.
-
-        This method deliberately does not read ExperimentVariables, touch the
-        core, bind devices, or reset any variable-dependent cached state.
-
-        The progress reset runs in BOTH modes -- measurements_progress names
-        run-global state and the applet reading it does not care which mode
-        produced it.
-
-        The magnetometer reset stays single_node-only. In two_nodes mode
+        The magnetometer seeding is single_node-only. In two_nodes mode
         resolve_result_dataset_name is the identity function, so both nodes
         would resolve to one unsuffixed Magnetometer_MOT_X and whichever wrote
         last would win -- and the two-node loader deliberately samples no
@@ -720,12 +836,7 @@ class BaseExperimentMasterSatellite:
         measure_GRIN1's sampler channel is a Node2 placeholder, so neither is
         carried into the two-node path).
         """
-        self.experiment.set_dataset(
-            self.experiment.measurements_progress,
-            0.0,
-            broadcast=True,
-            persist=False,
-        )
+        self.reset_result_state_for_scan_point()
 
         if self.experiment_mode != "single_node":
             return
@@ -737,6 +848,79 @@ class BaseExperimentMasterSatellite:
             self.experiment.set_dataset(
                 dataset_name,
                 [0.0],
+                broadcast=True,
+                persist=False,
+            )
+        # Legend for the magnetometer applets
+        # (applets_master_satellite.MAGNETOMETER_APPLET_SPECS):
+        # plot_xy_multichannel.py takes its trace labels from a dataset.
+        self.experiment.set_dataset(
+            "magnetometer_axis_labels",
+            ["X", "Y", "Z"],
+            broadcast=True,
+            persist=False,
+        )
+
+    def resolve_result_dataset_name(self, name):
+        """Resolve hard-coded legacy result names for the selected node."""
+        if self.experiment_mode == "single_node":
+            if name in self._single_node_redirect_names:
+                return f"{name}_{self.which_node}"
+            resolved_feedback_name = self.feedback_dataset_map.get(name)
+            if resolved_feedback_name is not None:
+                return resolved_feedback_name
+        return name
+
+    @classmethod
+    def current_iteration_dataset_names(cls):
+        """The per-iteration display datasets, in ONE place.
+
+        Shared by initialize_result_state, which seeds them, and
+        reset_result_state_for_scan_point, which clears them between scan
+        points. Two copies of this list would drift, and the failure is
+        silent: a histogram that keeps accumulating looks like a physics
+        result rather than a stale dataset.
+        """
+        return [
+            f"{name}_current_iteration" for name in cls.DETECTOR_RESULT_NAMES
+        ] + list(cls.CURRENT_ITERATION_EXTRA_NAMES)
+
+    def reset_result_state_for_scan_point(self):
+        """Clear transient per-scan-point results.
+
+        This method deliberately does not read ExperimentVariables, touch the
+        core, bind devices, or reset any variable-dependent cached state.
+
+        The progress reset runs in BOTH modes -- measurements_progress names
+        run-global state and the applet reading it does not care which mode
+        produced it.
+
+        THE PER-ITERATION DISPLAY DATASETS ARE CLEARED HERE, in both modes.
+        Without this they are seeded once by initialize_result_state and then
+        appended to for the whole run, so every "_current_iteration" histogram
+        shows the accumulated total and its "iteration N" title is a lie --
+        plot_hist_autosize.py uses --iteration only to label the plot, never
+        to slice the data. The standalone stack has always done this in
+        GeneralVariableScan.reset_datasets (":198"), and
+        MicrowaveScanOptimizer_master_satellite keeps its own copy (":424"),
+        but the master-satellite GVS mixin had no equivalent: it calls this
+        method once per scan point (_execute_scan_point, ":518") and nothing
+        else clears them.
+
+        The magnetometer series are NOT cleared here: they collect the whole
+        run. initialize_result_datasets seeds them once (user, 2026-10-23).
+        """
+        self.experiment.set_dataset(
+            self.experiment.measurements_progress,
+            0.0,
+            broadcast=True,
+            persist=False,
+        )
+
+        for dataset_name in self.current_iteration_dataset_names():
+            self.experiment.set_dataset(
+                dataset_name,
+                [0],
                 broadcast=True,
                 persist=False,
             )
@@ -762,7 +946,7 @@ class BaseExperimentMasterSatellite:
                 ] = missing
 
         missing_globals = self._load_variable_definitions(
-            MASTER_SATELLITE_VARIABLES
+            self._active_global_definitions()
         )
         if missing_globals:
             missing_by_owner[
@@ -781,6 +965,25 @@ class BaseExperimentMasterSatellite:
                 )
             }
             self.refresh_compatibility_variables()
+        else:
+            self.compatibility_variable_map = dict(
+                self.two_node_shared_variable_map
+            )
+            self.refresh_compatibility_variables()
+
+    def _active_global_definitions(self):
+        """The globals this mode loads: <x>_two_nodes only in two_nodes.
+
+        Keeping them out of single_node means a missing or de-persisted
+        two-node setting can only ever stop a two-node run, never AOMsCoils
+        or a single-node scan.
+        """
+        if self.experiment_mode == "two_nodes":
+            return MASTER_SATELLITE_VARIABLES
+        return tuple(
+            variable for variable in MASTER_SATELLITE_VARIABLES
+            if not variable.name.endswith(self.TWO_NODES_SUFFIX)
+        )
 
     def _load_variable_definitions(self, definitions):
         missing = []
@@ -794,14 +997,15 @@ class BaseExperimentMasterSatellite:
         return missing
 
     def refresh_compatibility_variables(self):
-        """Refresh single-node legacy attributes from authoritative values.
+        """Refresh the bare attributes from their authoritative values.
+
+        single_node: <x> from <x>_NodeX for the running node. two_nodes: <x>
+        from the global <x>_two_nodes (TWO_NODES_SUFFIX).
 
         This method only copies in-memory experiment attributes. It never
-        reads, creates, or writes persistent datasets.
+        reads, creates, or writes persistent datasets: the bare per-node
+        datasets in the DB belong to the standalone stack and are not these.
         """
-        if self.experiment_mode != "single_node":
-            return
-
         for compatibility_name, authoritative_name in (
             self.compatibility_variable_map.items()
         ):
@@ -820,8 +1024,10 @@ class BaseExperimentMasterSatellite:
         ``node``, when given, is the node that OWNS the name: the per-node
         override dictionary the entry was written in. It makes a bare
         node-specific name unambiguous, so override_ExperimentVariables_Node1
-        may say {'t_pumping': 30*us} and mean t_pumping_Node1 even in
-        two_nodes mode. A scan variable passes no node -- the field it comes
+        may say {'t_FORT_drop': 1*us} and mean t_FORT_drop_Node1 even in
+        two_nodes mode (a two-node sequence setting such as t_pumping is the
+        exception: there it means t_pumping_two_nodes, see TWO_NODES_SUFFIX).
+        A scan variable passes no node -- the field it comes
         from names no node either, so there is nothing to disambiguate it with
         and the ambiguity error below is still the right answer there.
 
@@ -834,7 +1040,33 @@ class BaseExperimentMasterSatellite:
             )
 
         if name in self.global_variable_names:
+            if (name.endswith(self.TWO_NODES_SUFFIX)
+                    and self.experiment_mode == "single_node"):
+                raise ValueError(
+                    f"{name!r} is read only by two_nodes runs; in "
+                    f"single_node mode use "
+                    f"{name[:-len(self.TWO_NODES_SUFFIX)]!r} (the "
+                    f"running node's value)."
+                )
             return name
+
+        if self.experiment_mode == "two_nodes":
+            # A two-node sequence setting: the bare name, from either node's
+            # dictionary or as a scan variable, is the one shared value.
+            if name in self.two_node_shared_variable_map:
+                return self.two_node_shared_variable_map[name]
+            for valid_node in self.VALID_NODES:
+                tail = f"_{valid_node}"
+                bare = name[:-len(tail)] if name.endswith(tail) else None
+                if bare in self.two_node_shared_variable_map:
+                    raise ValueError(
+                        f"{name!r} is not read in two_nodes mode: the "
+                        f"two-node sequence reads one shared {bare!r} "
+                        f"({self.two_node_shared_variable_map[bare]!r}). "
+                        f"Write {bare!r} instead, in "
+                        f"override_ExperimentVariables_global (or as the "
+                        f"scan variable)."
+                    )
 
         if node is not None:
             if node not in self.VALID_NODES:
@@ -922,25 +1154,11 @@ class BaseExperimentMasterSatellite:
             self._compute_derived_amplitudes(node)
 
         if self.experiment_mode == "two_nodes":
-            # Re-derive the shared bare scalars from the per-node values AFTER
-            # overrides and scan points have been applied. Publishing them only
-            # from prepare() made this method's guard useless and silently
-            # broke two things:
-            #   * an asymmetric override of an agreeing scalar did NOT raise --
-            #     prepare() compared the two equal dataset values, published
-            #     the bare name, and the later setattr of the suffixed names
-            #     left it stale, so Node2 ran with Node1's value. That is the
-            #     exact failure _publish_agreeing_scalars exists to prevent.
-            #   * scanning or overriding an agreeing scalar had NO EFFECT, for
-            #     the same reason: the sequence reads the bare name and the
-            #     bare name was frozen at its pre-override value.
-            # This is the one hook the override path and the per-scan-point
-            # path both run through, so it is the correct place.
-            self._publish_agreeing_scalars()
-
-            # Same reasoning for the alternating exposure: it is derived from
-            # two scannable variables, so a scan over either would otherwise
-            # leave the applets scaling histograms by a stale value.
+            # The flag and both coil sets can be overridden or scanned.
+            self._compute_two_node_MOT_coils()
+            # The alternating exposure is derived from two scannable
+            # variables, so a scan over either would otherwise leave the
+            # applets scaling histograms by a stale value.
             self.experiment.set_dataset(
                 "t_alternating_RO_exposure",
                 (int(self.experiment.n_alternating_RO_windows_per_node)
@@ -969,7 +1187,7 @@ class BaseExperimentMasterSatellite:
                 ] = missing
 
         global_values, missing_globals = self._read_variable_definitions(
-            MASTER_SATELLITE_VARIABLES
+            self._active_global_definitions()
         )
         values.update(global_values)
         if missing_globals:
@@ -1034,9 +1252,14 @@ class BaseExperimentMasterSatellite:
                     bound_devices,
                 )
 
+        # Node1 ttl10, ttl11 and Node2 ttl9, ttl10 are unused since 2026-10-19
+        # (see NODE_TTL_ALIASES) and are left out of these groups. Node1 ttl15
+        # is ttl_D1_pumping_switch and is blocked at init, like Node2's ttl12.
+        # Node1's input group holds its dummy input instead of ttl11: an
+        # empty group cannot be type-inferred by the kernel compiler.
         input_names = {
-            "Node1": ("ttl11",),
-            "Node2": ("ttl0", "ttl1", "ttl2", "ttl3", "ttl8", "ttl9"),
+            "Node1": ("ttl3",),
+            "Node2": ("ttl0", "ttl1", "ttl2", "ttl3", "ttl8"),
         }[node]
         output_names = {
             "Node1": (
@@ -1047,11 +1270,11 @@ class BaseExperimentMasterSatellite:
             ),
         }[node]
         safe_on_names = {
-            "Node1": ("ttl4", "ttl5", "ttl6", "ttl7", "ttl13", "ttl14"),
+            "Node1": ("ttl4", "ttl5", "ttl6", "ttl7", "ttl13", "ttl14", "ttl15"),
             "Node2": ("ttl4", "ttl5", "ttl6", "ttl7", "ttl12", "ttl13", "ttl14"),
         }[node]
         safe_off_names = {
-            "Node1": ("ttl12", "ttl15"),
+            "Node1": ("ttl12",),
             "Node2": ("ttl15",),
         }[node]
 
@@ -1143,6 +1366,16 @@ class BaseExperimentMasterSatellite:
         else:
             self.experiment.named_devices_Node1 = self.node_resolvers["Node1"]
             self.experiment.named_devices_Node2 = self.node_resolvers["Node2"]
+            # The same lazy controller view, once per node, so a two-node
+            # sequence names the node in the device as it does everywhere
+            # else: k10cr1_ndsp_Node2.move_to(pos, "780_HWP") moves
+            # 780_HWP_Node2. Nothing connects until a rotator is moved.
+            self.experiment.k10cr1_ndsp_Node1 = _NodeAxisK10CR1Proxy(
+                self.experiment, "Node1"
+            )
+            self.experiment.k10cr1_ndsp_Node2 = _NodeAxisK10CR1Proxy(
+                self.experiment, "Node2"
+            )
 
     def prepare(self):
         """Bind DDS aliases after suffixed authoritative variables exist."""
@@ -1182,7 +1415,83 @@ class BaseExperimentMasterSatellite:
             self._compute_derived_amplitudes(node)
 
         if self.experiment_mode == "two_nodes":
+            self._compute_two_node_MOT_coils()
             self._publish_broadcast_aliases()
+
+    def two_node_MOT_coil_names(self, node, use_two_node_coils):
+        """The four MOT coil variables of one node, in loader order.
+
+        <coil>_for_two_nodes_<node> when use_two_node_coils, else <coil>_<node>.
+        """
+        tag = "_for_two_nodes" if use_two_node_coils else ""
+        return [f"{name}{tag}_{node}" for name in self.MOT_COIL_VOLT_VARIABLES]
+
+    def _compute_two_node_MOT_coils(self):
+        """Publish MOT_coil_volts_NodeX, the MOT coils two-node loading writes.
+
+        The global TWO_NODE_MOT_COIL_FLAG chooses each node's two-node set
+        (<coil>_for_two_nodes_NodeX) over its single-node set (<coil>_NodeX).
+        Derived like the RF amplitudes: recomputed by
+        refresh_variable_dependent_state after every override and scan point,
+        so a run may override or scan the flag or either set. Nothing is
+        written to the dataset DB; the h5 archives the flag and both sets.
+        """
+        use_two_node_coils = bool(
+            getattr(self.experiment, self.TWO_NODE_MOT_COIL_FLAG)
+        )
+        for node in self.active_nodes:
+            setattr(
+                self.experiment,
+                f"MOT_coil_volts_{node}",
+                [float(getattr(self.experiment, name))
+                 for name in self.two_node_MOT_coil_names(
+                     node, use_two_node_coils)],
+            )
+
+    def check_single_node_MOT_coil_targets(self, targets):
+        """Refuse a single-node run that sets the flag or a two-node coil.
+
+        Only two_nodes runs read TWO_NODE_MOT_COIL_FLAG and the
+        <coil>_for_two_nodes_NodeX set; a single_node run loads with
+        <coil>_NodeX, so setting them would do nothing.
+        """
+        two_node_only = {self.TWO_NODE_MOT_COIL_FLAG} | {
+            name
+            for node in self.VALID_NODES
+            for name in self.two_node_MOT_coil_names(node, True)
+        }
+        named = sorted(set(targets) & two_node_only)
+        if named:
+            raise ValueError(
+                f"{', '.join(named)} would not be used: only two_nodes runs "
+                f"read {self.TWO_NODE_MOT_COIL_FLAG} and the "
+                f"<coil>_for_two_nodes_NodeX coils; a single_node run loads "
+                f"with <coil>_NodeX."
+            )
+
+    def check_two_node_MOT_coil_targets(self, targets, use_two_node_coils):
+        """Refuse a two-node run that sets a MOT coil its loader will not read.
+
+        targets: the variables the run overrides or scans. With the flag on
+        the loader reads <coil>_for_two_nodes_NodeX, so setting <coil>_NodeX
+        would do nothing, and the other way round with it off.
+        """
+        unused = {
+            name
+            for node in self.VALID_NODES
+            for name in self.two_node_MOT_coil_names(
+                node, not use_two_node_coils)
+        }
+        named = sorted(set(targets) & unused)
+        if named:
+            used = self.two_node_MOT_coil_names("Node1", use_two_node_coils)[0]
+            raise ValueError(
+                f"{', '.join(named)} would not be used: "
+                f"{self.TWO_NODE_MOT_COIL_FLAG} is {bool(use_two_node_coils)} "
+                f"for this run, so two-node loading reads the other coil set "
+                f"(e.g. {used}). Set those instead, or change "
+                f"{self.TWO_NODE_MOT_COIL_FLAG}."
+            )
 
     def _publish_broadcast_aliases(self):
         """Publish bare names that act on BOTH crates at once.
@@ -1240,8 +1549,6 @@ class BaseExperimentMasterSatellite:
         # Shared master-local detectors, same bare names single-node code uses.
         self._publish_shared_spcm_compatibility()
 
-        self._publish_agreeing_scalars()
-
         # which_node has no meaning here, but end_measurement's magnetometer
         # branch mentions it, and the ARTIQ compiler types every branch it can
         # reach whether or not it executes. Publishing the master's legacy name
@@ -1249,89 +1556,6 @@ class BaseExperimentMasterSatellite:
         # because monitor_magnetometer_in_end_measurement gates it and the
         # two-node sequence samples no magnetometers.
         experiment.which_node = self.NODE_LEGACY_NAMES["Node1"]
-
-    #: Per-node scalars that a two-node sequence reads BARE, because they are
-    #: scalars rather than per-node hardware settings: they end up in an `if`,
-    #: or in a delay() both nodes share, or in a threshold comparison. The
-    #: legacy two-node code read them bare on both crates and the imported
-    #: single-node subroutines still do.
-    #:
-    #: Published bare ONLY while the two nodes agree. _publish_agreeing_scalars
-    #: raises if one diverges, rather than silently handing the sequence one
-    #: node's value -- divergence means that quantity has become genuinely
-    #: per-node and the sequence has to say which node it means.
-    #:
-    #: Deliberately NOT here: anything the nodes already disagree about.
-    #: single_atom_threshold is 14000 vs 17000, t_PGC_after_loading 0.6 vs
-    #: 1.0 ms, every f_* and coil voltage differs. Those are explicit at the
-    #: call site.
-    # Deliberately NOT in this tuple, because they are genuinely per node and
-    # the two-node sequence addresses them explicitly:
-    #   PGC_and_RO_with_on_chip_beams -- selects A5/A6, a per-node AOM pair
-    #   do_PGC_after_loading          -- gates a per-node stage whose duration
-    #                                    (t_PGC_after_loading) already differs
-    #   t_FORT_drop                   -- a per-node duration, and the knob
-    #                                    retention is measured against
-    # Sharing a duration that differs between the nodes is the failure this
-    # whole mechanism is here to catch, so a duration only belongs below when
-    # one joint hardware event consumes it.
-    TWO_NODE_AGREEING_SCALARS = (
-        "monitor_magnetometer_in_end_measurement",
-        "monitors_for_atom_loading",
-        "use_chopped_readout",
-        "no_first_shot",
-        "require_D1_lock_to_advance",
-        "enable_laser_feedback",
-        # Read by aom_feedback.run(), which a two-node run now calls per node.
-        "Luca_trigger_for_feedback_verification",
-        # These four are joint because ONE hardware event consumes each: a
-        # single gate of all four master-local SPCMs, and a single interval on
-        # the one shared timeline between two joint shots.
-        "t_SPCM_first_shot",
-        "t_SPCM_second_shot",
-        "t_atom_check_time",
-        "t_delay_between_shots",
-        "t_FORT_loading",
-        "t_MOT_dissipation",
-    )
-
-    def _publish_agreeing_scalars(self):
-        """Publish the bare scalars a two-node sequence shares, or raise.
-
-        See TWO_NODE_AGREEING_SCALARS. The equality check is the whole point:
-        it converts "Node2 silently ran with Node1's exposure time" into an
-        error naming the variable.
-
-        Called from prepare() AND from refresh_variable_dependent_state, so it
-        sees overridden and scanned values too -- which is what makes the check
-        meaningful. Publishing only from prepare() compared two still-equal
-        dataset values and left the bare name stale behind every override.
-        """
-        experiment = self.experiment
-        diverged = []
-        for base_name in self.TWO_NODE_AGREEING_SCALARS:
-            value1 = getattr(experiment, f"{base_name}_Node1")
-            value2 = getattr(experiment, f"{base_name}_Node2")
-            if value1 != value2:
-                diverged.append(f"{base_name} (Node1={value1!r}, Node2={value2!r})")
-                continue
-            setattr(experiment, base_name, value1)
-
-        if diverged:
-            raise RuntimeError(
-                "Two-node mode publishes these as one shared bare name, but "
-                "the nodes no longer agree: " + "; ".join(diverged) + ". "
-                "These are shared because ONE hardware event consumes each -- "
-                "a single gate of all four master-local SPCMs, or a single "
-                "interval on the one shared timeline -- so there is no way to "
-                "honour two values. If an override dictionary set this, put "
-                "the SAME value in both override_ExperimentVariables_Node1 "
-                "and _Node2. If a scan set it, scan it on both nodes. If the "
-                "two nodes genuinely need different values, it does not belong "
-                "in TWO_NODE_AGREEING_SCALARS: take it out and address the two "
-                "nodes explicitly at the call site, the way the sequence "
-                "already does for t_FORT_drop and t_PGC_after_loading."
-            )
 
     def _compute_derived_amplitudes(self, node):
         """Recompute one node's in-memory RF amplitudes.
@@ -1435,7 +1659,8 @@ class BaseExperimentMasterSatellite:
         # Applets can only read broadcast DATASETS, and three of the five
         # inputs to "retention and loading AllSPCMs" are read that way:
         # AllSPCMs_RO1/RO2 are seeded below, single_atom_threshold and
-        # t_SPCM_first_shot are persistent per-node variables -- and
+        # t_SPCM_first_shot are persistent variables (per node, or
+        # t_SPCM_first_shot_two_nodes in two_nodes mode) -- and
         # n_measurements was nothing at all. The master-satellite stack kept it
         # as an experiment ATTRIBUTE only (it reaches an h5 through `archive`,
         # never `datasets`), where the standalone Base broadcasts it in
@@ -1468,11 +1693,7 @@ class BaseExperimentMasterSatellite:
             persist=True,
         )
 
-        detector_names = (
-            "SPCM0_RO1", "SPCM0_RO2", "SPCM1_RO1", "SPCM1_RO2",
-            "SPCM0_OtherNode_RO1", "SPCM0_OtherNode_RO2",
-            "SPCM1_OtherNode_RO1", "SPCM1_OtherNode_RO2",
-        )
+        detector_names = self.DETECTOR_RESULT_NAMES
 
         # Host-side scalars the reused experiment_functions read and write.
         # The ARTIQ compiler types kernel attribute access from the host
@@ -1500,6 +1721,21 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO_Node2",
                 "AllSPCMs_alternating_RO_alice",
                 "AllSPCMs_alternating_RO_bob",
+                # Per-node FIRST and SECOND shots, written by
+                # alternating_first_shot / alternating_second_shot. Four
+                # numbers, so retention can be computed per node instead of
+                # from a joint sum that cannot tell one bright trap from two.
+                #
+                # NOT named AllSPCMs_RO1_NodeX: that strips to the existing
+                # joint AllSPCMs_RO1 in ms_archive_and_datasets_to_locals and
+                # collides with it. The "alternating" infix keeps the stripped
+                # form (AllSPCMs_alternating_RO1) a name nothing else writes.
+                # AllSPCMs_RO1_NodeX stays reserved for a node-resolving
+                # version of the ordinary shots.
+                "AllSPCMs_alternating_RO1_Node1",
+                "AllSPCMs_alternating_RO1_Node2",
+                "AllSPCMs_alternating_RO2_Node1",
+                "AllSPCMs_alternating_RO2_Node2",
                 "SPCM0_test_RO", "SPCM1_test_RO",
                 "SPCM0_OtherNode_test_RO", "SPCM1_OtherNode_test_RO",
                 "AllSPCMs_test_RO",
@@ -1535,6 +1771,19 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO_Node2",
                 "AllSPCMs_alternating_RO_alice",
                 "AllSPCMs_alternating_RO_bob",
+                # Per-node first and second shots; see the naming note beside
+                # these in integer_scalars above.
+                "AllSPCMs_alternating_RO1_Node1",
+                "AllSPCMs_alternating_RO1_Node2",
+                "AllSPCMs_alternating_RO2_Node1",
+                "AllSPCMs_alternating_RO2_Node2",
+                # Each node's readout after the parity mapping and blow-away,
+                # one entry per herald, written by Two_nodes_atom_atom_parity
+                # _experiment. The "alternating" infix for the same reason as
+                # the shots above: it is the alternating readout, and the
+                # stripped name collides with nothing.
+                "AllSPCMs_alternating_parity_RO_Node1",
+                "AllSPCMs_alternating_parity_RO_Node2",
                 "AllSPCMs_RO_atom_check",
                 "AllSPCMs_atom_check_in_loading",
                 # Per-node counterparts, written by
@@ -1546,6 +1795,27 @@ class BaseExperimentMasterSatellite:
                 "AllSPCMs_alternating_RO_atom_check_in_loading_Node2",
                 "n_feedback_per_iteration",
                 "n_atom_loaded_per_iteration",
+                # One entry per scan point of
+                # Two_nodes_atom_atom_parity_experiment: the passes it took.
+                # Its n_measurements counts heralds while the shots are
+                # written once per pass, so the retention-and-loading applet
+                # groups the shots by this. Stays at its seed in every other
+                # experiment, and the applet then groups by n_measurements.
+                "n_passes_per_iteration",
+                # One entry per saved photon row of Two_nodes_HOM_experiment
+                # and per herald of Two_nodes_atom_atom_parity_experiment,
+                # beside reference_tStamps_t1: that attempt within its
+                # excitation cycle, 0 = the first. Lets the analysis keep the
+                # first attempt only (2026-10-29).
+                "excitation_attempt_of_row",
+                # One entry per KEPT measurement of
+                # Two_nodes_atom_loading_2_experiment: how many
+                # load-plus-first-shot attempts that measurement needed.
+                # Loading probability is 1 / mean(this) -- the measurement the
+                # confirm loop would otherwise destroy, since it makes
+                # n_atom_loaded_per_iteration count loads across attempts
+                # rather than measurements.
+                "n_first_shot_confirm_tries",
             ]
         )
         for dataset_name in integer_series:
@@ -1556,19 +1826,7 @@ class BaseExperimentMasterSatellite:
         # node-suffixed because the applets plot them under these exact names.
         # end_measurement and the readout subroutines append to them, so they
         # must exist or append_to_dataset raises KeyError.
-        current_iteration_series = (
-            [f"{name}_current_iteration" for name in detector_names]
-            + [
-                "AllSPCMs_RO1_current_iteration",
-                "AllSPCMs_RO2_current_iteration",
-                "AllSPCMs_alternating_RO_Node1_current_iteration",
-                "AllSPCMs_alternating_RO_Node2_current_iteration",
-                "AllSPCMs_alternating_RO_alice_current_iteration",
-                "AllSPCMs_alternating_RO_bob_current_iteration",
-                "test_dataset",
-            ]
-        )
-        for dataset_name in current_iteration_series:
+        for dataset_name in self.current_iteration_dataset_names():
             experiment.set_dataset(dataset_name, [0], broadcast=True)
 
         # Remaining append targets the standalone BaseExperiment seeds. These
@@ -1621,12 +1879,27 @@ class BaseExperimentMasterSatellite:
         for dataset_name in ("angle_780_HWP", "angle_780_QWP"):
             experiment.set_dataset(dataset_name, [], broadcast=True)
 
+        # Per herald, per node: Two_nodes_atom_atom_parity_experiment. Not
+        # angle_780_HWP_NodeX, which the single-node loader would strip onto
+        # angle_780_HWP above and report as a collision in every file.
+        for dataset_name in ("parity_angle_780_HWP_Node1",
+                             "parity_angle_780_HWP_Node2",
+                             "parity_angle_780_QWP_Node1",
+                             "parity_angle_780_QWP_Node2"):
+            experiment.set_dataset(dataset_name, [], broadcast=True)
+
         experiment.set_dataset("iteration", 0, broadcast=True)
 
         float_series = (
             "SPCM0_FORT_science",
             "FORT_MM_science_volts",
             "Atom_loading_time",
+            # One entry per KEPT measurement while advance_if_atom_in_first_shot
+            # is on: seconds from the first load attempt to the first shot that
+            # saw the atoms, rejected attempts included (Atom_loading_time has
+            # each load's MOT time only). Written by the two-node confirm loops,
+            # plotted by FIRST_SHOT_ALIVE_APPLET_SPECS.
+            "Atom_loading_time_first_shot_alive",
             "time_without_atom",
             "atom_loading_wall_clock",
             "GRIN1_D1_monitor",
@@ -1684,10 +1957,8 @@ class BaseExperimentMasterSatellite:
         # breaks the moment anyone scans n_alternating_RO_windows_per_node or
         # t_alternating_RO_window -- at which point a histogram would be
         # scaled by the wrong exposure and a threshold read off it would be
-        # wrong without looking wrong. (t_atom_check_time is worse still: in
-        # two-node mode it resolves to a bare name this stack never declares
-        # as a dataset, so an applet would be answered by a leftover
-        # STANDALONE value of 20 ms.)
+        # wrong without looking wrong. (t_atom_check_time is the loading
+        # check's gate, t_atom_check_time_two_nodes here, not this exposure.)
         if self.experiment_mode == "two_nodes":
             experiment.set_dataset(
                 "t_alternating_RO_exposure",
@@ -1815,10 +2086,11 @@ class BaseExperimentMasterSatellite:
         """Build ONE AOMPowerStabilizer per crate, for a two-node run.
 
         Two-node feedback works the way single-node feedback does, and writes
-        the SAME per-node datasets -- p_AOM_A1_Node1, FORT_monitor_Node2 and
-        so on -- so every applet and every analysis notebook keeps working
-        unchanged. That is the whole requirement; nothing here invents a
-        two-node dataset vocabulary.
+        the SAME per-node datasets -- p_AOM_A1_Node1, p_AOM_A1_history_Node1,
+        FORT_monitor_Node2 and so on -- so every applet and every analysis
+        notebook keeps working unchanged. That is the whole requirement;
+        nothing here invents a two-node dataset vocabulary. (Until 2026-10-20
+        the histories came out p_AOM_A1_Node1_history, which no applet plots.)
 
         It cannot go through feedback_dataset_map the way single-node does,
         because that map is one dict on the experiment and two stabilizers

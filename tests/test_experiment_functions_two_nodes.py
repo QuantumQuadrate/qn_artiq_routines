@@ -77,6 +77,9 @@ def _artiq_experiment_stub_or_none():
 _experiment_stub = _artiq_experiment_stub_or_none()
 if _experiment_stub is not None:
     _stub_exports = {
+        # the GVS health check catches it around scheduler.pause()
+        "TerminationRequested": type(
+            "TerminationRequested", (Exception,), {}),
         "EnvExperiment": object,
         "kernel": _identity_decorator,
         "rpc": _identity_decorator,
@@ -106,6 +109,33 @@ if _experiment_stub is not None:
     for _name, _value in _stub_exports.items():
         if not hasattr(_experiment_stub, _name):
             setattr(_experiment_stub, _name, _value)
+
+    # The two-node functions import the AD9910 phase modes (parity mapping),
+    # and the GVS mixin the RTIOUnderflow exception. Same block the GVS,
+    # optimizer and microwave test modules carry; setdefault so whichever
+    # test module loads first wins and the others extend rather than clobber.
+    _coredevice = types.ModuleType("artiq.coredevice")
+    _exceptions = types.ModuleType("artiq.coredevice.exceptions")
+
+    class _RTIOUnderflow(Exception):
+        pass
+
+    _exceptions.RTIOUnderflow = _RTIOUnderflow
+    _ad9910 = types.ModuleType("artiq.coredevice.ad9910")
+    for _constant in (
+        "PHASE_MODE_ABSOLUTE",
+        "PHASE_MODE_CONTINUOUS",
+        "PHASE_MODE_TRACKING",
+        "RAM_DEST_ASF",
+        "RAM_MODE_RAMPUP",
+    ):
+        setattr(_ad9910, _constant, 0)
+    _urukul = types.ModuleType("artiq.coredevice.urukul")
+    _urukul.CFG_MASK_NU = 0
+    sys.modules.setdefault("artiq.coredevice", _coredevice)
+    sys.modules.setdefault("artiq.coredevice.exceptions", _exceptions)
+    sys.modules.setdefault("artiq.coredevice.ad9910", _ad9910)
+    sys.modules.setdefault("artiq.coredevice.urukul", _urukul)
     if hasattr(_experiment_stub, "__all__"):
         _experiment_stub.__all__ = sorted(
             set(_experiment_stub.__all__) | set(_stub_exports)
@@ -136,7 +166,7 @@ _ALLOWED_NON_DEVICE = {
     "measurement", "measurements_progress", "n_measurements",
     "two_atom_threshold", "two_atom_threshold_for_loading",
     "t_Node2_rtio_offset_mu", "t_Node2_excitation_delay_mu",
-    "max_atom_check_tries_two_node", "max_loading_rounds_two_node",
+    "max_atom_check_tries_two_node", "max_loading_rounds",
     "n_alternating_RO_windows_per_node",
     "t_alternating_RO_window", "t_alternating_RO_pad",
     "atom_loading_time", "atom_loading_time_list",
@@ -186,6 +216,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             name for name in vars(experiment)
             if not name.endswith(("_Node1", "_Node2"))
         } | _ALLOWED_NON_DEVICE
+        # the two-node sequence settings, read bare from <x>_two_nodes
+        cls.two_node_settings = set(base.two_node_shared_variable_map)
 
     def test_module_touches_self_attributes_at_all(self):
         """Guard the guard: if the walk finds nothing, the rest proves nothing."""
@@ -228,9 +260,32 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             + "\n  ".join(offenders),
         )
 
+    def test_two_node_sequence_settings_are_never_read_per_node(self):
+        """self.t_pumping, never self.t_pumping_Node1, for the ten settings.
+
+        In two_nodes mode Base still loads both nodes' per-node copies
+        (t_photon_collection_time_Node1 = 100 ns, _Node2 = 200 ns), so a read
+        of one compiles and runs -- with the single-node value, ignoring
+        t_photon_collection_time_two_nodes and every two-node override of
+        it (those resolve to _two_nodes). Nothing else would catch that.
+        """
+        self.assertTrue(self.two_node_settings)
+        offenders = []
+        for name, line in self.self_attributes:
+            for tail in ("_Node1", "_Node2"):
+                if (name.endswith(tail)
+                        and name[:-len(tail)] in self.two_node_settings):
+                    offenders.append(f"{_MODULE_PATH}:{line}: self.{name}")
+        self.assertEqual(
+            offenders, [],
+            "Two-node sequence settings are read bare (Base publishes them "
+            "from <name>_two_nodes):\n  " + "\n  ".join(offenders),
+        )
+
     def test_bare_names_are_ones_base_actually_publishes(self):
-        """A bare name must be a broadcast alias, a shared detector, or an
-        agreeing scalar -- not a per-node name someone forgot to suffix."""
+        """A bare name must be a broadcast alias, a shared detector, or a
+        shared setting (a plain global, or a <x>_two_nodes one) -- not a
+        per-node name someone forgot to suffix."""
         offenders = []
         for name, line in self.self_attributes:
             if name.endswith(("_Node1", "_Node2")) or name.startswith("_"):
@@ -241,8 +296,10 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
         self.assertEqual(
             offenders, [],
             "Not published bare in two-node mode. Either suffix it with the "
-            "node, or add it to TWO_NODE_AGREEING_SCALARS if both nodes "
-            "genuinely share one value:\n  " + "\n  ".join(offenders),
+            "node, or, if both nodes share one value, declare it in "
+            "ExperimentVariables_master_satellite_global.py: as a plain "
+            "global, or as <name>_two_nodes for a two-node sequence "
+            "setting:\n  " + "\n  ".join(offenders),
         )
 
     def test_no_raw_physical_device_names(self):
@@ -271,8 +328,16 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             set(registry),
             {
                 "master_satellite_namespace_sanity_experiment",
+                # Both advance criteria live here now, selected by the
+                # global advance_if_atom_in_first_shot. There is no separate
+                # _2_ entry point since 2026-10-12.
                 "Two_nodes_atom_loading_experiment",
-                "Two_nodes_alternating_shot_experiment",
+                # Both shots node-resolved, for per-node retention.
+                "Two_nodes_alternating_retention_experiment",
+                # Port of the standalone Two_node_single_photon_2_experiment.
+                "Two_nodes_HOM_experiment",
+                # Two-photon herald, then each node's parity readout.
+                "Two_nodes_atom_atom_parity_experiment",
             },
         )
         module_functions = [
@@ -409,6 +474,25 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 return name in ("delay", "delay_mu", "at_mu", "break_realtime")
             return False
 
+        def is_parallel_block(stmt):
+            """True only for `with parallel:`.
+
+            Every OTHER `with` in a kernel is an ordinary context manager whose
+            body runs sequentially -- `with self.core_dma.record(...)` is the
+            one in this file, and `with sequential:` would be another. The
+            branch-collision model below is correct only for `parallel`:
+            applied to a DMA recording it counts every top-level statement in
+            the trace as sharing the block's entry timestamp, which reported
+            all 52 events of record_CW_optical_pumping_both_nodes as one
+            timestamp. Until that function existed every `with` here was
+            `with parallel`, so the distinction had never mattered.
+            """
+            for item in stmt.items:
+                expr = item.context_expr
+                if isinstance(expr, ast.Name) and expr.id == "parallel":
+                    return True
+            return False
+
         def first_statements(stmts):
             """Statements that can execute first -- an unguarded `if` may be
             skipped, so it falls through to whatever follows it."""
@@ -462,6 +546,11 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                         counts = taken | counts
                     continue
                 if isinstance(stmt, ast.With):
+                    if not is_parallel_block(stmt):
+                        # Ordinary context manager: the body is sequential, so
+                        # just carry the running count through it.
+                        counts = walk(stmt.body, set(counts), function_name)
+                        continue
                     # Every branch starts at the block's entry timestamp, so
                     # their first events collide with each other and with
                     # whatever already shares that timestamp.
@@ -632,6 +721,157 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             f"or use `with parallel` and drop the anchor.",
         )
 
+    def test_every_confirm_loop_records_its_first_shot_alive_time(self):
+        """Each confirm loop writes Atom_loading_time_first_shot_alive, and the
+        applet is asked for by exactly those experiments.
+
+        A confirm loop is recognised by its n_first_shot_confirm_tries append.
+        A new one that forgets the time would leave the applet showing the
+        previous run's times; a name missing from FIRST_SHOT_ALIVE_EXPERIMENTS
+        would never open it.
+        """
+        import applets_master_satellite as applets
+
+        def appends(node, name):
+            return any(
+                isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Attribute)
+                and item.func.attr == "append_to_dataset"
+                and item.args
+                and isinstance(item.args[0], ast.Constant)
+                and item.args[0].value == name
+                for item in ast.walk(node)
+            )
+
+        functions = [node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)]
+        confirm = {node.name for node in functions
+                   if appends(node, "n_first_shot_confirm_tries")}
+        timed = {node.name for node in functions
+                 if appends(node, "Atom_loading_time_first_shot_alive")}
+        self.assertTrue(confirm, "found no confirm loop at all")
+        self.assertEqual(timed, confirm)
+        self.assertEqual(set(applets.FIRST_SHOT_ALIVE_EXPERIMENTS), confirm)
+
+    def test_parity_passes_per_point_feed_the_retention_applet(self):
+        """The parity run counts heralds in n_measurements but writes the
+        shots once per pass, so it records each scan point's passes, and the
+        two-node retention applet groups the shots by them.
+
+        Only the parity experiment appends n_passes_per_iteration; in every
+        other two-node experiment it stays at its seed and the applet groups
+        by n_measurements, as those write one shot per measurement.
+        """
+        import applets_master_satellite as applets
+
+        def appends(node, name):
+            return any(
+                isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Attribute)
+                and item.func.attr == "append_to_dataset"
+                and item.args
+                and isinstance(item.args[0], ast.Constant)
+                and item.args[0].value == name
+                for item in ast.walk(node)
+            )
+
+        functions = [node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)]
+        self.assertEqual(
+            {node.name for node in functions
+             if appends(node, "n_passes_per_iteration")},
+            {"Two_nodes_atom_atom_parity_experiment"},
+        )
+        retention = next(spec for spec in applets.TWO_NODE_APPLET_SPECS
+                         if spec.title == "retention and loading AllSPCMs")
+        self.assertIn(("--passes_per_point", "n_passes_per_iteration"),
+                      retention.options)
+        self.assertIn("two_atom_threshold", retention.args)
+
+    def test_any_click_ends_the_cycles_excitation_attempts(self):
+        """In HOM and parity, the attempt loop stops at the first attempt with
+        a click on any SPCM (user, 2026-10-29): both nodes' atom-photon
+        entanglement must come from the same attempt, so a later attempt may
+        only follow one with no click at all.
+
+        Pinned structurally: the `for excitation_attempt` loop holds a
+        `break` under an `if` that tests the click times (HOM) or n_clicked
+        (parity), and in parity that break comes after the herald's.
+        """
+        def attempt_loop(function_name):
+            function = next(node for node in self.tree.body
+                            if isinstance(node, ast.FunctionDef)
+                            and node.name == function_name)
+            return next(node for node in ast.walk(function)
+                        if isinstance(node, ast.For)
+                        and isinstance(node.target, ast.Name)
+                        and node.target.id == "excitation_attempt")
+
+        def breaking_ifs(loop):
+            """The ifs in the loop whose own body breaks, with the names
+            their test reads."""
+            return [(node, {item.id for item in ast.walk(node.test)
+                            if isinstance(item, ast.Name)})
+                    for node in ast.walk(loop)
+                    if isinstance(node, ast.If)
+                    and any(isinstance(item, ast.Break) for item in node.body)]
+
+        clicks = {"SPCM0_click_time", "SPCM1_click_time",
+                  "SPCM0_OtherNode_click_time", "SPCM1_OtherNode_click_time"}
+        hom = breaking_ifs(attempt_loop("Two_nodes_HOM_experiment"))
+        self.assertTrue(any(clicks <= tested for _, tested in hom),
+                        [tested for _, tested in hom])
+
+        parity = breaking_ifs(attempt_loop("Two_nodes_atom_atom_parity_experiment"))
+
+        def on_n_clicked(op):
+            return [node for node, _ in parity
+                    if isinstance(node.test, ast.Compare)
+                    and isinstance(node.test.left, ast.Name)
+                    and node.test.left.id == "n_clicked"
+                    and isinstance(node.test.ops[0], op)]
+
+        herald, any_click = on_n_clicked(ast.Eq), on_n_clicked(ast.Gt)
+        self.assertEqual(len(herald), 1)
+        self.assertEqual(len(any_click), 1)
+        self.assertLess(herald[0].lineno, any_click[0].lineno)
+
+    def test_photon_rows_record_their_excitation_attempt(self):
+        """HOM (per photon row) and parity (per herald) write each row's
+        attempt within its cycle beside its t1, so the analysis can keep the
+        first attempt only (2026-10-29). Pinned: exactly those two functions
+        append excitation_attempt_of_row, each as often as
+        reference_tStamps_t1, and the HOM row index stores the loop's
+        excitation_attempt.
+        """
+        def appends(node, name):
+            return sum(
+                1 for item in ast.walk(node)
+                if isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Attribute)
+                and item.func.attr == "append_to_dataset"
+                and item.args
+                and isinstance(item.args[0], ast.Constant)
+                and item.args[0].value == name)
+
+        functions = {node.name: node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)}
+        writers = {name for name, node in functions.items()
+                   if appends(node, "excitation_attempt_of_row")}
+        self.assertEqual(writers, {"Two_nodes_HOM_experiment",
+                                   "Two_nodes_atom_atom_parity_experiment"})
+        for name in writers:
+            self.assertEqual(appends(functions[name], "excitation_attempt_of_row"),
+                             appends(functions[name], "reference_tStamps_t1"), name)
+        stored = [item for item in ast.walk(functions["Two_nodes_HOM_experiment"])
+                  if isinstance(item, ast.Assign)
+                  and isinstance(item.targets[0], ast.Subscript)
+                  and isinstance(item.targets[0].value, ast.Name)
+                  and item.targets[0].value.id == "attempt_of_row"
+                  and isinstance(item.value, ast.Name)
+                  and item.value.id == "excitation_attempt"]
+        self.assertEqual(len(stored), 1)
+
     def test_every_amplitude_index_read_is_an_index_fed_back(self):
         """A setpoint index the sequence READS must be one feedback WRITES.
 
@@ -700,11 +940,18 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
     def test_gating_always_uses_all_four_canonical_detectors(self):
         """All four SPCMs see both nodes, so a gate must open all four.
 
-        Forgetting one reads a quarter low and still runs.
+        Forgetting one reads a quarter low and still runs. Counting gates use
+        the four *_counter devices; photon-timestamp gates (the excitation
+        trace) use the four TTL inputs themselves. Either way it is the whole
+        set of four, never a mix.
         """
-        expected = {
+        counters = {
             "ttl_SPCM0_counter", "ttl_SPCM1_counter",
             "ttl_SPCM0_OtherNode_counter", "ttl_SPCM1_OtherNode_counter",
+        }
+        timestamp_inputs = {
+            "ttl_SPCM0", "ttl_SPCM1",
+            "ttl_SPCM0_OtherNode", "ttl_SPCM1_OtherNode",
         }
         for node in self.tree.body:
             if not isinstance(node, ast.FunctionDef):
@@ -721,8 +968,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
             }
             if not gated:
                 continue
-            self.assertEqual(
-                gated, expected,
+            self.assertIn(
+                gated, (counters, timestamp_inputs),
                 f"{node.name} gates {sorted(gated)}; it must gate all four "
                 f"canonical detectors.",
             )
@@ -738,6 +985,39 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 f"{name} is neither node-suffixed nor published bare, so the "
                 f"sanity check would look for something that cannot exist.",
             )
+
+    def test_waveplate_helper_moves_each_nodes_780_plates_to_its_targets(self):
+        """set_780_waveplates_both_nodes runs on the host, so neither the
+        compile check nor the AST guards see it: each node's two 780 plates go
+        to that node's targets, in that node's device units."""
+        from subroutines import experiment_functions_two_nodes as module
+
+        moves = []
+
+        class FakeView:
+            def __init__(self, node):
+                self.node = node
+
+            def move_to(self, position, axis):
+                moves.append((self.node, axis, position))
+
+        experiment = types.SimpleNamespace(
+            k10cr1_ndsp_Node1=FakeView("Node1"),
+            k10cr1_ndsp_Node2=FakeView("Node2"),
+            deg_to_pos_Node1=1000.0, deg_to_pos_Node2=2000.0,
+            target_780_HWP_Node1=10.0, target_780_QWP_Node1=20.5,
+            target_780_HWP_Node2=30.0, target_780_QWP_Node2=210.0,
+        )
+        module.set_780_waveplates_both_nodes(experiment)
+        self.assertEqual(
+            moves,
+            [
+                ("Node1", "780_HWP", 10000),
+                ("Node1", "780_QWP", 20500),
+                ("Node2", "780_HWP", 60000),
+                ("Node2", "780_QWP", 420000),
+            ],
+        )
 
 
 if __name__ == "__main__":

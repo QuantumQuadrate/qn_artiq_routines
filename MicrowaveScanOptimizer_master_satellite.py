@@ -14,9 +14,18 @@ node-suffixed through the dataset-redirect layer, so Node1 and Node2 results
 stay separate. fit_parameter_* and parent_rid remain unsuffixed run state.
 
 Resubmission contract: this experiment resubmits itself (health-check
-failures) with its own file/class name and carries which_node forward.
-Future master-satellite HealthCheck files must do the same; the standalone
-HealthCheck files keep targeting the standalone optimizer.
+failures) with its own file/class name and carries which_node, parent_rid,
+target_fidelity, show_shared_applets and n_measurements_optimization_scan
+forward (the scan runs with that many measurements per point when it is
+above 0, else with the check's n_measurements). The master-satellite GVS
+health check (run_health_check, since 2026-10-29) delegates to this class: it
+submits the check run with parent_rid = its own RID, waits inside its run
+until no run of this class with that parent_rid is left -- the scan a failed
+check submits included -- and then reads health_check_result_for_parent_<its
+RID>, which health_check_general broadcasts at its end (beside the latest-run
+health_check_result_* for people). Keep those names and parent_rid carried
+forward. The standalone HealthCheck files keep targeting the
+standalone optimizer.
 """
 
 import ast
@@ -81,6 +90,20 @@ def _load_standalone_scan_definitions():
 
 scan_options, scan_dict = _load_standalone_scan_definitions()
 
+# The pulse each frequency scan PLAYS, which sets its linewidth: a square pi
+# pulse gives FWHM = 0.80/t_pi, and fits to every frequency scan since
+# 2026-06 gave 0.78/t_pi on both nodes. Frequency_00/01 play t_microwave_pulse,
+# loaded from t_microwave_00/01_pulse by their override_items. Time scans use
+# scan_dict's own "pi_pulse".
+ADAPTIVE_SCAN_PULSE = {
+    "Frequency_00_Scan": "t_microwave_pulse",
+    "Frequency_01_Scan": "t_microwave_pulse",
+    "Frequency_11_Scan": "t_microwave_11_pulse",
+    "Frequency_m10_Scan": "t_microwave_m10_pulse",
+    "Frequency_m11_Scan": "t_MW_RF_pulse",
+}
+PI_PULSE_FWHM_TIMES_T_PI = 0.80
+
 
 class MicrowaveScanOptimizer_master_satellite(
     _DatasetRedirectMixin, EnvExperiment
@@ -121,6 +144,13 @@ class MicrowaveScanOptimizer_master_satellite(
         )
 
         self.setattr_argument("n_measurements", NumberValue(100, ndecimals=0, step=1), "General Scan Setting")
+        self.setattr_argument(
+            "n_measurements_optimization_scan",
+            NumberValue(0, ndecimals=0, step=1),
+            "General Scan Setting",
+            tooltip="n_measurements of the optimization scan a failed health "
+                    "check submits. 0 = the same as n_measurements.",
+        )
         # One override dictionary per node, and deliberately no shared one:
         # both may stay populated at once, so switching which_node is the only
         # edit needed to move a scan between nodes. Globals such as
@@ -137,6 +167,14 @@ class MicrowaveScanOptimizer_master_satellite(
             )
         self.setattr_argument('enable_fitting', BooleanValue(default=True), "General Scan Setting")
         self.setattr_argument('enable_geometric_frequency_scan', BooleanValue(default=True), "General Scan Setting")
+        self.setattr_argument(
+            'enable_node_specific_adaptive_scan',
+            BooleanValue(default=False),
+            "General Scan Setting",
+            tooltip="Size the scan from the selected node's pi time for this "
+                    "transition (see the [Node-specific adaptive] group) instead "
+                    "of the [Default]/[Geometric] kHz values and time_scan_sequence.",
+        )
 
         for scan_name in scan_options:
             self.setattr_argument(
@@ -157,6 +195,21 @@ class MicrowaveScanOptimizer_master_satellite(
 
         #### Time scan variables
         self.setattr_argument("time_scan_sequence", StringValue('np.arange(0,10,1)*us'), "Time Scan variables")
+
+        #### Used only when enable_node_specific_adaptive_scan is checked.
+        #### linewidth = 0.80/t_pi (FWHM), t_pi from the selected node.
+        adaptive_group = "[Node-specific adaptive] Scan variables - from the node's pi time"
+        self.setattr_argument("adaptive_half_range_linewidths", NumberValue(2.0, ndecimals=2, step=0.5), adaptive_group,
+                              tooltip="Frequency scans: half range = this x linewidth. Also the "
+                                      "[Geometric] half range; the broader search covers twice it.")
+        self.setattr_argument("adaptive_points_per_linewidth", NumberValue(3.0, ndecimals=1, step=1), adaptive_group,
+                              tooltip="Frequency scans: step = linewidth / this, for the [Default] list, "
+                                      "the refine list and the broader search. The [Geometric] minimum "
+                                      "step and re-centering step are 0.6 x that.")
+        self.setattr_argument("adaptive_time_scan_max_pi", NumberValue(2.0, ndecimals=2, step=0.5), adaptive_group,
+                              tooltip="Time scans: from 0 to this x t_pi (2 = a full 2-pi flop).")
+        self.setattr_argument("adaptive_time_scan_n_steps", NumberValue(10, ndecimals=0, step=1), adaptive_group,
+                              tooltip="Time scans: number of steps, so n_steps + 1 points including 0.")
 
     def prepare(self):
         """
@@ -251,6 +304,8 @@ class MicrowaveScanOptimizer_master_satellite(
             center = getattr(self, scan_dict[self.scan_type]["center"])
             self.center = center
             print("center: ", center)
+            if self.enable_node_specific_adaptive_scan:
+                self._size_frequency_scan_from_pi_time()
             if self.enable_geometric_frequency_scan:
                 self.scan_sequence1 = self.make_scan_list(center=center,
                                                           half_range_kHz=self.freq_scan_half_range_kHz,
@@ -262,7 +317,16 @@ class MicrowaveScanOptimizer_master_satellite(
                                                 self.freq_scan_step_size_kHz * kHz)
 
         elif self.scan_type.startswith(('Time', 'Ramsey')):
-            self.scan_sequence1 = eval(self.time_scan_sequence)
+            if (self.enable_node_specific_adaptive_scan
+                    and "pi_pulse" in scan_dict[self.scan_type]):
+                t_pi = self._selected_node_pulse_time(scan_dict[self.scan_type]["pi_pulse"])
+                self.scan_sequence1 = np.linspace(
+                    0.0, self.adaptive_time_scan_max_pi * t_pi,
+                    int(self.adaptive_time_scan_n_steps) + 1)
+                print(f"[adaptive] {self._selected_node} {self.scan_type}: t_pi {t_pi / us:.2f} us -> "
+                      f"0 to {self.adaptive_time_scan_max_pi:g} pi in {int(self.adaptive_time_scan_n_steps)} steps")
+            else:
+                self.scan_sequence1 = eval(self.time_scan_sequence)
         else:
             raise KeyError("There is no such scan type: ", self.scan_type)
 
@@ -338,12 +402,37 @@ class MicrowaveScanOptimizer_master_satellite(
         self.base.force_other_node_off()
 
     def _create_shared_applets(self):
-        """Keep the node-independent applets up, if enabled.
+        """Create this node's applets AND the node-independent ones, if enabled.
 
-        Microwaves Health Check and feedback RF, one of each per node. This
-        experiment deliberately does not take over the per-node applet set or
-        retire the idle node's group, which is what create_applets_for would
-        do -- it is these plots we want on screen, not the whole dashboard.
+        The name is now narrower than what this does -- it creates the per-node
+        set too -- and is kept only because FORT_Polarization_Optimizer and
+        SamplerMOTCoilAndBeamBalanceTune have same-named methods that still do
+        only the shared set.
+
+        Switched from create_shared_applets_for on 2026-10-12. That path
+        deliberately created ONLY the node-independent plots and ran no
+        retirement pass, so as not to take over the dashboard. Two things make
+        that the wrong trade for THIS experiment:
+
+          * Retention is the quantity it measures -- get_retention over
+            AllSPCMs_RO1/RO2 at ":531" and ":711" -- so "retention and loading
+            AllSPCMs" is the plot most worth having on screen. It lives in
+            APPLET_SPECS, which the shared path never requests, so it simply
+            never appeared.
+          * create_shared_applets_for runs NO retirement pass at all. A
+            retention applet left ticked by an earlier run in the other mode
+            therefore stayed open through this one, plotting the same live
+            AllSPCMs_RO1/RO2 against the wrong threshold -- reading high when a
+            single-node copy sees joint counts, and ~0 the other way round.
+
+        Safe because this experiment always runs single_node
+        (configure_execution at ":179"). create_applets_for raises
+        NotImplementedError in two-node mode, where APPLET_SPECS' per-node
+        result names do not resolve.
+
+        GVS_APPLET_SPECS is deliberately NOT requested: its atom-check
+        histogram is written by the GVS loaders, not by this experiment, so it
+        would come up empty.
 
         Never fatal: an applet is a convenience, and the CCB is a
         dashboard-side service that artiq_run and the offline compile check
@@ -354,34 +443,54 @@ class MicrowaveScanOptimizer_master_satellite(
             return
         try:
             from applets_master_satellite import (
+                APPLET_SPECS,
                 SCAN_APPLET_SPECS,
                 SHARED_APPLET_SPECS,
-                create_shared_applets_for,
+                create_applets_for,
             )
 
             # SCAN_APPLET_SPECS adds "Time without atom (s)". It rides the
             # shared path rather than the per-node one so this experiment and
             # GVS create one applet between them, not one each under different
             # groups -- applet identity is (name, group).
-            created = create_shared_applets_for(
+            created = create_applets_for(
                 self, self.base,
+                specs=APPLET_SPECS,
                 shared_specs=SHARED_APPLET_SPECS + SCAN_APPLET_SPECS,
             )
         except Exception as error:  # noqa: BLE001 - convenience only
-            logging.warning("could not create shared applets: %s", error)
+            logging.warning("could not create applets: %s", error)
         else:
-            logging.info("requested %d shared applets", len(created))
+            logging.info("requested %d applets", len(created))
 
     def initialize_datasets(self):
+        # Archive the applied overrides under their authoritative names.
+        #
+        # FIRST, before any broadcast. A local write to a key this run has
+        # already broadcast makes ARTIQ delete that key from the master DB
+        # (artiq/master/worker_db.py, DatasetManager.set: the
+        # `elif key in self._broadcaster.raw_view` branch), and
+        # initialize_result_state broadcasts and persists n_measurements. So
+        # with this loop after it, {'n_measurements': ...} in an override
+        # dictionary deleted n_measurements from the DB -- reproduced through
+        # the real DatasetManager, 2026-10-14 -- and every master-satellite
+        # experiment then failed in prepare(). GVS keeps the same order.
+        for var, val in self.authoritative_overrides.items():
+            self.set_dataset(var, val)
+
+        # The node's Magnetometer_*_NodeX series, once per run, as GVS does:
+        # they collect every sample of the run and are never cleared between
+        # scan points (user, 2026-10-23). Without them, with
+        # monitor_magnetometer_in_end_measurement (or
+        # monitors_for_atom_loading) on, the first measure_Magnetometer append
+        # raised "Cannot mutate nonexistent dataset
+        # 'Magnetometer_Zero_X_Node1'" -- RID 38965.
+        self.base.initialize_result_datasets()
         self.base.initialize_result_state()
 
         self.set_dataset(self.scan_var_dataset, self.scan_var_labels, broadcast=True)
         self.set_dataset(self.scan_sequence1_dataset, self.scan_sequence1, broadcast=True)
         self.set_dataset(self.scan_sequence2_dataset, self.scan_sequence2, broadcast=True)
-
-        # Archive the applied overrides under their authoritative names.
-        for var, val in self.authoritative_overrides.items():
-            self.set_dataset(var, val)
 
         # The stabilizer dB histories were already seeded node-suffixed by
         # Base.prepare_laser_stabilizer().
@@ -393,6 +502,10 @@ class MicrowaveScanOptimizer_master_satellite(
         typically these datasets are used for plotting which would be
         meaningless if we continued to append to the data.
         """
+        # Base's per-scan-point results, as GVS resets them: progress and the
+        # _current_iteration histograms. Not the magnetometer series, which
+        # initialize_datasets seeds once per run.
+        self.base.reset_result_state_for_scan_point()
         self.set_dataset("test_dataset", [0], broadcast=True)
         self.set_dataset('SPCM0_RO1_current_iteration', [0], broadcast=True)
         self.set_dataset('SPCM0_RO2_current_iteration', [0], broadcast=True)
@@ -464,6 +577,16 @@ class MicrowaveScanOptimizer_master_satellite(
 
         else:
             ##### Scan sequence - same as GVS (compatible with GVS analysis)
+
+            # Every scan point is written INTO the scanned attribute
+            # (_apply_scan_point), and for the 11, m10 and m11 scans that
+            # attribute IS the calibration the fit check reports as
+            # "original": scan_dict names their scan variable and their
+            # center / pi_pulse alike. Restored after the scan, below.
+            # Without it the LAST scanned point was reported as the original:
+            # RID 38934, a Frequency_11 scan of a 339.213 MHz calibration,
+            # printed "Original f0 value: 339.073 MHz" -- its refined center.
+            value_before_scan = getattr(self, self.scan_variable1)
             if self.scan_type.startswith("Freq") and self.enable_geometric_frequency_scan:
                 scan_with_fixed_sequence = False    ### adaptive scan enabled if False
             else:
@@ -697,12 +820,18 @@ class MicrowaveScanOptimizer_master_satellite(
                                 self.shrink_factor = self.shrink_factor * 2
                                 print("Manual scan range: - 2* self.freq_scan_range_left_kHz ~ +2* self.freq_scan_range_left_kHz, 20kHz step")
 
+                                broad_step_kHz = (self.freq_scan_step_size_kHz
+                                                  if self.enable_node_specific_adaptive_scan else 20.0)
                                 new_sequence1 = np.arange(self.center - 2 * self.freq_scan_range_left_kHz * kHz,
                                                           self.center + 2 * self.freq_scan_range_right_kHz * kHz,
-                                                          20 * kHz)
+                                                          broad_step_kHz * kHz)
 
                                 pending_sequence1 = list(new_sequence1)
                                 did_refine = True
+
+            # Back to the calibration the scan started from; see
+            # value_before_scan above.
+            self._apply_scan_point(value_before_scan)
 
             #### for fitting
             if self.enable_fitting and not self.scan_type.startswith("Ramsey"):
@@ -841,9 +970,53 @@ class MicrowaveScanOptimizer_master_satellite(
             if self.scan_type.startswith("Time"):
                 self.set_dataset(scan_dict[self.scan_type]["health_check_dataset_name"], round(float(fidelity), 2),
                                  broadcast=True, persist=True)
-            return True
+            passed = True
         else:
-            return False
+            passed = False
+        self._publish_health_check_result(fidelity, passed)
+        return passed
+
+    def _publish_health_check_result(self, fidelity, passed):
+        """The outcome of every health_check_general call (check or fit check,
+        pass or fail), for the GVS health check that submitted this run.
+
+        Broadcast and NOT persisted: run state that a waiting GVS reads from
+        the master DB, not a calibration. Unrounded fidelity, unlike
+        health_check_uw_*.
+
+        health_check_result_<name>: the latest result of ANY run of this
+        class, for a person looking at the dashboard.
+
+        health_check_result_for_parent_<parent_rid>, [rid, node, scan,
+        fidelity, passed]: what the GVS reads. Keyed by parent because the
+        latest result is not safe to read: a run queued between the GVS's
+        priority and 99 (a user's own optimizer, another GVS's chain) runs
+        while the GVS is paused and would overwrite it before the GVS
+        resumes. Only runs submitted on someone's behalf (parent_rid not
+        this run's own RID) write it; not archived, since a mixed list does
+        not go into the h5. A chain that crashed before writing it, or a
+        failed check whose scan never wrote one, counts as crashed: the GVS
+        resubmits it after a backoff.
+        """
+        rid = int(self.scheduler.rid)
+        parent = int(self.parent_rid)
+        result = (
+            ("rid", rid),
+            ("parent_rid", parent),
+            ("node", str(self._selected_node)),
+            ("scan", str(self.scan_type)),
+            ("fidelity", float(fidelity)),
+            ("passed", bool(passed)),
+        )
+        for name, value in result:
+            self.set_dataset(f"health_check_result_{name}", value,
+                             broadcast=True, persist=False)
+        if parent != rid:
+            self.set_dataset(
+                f"health_check_result_for_parent_{parent}",
+                [rid, str(self._selected_node), str(self.scan_type),
+                 float(fidelity), int(bool(passed))],
+                broadcast=True, persist=False, archive=False)
 
     def _set_calibration_attribute(self, legacy_name, value):
         """Set a calibration through its authoritative suffixed attribute."""
@@ -858,9 +1031,24 @@ class MicrowaveScanOptimizer_master_satellite(
         Schedules an optimization run of THIS master-satellite class when a
         health check fails, carrying which_node forward. Future
         master-satellite HealthCheck files must submit the same expid shape.
+
+        Also carried forward, so the scan judges its fit check by the same
+        standard as the check that failed and keeps the dashboard as the
+        submitter wanted: target_fidelity (hard-coded 0.80 until 2026-10-29)
+        and show_shared_applets (omitted, so True, until then). parent_rid is
+        how a waiting GVS health check finds this scan (module docstring).
+
+        n_measurements of the scan: n_measurements_optimization_scan when it
+        is above 0 (the GVS health check: 200 for the check, 100 per scan
+        point), else this run's n_measurements, as before 2026-10-29. The
+        argument itself is carried on too.
         """
         print("submitting another experiment")
         ## 99 seems to be the highest priority that can be set to.
+
+        scan_n_measurements = int(self.n_measurements_optimization_scan)
+        if scan_n_measurements <= 0:
+            scan_n_measurements = self._execution_n_measurements
 
         default_expid = {
             "log_level": 30,
@@ -870,9 +1058,12 @@ class MicrowaveScanOptimizer_master_satellite(
                 "which_node": self._selected_node,
                 "parent_rid": self.parent_rid,
                 "run_health_check_and_optimize": False,
-                "target_fidelity": 0.80,
+                "target_fidelity": self.target_fidelity,
+                "show_shared_applets": self.show_shared_applets,
 
-                "n_measurements": self._execution_n_measurements,
+                "n_measurements": scan_n_measurements,
+                "n_measurements_optimization_scan":
+                    self.n_measurements_optimization_scan,
                 "override_ExperimentVariables_Node1": "{}",
                 "override_ExperimentVariables_Node2": "{}",
                 "enable_fitting": True,
@@ -904,7 +1095,14 @@ class MicrowaveScanOptimizer_master_satellite(
                 "freq_scan_min_step_size_kHz": 10.0,
 
                 # Time scan parameters
-                "time_scan_sequence": 'np.arange(0,10,1)*us'
+                "time_scan_sequence": 'np.arange(0,10,1)*us',
+
+                # Node-specific adaptive scan: the child derives its own ranges
+                "enable_node_specific_adaptive_scan": self.enable_node_specific_adaptive_scan,
+                "adaptive_half_range_linewidths": self.adaptive_half_range_linewidths,
+                "adaptive_points_per_linewidth": self.adaptive_points_per_linewidth,
+                "adaptive_time_scan_max_pi": self.adaptive_time_scan_max_pi,
+                "adaptive_time_scan_n_steps": self.adaptive_time_scan_n_steps,
             },
             "repo_rev": "N/A",
         }
@@ -933,6 +1131,42 @@ class MicrowaveScanOptimizer_master_satellite(
                     raise KeyError(f"Invalid override key: '{key}'. ")
 
         self.scheduler.submit(pipeline_name="main", expid=new_expid, priority=99, due_date=None, flush=False)
+
+    def _selected_node_pulse_time(self, legacy_name):
+        """The running node's value of a pulse-time variable, after the
+        run-wide overrides (so a scan's override_items and the user's
+        override dictionary both count)."""
+        t_pi = float(getattr(
+            self, self.base.resolve_experiment_variable_target(legacy_name)))
+        if t_pi <= 0:
+            raise ValueError(
+                f"{legacy_name} is {t_pi} on {self._selected_node}; the "
+                "node-specific adaptive scan needs a positive pi time.")
+        return t_pi
+
+    def _size_frequency_scan_from_pi_time(self):
+        """Overwrite the run-local [Default]/[Geometric] kHz values from the
+        node's pi time. Everything downstream reads them: the first list,
+        the re-centering steps, the refine list and the broader search."""
+        t_pi = self._selected_node_pulse_time(ADAPTIVE_SCAN_PULSE[self.scan_type])
+        linewidth_kHz = PI_PULSE_FWHM_TIMES_T_PI / t_pi / kHz
+        half_range_kHz = self.adaptive_half_range_linewidths * linewidth_kHz
+        step_kHz = linewidth_kHz / self.adaptive_points_per_linewidth
+
+        self.freq_scan_range_left_kHz = half_range_kHz
+        # arange excludes its end; half a step more keeps the list symmetric
+        self.freq_scan_range_right_kHz = half_range_kHz + 0.5 * step_kHz
+        self.freq_scan_step_size_kHz = step_kHz
+        self.freq_scan_half_range_kHz = half_range_kHz
+        # make_scan_list stops at the first gap below this; 0.6 x step keeps
+        # the +-0.43 linewidth pair (9 points at the defaults).
+        self.freq_scan_min_step_size_kHz = 0.6 * step_kHz
+        # Gaussian sigma of a line this wide: the fixed 50/80 kHz guesses
+        # suit only some node x transition pairs.
+        self.initialise = dict(self.initialise, sigma=linewidth_kHz * kHz / 2.3548)
+        print(f"[adaptive] {self._selected_node} {self.scan_type}: t_pi {t_pi / us:.2f} us, "
+              f"linewidth {linewidth_kHz:.1f} kHz -> +-{half_range_kHz:.1f} kHz, "
+              f"step {step_kHz:.1f} kHz")
 
     def make_scan_list(self, center, half_range_kHz, min_step_kHz=10.0, method="center_geometric", mode="pair"):
         """

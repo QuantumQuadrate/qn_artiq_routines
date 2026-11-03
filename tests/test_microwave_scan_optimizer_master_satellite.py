@@ -54,6 +54,9 @@ def _artiq_experiment_stub_or_none():
 _experiment_stub = _artiq_experiment_stub_or_none()
 if _experiment_stub is not None:
     _stub_exports = {
+        # the GVS health check catches it around scheduler.pause()
+        "TerminationRequested": type(
+            "TerminationRequested", (Exception,), {}),
         "kernel": _identity_decorator,
         "rpc": _identity_decorator,
         "delay": lambda duration: None,
@@ -508,6 +511,85 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
             "the removed node-agnostic field is still being submitted",
         )
 
+    def _adaptive_offsets(self, node, scan, geometric, pulse_name, t_pi):
+        self.datasets[f"{pulse_name}_{node}"] = t_pi
+        experiment = self.make_experiment({
+            "which_node": node,
+            scan: True,
+            "enable_node_specific_adaptive_scan": True,
+            "enable_geometric_frequency_scan": geometric,
+        })
+        offsets = [value - experiment.center for value in experiment.scan_sequence1]
+        return experiment, offsets
+
+    def test_adaptive_frequency_scan_follows_each_nodes_pi_time(self):
+        """Node1's 01 line (17 us pulse, ~47 kHz wide) and Node2's (5.4 us,
+        ~148 kHz) get scans sized to their own linewidth."""
+        for node, t_pi in (("Node1", 17e-6), ("Node2", 5.4e-6)):
+            linewidth = 0.80 / t_pi
+            experiment, offsets = self._adaptive_offsets(
+                node, "Frequency_01_Scan", False, "t_microwave_01_pulse", t_pi)
+            self.assertEqual(len(offsets), 13)
+            self.assertAlmostEqual(offsets[0], -2.0 * linewidth, delta=1.0)
+            self.assertAlmostEqual(offsets[-1], 2.0 * linewidth, delta=1.0)
+            self.assertAlmostEqual(offsets[1] - offsets[0], linewidth / 3.0, delta=1.0)
+            self.assertAlmostEqual(
+                experiment.initialise["sigma"], linewidth / 2.3548, delta=1.0)
+            # The broader search and re-centering read the same run-local values.
+            self.assertAlmostEqual(
+                experiment.freq_scan_step_size_kHz * 1e3, linewidth / 3.0, delta=1.0)
+            self.assertAlmostEqual(
+                experiment.freq_scan_min_step_size_kHz * 1e3, 0.2 * linewidth, delta=1.0)
+            # The shared scan definition is not modified.
+            self.assertEqual(scan_dict["Frequency_01_Scan"]["initialise"], {"sigma": 50000.0})
+
+    def test_adaptive_geometric_list_is_in_linewidth_units(self):
+        linewidth = 0.80 / 4.4e-6
+        _, offsets = self._adaptive_offsets(
+            "Node1", "Frequency_11_Scan", True, "t_microwave_11_pulse", 4.4e-6)
+        self.assertAlmostEqual(max(abs(o) for o in offsets), 2.0 * linewidth, delta=1.0)
+        self.assertEqual(len(offsets), 9)
+        self.assertIn(0.0, offsets)
+
+    def test_adaptive_time_scan_runs_from_zero_to_two_pi(self):
+        self.datasets["t_microwave_11_pulse_Node2"] = 9e-6
+        experiment = self.make_experiment({
+            "which_node": "Node2",
+            "Time_11_Scan": True,
+            "enable_node_specific_adaptive_scan": True,
+        })
+        sequence = list(experiment.scan_sequence1)
+        self.assertEqual(len(sequence), 11)
+        self.assertEqual(sequence[0], 0.0)
+        self.assertAlmostEqual(sequence[-1], 18e-6, places=12)
+
+    def test_unchecked_adaptive_scan_keeps_the_gui_ranges(self):
+        self.datasets["t_microwave_01_pulse_Node1"] = 17e-6
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_01_Scan": True,
+            "enable_geometric_frequency_scan": False,
+        })
+        offsets = [value - experiment.center for value in experiment.scan_sequence1]
+        self.assertAlmostEqual(offsets[0], -125e3, delta=1.0)
+        self.assertAlmostEqual(offsets[1] - offsets[0], 20e3, delta=1.0)
+        self.assertEqual(experiment.initialise, {"sigma": 50000.0})
+
+    def test_resubmission_carries_the_adaptive_scan_setting(self):
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_11_Scan": True,
+            "enable_node_specific_adaptive_scan": True,
+            "adaptive_half_range_linewidths": 2.5,
+        })
+        experiment.submit_opt_exp_general()
+        _, expid, _ = self.scheduler.submitted[-1]
+        self.assertTrue(expid["arguments"]["enable_node_specific_adaptive_scan"])
+        self.assertEqual(expid["arguments"]["adaptive_half_range_linewidths"], 2.5)
+        for name in ("adaptive_points_per_linewidth", "adaptive_time_scan_max_pi",
+                     "adaptive_time_scan_n_steps"):
+            self.assertIn(name, expid["arguments"])
+
     def test_idle_node_overrides_do_not_block_the_running_node(self):
         """The optimizer had the same failure GeneralVariableScan did.
 
@@ -615,6 +697,196 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         refined_center = scanned[-1]
         self.assertAlmostEqual(f0 - refined_center, 10_000.0)
 
+    def test_fit_check_sees_the_calibration_from_before_the_scan(self):
+        """The fit check's "original" is the calibration before the scan.
+
+        _apply_scan_point writes every point INTO the scanned attribute, and
+        for the 11, m10 and m11 scans that attribute is the calibration
+        itself: scan_dict names their scan variable and their center /
+        pi_pulse alike. RID 38934, a Frequency_11 scan of a 339.213 MHz
+        calibration, printed "Original f0 value: 339.073 MHz" -- the last
+        point it scanned, its refined center. Both scan branches (fixed and
+        adaptive) and a time scan are covered.
+        """
+        cases = (
+            ("Frequency_11_Scan", False, "f_microwaves_11_dds_Node1",
+             {"f0": 339.2e6, "sigma": 50e3, "C": 0.9}),
+            ("Frequency_11_Scan", True, "f_microwaves_11_dds_Node1",
+             {"f0": 339.2e6, "sigma": 50e3, "C": 0.9}),
+            ("Time_11_Scan", False, "t_microwave_11_pulse_Node1",
+             {"t_pi": 5e-6}),
+        )
+
+        class FakeFit:
+            def __init__(self, parameters):
+                self.parameters = parameters
+
+            def fit(self, t, y, **kwargs):
+                return (dict(self.parameters),
+                        {name: 0.0 for name in self.parameters})
+
+        for scan_flag, adaptive, calibration, parameters in cases:
+            with self.subTest(scan=scan_flag, adaptive=adaptive):
+                experiment = self.make_experiment({
+                    "which_node": "Node1",
+                    scan_flag: True,
+                    "n_measurements": 4,
+                    "run_health_check_and_optimize": False,
+                    "enable_geometric_frequency_scan": adaptive,
+                    "enable_fitting": True,
+                    "freq_scan_min_step_size_kHz": 10.0,
+                    "time_scan_sequence": "np.arange(0,10,1)*us",
+                })
+                before = getattr(experiment, calibration)
+
+                cutoff = (
+                    experiment.single_atom_threshold
+                    * experiment.t_SPCM_first_shot
+                )
+                loaded = cutoff * 10
+                # Uneven first four points, so the adaptive branch refines
+                # (Frequency_11 fits a resonance PEAK, so this moves the
+                # center right) and the scan ends away from `before`.
+                retained_counts = iter([0, 3, 3, 3] + [3] * 50)
+
+                def fake_scan_point(inner_self):
+                    retained = next(retained_counts)
+                    ro1 = (list(inner_self.get_dataset("AllSPCMs_RO1"))
+                           + [loaded] * 4)
+                    ro2 = (list(inner_self.get_dataset("AllSPCMs_RO2"))
+                           + [loaded] * retained + [0.0] * (4 - retained))
+                    inner_self.set_dataset("AllSPCMs_RO1", ro1, broadcast=True)
+                    inner_self.set_dataset("AllSPCMs_RO2", ro2, broadcast=True)
+
+                experiment._selected_experiment_function = fake_scan_point
+                experiment.experiment_function = (
+                    lambda: fake_scan_point(experiment)
+                )
+                experiment.which_fit_model = FakeFit(parameters)
+                seen = []
+
+                def recording_health_check(fit_check=False):
+                    seen.append(getattr(experiment, calibration))
+                    return False
+
+                experiment.health_check_general = recording_health_check
+
+                experiment.run()
+
+                scanned = list(experiment.broadcast_sets["scan_sequence1"])
+                self.assertNotEqual(
+                    scanned[-1], before,
+                    "the scan must end away from the calibration, or this "
+                    "test cannot tell a restore from no change",
+                )
+                self.assertEqual(seen, [before])
+
+    def test_no_local_write_follows_a_broadcast_of_the_same_name(self):
+        """No dataset is written locally after this run broadcast it.
+
+        ARTIQ's DatasetManager.set deletes a key from the master DB when a
+        local write follows a broadcast of the same key within one run
+        (artiq/master/worker_db.py, the `elif key in
+        self._broadcaster.raw_view` branch). initialize_datasets used to
+        record the overrides AFTER initialize_result_state, which broadcasts
+        and persists n_measurements, so an override of n_measurements
+        deleted it from the DB and every master-satellite experiment then
+        failed in prepare(). Checked over the whole run, build to end, so a
+        new local write anywhere is caught too.
+        """
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_00_Scan": True,
+            "n_measurements": 4,
+            "run_health_check_and_optimize": False,
+            "enable_geometric_frequency_scan": False,
+            "enable_fitting": False,
+            "override_ExperimentVariables_Node1": "{'n_measurements': 4}",
+        })
+        experiment.experiment_function = lambda: None
+        experiment.run()
+
+        broadcast = set()
+        offenders = []
+        local = []
+        for name, _, kwargs in experiment.dataset_writes:
+            if kwargs.get("broadcast") or kwargs.get("persist"):
+                broadcast.add(name)
+            else:
+                local.append(name)
+                if name in broadcast:
+                    offenders.append(name)
+        self.assertIn(
+            "n_measurements", local,
+            "the harness must see the override record, or this test is moot",
+        )
+        self.assertEqual(offenders, [])
+
+    def test_magnetometer_results_exist_for_every_experiment_call(self):
+        """measure_Magnetometer can append on every path the optimizer runs.
+
+        Base creates Magnetometer_*_NodeX in initialize_result_datasets, once
+        per run; GVS calls it and this optimizer did not, so with
+        monitor_magnetometer_in_end_measurement on the first append raised
+        "Cannot mutate nonexistent dataset 'Magnetometer_Zero_X_Node1'" --
+        RID 38965, in the health check. The harness's append_to_dataset raises
+        the same KeyError for a dataset that was never set, as ARTIQ does.
+        Covers the health-check path and the scan path.
+        """
+        def appending_scan_point(inner_self):
+            # What measure_Magnetometer does, through the same redirect.
+            for axis in ("X", "Y", "Z"):
+                inner_self.append_to_dataset(f"Magnetometer_Zero_{axis}", 1.0)
+
+        for node in ("Node1", "Node2"):
+            with self.subTest(node=node, path="health check"):
+                experiment = self.make_experiment({
+                    "which_node": node,
+                    "Frequency_00_Scan": True,
+                    "n_measurements": 4,
+                    "target_fidelity": 0.8,
+                })
+                experiment.initialize_datasets()
+                with mock.patch.object(
+                    exp_functions, "microwave_Rabi_2_experiment",
+                    appending_scan_point,
+                ):
+                    try:
+                        experiment.health_check_general()
+                    except IndexError:
+                        # No SPCM data from this fake, so the fidelity step
+                        # has nothing to index; the appends already ran.
+                        pass
+                self.assertEqual(
+                    experiment.broadcast_sets[f"Magnetometer_Zero_X_{node}"],
+                    [0.0, 1.0],
+                )
+
+            with self.subTest(node=node, path="scan"):
+                experiment = self.make_experiment({
+                    "which_node": node,
+                    "Frequency_00_Scan": True,
+                    "n_measurements": 4,
+                    "run_health_check_and_optimize": False,
+                    "enable_geometric_frequency_scan": False,
+                    "enable_fitting": False,
+                })
+                calls = []
+
+                def counting_scan_point():
+                    calls.append(None)
+                    appending_scan_point(experiment)
+
+                experiment.experiment_function = counting_scan_point
+                experiment.run()
+                # Seeded once per run and never cleared between scan points
+                # (user, 2026-10-23), so one sample per experiment call.
+                self.assertGreater(len(calls), 1)
+                self.assertEqual(
+                    experiment.broadcast_sets[f"Magnetometer_Zero_Z_{node}"],
+                    [0.0] + [1.0] * len(calls),
+                )
+
     def test_retention_slicing_skips_the_dataset_seed(self):
         experiment = self.make_experiment({
             "which_node": "Node1",
@@ -645,6 +917,262 @@ class MicrowaveScanOptimizerMasterSatelliteTests(unittest.TestCase):
         experiment._apply_scan_point(123456.0)
         self.assertEqual(experiment.f_microwaves_dds_Node1, 123456.0)
         self.assertEqual(experiment.f_microwaves_dds, 123456.0)
+
+
+    # ---- the GVS health check delegates to this class (2026-10-29) ----
+
+    def test_resubmission_carries_target_fidelity_and_applet_flag(self):
+        """The scan a failed check submits judges its fit check by the same
+        target, and keeps the dashboard as the submitter wanted (it hard-coded
+        0.80 and omitted the applet flag until 2026-10-29)."""
+        experiment = self.make_experiment({
+            "which_node": "Node1",
+            "Frequency_11_Scan": True,
+            "target_fidelity": 0.65,
+            "show_shared_applets": False,
+            "parent_rid": 500,
+        })
+        experiment.submit_opt_exp_general()
+        _, expid, _ = self.scheduler.submitted[-1]
+        self.assertEqual(expid["arguments"]["target_fidelity"], 0.65)
+        self.assertIs(expid["arguments"]["show_shared_applets"], False)
+        self.assertEqual(expid["arguments"]["parent_rid"], 500)
+
+    def test_optimization_scan_n_measurements(self):
+        """n_measurements_optimization_scan (2026-10-29): 0, the default,
+        keeps the scan at the check's n_measurements, as before; above 0 it
+        is the scan's. Carried on either way."""
+        declared = {}
+        experiment = OptimizerExperiment()
+        experiment.initialize_environment(self.devices, self.datasets, self.log)
+        record = experiment.setattr_argument
+
+        def setattr_argument(name, value, *args, **kwargs):
+            declared[name] = (value, args)
+            record(name, value, *args, **kwargs)
+
+        experiment.setattr_argument = setattr_argument
+        experiment.build()
+        self.assertEqual(declared["n_measurements_optimization_scan"],
+                         (0, ("General Scan Setting",)))
+        variables = {v.name for v in (NODE1_VARIABLES + NODE2_VARIABLES
+                                      + MASTER_SATELLITE_VARIABLES)}
+        self.assertNotIn("n_measurements_optimization_scan", variables)
+
+        for scan_n, expected in ((0, 7), (3, 3)):
+            with self.subTest(n_measurements_optimization_scan=scan_n):
+                updates = {"which_node": "Node1", "Frequency_11_Scan": True,
+                           "n_measurements": 7}
+                if scan_n:
+                    updates["n_measurements_optimization_scan"] = scan_n
+                experiment = self.make_experiment(updates)
+                experiment.submit_opt_exp_general()
+                _, expid, _ = self.scheduler.submitted[-1]
+                self.assertEqual(expid["arguments"]["n_measurements"], expected)
+                self.assertEqual(
+                    expid["arguments"]["n_measurements_optimization_scan"],
+                    scan_n)
+                # the run itself keeps its own n_measurements
+                self.assertEqual(experiment.n_measurements, 7)
+
+    def _health_check_with_retention(self, retained, fit_check=False,
+                                     parent_rid=None):
+        experiment = self.make_experiment({
+            "which_node": "Node2",
+            "Frequency_00_Scan": True,
+            "n_measurements": 4,
+            "target_fidelity": 0.8,
+        })
+        experiment.initialize_datasets()
+        loaded = (experiment.single_atom_threshold
+                  * experiment.t_SPCM_first_shot * 10)
+
+        def fake_scan_point(inner_self):
+            inner_self.set_dataset("AllSPCMs_RO1", [0] + [loaded] * 4,
+                                   broadcast=True)
+            inner_self.set_dataset(
+                "AllSPCMs_RO2",
+                [0] + [loaded] * retained + [0.0] * (4 - retained),
+                broadcast=True)
+
+        if fit_check:
+            experiment.set_dataset("fit_parameter_f0",
+                                   experiment.f_microwaves_00_dds_Node2,
+                                   broadcast=True, persist=True)
+        if parent_rid is not None:
+            experiment.parent_rid = parent_rid
+        del experiment.dataset_writes[:]
+        with mock.patch.object(
+            exp_functions, "microwave_Rabi_2_experiment", fake_scan_point
+        ):
+            passed = experiment.health_check_general(fit_check=fit_check)
+        return experiment, passed
+
+    def test_every_health_check_publishes_its_result_for_the_gvs(self):
+        for retained, fit_check, passed, fidelity in (
+            (0, False, True, 1.0), (4, False, False, 0.0),
+            (1, True, False, 0.75), (0, True, True, 1.0),
+        ):
+            with self.subTest(retained=retained, fit_check=fit_check):
+                experiment, result = self._health_check_with_retention(
+                    retained, fit_check)
+                self.assertIs(result, passed)
+                writes = {name: (value, kwargs)
+                          for name, value, kwargs in experiment.dataset_writes
+                          if name.startswith("health_check_result_")}
+                self.assertEqual(
+                    {name: value for name, (value, _) in writes.items()},
+                    {"health_check_result_rid": 100,
+                     "health_check_result_parent_rid": 100,
+                     "health_check_result_node": "Node2",
+                     "health_check_result_scan": "Frequency_00_Scan",
+                     "health_check_result_fidelity": fidelity,
+                     "health_check_result_passed": passed})
+                for name, (_, kwargs) in writes.items():
+                    self.assertEqual(kwargs, {"broadcast": True,
+                                              "persist": False}, name)
+                # after the outcome is known: the last writes of the call
+                last = [name for name, _, _ in experiment.dataset_writes][-6:]
+                self.assertTrue(all(n.startswith("health_check_result_")
+                                    for n in last), last)
+                # a run of its own (parent_rid = its RID) writes no keyed one
+                self.assertFalse([n for n in writes
+                                  if n.startswith("health_check_result_for_")])
+
+    def test_a_run_for_a_gvs_publishes_its_result_under_the_parent(self):
+        """What the GVS reads: keyed by parent_rid, so an optimizer run that
+        runs while the GVS is paused cannot overwrite it."""
+        for retained, fit_check, passed, fidelity in (
+            (0, False, True, 1.0), (4, True, False, 0.0),
+        ):
+            with self.subTest(retained=retained, fit_check=fit_check):
+                experiment, result = self._health_check_with_retention(
+                    retained, fit_check, parent_rid=500)
+                self.assertIs(result, passed)
+                name, value, kwargs = experiment.dataset_writes[-1]
+                self.assertEqual(name, "health_check_result_for_parent_500")
+                self.assertEqual(value, [100, "Node2", "Frequency_00_Scan",
+                                         fidelity, int(passed)])
+                self.assertEqual(kwargs, {"broadcast": True, "persist": False,
+                                          "archive": False})
+                self.assertEqual(
+                    experiment.broadcast_sets["health_check_result_parent_rid"],
+                    500)
+
+    def test_gvs_health_check_tables_match_this_module(self):
+        """The GVS does not import this module (scipy, fit models); its copy
+        of the scan flags and centers is pinned here instead."""
+        from GeneralVariableScan_master_satellite_mixin import (
+            HEALTH_CHECK_OPTIMIZER_CLASS,
+            HEALTH_CHECK_OPTIMIZER_FILE,
+            HEALTH_CHECK_OPTIMIZER_SCAN_FLAGS,
+            HEALTH_CHECK_SCANS,
+        )
+        self.assertEqual(list(HEALTH_CHECK_OPTIMIZER_SCAN_FLAGS),
+                         list(scan_options))
+        for label, flag, center in HEALTH_CHECK_SCANS:
+            self.assertEqual(scan_dict[flag]["center"], center, flag)
+            self.assertEqual(flag, f"Frequency_{label}_Scan")
+        self.assertEqual(HEALTH_CHECK_OPTIMIZER_CLASS,
+                         MicrowaveScanOptimizer_master_satellite.__name__)
+        self.assertEqual(
+            HEALTH_CHECK_OPTIMIZER_FILE,
+            "qn_artiq_routines\\MicrowaveScanOptimizer_master_satellite.py")
+
+    def _gvs_health_check_expid(self, node, flag):
+        """The expid a two-node GVS health check submits, built by the GVS's
+        own code from a hand-built scan."""
+        from GeneralVariableScan_master_satellite_mixin import (
+            format_override_dictionary,
+        )
+        from GeneralVariableScan_master_satellite_two_nodes import (
+            GeneralVariableScan_master_satellite_two_nodes,
+        )
+        from utilities.BaseExperiment_master_satellite import (
+            BaseExperimentMasterSatellite,
+        )
+        scan = GeneralVariableScan_master_satellite_two_nodes()
+        scan.base = BaseExperimentMasterSatellite(experiment=scan)
+        for variable in MASTER_SATELLITE_VARIABLES:
+            setattr(scan, variable.name, variable.value)
+        scan.t_pumping_two_nodes = 2.5e-4
+        scan.authoritative_overrides = {
+            "t_pumping_two_nodes": 2.5e-4,
+            "p_cooling_DP_MOT_Node1": -9.0,
+            "p_cooling_DP_MOT_Node2": -8.0,
+            "two_atom_threshold": 31000.0,
+        }
+        scan.scan_variable1 = "target_780_HWP_Node1"
+        scan.scan_variable2 = None
+        scan.scheduler = types.SimpleNamespace(rid=500)
+        scan.target_fidelity = 0.7
+        # the GVS's GUI defaults: 200 for the check, 100 per scan point
+        scan.health_check_n_measurements = 200
+        scan.health_check_optimization_n_measurements = 100
+        # neither the GUI defaults (1.0, 4.0) nor the optimizer's (2.0, 3.0)
+        scan.health_check_adaptive_half_range_linewidths = 1.5
+        scan.health_check_adaptive_points_per_linewidth = 5.0
+        text = format_override_dictionary(
+            scan._health_check_forwarded_overrides(node))
+        return scan._health_check_expid(node, flag, text)
+
+    def test_gvs_health_check_expid_runs_this_experiment_as_intended(self):
+        """ARTIQ silently ignores an expid key that is not an argument, so
+        every key must be one, and prepare() must take the forwarded
+        dictionary: the two-node settings bare, onto the node's twins."""
+        expid = self._gvs_health_check_expid("Node1", "Frequency_11_Scan")
+        self.assertEqual(expid["class_name"],
+                         "MicrowaveScanOptimizer_master_satellite")
+
+        declared = []
+        experiment = OptimizerExperiment()
+        experiment.initialize_environment(self.devices, self.datasets, self.log)
+        record = experiment.setattr_argument
+        experiment.setattr_argument = lambda name, *args, **kwargs: (
+            declared.append(name), record(name, *args, **kwargs))
+        experiment.build()
+        unknown = set(expid["arguments"]) - set(declared)
+        self.assertEqual(unknown, set(), "not arguments of the optimizer")
+
+        experiment.write_results = lambda kwargs={}: None
+        for name, value in expid["arguments"].items():
+            setattr(experiment, name, value)
+        experiment.prepare()
+
+        self.assertEqual(experiment._selected_node, "Node1")
+        self.assertEqual(experiment.scan_type, "Frequency_11_Scan")
+        self.assertTrue(experiment.run_health_check_and_optimize)
+        self.assertEqual(experiment.parent_rid, 500)
+        self.assertEqual(experiment.n_measurements, 200)
+        self.assertEqual(experiment.n_measurements_optimization_scan, 100)
+        self.assertEqual(experiment.target_fidelity, 0.7)
+        self.assertIs(experiment.show_shared_applets, False)
+        self.assertTrue(experiment.enable_node_specific_adaptive_scan)
+        self.assertEqual(experiment.adaptive_half_range_linewidths, 1.5)
+        self.assertEqual(experiment.adaptive_points_per_linewidth, 5.0)
+        overrides = experiment._user_authoritative_overrides
+        self.assertEqual(overrides["t_pumping_Node1"], 2.5e-4)
+        self.assertEqual(experiment.t_pumping, 2.5e-4)
+        self.assertEqual(overrides["t_SPCM_first_shot_Node1"],
+                         self.datasets["t_SPCM_first_shot_two_nodes"])
+        self.assertEqual(overrides["p_cooling_DP_MOT_Node1"], -9.0)
+        self.assertEqual(overrides["two_atom_threshold"], 31000.0)
+        self.assertTrue(all(not name.endswith("_Node2") for name in overrides))
+        # the GVS's scan variable is a point value, never forwarded
+        self.assertNotIn("target_780_HWP_Node1", overrides)
+        # the scan this check submits if it fails carries all of it on
+        experiment.submit_opt_exp_general()
+        _, child, priority = self.scheduler.submitted[-1]
+        self.assertEqual(priority, 99)
+        self.assertEqual(child["arguments"]["parent_rid"], 500)
+        # a check run with 200 submits its scan with 100
+        self.assertEqual(child["arguments"]["n_measurements"], 100)
+        self.assertEqual(child["arguments"]["n_measurements_optimization_scan"],
+                         100)
+        self.assertEqual(child["arguments"]["target_fidelity"], 0.7)
+        self.assertIs(child["arguments"]["show_shared_applets"], False)
+        self.assertEqual(child["arguments"]["override_ExperimentVariables_Node1"],
+                         expid["arguments"]["override_ExperimentVariables_Node1"])
 
 
 if __name__ == "__main__":

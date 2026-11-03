@@ -114,8 +114,8 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         )
         self.assertEqual(experiment.datasets["f_FORT_Node1"], 245e6)
         self.assertEqual(
-            experiment.datasets["t_coil_relaxation_time_OP_Node1"],
-            1e-3,
+            experiment.datasets["t_OP_coil_relax_time_Node1"],
+            0.4e-3,
         )
         self.assertTrue(
             all(
@@ -130,7 +130,7 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         )
         self.assertEqual(experiment.datasets["f_FORT_Node2"], 240e6)
         self.assertEqual(
-            experiment.datasets["t_coil_relaxation_time_OP_Node2"],
+            experiment.datasets["t_OP_coil_relax_time_Node2"],
             0.4e-3,
         )
         self.assertTrue(
@@ -184,7 +184,11 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
         # two-node run opens ONE gate across all four master-local SPCM
         # counters, so there is one duration, and the thresholds above are
         # rates compared against counts/t, so gate and threshold must be the
-        # same joint quantity.
+        # same joint quantity. On 2026-10-27 the per-node copies of the
+        # settings both nodes share became plain globals (no suffix in any
+        # mode), the unread *_two_node timing globals went, and the two-node
+        # sequence settings joined as <x>_two_nodes (read bare in two_nodes
+        # mode only; see BaseExperimentMasterSatellite.TWO_NODES_SUFFIX).
         self.assertEqual(
             experiment.datasets,
             {
@@ -203,17 +207,50 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                 "dummy_variable": 0.0,
                 "two_atom_threshold": 39000.0,
                 "two_atom_threshold_for_loading": 89000.0,
-                "t_atom_check_time_two_node": 0.01,
-                "t_SPCM_first_shot_two_node": 0.01,
-                "t_SPCM_second_shot_two_node": 0.01,
-                "t_delay_between_shots_two_node": 0.0,
-                "t_MOT_dissipation_two_node": 0.05,
+                # Joined on 2026-11-03: which MOT coils two-node loading
+                # writes, each node's single-node set or its
+                # <coil>_for_two_nodes_NodeX set. One switch for the joint
+                # load, so global; False keeps the single-node coils.
+                "override_coils_with_two_nodes_setting": False,
+                "t_delay_between_shots": 0.0,
+                "t_MOT_dissipation": 0.05,
+                "enable_laser_feedback": True,
+                "Luca_trigger_for_feedback_verification": False,
+                "use_chopped_readout": False,
+                "require_D1_lock_to_advance": False,
+                "monitor_magnetometer_in_end_measurement": False,
+                "monitors_for_atom_loading": False,
                 "max_atom_check_tries_two_node": 100,
-                "max_loading_rounds_two_node": 20,
+                "max_loading_rounds": 20,
+                # Joined on 2026-10-12, merging Two_nodes_atom_loading_2
+                # _experiment back into Two_nodes_atom_loading_experiment as a
+                # flag. GLOBAL because the two-node sequence reads the BARE
+                # name -- a per-node declaration would only ever produce
+                # advance_if_atom_in_first_shot_NodeX -- and because the
+                # criterion it selects is one comparison against the joint
+                # two_atom_threshold, which is global for the same reason.
+                # Default False preserves the historical advance behaviour.
+                "advance_if_atom_in_first_shot": False,
                 "n_alternating_RO_windows_per_node": 10,
                 # Seconds, not milliseconds: the unit kwarg is display only.
                 "t_alternating_RO_window": 0.001,
                 "t_alternating_RO_pad": 0.0001,
+                "n_excitation_attempts_two_nodes": 5,
+                "max_excitation_cycles_two_nodes": 2000,
+                "atom_check_every_n_two_nodes": 50,
+                "recool_every_n_OP_two_nodes": 1,
+                "t_pumping_two_nodes": 0.0001,
+                "t_depumping_two_nodes": 2e-06,
+                "t_OP_coil_relax_time_two_nodes": 0.0015,
+                "t_recooling_two_nodes": 0.0006,
+                "t_SPCM_recool_and_shot_two_nodes": 0.01,
+                # 150*ns; seconds_to_mu floors, 1.5e-07 would give 149 mu
+                "t_photon_collection_time_two_nodes": 1.5000000000000002e-07,
+                # the joint gates of two-node runs, 20 ms; single-node runs
+                # keep their per-node 10 ms
+                "t_atom_check_time_two_nodes": 0.02,
+                "t_SPCM_first_shot_two_nodes": 0.02,
+                "t_SPCM_second_shot_two_nodes": 0.02,
             },
         )
         # The two Node2 timing globals name the node they apply TO, in the
@@ -373,18 +410,32 @@ class ExperimentVariablesMasterSatelliteTests(unittest.TestCase):
                         names_by_node[node],
                     )
 
-        bob_defaults_path = Path(
-            "utilities/config/bob/device_aliases.json"
-        )
-        with bob_defaults_path.open() as config_file:
-            bob_defaults = json.load(config_file)["DDS_DEFAULTS"]
-        self.assertEqual(
-            bob_defaults["dds_D1_pumping_DP"],
-            {
-                "frequency": "f_GRIN2_D1_pumping",
-                "power": "p_GRIN2_D1_pumping",
-            },
-        )
+        # Since Node1's 2026-10-20 GRIN rewire both nodes start their GRIN
+        # DDSes at the same tones: GRIN1 at the D1 pumping tone, GRIN2 at the
+        # GRIN2 D1 tone (experiments set the excitation tone themselves).
+        for standalone_config in ("alice", "bob"):
+            defaults_path = (
+                Path("utilities/config")
+                / standalone_config
+                / "device_aliases.json"
+            )
+            with defaults_path.open() as config_file:
+                grin_defaults = json.load(config_file)["DDS_DEFAULTS"]
+            with self.subTest(config=standalone_config):
+                self.assertEqual(
+                    grin_defaults["dds_GRIN1"],
+                    {
+                        "frequency": "f_GRIN1_D1_pumping",
+                        "power": "p_GRIN1_D1_pumping",
+                    },
+                )
+                self.assertEqual(
+                    grin_defaults["dds_GRIN2"],
+                    {
+                        "frequency": "f_GRIN2_D1_pumping",
+                        "power": "p_GRIN2_D1_pumping",
+                    },
+                )
 
     def test_historical_and_result_datasets_are_not_migrated(self):
         all_names = {

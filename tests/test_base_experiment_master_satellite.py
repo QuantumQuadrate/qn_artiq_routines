@@ -182,11 +182,14 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertEqual(experiment.sampler0.name, "sampler3")
         self.assertEqual(experiment.f_FORT, experiment.f_FORT_Node2)
         self.assertFalse(hasattr(experiment, "f_FORT_Node1"))
+        # The two-node sequence settings (<x>_two_nodes) are loaded only in
+        # two_nodes mode, so a missing one cannot stop a single-node run.
         self.assertEqual(
             set(experiment.dataset_reads),
             {
                 variable.name
                 for variable in NODE2_VARIABLES + MASTER_SATELLITE_VARIABLES
+                if not variable.name.endswith("_two_nodes")
             },
         )
         base.prepare()
@@ -276,31 +279,54 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 experiment.measurements_progress, "measurements_progress"
             )
 
-    def test_magnetometer_result_reset_is_transient_and_side_effect_free(self):
+    def test_scan_point_reset_is_side_effect_free_and_keeps_magnetometers(self):
         experiment, base = self.build_and_prepare("single_node", "Node2")
         reads_before = list(experiment.dataset_reads)
         device_calls_before = list(experiment.setattr_device_calls)
         reset_calls_before = experiment.core.reset_calls
 
         base.initialize_result_datasets()
-        experiment.datasets["Magnetometer_MOT_X_Node2"] = [123.0]
+        for name in base.MAGNETOMETER_RESULT_DATASETS:
+            self.assertEqual(experiment.datasets[f"{name}_Node2"], [0.0])
+            self.assertNotIn(name, experiment.datasets)
+        # Seeded with the series: the legend for the magnetometer applet.
+        self.assertEqual(
+            experiment.datasets["magnetometer_axis_labels"], ["X", "Y", "Z"]
+        )
+        # Broadcast for the applets, never persisted: a persisted series
+        # would be written into the dataset DB, growing every run.
+        self.assertTrue(
+            all(
+                kwargs == {"broadcast": True, "persist": False}
+                for _, _, kwargs in experiment.dataset_writes
+            )
+        )
+        experiment.datasets["Magnetometer_MOT_X_Node2"] = [0.0, 123.0]
+        experiment.dataset_writes.clear()
         base.reset_result_state_for_scan_point()
 
         expected_names = {
             "measurements_progress",
-            *(
-                f"{name}_Node2"
-                for name in base.MAGNETOMETER_RESULT_DATASETS
-            ),
+            # The per-iteration display datasets are cleared here too, in BOTH
+            # modes. Without that they are seeded once and appended to for the
+            # whole run, so every "_current_iteration" histogram shows the
+            # accumulated total while plot_hist_autosize.py labels it with the
+            # current iteration -- that flag only titles the plot, it never
+            # slices the data. Asserted from the same list Base seeds from, so
+            # the two cannot drift.
+            *base.current_iteration_dataset_names(),
+            # NOT the magnetometer series: they collect the whole run, so a
+            # scan's h5 keeps every scan point (user, 2026-10-23; RID 39317
+            # kept only the last one).
         }
         written_names = {
             name for name, _, _ in experiment.dataset_writes
         }
         self.assertEqual(written_names, expected_names)
         self.assertEqual(experiment.datasets["measurements_progress"], 0.0)
-        for name in base.MAGNETOMETER_RESULT_DATASETS:
-            self.assertEqual(experiment.datasets[f"{name}_Node2"], [0.0])
-            self.assertNotIn(name, experiment.datasets)
+        self.assertEqual(
+            experiment.datasets["Magnetometer_MOT_X_Node2"], [0.0, 123.0]
+        )
         self.assertTrue(
             all(
                 kwargs == {"broadcast": True, "persist": False}
@@ -401,6 +427,21 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertTrue(hasattr(experiment, "f_FORT_Node1"))
         self.assertTrue(hasattr(experiment, "f_FORT_Node2"))
         self.assertFalse(hasattr(experiment, "f_FORT"))
+
+    def test_two_node_mode_has_one_lazy_waveplate_view_per_node(self):
+        """Two-node sequences move each node's rotators through its own view
+        of the one k10cr1_ndsp controller (Two_nodes_HOM_experiment sets both
+        nodes' 780 waveplates), and nothing connects until a move."""
+        from utilities.BaseExperiment_master_satellite import (
+            _NodeAxisK10CR1Proxy,
+        )
+        experiment, _ = self.build_and_prepare("two_nodes")
+        for node in ("Node1", "Node2"):
+            view = getattr(experiment, "k10cr1_ndsp_" + node)
+            self.assertIsInstance(view, _NodeAxisK10CR1Proxy)
+            self.assertIsNone(view._client)
+            self.assertEqual(view._resolve_axis("780_HWP"), "780_HWP_" + node)
+            self.assertEqual(view._resolve_axis("780_QWP"), "780_QWP_" + node)
 
     def test_single_node_refresh_updates_only_in_memory_projection(self):
         experiment, base = self.build_and_prepare("single_node", "Node2")
@@ -546,7 +587,7 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                     ("ttl_repump_switch", "ttl_repump_switch"),
                     ("ttl_pumping_repump_switch", "ttl_pumping_repump_switch"),
                     ("dds_cooling_DP", "dds_cooling_DP"),
-                    ("GRIN1and2_dds", "GRIN1and2_dds"),
+                    ("dds_GRIN1", "dds_GRIN1"),
                     ("ttl_exc0_switch", "ttl_exc0_switch"),
                     ("ttl_GRIN1_switch", "ttl_GRIN1_switch"),
                     ("mot_aom_1", "dds_AOM_A1"),
@@ -573,6 +614,64 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         finally:
             aom_feedback.cwd = original_cwd
 
+    def test_two_node_feedback_writes_the_histories_the_feedback_rf_applets_plot(self):
+        """Each node's dB histories are the names "feedback RF NodeX" plots.
+
+        The applet plots p_AOM_A1_history_NodeX .. p_FORT_loading_history_NodeX,
+        the names a single-node run writes (feedback_dataset_map suffixes the
+        whole legacy name). Until 2026-10-20 a two-node stabilizer added
+        "_history" after its node suffix and wrote p_AOM_A1_Node1_history, so
+        the applet did not move during two-node runs. With suffix "" -- every
+        standalone and single-node stabilizer -- the name stays
+        p_AOM_A1_history.
+        """
+        import subroutines.aom_feedback as aom_feedback
+        from applets_master_satellite import SHARED_APPLET_SPECS
+
+        dds_names = [f"dds_AOM_A{k}" for k in range(1, 7)] + ["dds_FORT"]
+        artiq_master = Path(__file__).resolve().parents[3]
+        original_cwd = aom_feedback.cwd
+        aom_feedback.cwd = str(artiq_master) + "\\"
+        try:
+            experiment, base = self.build_and_prepare("two_nodes")
+            for node, legacy_name in (("Node1", "alice"), ("Node2", "bob")):
+                experiment.dds_defaults = base.node_resolvers[node].dds_defaults
+                stabilizer = aom_feedback.AOMPowerStabilizer(
+                    experiment=experiment,
+                    dds_names=dds_names,
+                    node_suffix=f"_{node}",
+                    config_node=legacy_name,
+                )
+                (spec,) = [
+                    spec for spec in SHARED_APPLET_SPECS
+                    if spec.title == f"feedback RF {node}"
+                ]
+                plotted = [
+                    name for name in
+                    spec.args + tuple(value for _, value in spec.options)
+                    if "_history" in name
+                ]
+                self.assertEqual(len(plotted), 7)
+                self.assertEqual(
+                    sorted(ch.dB_history_dataset
+                           for ch in stabilizer.all_channels),
+                    sorted(plotted),
+                )
+
+            experiment, base = self.build_and_prepare("single_node", "Node1")
+            experiment.dds_defaults = base.node_resolvers["Node1"].dds_defaults
+            stabilizer = aom_feedback.AOMPowerStabilizer(
+                experiment=experiment, dds_names=dds_names,
+                config_node="alice",
+            )
+            self.assertEqual(
+                sorted(ch.dB_history_dataset for ch in stabilizer.all_channels),
+                sorted([f"p_AOM_A{k}_history" for k in range(1, 7)]
+                       + ["p_FORT_loading_history"]),
+            )
+        finally:
+            aom_feedback.cwd = original_cwd
+
     def test_two_node_retention_applet_thresholds_on_both_atoms(self):
         """The two-node retention applet must discriminate TWO atoms.
 
@@ -584,10 +683,9 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         single_atom_threshold would count one-atom events as loaded and make
         the retention denominator wrong.
 
-        The exposure must also be the SUFFIXED name. Bare t_SPCM_first_shot
-        still exists in dataset_db as a standalone leftover, so a two-node
-        applet pointed at the bare name would scale a live threshold by a
-        stale standalone value -- the same collision class as n_measurements.
+        The exposure is t_SPCM_first_shot, which in two_nodes mode resolves
+        to t_SPCM_first_shot_two_nodes, the gate the run used. Never the
+        bare dataset: that is the standalone stack's.
         """
         from applets_master_satellite import (
             APPLET_SPECS,
@@ -613,11 +711,11 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 f"threshold: {argument}",
             )
         self.assertIn(
-            "t_SPCM_first_shot_Node1", arguments,
-            "the exposure must be the suffixed name; the bare one is a "
-            "standalone leftover in dataset_db",
+            "t_SPCM_first_shot_two_nodes", arguments,
+            "the exposure is the two-node gate the run used",
         )
         self.assertNotIn("t_SPCM_first_shot", arguments)
+        self.assertNotIn("t_SPCM_first_shot_Node1", arguments)
 
         # Single-node keeps the one-atom criterion. Pinned so a shared edit
         # cannot quietly change what single-node retention means.
@@ -630,8 +728,8 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         self.assertNotIn("two_atom_threshold", node1_arguments)
 
     def test_each_mode_retires_only_the_conflicting_applet(self):
-        """Starting one mode closes the other mode's retention applet -- and
-        nothing else.
+        """Starting one mode closes the other mode's retention applet -- and,
+        among the live execution groups, nothing else.
 
         "retention and loading AllSPCMs" exists in both spec sets under the
         SAME title, reading the same unsuffixed AllSPCMs_RO1/RO2, differing
@@ -644,6 +742,12 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         are just as meaningful during a two-node run, so retiring the whole
         idle group to fix one applet would throw away plots the owner wants
         to keep watching.
+
+        The other kind of retirement is the LEGACY one, checked separately.
+        Single-node applets used to live under the running node's own group
+        (Node1 / Node2); since 2026-10-13 both nodes share
+        SINGLE_NODE_APPLET_GROUP, so every run closes the old per-node copies.
+        Those are obsolete duplicates, not the live histograms protected above.
         """
         import applets_master_satellite as applets
 
@@ -662,13 +766,18 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                     self.created.append((args[0], kwargs.get("group")))
 
         conflicting = applets.conflicting_applet_titles()
-        self.assertEqual(conflicting, {"retention and loading AllSPCMs"})
+        # Since 2026-10-27 the readout histograms differ by mode too: the
+        # two-node gates are 20 ms (<x>_two_nodes), the per-node ones 10 ms.
+        self.assertEqual(conflicting, {
+            "retention and loading AllSPCMs",
+            "All SPCMs RO1 histogram",
+            "All SPCMs RO2 histogram",
+            "AllSPCMs atom check in loading histogram",
+        })
 
         # Applets that must survive a mode change, because they mean the same
         # thing either way.
         keep_open = {
-            "All SPCMs RO1 histogram",
-            "All SPCMs RO2 histogram",
             "Atom loading time (s)",
         }
         self.assertTrue(
@@ -676,6 +785,32 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             "these must never be retired on a mode change",
         )
 
+        single = applets.SINGLE_NODE_APPLET_GROUP
+        two = applets.TWO_NODE_APPLET_GROUP
+        self.assertEqual(
+            set(applets.execution_applet_groups(None)), {single, two}
+        )
+        # Every spec set create_applets_for EVER placed under a per-node group,
+        # listed here independently of LEGACY_PER_NODE_SPEC_SETS, so dropping a
+        # set from that tuple fails this test instead of leaving its old
+        # copies open. Full nested paths, for the reason given below.
+        legacy_paths = {
+            (spec.title, (node,) if spec.group is None else (node, spec.group))
+            for node in ("Node1", "Node2")
+            for spec in (applets.APPLET_SPECS + applets.GVS_APPLET_SPECS
+                         + applets.SPCM_MONITOR_APPLET_SPECS
+                         + applets.OPTIONAL_APPLET_SPECS)
+        }
+
+        def split(disabled):
+            live = [(t, g) for t, g in disabled if g[0] in (single, two)]
+            legacy = {(t, tuple(g)) for t, g in disabled
+                      if g[0] in ("Node1", "Node2")}
+            stray = [(t, g) for t, g in disabled
+                     if g[0] not in (single, two, "Node1", "Node2")]
+            return live, legacy, stray
+
+        # ---- single-node run ------------------------------------------------
         experiment, base = self.build_and_prepare("single_node", "Node1")
         ccb = RecordingCCB()
         experiment.ccb = ccb
@@ -686,13 +821,39 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         )
         self.assertEqual(
             ccb.disabled_groups, [],
-            "no whole group may be retired -- that takes the histograms with it",
+            "no whole group may be retired -- that takes the histograms with "
+            "it, and would also close anything set up by hand under Node1/Node2",
         )
-        self.assertIn(
-            ("retention and loading AllSPCMs", applets.TWO_NODE_APPLET_GROUP),
-            ccb.disabled_applets,
+        created = dict(ccb.created)
+        self.assertEqual(
+            created["retention and loading AllSPCMs"], [single, "GVS and Cycler"]
         )
+        self.assertEqual(created["measurements progress"], [single])
 
+        live, legacy, stray = split(ccb.disabled_applets)
+        self.assertEqual(stray, [], "nothing outside the known groups is closed")
+        # The FULL NESTED PATH, not the bare top-level group. create_applet
+        # places this applet at [top_level, "GVS and Cycler"], and
+        # ccb_disable_applet resolves its group with
+        # locate_applet(create_groups=False), which looks for the applet as a
+        # direct child of the last group named and silently does nothing when
+        # it is one level deeper. The bare form made the retirement a no-op for
+        # its whole existence; this assertion is what keeps it honest.
+        self.assertIn(
+            ("retention and loading AllSPCMs", [two, "GVS and Cycler"]), live
+        )
+        # Two-node-only applets ARE closed under the single-node group too --
+        # _retire_named_applets deliberately covers every execution group, live
+        # one included -- but they never exist there, so that is a no-op. What
+        # must never happen is closing an applet this run just created.
+        self.assertFalse(
+            [entry for entry in live
+             if entry[1][0] == single and entry[0] in created],
+            "a single-node run must never close an applet it creates",
+        )
+        self.assertEqual(legacy, legacy_paths)
+
+        # ---- two-node run ---------------------------------------------------
         experiment, base = self.build_and_prepare("two_nodes")
         ccb = RecordingCCB()
         experiment.ccb = ccb
@@ -702,57 +863,335 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             shared_specs=applets.SHARED_APPLET_SPECS,
         )
         self.assertEqual(ccb.disabled_groups, [])
-        for node in ("Node1", "Node2"):
-            self.assertIn(
-                ("retention and loading AllSPCMs", node), ccb.disabled_applets
-            )
-        # and nothing else was closed
-        self.assertEqual(
-            {title for title, _ in ccb.disabled_applets},
-            {"retention and loading AllSPCMs"},
+        live, legacy, stray = split(ccb.disabled_applets)
+        self.assertEqual(stray, [])
+        self.assertIn(
+            ("retention and loading AllSPCMs", [single, "GVS and Cycler"]), live
         )
+        # The conflicting title, PLUS the single-experiment applets this run is
+        # not creating. The latter is derived from the spec tuples, so adding a
+        # new opt-in applet does not need this assertion edited -- which is the
+        # point: the six per-node retention plots have titles in NEITHER
+        # spec-set intersection, so conflicting_applet_titles could never see
+        # them and every other run left them up showing stale data.
+        self.assertEqual(
+            {title for title, _ in live},
+            conflicting
+            | applets.exclusive_applet_titles(applets.TWO_NODE_APPLET_SPECS),
+        )
+        # What must NEVER be closed on a mode change still is not -- in the
+        # live groups. The legacy per-node copies are a different matter.
+        self.assertTrue(
+            keep_open.isdisjoint({t for t, _ in live}),
+            "the loading-time plot must survive a mode change",
+        )
+        self.assertEqual(legacy, legacy_paths)
+        # Every retirement must name the path the CREATE side would use, or it
+        # resolves to nothing. Compared against the SPEC-derived group, not
+        # this run's created record: the retirements deliberately include
+        # applets this run did not create, so the created record has no entry
+        # for them.
+        spec_group = dict(
+            applets.applet_paths_for_titles({title for title, _ in live})
+        )
+        for title, group in live:
+            self.assertIn(
+                title, spec_group,
+                f"{title!r} is retired but appears in no spec set, so nothing "
+                f"knows which functional group it lives in",
+            )
+            expected_tail = (
+                [] if spec_group[title] is None else [spec_group[title]]
+            )
+            self.assertEqual(
+                group[1:], expected_tail,
+                f"{title!r} is retired at {group!r} but its spec places it "
+                f"under {spec_group[title]!r}; disable_applet only matches a "
+                f"direct child of the last group named, so these must agree "
+                f"below the top level",
+            )
 
         groups = dict(ccb.created)
         self.assertEqual(
-            groups["retention and loading AllSPCMs"],
-            [applets.TWO_NODE_APPLET_GROUP, "GVS and Cycler"],
+            groups["retention and loading AllSPCMs"], [two, "GVS and Cycler"]
         )
 
-    def test_agreeing_scalars_are_rederived_after_overrides(self):
-        """The bare shared scalars must follow the per-node values.
+    def test_health_check_status_applet_is_shared_and_never_retired(self):
+        """The GVS health check's status applet (2026-10-29): the same command
+        and group in every mode, and no retirement a run issues reaches it --
+        its re-optimization count is the user's sign to relock the lasers."""
+        import applets_master_satellite as applets
 
-        They used to be published only from prepare(), which broke two things
-        at once, because the sequence reads the BARE name:
+        class RecordingCCB:
+            def __init__(self):
+                self.created = []
+                self.disabled = []
 
-          * overriding or scanning an agreeing scalar had NO EFFECT -- the bare
-            name stayed frozen at its pre-override value;
-          * an ASYMMETRIC override did not raise, because prepare() compared
-            the two still-equal dataset values, and the later setattr of the
-            suffixed names left the bare name holding Node1's value. Node2 then
-            silently ran with Node1's exposure time, which is the single
-            failure _publish_agreeing_scalars exists to prevent.
+            def issue(self, action, *args, **kwargs):
+                if action == "create_applet":
+                    self.created.append((args[0], args[1],
+                                         list(kwargs.get("group"))))
+                elif action in ("disable_applet", "disable_applet_group"):
+                    self.disabled.append((args, kwargs))
 
-        refresh_variable_dependent_state is the one hook both the override path
-        and the per-scan-point path run through, so the re-derivation belongs
-        there and this test pins it.
+        title = "MW health check status"
+        group = [applets.SHARED_APPLET_GROUP, "GVS health check"]
+        for mode, node in (("single_node", "Node1"), ("single_node", "Node2"),
+                           ("two_nodes", None)):
+            with self.subTest(mode=mode, node=node):
+                experiment, base = self.build_and_prepare(mode, node)
+                ccb = RecordingCCB()
+                experiment.ccb = ccb
+                applets.create_shared_applets_for(
+                    experiment, base,
+                    shared_specs=applets.HEALTH_CHECK_STATUS_APPLET_SPECS)
+                self.assertEqual(len(ccb.created), 1)
+                created_title, command, created_group = ccb.created[0]
+                self.assertEqual((created_title, created_group), (title, group))
+                self.assertIn("health_check_status.py", command)
+                self.assertEqual(command.split()[-1], "health_check_status")
+                self.assertEqual(ccb.disabled, [])
+
+                # every retirement pass of a run, in either mode, leaves it be
+                ccb = RecordingCCB()
+                experiment.ccb = ccb
+                if mode == "single_node":
+                    applets.create_applets_for(
+                        experiment, base, specs=applets.APPLET_SPECS,
+                        shared_specs=applets.SHARED_APPLET_SPECS)
+                else:
+                    applets.create_two_node_applets_for(
+                        experiment, base,
+                        specs=applets.TWO_NODE_APPLET_SPECS,
+                        shared_specs=applets.SHARED_APPLET_SPECS)
+                for args, _ in ccb.disabled:
+                    self.assertNotEqual(args[0], title)
+                    self.assertNotIn("GVS health check", args)
+                    self.assertNotEqual(args[0], applets.SHARED_APPLET_GROUP)
+        self.assertEqual(applets.applet_paths_for_titles([title]), set())
+        self.assertNotIn(applets.SHARED_APPLET_GROUP,
+                         applets.execution_applet_groups(None))
+        self.assertNotIn(title, applets.conflicting_applet_titles())
+
+    def test_magnetometer_applets_are_manual_only(self):
+        """No run creates or closes the magnetometer applets on its own.
+
+        The user opens them by hand (2026-10-14), so create_applets_for must
+        neither add them -- whatever monitor_magnetometer_in_end_measurement
+        is -- nor retire them, which would close a hand-opened one on the next
+        run. Asked for explicitly, they resolve to the running node's
+        Magnetometer_<phase>_*_NodeX.
+        """
+        import applets_master_satellite as applets
+
+        class RecordingCCB:
+            def __init__(self):
+                self.created = {}
+                self.disabled = []
+
+            def issue(self, action, *args, **kwargs):
+                if action == "create_applet":
+                    self.created[args[0]] = (list(kwargs.get("group")), args[1])
+                elif action == "disable_applet":
+                    self.disabled.append(args[0])
+
+        phases = ("Zero", "OP", "MOT")
+        titles = {f"Magnetometer ({phase})" for phase in phases}
+        self.assertEqual(
+            {spec.title for spec in applets.MAGNETOMETER_APPLET_SPECS}, titles
+        )
+        for node in ("Node1", "Node2"):
+            for flag in (True, False):
+                with self.subTest(node=node, flag=flag):
+                    experiment, base = self.build_and_prepare(
+                        "single_node", node
+                    )
+                    experiment.monitor_magnetometer_in_end_measurement = flag
+                    ccb = RecordingCCB()
+                    experiment.ccb = ccb
+                    applets.create_applets_for(
+                        experiment, base, specs=applets.APPLET_SPECS,
+                        shared_specs=(),
+                    )
+                    self.assertFalse(titles & set(ccb.created))
+                    self.assertFalse(titles & set(ccb.disabled))
+
+            with self.subTest(node=node, explicit=True):
+                experiment, base = self.build_and_prepare("single_node", node)
+                ccb = RecordingCCB()
+                experiment.ccb = ccb
+                applets.create_applets_for(
+                    experiment, base,
+                    specs=applets.APPLET_SPECS
+                    + applets.MAGNETOMETER_APPLET_SPECS,
+                    shared_specs=(),
+                )
+                for phase in phases:
+                    group, command = ccb.created[f"Magnetometer ({phase})"]
+                    self.assertEqual(
+                        group, [applets.SINGLE_NODE_APPLET_GROUP,
+                                "Monitor in each measurement"]
+                    )
+                    for axis in ("X", "Y", "Z"):
+                        self.assertIn(
+                            f"Magnetometer_{phase}_{axis}_{node}", command
+                        )
+                    self.assertIn("--labels magnetometer_axis_labels", command)
+                self.assertFalse(titles & set(ccb.disabled))
+
+    def test_single_node_applets_are_shared_between_nodes(self):
+        """Node1 and Node2 runs create the SAME applets, in the same group.
+
+        Every dataset these applets plot is the same unsuffixed name on both
+        nodes -- none is in the per-node redirect set -- so one copy is right
+        and two copies were clutter. Only commands that name a per-node
+        VARIABLE differ, and that difference is the mechanism:
+        ccb_create_applet restarts an existing applet exactly when its command
+        changed, so switching node re-opens the retention plot against the
+        running node's single_atom_threshold.
+        """
+        import applets_master_satellite as applets
+
+        class RecordingCCB:
+            def __init__(self):
+                self.created = []
+
+            def issue(self, action, *args, **kwargs):
+                if action == "create_applet":
+                    self.created.append(
+                        (args[0], tuple(kwargs.get("group")), args[1])
+                    )
+
+        runs = {}
+        for node in ("Node1", "Node2"):
+            experiment, base = self.build_and_prepare("single_node", node)
+            ccb = RecordingCCB()
+            experiment.ccb = ccb
+            applets.create_applets_for(
+                experiment, base,
+                specs=applets.APPLET_SPECS + applets.GVS_APPLET_SPECS,
+                shared_specs=(),
+            )
+            runs[node] = {
+                (title, group): command for title, group, command in ccb.created
+            }
+
+        self.assertEqual(
+            set(runs["Node1"]), set(runs["Node2"]),
+            "both nodes must create the same (title, group) set, or a node "
+            "switch leaves a second copy behind",
+        )
+        for title, group in runs["Node1"]:
+            self.assertEqual(
+                group[0], applets.SINGLE_NODE_APPLET_GROUP, title
+            )
+
+        def command(node, title):
+            return next(c for (t, _), c in runs[node].items() if t == title)
+
+        # Same data, no per-node variable: byte-identical, so no restart.
+        for title in ("measurements progress", "Atom loading time (s)"):
+            self.assertEqual(
+                command("Node1", title), command("Node2", title), title
+            )
+        # The retention plot follows the running node's threshold.
+        retention = "retention and loading AllSPCMs"
+        self.assertIn("single_atom_threshold_Node1", command("Node1", retention))
+        self.assertIn("single_atom_threshold_Node2", command("Node2", retention))
+        self.assertNotIn("single_atom_threshold_Node2", command("Node1", retention))
+
+    def test_two_node_sequence_settings_follow_their_two_nodes_globals(self):
+        """two_nodes publishes self.<x> from <x>_two_nodes, not from a node.
+
+        The two-node sequence reads plain names (self.t_pumping), like
+        single-node code. In two_nodes mode those come from the global
+        <x>_two_nodes, so a two-node run neither depends on nor disturbs the
+        per-node values single-node experiments use, and the copy is redone
+        after every override and scan point (the mixin calls
+        refresh_compatibility_variables there).
         """
         experiment, base = self.build_and_prepare("two_nodes")
+        self.assertTrue(base.two_node_shared_variable_map)
+        for bare, stored in base.two_node_shared_variable_map.items():
+            self.assertEqual(stored, bare + "_two_nodes")
+            self.assertEqual(getattr(experiment, bare),
+                             getattr(experiment, stored), bare)
+        # 150 ns, not Node1's 100 or Node2's 200: the shared value wins
+        self.assertEqual(experiment.t_photon_collection_time,
+                         experiment.t_photon_collection_time_two_nodes)
+        # ARTIQ's seconds_to_mu is int64(s // ref_period): it floors, so the
+        # stored 150 ns must not be 1.5e-07 (which gives 149)
+        self.assertEqual(
+            int(experiment.t_photon_collection_time // 1e-9), 150)
 
-        # Agreeing override: the bare name must pick the new value up.
-        experiment.t_SPCM_first_shot_Node1 = 0.042
-        experiment.t_SPCM_first_shot_Node2 = 0.042
-        base.refresh_variable_dependent_state()
-        self.assertAlmostEqual(experiment.t_SPCM_first_shot, 0.042)
+        experiment.t_pumping_two_nodes = 7e-5
+        experiment.t_pumping_Node1 = 1e-3
+        base.refresh_compatibility_variables()
+        self.assertEqual(experiment.t_pumping, 7e-5)
 
-        # Asymmetric override of a JOINT scalar: one gate cannot have two
-        # durations, so this must raise and name the offender.
-        experiment.t_SPCM_first_shot_Node2 = 0.043
-        with self.assertRaises(RuntimeError) as caught:
-            base.refresh_variable_dependent_state()
-        self.assertIn("t_SPCM_first_shot", str(caught.exception))
+    def test_two_node_settings_resolve_per_mode(self):
+        """Overrides and scans address the value the sequence reads."""
+        _, base = self.build_and_prepare("two_nodes")
+        resolve = base.resolve_experiment_variable_target
+        # bare, from either node's dictionary or as a scan variable
+        self.assertEqual(resolve("t_pumping", "Node1"), "t_pumping_two_nodes")
+        self.assertEqual(resolve("t_pumping", "Node2"), "t_pumping_two_nodes")
+        self.assertEqual(resolve("t_pumping"), "t_pumping_two_nodes")
+        self.assertEqual(resolve("t_pumping_two_nodes"), "t_pumping_two_nodes")
+        # the per-node values are not read in two_nodes: refuse, do not ignore
+        for name in ("t_pumping_Node1", "n_excitation_attempts_Node2"):
+            with self.assertRaises(ValueError) as caught:
+                resolve(name)
+            self.assertIn("not read in two_nodes", str(caught.exception))
+        with self.assertRaises(ValueError):
+            resolve("t_pumping_Node1", "Node1")
+        # plain globals stay themselves, in both modes
+        self.assertEqual(resolve("t_delay_between_shots", "Node1"), "t_delay_between_shots")
+        # the joint gates are two-node settings
+        self.assertEqual(resolve("t_SPCM_first_shot", "Node1"), "t_SPCM_first_shot_two_nodes")
+        # per-node settings that are not two-node settings are untouched
+        self.assertEqual(resolve("t_FORT_drop", "Node2"), "t_FORT_drop_Node2")
+
+        experiment, base = self.build_and_prepare("single_node", "Node2")
+        resolve = base.resolve_experiment_variable_target
+        self.assertEqual(resolve("t_pumping", "Node2"), "t_pumping_Node2")
+        self.assertEqual(resolve("t_SPCM_first_shot", "Node2"), "t_SPCM_first_shot_Node2")
+        self.assertEqual(resolve("t_delay_between_shots", "Node2"), "t_delay_between_shots")
+        with self.assertRaises(ValueError) as caught:
+            resolve("t_pumping_two_nodes")
+        self.assertIn("two_nodes", str(caught.exception))
+        # single_node neither loads the two-node settings nor reads them
+        self.assertFalse(hasattr(experiment, "t_pumping_two_nodes"))
+        self.assertEqual(experiment.t_photon_collection_time,
+                         experiment.t_photon_collection_time_Node2)
+        self.assertEqual(experiment.t_SPCM_first_shot,
+                         experiment.t_SPCM_first_shot_Node2)
+
+    def test_shared_settings_are_one_global_in_both_modes(self):
+        """t_SPCM_first_shot and friends: declared once, never per node."""
+        shared = ("t_delay_between_shots", "t_MOT_dissipation",
+                  "enable_laser_feedback", "Luca_trigger_for_feedback_verification",
+                  "use_chopped_readout", "require_D1_lock_to_advance",
+                  "monitor_magnetometer_in_end_measurement",
+                  "monitors_for_atom_loading")
+        for mode, node in (("two_nodes", None), ("single_node", "Node1"),
+                           ("single_node", "Node2")):
+            experiment, base = self.build_and_prepare(mode, node)
+            for name in shared:
+                self.assertIn(name, base.global_variable_names, name)
+                self.assertTrue(hasattr(experiment, name), (mode, name))
+                for suffix in ("_Node1", "_Node2"):
+                    self.assertFalse(hasattr(experiment, name + suffix),
+                                     (mode, name + suffix))
+            # no master-satellite reader, so removed altogether
+            for name in ("no_first_shot", "t_FORT_loading"):
+                for suffix in ("", "_Node1", "_Node2"):
+                    self.assertFalse(hasattr(experiment, name + suffix))
 
     def test_per_node_flags_are_not_forced_to_agree(self):
-        """Genuinely per-node names must stay OFF the agreeing list.
+        """Genuinely per-node names must stay per node.
+
+        Not plain globals and not two-node settings (<x>_two_nodes).
 
         PGC_and_RO_with_on_chip_beams selects A5/A6, a per-node AOM pair;
         do_PGC_after_loading gates a per-node stage whose duration already
@@ -767,15 +1206,15 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             "do_PGC_after_loading",
             "t_FORT_drop",
         )
+        experiment, base = self.build_and_prepare("two_nodes")
         for name in per_node_only:
             self.assertNotIn(
                 name,
-                BaseExperimentMasterSatellite.TWO_NODE_AGREEING_SCALARS,
+                set(base.global_variable_names)
+                | set(base.two_node_shared_variable_map),
                 f"{name} is per node; sharing it would make Node2 follow "
                 f"Node1 silently.",
             )
-
-        experiment, base = self.build_and_prepare("two_nodes")
 
         # Diverging them is legal and must not raise.
         experiment.PGC_and_RO_with_on_chip_beams_Node1 = True
@@ -862,18 +1301,47 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
             # belongs to a trap by construction.
             f"AllSPCMs_alternating_RO_atom_check_in_loading_{node}"
             for node in ("Node1", "Node2")
+        } | {
+            # The alternating FIRST and SECOND shots, written by
+            # alternating_first_shot / alternating_second_shot. Per node for
+            # the same reason again, and the pair is what makes retention a
+            # per-node number rather than a joint ratio.
+            #
+            # The "alternating" infix is load-bearing, not decoration:
+            # AllSPCMs_RO1_NodeX would strip to the existing joint
+            # AllSPCMs_RO1 in ms_archive_and_datasets_to_locals and collide
+            # with it. AllSPCMs_RO1_NodeX stays reserved for a node-resolving
+            # version of the ordinary shots.
+            f"AllSPCMs_alternating_RO{shot}_{node}"
+            for shot in (1, 2)
+            for node in ("Node1", "Node2")
+        } | {
+            # The same alternating readout after the parity mapping and
+            # blow-away of Two_nodes_atom_atom_parity_experiment, one entry
+            # per herald.
+            f"AllSPCMs_alternating_parity_RO_{node}"
+            for node in ("Node1", "Node2")
+        }
+        # Each node's waveplate targets per herald (the parity experiment).
+        # Seeded [] like the single-node angle_780_HWP/QWP; "parity_" because
+        # angle_780_HWP_NodeX would strip onto angle_780_HWP.
+        per_node_angles = {
+            f"parity_angle_780_{plate}_{node}"
+            for plate in ("HWP", "QWP")
+            for node in ("Node1", "Node2")
         }
         self.assertEqual(
             {name for name in written if name.endswith(("_Node1", "_Node2"))},
-            per_node_monitors | per_node_readouts,
+            per_node_monitors | per_node_readouts | per_node_angles,
             "two-node measurement results are joint and must not be "
             "node-suffixed; the only suffixed names here are the per-node "
-            "hardware monitors and the per-node alternating readouts",
+            "hardware monitors, the per-node alternating readouts and the "
+            "parity experiment's per-node waveplate angles",
         )
         # Seeded empty and broadcast, which is what makes the first
         # append_to_dataset legal rather than a KeyError.
         seeded = {name: value for name, value, _ in experiment.dataset_writes}
-        for name in sorted(per_node_monitors):
+        for name in sorted(per_node_monitors | per_node_angles):
             self.assertEqual(
                 seeded.get(name), [],
                 f"{name} must be seeded as an empty broadcast list, or the "
@@ -887,10 +1355,14 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         for required in (
             "AllSPCMs_RO1", "AllSPCMs_RO2", "AllSPCMs_atom_check_in_loading",
             "Atom_loading_time", "time_without_atom", "atom_loading_wall_clock",
+            "Atom_loading_time_first_shot_alive",
             "photocount_bins", "AllSPCMs_alternating_RO_alice",
             "AllSPCMs_alternating_RO_bob",
         ):
             self.assertIn(required, written, required)
+        # the passes of each parity scan point, for the retention applet
+        self.assertEqual(seeded.get("n_passes_per_iteration"), [0])
+        self.assertEqual(seeded.get("excitation_attempt_of_row"), [0])
 
         # The host scalars and per-measurement buffers the kernels index. These
         # must EXIST before compilation, not merely before running.
@@ -902,11 +1374,13 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         )
 
     def test_progress_resets_in_both_modes_but_magnetometers_do_not(self):
-        """measurements_progress is run-global; the magnetometers are not.
+        """measurements_progress resets per scan point; the magnetometers never.
 
-        In two_nodes mode resolve_result_dataset_name is the identity, so both
-        nodes would resolve to one unsuffixed Magnetometer_MOT_X and the last
-        writer would win. The two-node loader samples no magnetometers anyway.
+        The magnetometer series are seeded once per run, by
+        initialize_result_datasets, and only in single_node mode. In two_nodes
+        mode resolve_result_dataset_name is the identity, so both nodes would
+        resolve to one unsuffixed Magnetometer_MOT_X and the last writer would
+        win. The two-node loader samples no magnetometers anyway.
         """
         for mode, node in (("single_node", "Node1"), ("two_nodes", None)):
             with self.subTest(mode=mode):
@@ -916,11 +1390,25 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
                 written = [name for name, _, _ in experiment.dataset_writes]
 
                 self.assertIn("measurements_progress", written)
+                self.assertEqual(
+                    [n for n in written if n.startswith("Magnetometer_")], []
+                )
+
+                experiment.dataset_writes.clear()
+                base.initialize_result_datasets()
+                written = [name for name, _, _ in experiment.dataset_writes]
+                self.assertIn("measurements_progress", written)
                 magnetometer_writes = [
                     name for name in written if name.startswith("Magnetometer_")
                 ]
                 if mode == "single_node":
-                    self.assertTrue(magnetometer_writes)
+                    self.assertEqual(
+                        sorted(magnetometer_writes),
+                        sorted(
+                            f"{name}_Node1"
+                            for name in base.MAGNETOMETER_RESULT_DATASETS
+                        ),
+                    )
                 else:
                     self.assertEqual(magnetometer_writes, [])
 
@@ -1024,6 +1512,107 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         ):
             base.resolve_experiment_variable_target("f_FORT")
 
+    def test_two_node_MOT_coils_follow_the_global_flag(self):
+        """MOT_coil_volts_NodeX are the coils two-node loading writes.
+
+        <coil>_NodeX with override_coils_with_two_nodes_setting off,
+        <coil>_for_two_nodes_NodeX with it on. Recomputed by
+        refresh_variable_dependent_state, so an override or scan of the flag
+        or of either set reaches the loader; in memory only, and the
+        single-node set itself is never touched.
+        """
+        experiment, base = self.build_and_prepare("two_nodes")
+        nodes = ("Node1", "Node2")
+        single = {
+            node: [getattr(experiment, f"{name}_{node}")
+                   for name in base.MOT_COIL_VOLT_VARIABLES]
+            for node in nodes
+        }
+        self.assertEqual(
+            base.MOT_COIL_VOLT_VARIABLES,
+            ("AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT",
+             "AY_volts_MOT"),
+        )
+        self.assertFalse(experiment.override_coils_with_two_nodes_setting)
+        for node in nodes:
+            self.assertEqual(
+                getattr(experiment, f"MOT_coil_volts_{node}"), single[node])
+
+        offsets = {"Node1": 0.25, "Node2": -0.5}
+        for node in nodes:
+            for name in base.MOT_COIL_VOLT_VARIABLES:
+                setattr(experiment, f"{name}_for_two_nodes_{node}",
+                        getattr(experiment, f"{name}_{node}") + offsets[node])
+        experiment.override_coils_with_two_nodes_setting = True
+        reads_before = list(experiment.dataset_reads)
+        writes_before = len(experiment.dataset_writes)
+
+        base.refresh_variable_dependent_state()
+
+        for node in nodes:
+            self.assertEqual(
+                getattr(experiment, f"MOT_coil_volts_{node}"),
+                [value + offsets[node] for value in single[node]])
+            self.assertEqual(
+                [getattr(experiment, f"{name}_{node}")
+                 for name in base.MOT_COIL_VOLT_VARIABLES],
+                single[node])
+        self.assertEqual(experiment.dataset_reads, reads_before)
+        self.assertEqual(
+            [write[0] for write in experiment.dataset_writes[writes_before:]],
+            ["t_alternating_RO_exposure"])
+
+        experiment.override_coils_with_two_nodes_setting = False
+        base.refresh_variable_dependent_state()
+        for node in nodes:
+            self.assertEqual(
+                getattr(experiment, f"MOT_coil_volts_{node}"), single[node])
+
+    def test_single_node_mode_publishes_no_two_node_MOT_coils(self):
+        for node in ("Node1", "Node2"):
+            with self.subTest(node=node):
+                experiment, base = self.build_and_prepare("single_node", node)
+                base.refresh_variable_dependent_state()
+                self.assertFalse(hasattr(experiment, "MOT_coil_volts_Node1"))
+                self.assertFalse(hasattr(experiment, "MOT_coil_volts_Node2"))
+
+    def test_two_node_MOT_coil_targets_refuse_the_set_the_loader_ignores(self):
+        _, base = self.build_and_prepare("two_nodes")
+        resolve = base.resolve_experiment_variable_target
+        self.assertEqual(resolve("AX_volts_MOT_for_two_nodes", "Node2"),
+                         "AX_volts_MOT_for_two_nodes_Node2")
+        self.assertEqual(resolve("AX_volts_MOT_for_two_nodes_Node1"),
+                         "AX_volts_MOT_for_two_nodes_Node1")
+        self.assertEqual(resolve("override_coils_with_two_nodes_setting"),
+                         "override_coils_with_two_nodes_setting")
+
+        base.check_two_node_MOT_coil_targets(
+            {"AX_volts_MOT_for_two_nodes_Node2", "f_FORT_Node1"}, True)
+        base.check_two_node_MOT_coil_targets({"AX_volts_MOT_Node2"}, False)
+        with self.assertRaisesRegex(
+                ValueError,
+                "AX_volts_MOT_Node2 would not be used: "
+                "override_coils_with_two_nodes_setting is True"):
+            base.check_two_node_MOT_coil_targets({"AX_volts_MOT_Node2"}, True)
+        with self.assertRaisesRegex(
+                ValueError,
+                "AZ_top_volts_MOT_for_two_nodes_Node1 would not be used: "
+                "override_coils_with_two_nodes_setting is False"):
+            base.check_two_node_MOT_coil_targets(
+                {"AZ_top_volts_MOT_for_two_nodes_Node1"}, False)
+
+    def test_single_node_runs_refuse_the_two_node_coils_and_flag(self):
+        _, base = self.build_and_prepare("single_node", "Node2")
+        base.check_single_node_MOT_coil_targets(
+            {"AX_volts_MOT_Node2", "f_FORT_Node2"})
+        for target in ("override_coils_with_two_nodes_setting",
+                       "AX_volts_MOT_for_two_nodes_Node2"):
+            with self.subTest(target=target):
+                with self.assertRaisesRegex(
+                        ValueError, f"{target} would not be used: only "
+                                    "two_nodes runs read"):
+                    base.check_single_node_MOT_coil_targets({target})
+
     def test_refresh_variable_dependent_state_updates_node2_dds_cache(self):
         experiment, base = self.build_and_prepare("single_node", "Node2")
         resolver = base.node_resolvers["Node2"]
@@ -1094,6 +1683,77 @@ class BaseExperimentMasterSatelliteTests(unittest.TestCase):
         )
         self.assertLess(reset_index, ready_index)
         self.assertLess(ready_index, first_hardware_index)
+
+    def test_every_dds_alias_list_matches_each_nodes_alias_map(self):
+        """Each node's DDS alias lists agree with its ALIAS_MAP.
+
+        Standalone DeviceAliases (utilities/DeviceAliases.py) silently skips
+        an alias that is missing from ALIAS_MAP, so a half-finished alias
+        rename would surface much later as an unrelated compile error. Pin,
+        for alice and bob: standalone BaseExperiment's device_aliases list ==
+        ALIAS_MAP keys == DDS_DEFAULTS keys == the master-satellite
+        DDS_ALIASES, and every feedback_channels*.json channel key is an
+        ALIAS_MAP key (aom_feedback skips an unknown key silently too).
+        """
+        import ast
+
+        source = Path("utilities/BaseExperiment.py").read_text(encoding="utf-8")
+        lists = {}
+        for node in ast.walk(ast.parse(source)):
+            if not (isinstance(node, ast.If)
+                    and isinstance(node.test, ast.Compare)
+                    and isinstance(node.test.left, ast.Attribute)
+                    and node.test.left.attr == "node"
+                    and isinstance(node.test.ops[0], ast.Eq)
+                    and isinstance(node.test.comparators[0], ast.Constant)):
+                continue
+            node_name = node.test.comparators[0].value
+            for statement in node.body:
+                for call in ast.walk(statement):
+                    if not isinstance(call, ast.Call):
+                        continue
+                    for keyword in call.keywords:
+                        if keyword.arg != "device_aliases":
+                            continue
+                        names = []
+                        for element in keyword.value.elts:
+                            if isinstance(element, ast.Starred):
+                                expression = ast.Expression(element.value)
+                                names.extend(eval(
+                                    compile(expression, "<aliases>", "eval"),
+                                    {"range": range},
+                                ))
+                            else:
+                                names.append(element.value)
+                        lists[node_name] = names
+        self.assertEqual(set(lists), {"alice", "bob"})
+        for node_name, names in lists.items():
+            with self.subTest(node=node_name):
+                with Path(
+                    f"utilities/config/{node_name}/device_aliases.json"
+                ).open() as config_file:
+                    config = json.load(config_file)
+                self.assertEqual(len(names), len(set(names)))
+                self.assertEqual(set(names), set(config["ALIAS_MAP"]))
+                self.assertEqual(
+                    set(config["DDS_DEFAULTS"]), set(config["ALIAS_MAP"])
+                )
+                self.assertEqual(
+                    set(BaseExperimentMasterSatellite.DDS_ALIASES),
+                    set(config["ALIAS_MAP"]),
+                )
+                feedback_paths = sorted(Path(
+                    f"utilities/config/{node_name}"
+                ).glob("feedback_channels*.json"))
+                self.assertTrue(feedback_paths)
+                for feedback_path in feedback_paths:
+                    with feedback_path.open() as feedback_file:
+                        feedback = json.load(feedback_file)
+                    for group in feedback.values():
+                        self.assertLessEqual(
+                            set(group), set(config["ALIAS_MAP"]),
+                            feedback_path.name,
+                        )
 
 
 if __name__ == "__main__":

@@ -74,8 +74,10 @@ class MonitorMOTandExternalBeamPositions(EnvExperiment):
         self.set_dataset("FORT_TTI_volts", [0.0])
 
         # turn off AOMs we aren't using, in case they were on previously
-        self.dds_D1_pumping_DP.sw.off()
-        self.GRIN1and2_dds.sw.off()
+        # (D1: since 2026-10-19 Node1's D1 AOM runs from an external RF source switched by ttl_D1_pumping_switch,
+        # not dds_GRIN2)
+        self.ttl_D1_pumping_switch.on()
+        self.dds_GRIN1.sw.off()
 
         # turn on cooling MOT AOMs and warm up FORT AOM
         self.dds_cooling_DP.sw.on()  # cooling double pass

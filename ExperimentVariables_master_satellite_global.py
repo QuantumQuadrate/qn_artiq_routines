@@ -64,12 +64,17 @@ MASTER_SATELLITE_VARIABLES = (
     # collision and the name together.
     #
     # Not measurable by TTL loopback -- it needs a photon coincidence
-    # measurement (HOM dip / cross-correlation), which is the deferred herald
-    # work. Read today only by the single-photon experiments in
-    # subroutines/experiment_functions.py (":15291", ":15559", ":15681",
-    # ":16011"), which are reachable from neither master-satellite registry;
-    # they also hardcode 189 as the old zero-point, so when they are ported
-    # this variable should mean the delay directly.
+    # measurement (HOM dip / cross-correlation).
+    #
+    # Read since 2026-10-26 by Two_nodes_HOM_experiment
+    # (record_excitation_and_photon_collection_both_nodes in
+    # subroutines/experiment_functions_two_nodes.py), as THE DELAY ITSELF:
+    # Node2's whole excitation block moves by this minus t_Node2_rtio_offset_mu,
+    # positive = Node2 later. The default 189 is the standalone handshake's
+    # zero point and means nothing there; single-node arrival times put the
+    # coincidence near -143 with t_Node2_rtio_offset_mu = 0, which already
+    # includes the ~281 ns satellite counter lag. The two are coupled: setting
+    # t_Node2_rtio_offset_mu to ~281 moves the coincidence to ~ +138 here.
     Variable(
         "t_Node2_excitation_delay_mu",
         189,
@@ -127,48 +132,103 @@ MASTER_SATELLITE_VARIABLES = (
         {"type": "float"},
         "Thresholds and cut-offs",
     ),
-    # Joint two-node timing. These are GLOBAL for the same reason the two-atom
-    # thresholds are: a two-node run opens ONE gate across all four
-    # master-local SPCM counters, so there is one duration, not one per node.
-    # The thresholds above are RATES, compared against counts/t, so the gate
-    # duration and the threshold have to be the same joint quantity or the
-    # load criterion is silently wrong by the ratio of the two nodes'
-    # settings. Per-node durations stay per-node (coil volts, PGC time, FORT
-    # drop); only what the joint gate spans lives here.
+    # Which MOT coils a two_nodes run loads with. False: each node's
+    # AZ_bottom/AZ_top/AX/AY_volts_MOT_NodeX, the values single-node
+    # experiments use. True: <coil>_for_two_nodes_NodeX instead (declared
+    # next to them in each node's file), so coils can be tuned for joint
+    # loading -- AtomLoadingOptimizer with which_node = both_nodes tunes that
+    # set -- without touching the single-node values. Read in two_nodes mode
+    # only (Base._compute_two_node_MOT_coils -> MOT_coil_volts_NodeX, which
+    # the two-node loader writes); single_node runs always use the
+    # single-node set. Can be overridden for one run in
+    # override_ExperimentVariables_global; a two-node GVS then refuses an
+    # override or scan of the set the loader will not read.
     Variable(
-        "t_atom_check_time_two_node",
-        0.01,
-        NumberValue,
-        {"type": "float", "unit": "ms", "ndecimals": 3},
-        "two-node joint timing",
+        "override_coils_with_two_nodes_setting",
+        False,
+        BooleanValue,
+        {},
+        "MOT coil settings",
     ),
+    # Settings that are ONE value for both nodes, in single_node and two_nodes
+    # mode alike. Until 2026-10-27 these were declared per node and a two-node
+    # run published the bare name only while _Node1 and _Node2 agreed
+    # (Base.TWO_NODE_AGREEING_SCALARS, now gone). That check ran at prepare,
+    # before overrides, so a mismatch could not be fixed by an override, and a
+    # shared setting had to be edited twice. Now each is declared once, here.
+    #
+    # Why they are shared: a two-node run has one interval on the one shared
+    # timeline between its joint shots, and the feedback and monitor switches
+    # are run-wide. The joint GATES (first shot, second shot, loading check)
+    # are two-node settings below instead (t_SPCM_first_shot_two_nodes etc.,
+    # 20 ms), so single-node runs keep their own per-node 10 ms.
+    #
+    # The names are the standalone stack's names too, so these keys are shared
+    # with standalone/ExperimentVariables.py, like n_measurements and
+    # dummy_variable. The values were the same in both stacks when this was
+    # done.
+    #
+    # Override for one run in override_ExperimentVariables_global (since
+    # 2026-10-29; a node's dictionary still works, with a warning). Removed
+    # with the per-node copies,
+    # because nothing in master-satellite read them: no_first_shot,
+    # t_FORT_loading. Also removed: the five unread *_two_node timing
+    # globals (t_atom_check_time_two_node and friends).
     Variable(
-        "t_SPCM_first_shot_two_node",
-        0.01,
-        NumberValue,
-        {"type": "float", "unit": "ms", "ndecimals": 3},
-        "two-node joint timing",
-    ),
-    Variable(
-        "t_SPCM_second_shot_two_node",
-        0.01,
-        NumberValue,
-        {"type": "float", "unit": "ms", "ndecimals": 3},
-        "two-node joint timing",
-    ),
-    Variable(
-        "t_delay_between_shots_two_node",
+        "t_delay_between_shots",
         0.0,
         NumberValue,
-        {"type": "float", "unit": "ms", "ndecimals": 3},
-        "two-node joint timing",
+        {"type": "float", "unit": "ms"},
+        "shared by both nodes",
     ),
     Variable(
-        "t_MOT_dissipation_two_node",
+        "t_MOT_dissipation",
         0.05,
         NumberValue,
-        {"type": "float", "unit": "ms", "ndecimals": 3},
-        "two-node joint timing",
+        {"type": "float", "unit": "ms"},
+        "shared by both nodes",
+    ),
+    Variable(
+        "enable_laser_feedback",
+        True,
+        BooleanValue,
+        {},
+        "shared by both nodes",
+    ),
+    Variable(
+        "Luca_trigger_for_feedback_verification",
+        False,
+        BooleanValue,
+        {},
+        "shared by both nodes",
+    ),
+    Variable(
+        "use_chopped_readout",
+        False,
+        BooleanValue,
+        {},
+        "shared by both nodes",
+    ),
+    Variable(
+        "require_D1_lock_to_advance",
+        False,
+        BooleanValue,
+        {},
+        "shared by both nodes",
+    ),
+    Variable(
+        "monitor_magnetometer_in_end_measurement",
+        False,
+        BooleanValue,
+        {},
+        "shared by both nodes",
+    ),
+    Variable(
+        "monitors_for_atom_loading",
+        False,
+        BooleanValue,
+        {},
+        "shared by both nodes",
     ),
     # Replaces the literal 100 at subroutines/experiment_functions.py:14793.
     Variable(
@@ -185,11 +245,48 @@ MASTER_SATELLITE_VARIABLES = (
     # reaching this many rounds the loader gives up, records time_without_atom
     # and returns without an atom, so the caller skips a measurement instead
     # of hanging the dashboard.
+    #
+    # Also the retry bound of the confirm-by-first-shot advance
+    # (advance_if_atom_in_first_shot), in two-node AND single-node
+    # experiments. Renamed from max_loading_rounds_two_node on 2026-10-13
+    # when the single-node experiments started reading it; the old
+    # persistent dataset is orphaned, not read.
     Variable(
-        "max_loading_rounds_two_node",
+        "max_loading_rounds",
         20,
         NumberValue,
         {"type": "int", "ndecimals": 0, "step": 1, "scale": 1},
+        "two-node joint timing",
+    ),
+    # Selects between the two advance criteria inside
+    # Two_nodes_atom_loading_experiment, which is why there is no longer a
+    # separate _2_ experiment for it:
+    #
+    #   False -- advance as soon as the LOADING CHECK says both traps are
+    #            occupied. The historical behaviour, and still the only way to
+    #            MEASURE loading probability, since n_atom_loaded_per_iteration
+    #            then counts one load per measurement.
+    #   True  -- advance only once the FIRST SHOT really saw two atoms,
+    #            retrying load+first_shot up to max_loading_rounds
+    #            times. Gives a fixed number of confirmed two-atom events per
+    #            scan point, which matters when the loading rate itself depends
+    #            on the scanned parameter and would otherwise widen the error
+    #            bars unevenly. Costs the loading-probability measurement:
+    #            n_atom_loaded_per_iteration becomes a count of loads across
+    #            attempts and can exceed n_measurements, so the information
+    #            moves to n_first_shot_confirm_tries, where loading-plus-
+    #            survival probability is 1 / mean(that series).
+    #
+    # GLOBAL, not per-node, and that is load-bearing: the two-node sequence
+    # reads the BARE name, and a per-node declaration only ever produces
+    # advance_if_atom_in_first_shot_NodeX. It is also genuinely joint -- the
+    # criterion is one comparison against the joint two_atom_threshold, which
+    # is global for the same reason.
+    Variable(
+        "advance_if_atom_in_first_shot",
+        False,
+        BooleanValue,
+        {},
         "two-node joint timing",
     ),
     # Alternating-readout geometry. Replaces the literals at
@@ -219,6 +316,123 @@ MASTER_SATELLITE_VARIABLES = (
         NumberValue,
         {"type": "float", "unit": "ms", "ndecimals": 4},
         "two-node alternating readout",
+    ),
+    # The sequence settings of a two-node run (Two_nodes_HOM_experiment).
+    # Single-node experiments keep their own per-node values (Node1 and Node2
+    # may differ, e.g. t_photon_collection_time 100 vs 200 ns); a two-node run
+    # reads these instead, under the SAME bare name: Base publishes
+    # self.n_excitation_attempts from n_excitation_attempts_two_nodes in
+    # two_nodes mode, as it publishes it from n_excitation_attempts_NodeX in
+    # single_node mode. See BaseExperimentMasterSatellite.TWO_NODES_SUFFIX.
+    #
+    # Loaded only in two_nodes mode, so a missing one can never stop a
+    # single-node experiment. In a two-node override write the bare name
+    # ({'t_photon_collection_time': 150*ns}) in
+    # override_ExperimentVariables_global; the per-node names
+    # (t_photon_collection_time_Node1) are rejected, since the two-node
+    # sequence does not read them.
+    #
+    # Times are SECONDS. seconds_to_mu floors, so 150 ns is stored as
+    # 1.5000000000000002e-07 (= 150*ns); 1.5e-07 would give a 149 mu gate.
+    #
+    # The last three are the joint gates of all four master-local SPCMs (the
+    # four see both traps through the beamsplitter): the first and second
+    # shot and the loading check. 20 ms since 2026-10-27, against 10 ms in
+    # single-node runs, because the joint two-atom readout separates worse
+    # (Node1's readout signal halved on 2026-10-21; see
+    # documentation/upgrade_notes/two_atom_threshold_and_node1_fluorescence.md).
+    # The two-atom thresholds are rates (counts/s), so they do not change
+    # with the gate length.
+    Variable(
+        "n_excitation_attempts_two_nodes",
+        5,
+        NumberValue,
+        {"type": "int", "ndecimals": 0, "step": 1, "scale": 1},
+        "two-node sequence",
+    ),
+    Variable(
+        "max_excitation_cycles_two_nodes",
+        2000,
+        NumberValue,
+        {"type": "int", "ndecimals": 0, "step": 1, "scale": 1},
+        "two-node sequence",
+    ),
+    Variable(
+        "atom_check_every_n_two_nodes",
+        50,
+        NumberValue,
+        {"type": "int", "ndecimals": 0, "step": 1, "scale": 1, "min": 1},
+        "two-node sequence",
+    ),
+    Variable(
+        "recool_every_n_OP_two_nodes",
+        1,
+        NumberValue,
+        {"type": "int", "ndecimals": 0, "step": 1, "scale": 1, "min": 1},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_pumping_two_nodes",
+        0.0001,
+        NumberValue,
+        {"type": "float", "unit": "us"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_depumping_two_nodes",
+        2e-06,
+        NumberValue,
+        {"type": "float", "unit": "us"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_OP_coil_relax_time_two_nodes",
+        0.0015,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_recooling_two_nodes",
+        0.0006,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_SPCM_recool_and_shot_two_nodes",
+        0.01,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_photon_collection_time_two_nodes",
+        1.5000000000000002e-07,
+        NumberValue,
+        {"type": "float", "unit": "ns"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_atom_check_time_two_nodes",
+        0.02,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_SPCM_first_shot_two_nodes",
+        0.02,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
+        "two-node sequence",
+    ),
+    Variable(
+        "t_SPCM_second_shot_two_nodes",
+        0.02,
+        NumberValue,
+        {"type": "float", "unit": "ms"},
+        "two-node sequence",
     ),
 )
 

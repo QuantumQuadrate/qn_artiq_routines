@@ -14,7 +14,6 @@ NODE2_VARIABLES = (
     Variable('atom_check_every_n_Node2', 30, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1}, 'single photon experiment'),
     Variable('recool_every_n_OP_Node2', 1, NumberValue, {'type': 'int', 'ndecimals': 0, 'step': 1, 'scale': 1}, 'single photon experiment'),
     Variable('record_every_shot_Node2', True, BooleanValue, {}, 'single photon experiment'),
-    Variable('monitor_magnetometer_in_end_measurement_Node2', False, BooleanValue, {}, 'debugging'),
     Variable('f_FORT_Node2', 240000000.0, NumberValue, {'type': 'float', 'unit': 'MHz'}, 'FORT AOM'),
     Variable('p_FORT_loading_Node2', -10.968613745406444, NumberValue, {'type': 'float', 'unit': 'dBm', 'scale': 1, 'ndecimals': 1}, 'FORT AOM'),
     Variable('p_FORT_holding_Node2', 0.65, NumberValue, {'type': 'float', 'unit': '(fractional)', 'scale': 1, 'ndecimals': 2}, 'FORT AOM - outdated'),
@@ -80,6 +79,9 @@ NODE2_VARIABLES = (
     Variable('t_microwave_m10_pulse_Node2', 9.4e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_microwave_m1m1_pulse_Node2', 6e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_MW_RF_pulse_Node2', 6.96e-05, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
+    # pi time of the MW+RF (m11) pulse, from the map01_MWRFm11 time scan;
+    # t_MW_RF_pulse above is what the sequences play (0 = Z basis)
+    Variable('t_MW_RF_pi_pulse_Node2', 6.96e-05, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_MW_00_ramp_Node2', 2e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_MW_01_ramp_Node2', 4e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
     Variable('t_MW_11_ramp_Node2', 2e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Microwaves'),
@@ -87,6 +89,17 @@ NODE2_VARIABLES = (
     Variable('AZ_top_volts_MOT_Node2', 6.014, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AX_volts_MOT_Node2', 0.194, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AY_volts_MOT_Node2', -1.426, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
+    # The two-node experiments' own MOT coils. A two_nodes run loads with
+    # these instead of the four above when the global
+    # override_coils_with_two_nodes_setting is on (Base publishes the
+    # chosen four as MOT_coil_volts_Node2), so coils tuned for joint
+    # loading never disturb the values single-node experiments use.
+    # AtomLoadingOptimizer with which_node = both_nodes tunes and saves
+    # these. Seeded 2026-11-03 from the four above.
+    Variable('AZ_bottom_volts_MOT_for_two_nodes_Node2', 4.669200169239782, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
+    Variable('AZ_top_volts_MOT_for_two_nodes_Node2', 5.9234463448092605, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
+    Variable('AX_volts_MOT_for_two_nodes_Node2', 0.2681303612169539, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
+    Variable('AY_volts_MOT_for_two_nodes_Node2', -1.5662698267182462, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AZ_bottom_volts_PGC_Node2', -0.205, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AX_volts_PGC_Node2', -0.3, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
     Variable('AY_volts_PGC_Node2', -0.9, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'MOT coil settings'),
@@ -103,7 +116,6 @@ NODE2_VARIABLES = (
     Variable('AX_volts_microwave_Node2', 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'Science coil settings'),
     Variable('AY_volts_microwave_Node2', 0.0, NumberValue, {'type': 'float', 'unit': 'V', 'ndecimals': 3}, 'Science coil settings'),
     Variable('t_MOT_loading_Node2', 0.5, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
-    Variable('t_FORT_loading_Node2', 0.1, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_FORT_drop_Node2', 0.0, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
     Variable('t_FORT_modulation_Node2', 0.0, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_FORT_ramp_Node2', 0.001, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
@@ -114,10 +126,8 @@ NODE2_VARIABLES = (
     Variable('t_SPCM_second_shot_Node2', 0.01, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_SPCM_test_shot_Node2', 0.01, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_SPCM_recool_and_shot_Node2', 0.01, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
-    Variable('t_delay_between_shots_Node2', 0.0, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_PGC_after_loading_Node2', 0.001, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_recooling_after_first_shot_Node2', 0.001, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
-    Variable('t_MOT_dissipation_Node2', 0.05, NumberValue, {'type': 'float', 'unit': 'ms'}, 'Timing'),
     Variable('t_blowaway_Node2', 2.9999999999999997e-05, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
     Variable('t_pumping_Node2', 3e-05, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
     Variable('t_depumping_Node2', 2e-06, NumberValue, {'type': 'float', 'unit': 'us'}, 'Timing'),
@@ -139,18 +149,14 @@ NODE2_VARIABLES = (
     Variable('t_excitation_pulse_Node2', 3.0000000000000004e-08, NumberValue, {'type': 'float', 'unit': 'ns'}, 'Timing'),
     Variable('t_excitation_offset_mu_Node2', -230, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1}, 'Timing'),
     Variable('t_start_MW_mapping_mu_Node2', 10000, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1}, 'Timing'),
-    Variable('no_first_shot_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('do_PGC_after_loading_Node2', True, BooleanValue, {}, 'Booleans'),
     Variable('pumping_light_off_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('blowaway_light_off_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('FORT_on_at_MOT_start_Node2', True, BooleanValue, {}, 'Booleans'),
     Variable('D1_off_in_OP_phase_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('D1_off_in_depump_phase_Node2', False, BooleanValue, {}, 'Booleans'),
-    Variable('require_D1_lock_to_advance_Node2', False, BooleanValue, {}, 'Booleans'),
-    Variable('use_chopped_readout_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('chopped_RO_light_off_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('verify_OP_in_photon_experiment_Node2', False, BooleanValue, {}, 'Booleans'),
-    Variable('monitors_for_atom_loading_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('PGC_and_RO_with_on_chip_beams_Node2', True, BooleanValue, {}, 'Booleans'),
     Variable('tune_shims_when_loading_is_bad_Node2', False, BooleanValue, {}, 'Booleans'),
     Variable('tune_852_waveplates_to_target_in_experiment_Node2', False, BooleanValue, {}, 'Booleans'),
@@ -207,8 +213,6 @@ NODE2_VARIABLES = (
     Variable('ignore_first_n_histogram_points_Node2', 10, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1}, 'Plotting'),
     Variable('FORT_MM_monitor_sci_ref_volts_Node2', 0.25, NumberValue, {'type': 'float', 'ndecimals': 3, 'scale': 1, 'step': 0.05}, 'Plotting'),
     Variable('second_shot_hist_color_Node2', 'r', StringValue, {}, 'Plotting'),
-    Variable('Luca_trigger_for_feedback_verification_Node2', False, BooleanValue, {}, 'Laser feedback'),
-    Variable('enable_laser_feedback_Node2', True, BooleanValue, {}, 'Laser feedback'),
     Variable('slow_feedback_dds_list_Node2', '[]', StringValue, {}, 'Laser feedback'),
     Variable('fast_feedback_dds_list_Node2', "['dds_AOM_A1', 'dds_AOM_A2', 'dds_AOM_A3', 'dds_AOM_A4','dds_AOM_A5','dds_AOM_A6','dds_FORT']", StringValue, {}, 'Laser feedback'),
     Variable('aom_feedback_averages_Node2', 20, NumberValue, {'type': 'int', 'ndecimals': 0, 'scale': 1, 'step': 1}, 'Laser feedback'),
@@ -249,7 +253,6 @@ NODE2_VARIABLES = (
     Variable('health_check_uw_freq11_Node2', 0.89, NumberValue, {'type': 'float', 'ndecimals': 5}, 'Microwaves Health Check'),
     Variable('health_check_uw_freqm10_Node2', 0.88, NumberValue, {'type': 'float', 'ndecimals': 5}, 'Microwaves Health Check'),
     Variable('health_check_uw_freqm11_Node2', 0.88, NumberValue, {'type': 'float', 'ndecimals': 5}, 'Microwaves Health Check'),
-    Variable('t_coil_relaxation_time_OP_Node2', 0.0004, NumberValue, {"type": "float", "unit": "ms"}, "Timing"),
 )
 
 

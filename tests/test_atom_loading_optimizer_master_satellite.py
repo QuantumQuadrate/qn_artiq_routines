@@ -6,6 +6,7 @@ persistent variables, and the authoritative names the optimizer persists at
 finish. That last one is the reason this file exists -- see
 test_persisted_names_resolve_to_the_selected_node.
 """
+import ast
 import json
 import sys
 import types
@@ -265,18 +266,28 @@ class FakeStabilizer:
     def __init__(self, experiment, dds_names, iterations, averages, **kwargs):
         self.exp = experiment
         self.dds_names = dds_names
+        # Two-node Base builds one stabilizer per node with node_suffix
+        # '_Node1'/'_Node2', and the real one then publishes suffixed channel
+        # objects and reads suffixed datasets; single-node passes none.
+        suffix = kwargs.get("node_suffix", "")
+        self.node_suffix = suffix
+        self.config_node = kwargs.get("config_node")
         self.all_channels = [
-            FakeStabilizerChannel("MOT1_monitor", "p_AOM_A1"),
+            FakeStabilizerChannel(f"MOT1_monitor{suffix}", f"p_AOM_A1{suffix}"),
         ]
-        experiment.stabilizer_FORT = FakeStabilizerChannel(
-            "FORT_monitor", "p_FORT_loading"
+        setattr(
+            experiment,
+            f"stabilizer_FORT{suffix}",
+            FakeStabilizerChannel(
+                f"FORT_monitor{suffix}", f"p_FORT_loading{suffix}"
+            ),
         )
         for index in range(1, 7):
             setattr(
                 experiment,
-                f"stabilizer_AOM_A{index}",
+                f"stabilizer_AOM_A{index}{suffix}",
                 FakeStabilizerChannel(
-                    f"MOT{index}_monitor", f"p_AOM_A{index}"
+                    f"MOT{index}_monitor{suffix}", f"p_AOM_A{index}{suffix}"
                 ),
             )
 
@@ -464,7 +475,7 @@ class AtomLoadingOptimizerMasterSatelliteTests(_OptimizerHarness):
             "which_node": "Node1",
             "t_SPCM_exposure": 0.123,
             "n_measurements": 3,
-            "atom_counts_per_s_threshold": 20000.0,
+            "atom_counts_per_s_threshold_node1": 20000.0,
         })
         self.assertEqual(experiment.t_SPCM_exposure, 0.123)
         self.assertEqual(experiment.n_measurements, 3)
@@ -526,6 +537,246 @@ class AtomLoadingOptimizerMasterSatelliteTests(_OptimizerHarness):
         self.assertFalse(beams.tune_coils)
         self.assertTrue(beams.tune_beams)
         self.assertEqual(len(beams.best_params), 4)
+
+
+class BothNodesTests(_OptimizerHarness):
+    """which_node = both_nodes: both nodes' parameters, one joint cost."""
+
+    COILS = ("AZ_bottom_volts_MOT", "AZ_top_volts_MOT", "AX_volts_MOT",
+             "AY_volts_MOT")
+
+    def test_both_nodes_runs_base_in_two_nodes_mode(self):
+        experiment = self.make_experiment({"which_node": "both_nodes"})
+        self.assertTrue(experiment.both_nodes)
+        self.assertEqual(experiment._selected_node, "both_nodes")
+        self.assertEqual(experiment.base.experiment_mode, "two_nodes")
+        self.assertIsNone(experiment.base.which_node)
+        for node, legacy in (("Node1", "alice"), ("Node2", "bob")):
+            stabilizer = getattr(experiment, f"laser_stabilizer_{node}")
+            self.assertEqual(stabilizer.node_suffix, f"_{node}")
+            self.assertEqual(stabilizer.config_node, legacy)
+            for channel in ("FORT", "AOM_A1", "AOM_A6"):
+                self.assertTrue(
+                    hasattr(experiment, f"stabilizer_{channel}_{node}"))
+        for single in (False, True):
+            node = "Node2" if single else "Node1"
+            experiment = self.make_experiment({"which_node": node})
+            self.assertFalse(experiment.both_nodes)
+
+    def test_threshold_follows_which_node(self):
+        for node, argument, default in (
+                ("Node1", "atom_counts_per_s_threshold_node1", 55000),
+                ("Node2", "atom_counts_per_s_threshold_node2", 45000),
+                ("both_nodes", "atom_counts_per_s_threshold_both_nodes", 100000)):
+            with self.subTest(node=node):
+                experiment = self.make_experiment({"which_node": node})
+                self.assertEqual(experiment.atom_counts_per_s_threshold, default)
+                experiment = self.make_experiment(
+                    {"which_node": node, argument: 12345.0})
+                self.assertEqual(experiment.atom_counts_per_s_threshold, 12345.0)
+
+    def test_saved_names_are_the_two_node_coils_and_both_nodes_set_points(self):
+        """Never the single-node coils: those belong to single-node runs."""
+        experiment = self.make_experiment({"which_node": "both_nodes"})
+        self.assertEqual(
+            experiment.volt_datasets,
+            [f"{coil}_for_two_nodes_{node}"
+             for node in ("Node1", "Node2") for coil in self.COILS])
+        self.assertEqual(
+            experiment.setpoint_datasets,
+            [f"set_point_PD{i}_AOM_A{i}_{node}"
+             for node in ("Node1", "Node2") for i in range(1, 7)])
+        for name in experiment.volt_datasets + experiment.setpoint_datasets:
+            self.assertIn(name, self.datasets)
+        self.assertEqual(
+            list(experiment.default_setpoints),
+            [self.datasets[name] for name in experiment.setpoint_datasets])
+
+    def test_parameter_layout_and_differential_bounds(self):
+        """Node1's 4 coils, Node2's 4, then Node1's and Node2's multipliers;
+        the coil bounds are +-dV around each node's own two-node coil."""
+        dV = {"dV_AZ_bottom": 0.05, "dV_AZ_top": 0.04, "dV_AX": 0.1,
+              "dV_AY": 0.2}
+        for node in ("Node1", "Node2"):
+            for coil in self.COILS:
+                self.datasets[f"{coil}_for_two_nodes_{node}"] = (
+                    self.datasets[f"{coil}_{node}"] + 0.5)
+        start = [self.datasets[f"{coil}_for_two_nodes_{node}"]
+                 for node in ("Node1", "Node2") for coil in self.COILS]
+        steps = list(dV.values()) * 2
+
+        coils = self.make_experiment(
+            dict(dV, which_node="both_nodes", what_to_tune="coils only"))
+        self.assertEqual(list(coils.previous_params), start)
+        self.assertEqual(len(coils.best_params), 8)
+        settings = coils.mloop_controller.settings
+        self.assertEqual(settings["num_params"], 8)
+        for low, high, centre, step in zip(settings["min_boundary"],
+                                           settings["max_boundary"],
+                                           start, steps):
+            self.assertAlmostEqual(low, centre - step)
+            self.assertAlmostEqual(high, centre + step)
+        self.assertEqual(list(coils.coil_values_Node1), start[:4])
+        self.assertEqual(list(coils.coil_values_Node2), start[4:])
+
+        for disable_z, n_beams in ((False, 12), (True, 8)):
+            beams = self.make_experiment({
+                "which_node": "both_nodes", "what_to_tune": "beam powers only",
+                "disable_z_beam_tuning": disable_z})
+            self.assertEqual(list(beams.previous_params), [1.0] * n_beams)
+            self.assertEqual(beams.n_tuned_beams_per_node, n_beams // 2)
+
+        both = self.make_experiment({
+            "which_node": "both_nodes",
+            "what_to_tune": "coils and beam powers",
+            "disable_z_beam_tuning": False})
+        self.assertEqual(list(both.previous_params), start + [1.0] * 12)
+        self.assertEqual(len(both.best_params), 20)
+
+    def test_untuned_coils_follow_what_two_node_experiments_load_with(self):
+        """Beam powers are tuned under the coils the two-node experiments
+        use now (MOT_coil_volts_NodeX, chosen by the flag); tuned coils start
+        from the two-node set whatever the flag says."""
+        for node in ("Node1", "Node2"):
+            for coil in self.COILS:
+                self.datasets[f"{coil}_for_two_nodes_{node}"] = (
+                    self.datasets[f"{coil}_{node}"] + 0.5)
+        single = [self.datasets[f"{coil}_{node}"]
+                  for node in ("Node1", "Node2") for coil in self.COILS]
+        two_node = [value + 0.5 for value in single]
+        for flag, expected in ((False, single), (True, two_node)):
+            self.datasets["override_coils_with_two_nodes_setting"] = flag
+            beams = self.make_experiment({
+                "which_node": "both_nodes", "what_to_tune": "beam powers only"})
+            self.assertEqual(
+                list(beams.coil_values_Node1) + list(beams.coil_values_Node2),
+                expected, f"flag {flag}")
+            coils = self.make_experiment({
+                "which_node": "both_nodes", "what_to_tune": "coils only"})
+            self.assertEqual(
+                list(coils.coil_values_Node1) + list(coils.coil_values_Node2),
+                two_node, f"flag {flag}")
+
+    def test_absolute_coil_bounds_are_refused(self):
+        experiment = OptimizerExperiment()
+        experiment.initialize_environment(self.devices, self.datasets, self.log)
+        experiment.build()
+        experiment.which_node = "both_nodes"
+        experiment.use_differential_boundaries = False
+        with self.assertRaisesRegex(ValueError, "use_differential_boundaries"):
+            experiment.prepare()
+
+    def test_per_node_monitor_and_record_datasets_are_seeded(self):
+        experiment = self.make_experiment({"which_node": "both_nodes"})
+        for name in ("FORT_MM_monitor_Node1", "FORT_MM_monitor_Node2",
+                     "FORT_APD_monitor_Node1", "FORT_APD_monitor_Node2",
+                     "both_nodes_loading_time",
+                     "both_nodes_first_check_counts_per_s",
+                     "both_nodes_last_check_counts_per_s"):
+            self.assertEqual(experiment.broadcast_sets.get(name), [], name)
+        # what record_FORT_powers_both_nodes and the kernel then do
+        experiment.append_to_dataset("FORT_MM_monitor_Node2", 0.25)
+        experiment.append_to_dataset("both_nodes_loading_time", 0.5)
+
+    def test_describe_and_save_follow_the_parameter_layout(self):
+        experiment = self.make_experiment({
+            "which_node": "both_nodes",
+            "what_to_tune": "coils and beam powers",
+            "disable_z_beam_tuning": True,
+            "set_best_parameters_at_finish": True})
+        params = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+                          + [1.1, 1.2, 1.3, 1.4] + [0.9, 0.8, 0.7, 0.6])
+        described = experiment.describe_parameters(params)
+        names = [name for name, _ in described]
+        self.assertEqual(
+            names,
+            experiment.volt_datasets
+            + [f"set_point_PD{i}_AOM_A{i}_Node1" for i in range(1, 5)]
+            + [f"set_point_PD{i}_AOM_A{i}_Node2" for i in range(1, 5)])
+        self.assertEqual([value for _, value in described[:8]],
+                         [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+        self.assertAlmostEqual(
+            described[8][1], self.datasets["set_point_PD1_AOM_A1_Node1"] * 1.1)
+        self.assertAlmostEqual(
+            described[12][1], self.datasets["set_point_PD1_AOM_A1_Node2"] * 0.9)
+
+        before = len(experiment.dataset_writes)
+        experiment.save_best_params_both_nodes(params)
+        written = experiment.dataset_writes[before:]
+        self.assertEqual([(name, value) for name, value, _ in written],
+                         described)
+        for _, _, kwargs in written:
+            self.assertEqual(kwargs, {"broadcast": True, "persist": True})
+        self.assertFalse(any(
+            name in {f"{coil}_{node}" for coil in self.COILS
+                     for node in ("Node1", "Node2")}
+            for name, _, _ in written))
+
+        experiment.set_best_parameters_at_finish = False
+        before = len(experiment.dataset_writes)
+        experiment.save_best_params_both_nodes(params)
+        self.assertEqual(len(experiment.dataset_writes), before)
+
+    def test_cost_evaluations_use_the_both_nodes_kernel(self):
+        """The search and both comparison measurements, never the
+        single-node kernel, whose bare names do not exist in two_nodes."""
+        experiment = self.make_experiment({
+            "which_node": "both_nodes", "what_to_tune": "coils only"})
+        calls = []
+        experiment.optimization_routine_both_nodes = (
+            lambda params: calls.append(("both", list(params))) or -2000)
+        experiment.optimization_routine = (
+            lambda params: calls.append(("single", list(params))) or -2000)
+        optimized = np.array(experiment.previous_params) + 0.01
+        cost = experiment.get_next_cost_dict_for_mloop({"params": optimized})
+        self.assertEqual(cost["cost"], -2000)
+        experiment.compare_previous_and_optimized(optimized)
+        self.assertEqual([kind for kind, _ in calls], ["both"] * 3)
+
+        single = self.make_experiment({
+            "which_node": "Node2", "what_to_tune": "coils only"})
+        calls.clear()
+        single.optimization_routine = (
+            lambda params: calls.append(("single", list(params))) or -2000)
+        single.get_next_cost_dict_for_mloop({"params": single.previous_params})
+        self.assertEqual([kind for kind, _ in calls], ["single"])
+
+
+class SavedValuesUnchangedTests(_OptimizerHarness):
+    """A run prepared while another optimizer was running read its starting
+    values before that run saved; it must not start and write them back."""
+
+    def test_unchanged_values_pass(self):
+        for node in ("Node1", "Node2", "both_nodes"):
+            with self.subTest(node=node):
+                experiment = self.make_experiment({
+                    "which_node": node,
+                    "what_to_tune": "coils and beam powers"})
+                experiment._check_saved_values_unchanged()
+
+    def test_a_value_saved_after_prepare_stops_the_run(self):
+        for node, name in (
+                ("Node1", "AZ_bottom_volts_MOT_Node1"),
+                ("Node2", "set_point_PD3_AOM_A3_Node2"),
+                ("both_nodes", "set_point_PD1_AOM_A1_Node1"),
+                ("both_nodes", "AY_volts_MOT_for_two_nodes_Node2")):
+            with self.subTest(node=node, name=name):
+                experiment = self.make_experiment({
+                    "which_node": node,
+                    "what_to_tune": "coils and beam powers"})
+                original = self.datasets[name]
+                self.datasets[name] = original + 0.01
+                try:
+                    with self.assertRaisesRegex(RuntimeError, name):
+                        experiment._check_saved_values_unchanged()
+                finally:
+                    self.datasets[name] = original
+
+    def test_only_the_values_this_run_saves_are_checked(self):
+        experiment = self.make_experiment({
+            "which_node": "both_nodes", "what_to_tune": "coils only"})
+        self.datasets["set_point_PD1_AOM_A1_Node1"] += 0.01
+        experiment._check_saved_values_unchanged()
 
 
 class ComparePreviousAndOptimizedTests(_OptimizerHarness):
@@ -609,12 +860,13 @@ class ComparePreviousAndOptimizedTests(_OptimizerHarness):
                          "the previous values are measured first")
         self.assertEqual(list(calls[1]), list(optimized))
 
-    def test_better_than_previous_but_short_of_target_keeps_previous(self):
+    def test_better_than_previous_but_short_of_target_updates(self):
         """The case RID 38552 hit: improved, but nowhere near target_cost.
 
-        M-LOOP stops at max_runs whether or not the target was reached, so
-        beating the starting point is not sufficient to overwrite tuned
-        settings.
+        Applied anyway since 2026-10-16, at the user's request: an improvement
+        over the settings in place is worth keeping even when M-LOOP stopped
+        at max_runs short of the target. target_cost is reported, not
+        enforced.
         """
         experiment = self.make_experiment({
             "which_node": "Node2", "what_to_tune": "coils only",
@@ -624,11 +876,12 @@ class ComparePreviousAndOptimizedTests(_OptimizerHarness):
         self.assertEqual(experiment.target_cost, -3000.0)
         self._script_costs(experiment, [-1000, -2000])
 
-        kept = experiment.compare_previous_and_optimized(optimized)
-        self.assertEqual(list(kept), list(experiment.previous_params))
+        applied = experiment.compare_previous_and_optimized(optimized)
+        self.assertEqual(list(applied), list(optimized))
 
     def test_target_met_but_not_better_than_previous_keeps_previous(self):
-        """Both bars are required, not either one."""
+        """Meeting target_cost is not enough on its own: the optimized values
+        must also beat the previous ones."""
         experiment = self.make_experiment({
             "which_node": "Node2", "what_to_tune": "coils only",
         })
@@ -807,6 +1060,163 @@ class FeedbackSlackGuardTests(unittest.TestCase):
             "these laser_stabilizer.run() calls are not immediately followed "
             f"by core.break_realtime(): {unguarded}",
         )
+
+    def test_every_both_nodes_feedback_call_is_followed_by_a_slack_rearm(self):
+        """The same rule for laser_stabilizer_Node1/_Node2 (both_nodes)."""
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "AtomLoadingOptimizer_load_until_atom_master_satellite.py"
+        )
+        lines = source.read_text(encoding="utf-8").splitlines()
+        found = {"Node1": 0, "Node2": 0}
+        unguarded = []
+        for index, line in enumerate(lines):
+            for node in found:
+                if f"self.laser_stabilizer_{node}.run()" not in line:
+                    continue
+                if line.strip().startswith("#"):
+                    continue
+                found[node] += 1
+                following = self._next_executable_line(lines, index)
+                if "break_realtime()" not in following:
+                    unguarded.append(
+                        f"line {index + 1}: followed by {following!r}")
+        # warm_up_both_nodes 1, optimization_routine_both_nodes 2, per node
+        self.assertEqual(found, {"Node1": 3, "Node2": 3})
+        self.assertEqual(unguarded, [])
+
+
+class BothNodesSwitchEventGuardTests(unittest.TestCase):
+    """At most 4 timeline events between cursor advances in the both_nodes
+    kernels. Doubling a single-node switch block for two nodes is how the
+    two-node loader once put 16 events on one timestamp: the SED has 8
+    lanes, and events 9-16 were silently DROPPED (RID 38676, A3-A6 never
+    switched on). Same rule as test_experiment_functions_two_nodes; this
+    simpler walk counts .on()/.off()/.set()/.set_dac() calls between
+    delay/delay_mu/at_mu/break_realtime, through loop and if bodies."""
+
+    KERNELS = ("warm_up_both_nodes", "optimization_routine_both_nodes")
+    MAX_EVENTS_PER_TIMESTAMP = 4
+
+    @staticmethod
+    def _is_event(stmt):
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+            func = stmt.value.func
+            if isinstance(func, ast.Attribute):
+                if func.attr in ("on", "off") and not stmt.value.args:
+                    return True
+                if func.attr in ("set", "set_dac", "set_att"):
+                    return True
+        return False
+
+    @staticmethod
+    def _advances(stmt):
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+            func = stmt.value.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+            return name in ("delay", "delay_mu", "at_mu", "break_realtime")
+        return False
+
+    def _walk(self, statements, run, problems, label):
+        """Return the open run after `statements`, starting from `run`.
+
+        Anything that neither emits nor advances (assignments, RPCs such as
+        append_to_dataset, stabilizer runs) continues the run. An if carries
+        the open run into both branches and continues with the longer; a
+        loop is walked twice (the end of one iteration runs into the start
+        of the next) and may also run zero times. `with parallel:` starts
+        every branch at its entry time, so its event calls (gate_rising
+        included) all count there; any other `with` is sequential.
+        """
+        run = list(run)
+        for stmt in statements:
+            if self._is_event(stmt):
+                run.append(stmt.lineno)
+                if len(run) > self.MAX_EVENTS_PER_TIMESTAMP:
+                    problems.add(f"{label}: lines {run}")
+            elif self._advances(stmt):
+                run = []
+            elif isinstance(stmt, ast.If):
+                body = self._walk(stmt.body, run, problems, label)
+                orelse = self._walk(stmt.orelse, run, problems, label)
+                run = max(body, orelse, key=len)
+            elif isinstance(stmt, (ast.For, ast.While)):
+                once = self._walk(stmt.body, run, problems, label)
+                twice = self._walk(stmt.body, once, problems, label)
+                run = max(run, twice, key=len)
+            elif isinstance(stmt, ast.With):
+                parallel = any(
+                    isinstance(item.context_expr, ast.Name)
+                    and item.context_expr.id == "parallel"
+                    for item in stmt.items)
+                if parallel:
+                    for branch in stmt.body:
+                        if self._is_event(branch) or self._is_gate(branch):
+                            run.append(branch.lineno)
+                    if len(run) > self.MAX_EVENTS_PER_TIMESTAMP:
+                        problems.add(f"{label}: lines {run}")
+                    run = []  # the block ends after its longest branch
+                else:
+                    run = self._walk(stmt.body, run, problems, label)
+        return run
+
+    @staticmethod
+    def _is_gate(stmt):
+        return (isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call)
+                and isinstance(stmt.value.func, ast.Attribute)
+                and stmt.value.func.attr.startswith("gate_"))
+
+    def _runs(self, statements, problems, label):
+        self._walk(statements, [], problems, label)
+
+    def test_the_walk_catches_the_patterns_it_must(self):
+        """Positive controls: 5 events across an if, in a with parallel,
+        and across a loop boundary are all flagged; 4 are not."""
+        cases = {
+            "across_if": (
+                "def k(self):\n"
+                "    self.a.sw.on(); self.b.sw.on(); self.c.sw.on()\n"
+                "    if x:\n"
+                "        self.d.sw.on(); self.e.sw.on()\n", True),
+            "in_parallel": (
+                "def k(self):\n"
+                "    with parallel:\n"
+                "        self.a.sw.on(); self.b.sw.on(); self.c.sw.on()\n"
+                "        self.d.sw.on(); self.e.sw.on()\n", True),
+            "across_loop": (
+                "def k(self):\n"
+                "    for i in range(3):\n"
+                "        self.a.sw.on(); self.b.sw.on(); self.c.sw.on()\n"
+                "        delay(1)\n"
+                "        self.d.sw.on(); self.e.sw.on()\n", True),
+            "four_then_delay": (
+                "def k(self):\n"
+                "    self.a.sw.on(); self.b.sw.on(); self.c.sw.on()\n"
+                "    self.d.sw.on()\n"
+                "    delay(5)\n"
+                "    self.e.sw.on()\n", False),
+        }
+        for name, (source, flagged) in cases.items():
+            with self.subTest(case=name):
+                problems = set()
+                function = ast.parse(source).body[0]
+                self._runs(function.body, problems, name)
+                self.assertEqual(bool(problems), flagged, problems)
+
+    def test_both_nodes_kernels_group_switch_events_in_fours(self):
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "AtomLoadingOptimizer_load_until_atom_master_satellite.py"
+        ).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        found = []
+        problems = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in self.KERNELS:
+                found.append(node.name)
+                self._runs(node.body, problems, node.name)
+        self.assertEqual(sorted(found), sorted(self.KERNELS))
+        self.assertEqual(problems, set())
 
 
 if __name__ == "__main__":
