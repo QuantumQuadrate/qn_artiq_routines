@@ -4621,6 +4621,197 @@ def microwave_Rabi_2_and_EXC_experiment(self):
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
 
 @kernel
+def microwave_Rabi_2_and_EXC_MW11_BA_experiment(self):
+    """
+    Microwave and optical pumping and Excitation experiment
+
+    Sequence:
+        OP => EXC (~n attempts) => MW11 => BA
+
+    This experiment is used to characterize the excitation efficiency and optimize the power/pulse.
+
+    """
+
+    self.core.reset()
+
+    self.n_feedback_per_iteration = 2  ### number of times the feedback runs in each iteration. Updates in atom loading subroutines.
+    ### Required only for averaging RF powers over iterations in analysis. Starts with 2 because RF is measured at least 2 times
+    ### in each iteration.
+    self.n_atom_loaded_per_iteration = 0
+
+    if self.enable_laser_feedback:
+        ### todo: set cooling_DP frequency to MOT loading in the stabilizer.
+        ### set the cooling DP AOM to the MOT settings. Otherwise, DP might be at f_cooling_Ro setting during feedback.
+        self.dds_cooling_DP.set(frequency=self.f_cooling_DP_MOT, amplitude=self.ampl_cooling_DP_MOT)
+        delay(0.1 * ms)
+        run_feedback_and_record_FORT_MM_power(self)
+        delay(1 * ms)
+
+    record_chopped_blow_away(self)
+    record_CW_optical_pumping(self)
+
+    ba_dma_handle = self.core_dma.get_handle("chopped_blow_away")
+    CW_OP_handle = self.core_dma.get_handle("CW_optical_pumping")
+
+    self.core.break_realtime()
+
+    # delay(1 * ms)
+    self.dds_microwaves.set(frequency=self.f_microwaves_11_dds, amplitude=dB_to_V(self.p_microwaves))
+    delay(1 * ms)
+    self.dds_microwaves.sw.on()
+    delay(1 * ms)
+
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+
+        # load_until_atom_smooth_FORT_recycle(self)
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the FIRST SHOT really saw an atom.
+            ### Safe to retry because first_shot writes NO datasets -- every
+            ### append happens in end_measurement -- so a rejected attempt
+            ### leaves no trace in any histogram or h5.
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
+
+                load_MOT_and_FORT_until_atom_recycle(self)
+
+                delay(1 * ms)
+                first_shot(self)   # starts with FORT science setpoint;
+
+                ### counts/s on BOTH sides: AllSPCMs_RO1 is raw counts over
+                ### t_SPCM_first_shot and the threshold is a rate.
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.single_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### The loader's already-loaded pre-check reads AllSPCMs_RO2.
+                    ### The shot above just proved the trap empty, so a stale value
+                    ### would make the loader return without loading and this loop
+                    ### would spin. Only on a retry: clearing it before attempt 1
+                    ### would defeat the recycle path and force a full MOT load
+                    ### every measurement.
+                    self.AllSPCMs_RO2 = 0
+                    ### the rejected attempt's host RPCs advanced the wall clock
+                    ### while the timeline cursor stood still
+                    self.core.break_realtime()
+
+            ### Loading probability is 1 / mean(this series): the confirm loop
+            ### makes n_atom_loaded_per_iteration count loads across attempts
+            ### rather than measurements, so this is where that goes.
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_MOT_and_FORT_until_atom_recycle(self)
+
+            delay(1 * ms)
+            first_shot(self)   # starts with FORT science setpoint;
+
+        if self.t_recooling_after_first_shot > 0:
+            recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs. thus, PR was actually being done with all 6 beams!!!! :(
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        delay(0.1 * ms)
+        if not self.PGC_and_RO_with_on_chip_beams:
+            self.dds_AOM_A5.sw.off()
+            self.dds_AOM_A6.sw.off()
+
+        self.ttl_GRIN2_switch.on()  # turns off excitation ## make this global?
+
+        self.dds_GRIN1.set(frequency=self.f_GRIN1_D1_pumping, amplitude=dB_to_V(self.p_GRIN1_D1_pumping))
+        delay(5 * us)
+        self.dds_GRIN2.set(frequency=self.f_GRIN2_excitation, amplitude=dB_to_V(self.p_GRIN2_excitation))
+        delay(5 * us)
+        self.dds_GRIN1.sw.on()  # GRIN1 RF ON, external sw not activated yet  # GRIN2 DDS ON
+        delay(5 * us)
+        self.dds_GRIN2.sw.on()  # GRIN2 RF ON, external sw not activated yet  # GRIN2 DDS ON
+        delay(5 * us)
+
+        ############################
+        # optical pumping phase - pumps atoms into F=1,m_F=0
+        ############################
+        if self.t_pumping > 0.0:
+            # CW_optical_pumping_node2(self)
+            self.core_dma.playback_handle(CW_OP_handle)
+            delay(10*us)
+
+        for excitation_attempt in range(self.n_excitation_attempts):  ##### testing with multiple excitations
+
+            slack = now_mu() - self.core.get_rtio_counter_mu()
+            if slack < 1e5:
+                # self.print_async("slack added in measurement:", self.measurement)
+                self.core.break_realtime()
+
+            self.ttl_exc0_switch.off()  # turns on the excitation0 AOM
+            delay(5 * us)
+
+            t1 = now_mu()
+            self.dds_FORT.sw.off()  ### turns FORT off
+
+            at_mu(t1 + 50 + int(self.t_photon_collection_time / ns))
+            self.dds_FORT.sw.on()  ### turns FORT on 50ns after photon collection ended
+
+            at_mu(t1 + int(self.t_excitation_offset_mu))
+            self.ttl_GRIN2_switch.off()  # turns on excitation after t_excitation_offset_mu
+
+            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns))
+            self.ttl_GRIN2_switch.on()  # turns off excitation
+
+            at_mu(t1 + int(self.t_excitation_offset_mu) + int(self.t_excitation_pulse / ns) + 1000)
+            self.ttl_exc0_switch.on()  # turns off the excitation0 AOM
+
+        # self.core.break_realtime()
+        if self.t_microwave_11_pulse > 0.0:
+            # FORT_ramp2_smoothstep(self, direction="down")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[2])
+            delay(2 * us)
+
+            self.ttl_microwave_switch.off()
+            delay(self.t_microwave_11_pulse)
+            self.ttl_microwave_switch.on()
+            delay(2 * us)
+
+            # FORT_ramp2_smoothstep(self, direction="up")
+            self.dds_FORT.set(frequency=self.f_FORT, amplitude=self.stabilizer_FORT.amplitudes[1])
+            delay(2 * us)
+
+        self.core.break_realtime()
+
+        ############################
+        # blow-away phase - push out atoms in F=2 only
+        ############################
+        if self.t_blowaway > 0.0:
+            self.core_dma.playback_handle(ba_dma_handle)
+
+        second_shot(self)
+
+        self.dds_AOM_A1.sw.off()
+        self.dds_AOM_A2.sw.off()
+        self.dds_AOM_A3.sw.off()
+        self.dds_AOM_A4.sw.off()
+        self.dds_AOM_A5.sw.off()
+        self.dds_AOM_A6.sw.off()
+
+        end_measurement(self)
+        delay(5 * ms) ### hopefully to avoid underflow.
+
+    delay(10 * ms)
+    self.dds_FORT.sw.off()
+    delay(1 * ms)
+    self.dds_microwaves.sw.off()
+
+    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+
+
+@kernel
 def microwave_freq_scan_experiment(self):
     """
     This experiment scans the microwave frequency to find the transitions from F=1 to F=2 manifold btw different Zeeman levels.
