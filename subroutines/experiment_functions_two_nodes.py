@@ -4234,15 +4234,15 @@ def Two_nodes_atom_atom_ZZ_experiment(self):
             if heralded:
                 break
 
-            ############################ recooling, both nodes
-            if do_recooling and (excitation_cycle + 1) % recool_every_n_OP == 0:
-                ### The last attempt's photon reads return only ~1-2 us before
-                ### this trace's first event (less after a click): 20 us lead.
-                slack = now_mu() - self.core.get_rtio_counter_mu()
-                if slack < 20000:
-                    delay_mu(20000 - slack)
-                self.core_dma.playback_handle(recooling_handle)
-                delay(5 * us)
+            # ############################ recooling, both nodes
+            # if do_recooling and (excitation_cycle + 1) % recool_every_n_OP == 0:
+            #     ### The last attempt's photon reads return only ~1-2 us before
+            #     ### this trace's first event (less after a click): 20 us lead.
+            #     slack = now_mu() - self.core.get_rtio_counter_mu()
+            #     if slack < 20000:
+            #         delay_mu(20000 - slack)
+            #     self.core_dma.playback_handle(recooling_handle)
+            #     delay(5 * us)
 
             ############################# both atoms still there? every atom_check_every_n cycles
             if (excitation_cycle + 1) % atom_check_every_n == 0:
@@ -4337,6 +4337,16 @@ def Two_nodes_atom_atom_ZZ_experiment(self):
                 ### resync for the next cycle's pumping trace, which sets the
                 ### OP coils itself (the switch-offs above left little slack)
                 self.core.break_realtime()
+
+            ############################ recooling, both nodes
+            if do_recooling and (excitation_cycle + 1) % recool_every_n_OP == 0:
+                ### The last attempt's photon reads return only ~1-2 us before
+                ### this trace's first event (less after a click): 20 us lead.
+                slack = now_mu() - self.core.get_rtio_counter_mu()
+                if slack < 20000:
+                    delay_mu(20000 - slack)
+                self.core_dma.playback_handle(recooling_handle)
+                delay(5 * us)
 
             delay(5 * us)
 
