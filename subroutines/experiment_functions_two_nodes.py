@@ -92,6 +92,7 @@ from utilities.conversions import dB_to_V_kernel as dB_to_V
 ### Microwave and MW_RF phase modes of the parity mapping, as in
 ### experiment_functions.py (Two_nodes_atom_atom_parity_experiment)
 from artiq.coredevice.ad9910 import PHASE_MODE_ABSOLUTE, PHASE_MODE_CONTINUOUS
+from artiq.coredevice.exceptions import RTIOUnderflow as _AtomAtomPhaseRTIOUnderflow
 
 
 MASTER_SATELLITE_SANITY_ATTRIBUTES = (
@@ -389,22 +390,22 @@ def record_recooling_both_nodes(self):
     t_recooling = self.t_recooling
 
     with self.core_dma.record("recooling_both_nodes"):
-        ### PGC coils on both nodes, loaded on one timestamp
-        self.zotino0_Node1.write_dac(self.coil_channels_Node1[0], self.AZ_bottom_volts_PGC_Node1)
-        self.zotino0_Node1.write_dac(self.coil_channels_Node1[1], -self.AZ_bottom_volts_PGC_Node1)
-        self.zotino0_Node1.write_dac(self.coil_channels_Node1[2], self.AX_volts_PGC_Node1)
-        self.zotino0_Node1.write_dac(self.coil_channels_Node1[3], self.AY_volts_PGC_Node1)
-        self.zotino0_Node2.write_dac(self.coil_channels_Node2[0], self.AZ_bottom_volts_PGC_Node2)
-        self.zotino0_Node2.write_dac(self.coil_channels_Node2[1], -self.AZ_bottom_volts_PGC_Node2)
-        self.zotino0_Node2.write_dac(self.coil_channels_Node2[2], self.AX_volts_PGC_Node2)
-        self.zotino0_Node2.write_dac(self.coil_channels_Node2[3], self.AY_volts_PGC_Node2)
-        delay(1.5 * us)
-        self.zotino0_Node1.load()
-        self.zotino0_Node2.load()
-
-        self.dds_cooling_DP_Node1.set(frequency=self.f_cooling_DP_PGC_Node1, amplitude=self.ampl_cooling_DP_PGC_Node1)
-        self.dds_cooling_DP_Node2.set(frequency=self.f_cooling_DP_PGC_Node2, amplitude=self.ampl_cooling_DP_PGC_Node2)
-        delay(0.4 * ms)  ### coil relaxation time
+        # ### PGC coils on both nodes, loaded on one timestamp
+        # self.zotino0_Node1.write_dac(self.coil_channels_Node1[0], self.AZ_bottom_volts_PGC_Node1)
+        # self.zotino0_Node1.write_dac(self.coil_channels_Node1[1], -self.AZ_bottom_volts_PGC_Node1)
+        # self.zotino0_Node1.write_dac(self.coil_channels_Node1[2], self.AX_volts_PGC_Node1)
+        # self.zotino0_Node1.write_dac(self.coil_channels_Node1[3], self.AY_volts_PGC_Node1)
+        # self.zotino0_Node2.write_dac(self.coil_channels_Node2[0], self.AZ_bottom_volts_PGC_Node2)
+        # self.zotino0_Node2.write_dac(self.coil_channels_Node2[1], -self.AZ_bottom_volts_PGC_Node2)
+        # self.zotino0_Node2.write_dac(self.coil_channels_Node2[2], self.AX_volts_PGC_Node2)
+        # self.zotino0_Node2.write_dac(self.coil_channels_Node2[3], self.AY_volts_PGC_Node2)
+        # delay(1.5 * us)
+        # self.zotino0_Node1.load()
+        # self.zotino0_Node2.load()
+        #
+        # self.dds_cooling_DP_Node1.set(frequency=self.f_cooling_DP_PGC_Node1, amplitude=self.ampl_cooling_DP_PGC_Node1)
+        # self.dds_cooling_DP_Node2.set(frequency=self.f_cooling_DP_PGC_Node2, amplitude=self.ampl_cooling_DP_PGC_Node2)
+        # delay(0.4 * ms)  ### coil relaxation time
 
         ### fiber AOMs first: no light reaches an atom until its cooling DP opens
         self.dds_AOM_A1_Node1.sw.on()
@@ -4444,3 +4445,790 @@ def Two_nodes_atom_atom_ZZ_experiment(self):
     self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
     self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
     self.append_to_dataset('n_passes_per_iteration', n_passes)
+
+
+
+
+@kernel
+def _record_atom_atom_phase_mapping_both_nodes(self) -> TInt64:
+    """Record each node's original MW11 mapping followed by its own pi/2 analysis.
+
+    The original ZZ recorder is left untouched. Here the RF DDS uses an explicit
+    ABSOLUTE phase mode inside DMA. Node1's programmed phase is 0 turns;
+    Node2's phase comes from the host-validated dummy_variable. MW retunes remain
+    CONTINUOUS. All original lead times, FORT settings and relative timings
+    are retained. This trace is re-recorded at EACH GVS phase point.
+    Return the common playback lead in machine units.
+    """
+    lead_Node1 = int64(self.t_start_MW_mapping_mu_Node1)
+    lead_Node2 = int64(self.t_start_MW_mapping_mu_Node2)
+    lead = lead_Node1
+    if lead_Node2 < lead:
+        lead = lead_Node2
+    pulse11_Node1 = self.core.seconds_to_mu(self.t_microwave_11_pulse_Node1)
+    pulse11_Node2 = self.core.seconds_to_mu(self.t_microwave_11_pulse_Node2)
+
+    if (self.stabilizer_FORT_Node1.amplitudes[2] <= 0.0
+            or self.stabilizer_FORT_Node2.amplitudes[2] <= 0.0):
+        raise ValueError("The FORT holding set point (amplitudes[2]) is set by "
+                         "the feedback: run with enable_laser_feedback on, or "
+                         "the parity mapping turns the FORTs off.")
+
+    with self.core_dma.record("atom_atom_phase_mapping_both_nodes"):
+        t0 = now_mu()
+
+        ### Both FORTs to holding, each at its node's lead; the mapping
+        ### starts 2 us after each set, as in the single-node trace
+        at_mu(t0 + lead_Node1 - lead)
+        self.dds_FORT_Node1.set(frequency=self.f_FORT_Node1,
+                                amplitude=self.stabilizer_FORT_Node1.amplitudes[2])
+        delay(2 * us)
+        t_mapping_Node1 = now_mu()
+        at_mu(t0 + lead_Node2 - lead)
+        self.dds_FORT_Node2.set(frequency=self.f_FORT_Node2,
+                                amplitude=self.stabilizer_FORT_Node2.amplitudes[2])
+        delay(2 * us)
+        t_mapping_Node2 = now_mu()
+
+        ### the 1 -> 1 pulse on each node
+        at_mu(t_mapping_Node1)
+        self.ttl_microwave_switch_Node1.off()  ### lets the microwaves through
+        at_mu(t_mapping_Node1 + pulse11_Node1)
+        self.ttl_microwave_switch_Node1.on()  ### blocks them
+        delay(2 * us)
+        restore_Node1 = now_mu()
+        at_mu(t_mapping_Node2)
+        self.ttl_microwave_switch_Node2.off()
+        at_mu(t_mapping_Node2 + pulse11_Node2)
+        self.ttl_microwave_switch_Node2.on()
+        delay(2 * us)
+        restore_Node2 = now_mu()
+
+        ### Equatorial analysis: retune to m11 and reset the RF phase 0.5 us after the
+        ### 1 -> 1 pulse, then microwaves and RF together
+        if self.t_MW_RF_pulse_Node1 > 0.0:
+            at_mu(t_mapping_Node1 + 500 + pulse11_Node1)
+            self.dds_microwaves_Node1.set(frequency=self.f_microwaves_m11_dds_Node1,
+                                          amplitude=dB_to_V(self.p_microwaves_Node1),
+                                          phase_mode=PHASE_MODE_CONTINUOUS)
+            self.dds_MW_RF_Node1.set(frequency=self.f_MW_RF_dds_Node1,
+                                     amplitude=dB_to_V(self.p_MW_RF_dds_Node1),
+                                     phase=self._atom_atom_phase_Node1,
+                                     phase_mode=PHASE_MODE_ABSOLUTE)
+            delay(2 * us)
+            self.ttl_microwave_switch_Node1.off()
+            self.dds_MW_RF_Node1.sw.on()
+            delay(self.t_MW_RF_pulse_Node1)
+            self.ttl_microwave_switch_Node1.on()
+            self.dds_MW_RF_Node1.sw.off()
+            delay(2 * us)
+            restore_Node1 = now_mu()
+
+        if self.t_MW_RF_pulse_Node2 > 0.0:
+            at_mu(t_mapping_Node2 + 500 + pulse11_Node2)
+            self.dds_microwaves_Node2.set(frequency=self.f_microwaves_m11_dds_Node2,
+                                          amplitude=dB_to_V(self.p_microwaves_Node2),
+                                          phase_mode=PHASE_MODE_CONTINUOUS)
+            self.dds_MW_RF_Node2.set(frequency=self.f_MW_RF_dds_Node2,
+                                     amplitude=dB_to_V(self.p_MW_RF_dds_Node2),
+                                     phase=self._atom_atom_phase_Node2,
+                                     phase_mode=PHASE_MODE_ABSOLUTE)
+            delay(2 * us)
+            self.ttl_microwave_switch_Node2.off()
+            self.dds_MW_RF_Node2.sw.on()
+            delay(self.t_MW_RF_pulse_Node2)
+            self.ttl_microwave_switch_Node2.on()
+            self.dds_MW_RF_Node2.sw.off()
+            delay(2 * us)
+            restore_Node2 = now_mu()
+
+        ### each FORT back to science 2 us after its node's last pulse
+        at_mu(restore_Node1)
+        self.dds_FORT_Node1.set(frequency=self.f_FORT_Node1,
+                                amplitude=self.stabilizer_FORT_Node1.amplitudes[1])
+        delay(1 * us)
+        end_Node1 = now_mu()
+        at_mu(restore_Node2)
+        self.dds_FORT_Node2.set(frequency=self.f_FORT_Node2,
+                                amplitude=self.stabilizer_FORT_Node2.amplitudes[1])
+        delay(1 * us)
+        end_Node2 = now_mu()
+
+        if end_Node2 > end_Node1:
+            at_mu(end_Node2)
+        else:
+            at_mu(end_Node1)
+
+    return lead
+
+
+
+@kernel
+def _record_atom_atom_recooling_after_check_both_nodes(self):
+    """Recool immediately AFTER a successful atom check, using its PGC field.
+
+    The caller guarantees atom_check_every_n = recool_every_n_OP = 1.
+    Atom check has already set both PGC coils and waited 0.4 ms before its
+    fluorescence exposure. Do not write either coil DAC again here and do not
+    add another 0.4 ms coil wait. Each node still switches its cooling DDS
+    from its RO settings to its own PGC settings. Keep the original beam and
+    repump switching, t_recooling duration, and FORT handling unchanged.
+    The NEXT optical-pumping trace still sets the bias field and waits its
+    calibrated t_OP_coil_relax_time. Never use this trace without a preceding
+    successful PGC-field atom check.
+    """
+    t_recooling = self.t_recooling
+
+    with self.core_dma.record("atom_atom_recooling_after_check_both_nodes"):
+        self.dds_cooling_DP_Node1.set(frequency=self.f_cooling_DP_PGC_Node1, amplitude=self.ampl_cooling_DP_PGC_Node1)
+        self.dds_cooling_DP_Node2.set(frequency=self.f_cooling_DP_PGC_Node2, amplitude=self.ampl_cooling_DP_PGC_Node2)
+
+        ### fiber AOMs first: no light reaches an atom until its cooling DP opens
+        self.dds_AOM_A1_Node1.sw.on()
+        self.dds_AOM_A1_Node2.sw.on()
+        self.dds_AOM_A2_Node1.sw.on()
+        self.dds_AOM_A2_Node2.sw.on()
+        delay(5 * us)
+        self.dds_AOM_A3_Node1.sw.on()
+        self.dds_AOM_A3_Node2.sw.on()
+        self.dds_AOM_A4_Node1.sw.on()
+        self.dds_AOM_A4_Node2.sw.on()
+        delay(5 * us)
+        if not self.PGC_and_RO_with_on_chip_beams_Node1:
+            self.dds_AOM_A5_Node1.sw.on()
+            self.dds_AOM_A6_Node1.sw.on()
+        else:
+            self.dds_AOM_A5_Node1.sw.off()
+            self.dds_AOM_A6_Node1.sw.off()
+        if not self.PGC_and_RO_with_on_chip_beams_Node2:
+            self.dds_AOM_A5_Node2.sw.on()
+            self.dds_AOM_A6_Node2.sw.on()
+        else:
+            self.dds_AOM_A5_Node2.sw.off()
+            self.dds_AOM_A6_Node2.sw.off()
+        delay(5 * us)
+
+        ### RECOOLING STARTS HERE -- one timestamp, both nodes
+        self.dds_cooling_DP_Node1.sw.on()
+        self.dds_cooling_DP_Node2.sw.on()
+        self.ttl_repump_switch_Node1.off()
+        self.ttl_repump_switch_Node2.off()
+
+        delay(t_recooling)
+
+        ### ... AND ENDS HERE -- one timestamp, both nodes
+        self.dds_cooling_DP_Node1.sw.off()
+        self.dds_cooling_DP_Node2.sw.off()
+        self.ttl_repump_switch_Node1.on()
+        self.ttl_repump_switch_Node2.on()
+        delay(5 * us)
+
+        self.dds_AOM_A1_Node1.sw.off()
+        self.dds_AOM_A1_Node2.sw.off()
+        self.dds_AOM_A2_Node1.sw.off()
+        self.dds_AOM_A2_Node2.sw.off()
+        delay(5 * us)
+        self.dds_AOM_A3_Node1.sw.off()
+        self.dds_AOM_A3_Node2.sw.off()
+        self.dds_AOM_A4_Node1.sw.off()
+        self.dds_AOM_A4_Node2.sw.off()
+        delay(5 * us)
+        if not self.PGC_and_RO_with_on_chip_beams_Node1:
+            self.dds_AOM_A5_Node1.sw.off()
+            self.dds_AOM_A6_Node1.sw.off()
+        if not self.PGC_and_RO_with_on_chip_beams_Node2:
+            self.dds_AOM_A5_Node2.sw.off()
+            self.dds_AOM_A6_Node2.sw.off()
+
+
+
+@kernel
+def _run_atom_atom_phase_scan_latest_ZZ(self):
+    """Latest-ZZ acquisition loop, with equatorial analysis and per-herald phase.
+
+    Preserves loading/rearm, calibrated per-node MW11, simultaneous independent
+    BA trains, alternating node-resolved readout, and any-click attempt stop.
+    Every non-herald cycle does atom check, then (if both atoms remain) recooling.
+    Only the atom check writes the PGC coils; recooling reuses that field.
+    All DMA traces are recorded per scan point before ANY handles are obtained.
+    Host entry point: Two_nodes_atom_atom_parity_experiment (do not call this
+    kernel directly, since the host validates and initializes phase metadata).
+    """
+
+    self.core.reset()
+    delay(1 * ms)
+
+    ### The shared loop shape and durations, read under the bare names as in HOM
+    n_excitation_attempts = self.n_excitation_attempts
+    max_excitation_cycles = self.max_excitation_cycles
+    atom_check_every_n = 1  # fixed for this experiment
+    recool_every_n_OP = 1  # fixed for this experiment
+    t_atom_check = self.t_SPCM_recool_and_shot
+    do_pumping = self.t_pumping > 0.0
+    do_recooling = self.t_recooling > 0.0
+
+    set_780_waveplates_both_nodes(self)
+    self.core.break_realtime()
+    delay(10 * ms)
+
+    self.n_feedback_per_iteration = 2  ### see Two_nodes_atom_loading_experiment
+    self.n_atom_loaded_per_iteration = 0
+
+    if self.enable_laser_feedback:
+        self.dds_cooling_DP_Node1.set(frequency=self.f_cooling_DP_MOT_Node1,
+                                      amplitude=self.ampl_cooling_DP_MOT_Node1)
+        self.dds_cooling_DP_Node2.set(frequency=self.f_cooling_DP_MOT_Node2,
+                                      amplitude=self.ampl_cooling_DP_MOT_Node2)
+        run_feedback_and_record_FORT_MM_power(self)
+
+    ### Microwaves as in parity_11, per node: the microwave DDS runs
+    ### continuously (phase continuous) behind its switch, which alone gates
+    ### the pulses (on = blocked); MW_RF resets its phase at every set
+    ### (absolute), which the X-basis mapping relies on. The phase modes must
+    ### be set before the mapping trace is recorded.
+    self.core.break_realtime()
+    self.dds_microwaves_Node1.set_phase_mode(PHASE_MODE_CONTINUOUS)
+    self.dds_microwaves_Node2.set_phase_mode(PHASE_MODE_CONTINUOUS)
+    self.dds_MW_RF_Node1.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    self.dds_MW_RF_Node2.set_phase_mode(PHASE_MODE_ABSOLUTE)
+    self.dds_microwaves_Node1.set(frequency=self.f_microwaves_11_dds_Node1,
+                                  amplitude=dB_to_V(self.p_microwaves_Node1))
+    self.dds_microwaves_Node2.set(frequency=self.f_microwaves_11_dds_Node2,
+                                  amplitude=dB_to_V(self.p_microwaves_Node2))
+    delay(5 * us)
+    self.dds_MW_RF_Node1.set(frequency=self.f_MW_RF_dds_Node1,
+                             amplitude=dB_to_V(self.p_MW_RF_dds_Node1))
+    self.dds_MW_RF_Node2.set(frequency=self.f_MW_RF_dds_Node2,
+                             amplitude=dB_to_V(self.p_MW_RF_dds_Node2))
+    delay(5 * us)
+    self.ttl_microwave_switch_Node1.on()  ### close the switch
+    self.ttl_microwave_switch_Node2.on()
+    self.dds_MW_RF_Node1.sw.off()
+    self.dds_MW_RF_Node2.sw.off()
+    delay(5 * us)
+    self.dds_microwaves_Node1.sw.on()  ### the DDS, not the switch
+    self.dds_microwaves_Node2.sw.on()
+    delay(1 * ms)
+
+    ### Recorded AFTER the feedback, as in HOM: the traces bake in the A5/A6
+    ### and FORT amplitudes, and the excitation trace this scan point's delay
+    ### and shared gate. Every trace first, then the handles: a recording
+    ### invalidates earlier handles.
+    record_CW_optical_pumping_both_nodes(self)
+    _record_atom_atom_recooling_after_check_both_nodes(self)
+    gate_end_mu = record_excitation_and_photon_collection_both_nodes(self)
+    mapping_lead_mu = _record_atom_atom_phase_mapping_both_nodes(self)
+    record_chopped_blow_away_both_nodes(self)
+
+    self.print_async("Two_nodes_atom_atom_parity_experiment (phase scan): Node2 delay D =",
+                     int64(self.t_Node2_excitation_delay_mu) - int64(self.t_Node2_rtio_offset_mu),
+                     "mu; shared photon gate closes at t1 +", gate_end_mu,
+                     "mu; mapping starts", mapping_lead_mu, "mu after the herald")
+
+    OP_handle = self.core_dma.get_handle("CW_optical_pumping_both_nodes")
+    recooling_handle = self.core_dma.get_handle("atom_atom_recooling_after_check_both_nodes")
+    excitation_handle = self.core_dma.get_handle("excitation_and_photon_collection_both_nodes")
+    mapping_handle = self.core_dma.get_handle("atom_atom_phase_mapping_both_nodes")
+    blow_away_handle = self.core_dma.get_handle("chopped_blow_away_both_nodes")
+    self.core.break_realtime()
+
+    ### passes this scan point takes: n_measurements counts heralds, but the
+    ### first and second shot are written once per pass
+    n_passes = 0
+    self.measurement = 0
+    while self.measurement < self.n_measurements:
+        n_passes += 1
+
+        AllSPCMs_RO_atom_check_array = [0] * int(max_excitation_cycles / atom_check_every_n)
+        n_click_attempts = 0
+
+        self.core.break_realtime()
+        self.ttl_exc0_switch_Node1.on()  # turns off the excitation
+        self.ttl_exc0_switch_Node2.on()
+        delay(10 * ms)
+
+        if self.advance_if_atom_in_first_shot:
+            ### Keep a measurement only once the first shot really saw two
+            ### atoms, exactly as in Two_nodes_HOM_experiment.
+            t_first_shot_alive_start = now_mu()
+            atom_confirmed = False
+            confirm_tries = 0
+            while (not atom_confirmed
+                   and confirm_tries < self.max_loading_rounds):
+                confirm_tries += 1
+
+                load_until_atom_in_both_nodes_recycle(self)
+                rearm_parity_microwave_dds_both_nodes(self)
+                delay(1 * ms)
+                first_shot(self)
+                delay(1 * ms)
+
+                if (self.AllSPCMs_RO1 / self.t_SPCM_first_shot
+                        > self.two_atom_threshold):
+                    atom_confirmed = True
+                else:
+                    ### only on a retry, so the atom reuse still works
+                    self.AllSPCMs_RO2 = 0
+                    self.core.break_realtime()
+
+            self.append_to_dataset(
+                'Atom_loading_time_first_shot_alive',
+                self.core.mu_to_seconds(now_mu() - t_first_shot_alive_start))
+            self.append_to_dataset('n_first_shot_confirm_tries', confirm_tries)
+            self.core.break_realtime()
+
+        else:
+            load_until_atom_in_both_nodes_recycle(self)
+            rearm_parity_microwave_dds_both_nodes(self)
+
+            delay(1 * ms)
+
+            first_shot(self)
+            delay(1 * ms)
+
+        if self.t_recooling_after_first_shot_Node1 > 0 or self.t_recooling_after_first_shot_Node2 > 0:
+            recooling_after_first_shot(self)
+
+        ### first_shot doesn't turn off the fiber AOMs
+        self.dds_AOM_A1_Node1.sw.off()
+        self.dds_AOM_A1_Node2.sw.off()
+        self.dds_AOM_A2_Node1.sw.off()
+        self.dds_AOM_A2_Node2.sw.off()
+        delay(5 * us)
+        self.dds_AOM_A3_Node1.sw.off()
+        self.dds_AOM_A3_Node2.sw.off()
+        self.dds_AOM_A4_Node1.sw.off()
+        self.dds_AOM_A4_Node2.sw.off()
+        delay(5 * us)
+        if not self.PGC_and_RO_with_on_chip_beams_Node1:
+            self.dds_AOM_A5_Node1.sw.off()
+            self.dds_AOM_A6_Node1.sw.off()
+        if not self.PGC_and_RO_with_on_chip_beams_Node2:
+            self.dds_AOM_A5_Node2.sw.off()
+            self.dds_AOM_A6_Node2.sw.off()
+        delay(5 * us)
+
+        ### The excitation tone on both GRIN2 AOMs, behind closed gates
+        self.ttl_GRIN2_switch_Node1.on()  # turns off excitation
+        self.ttl_GRIN2_switch_Node2.on()
+        delay(5 * us)
+        ### float(): an override or scan value written as -150 arrives as an int
+        self.dds_GRIN2_Node1.set(frequency=self.f_GRIN2_excitation_Node1,
+                                 amplitude=dB_to_V(float(self.p_GRIN2_excitation_Node1)))
+        self.dds_GRIN2_Node2.set(frequency=self.f_GRIN2_excitation_Node2,
+                                 amplitude=dB_to_V(float(self.p_GRIN2_excitation_Node2)))
+        delay(5 * us)
+        self.dds_GRIN2_Node1.sw.on()
+        self.dds_GRIN2_Node2.sw.on()
+        delay(5 * us)
+
+        ### Back to the 1 -> 1 transition: an X-basis mapping leaves the
+        ### microwave DDS at m11
+        self.dds_microwaves_Node1.set(frequency=self.f_microwaves_11_dds_Node1,
+                                      amplitude=dB_to_V(self.p_microwaves_Node1))
+        self.dds_microwaves_Node2.set(frequency=self.f_microwaves_11_dds_Node2,
+                                      amplitude=dB_to_V(self.p_microwaves_Node2))
+        delay(5 * us)
+
+        heralded = False
+        herald_t1_mu = int64(0)
+        herald_t_end_mu = int64(0)
+        herald_SPCM0_mu = int64(-1)
+        herald_SPCM1_mu = int64(-1)
+        herald_SPCM0_OtherNode_mu = int64(-1)
+        herald_SPCM1_OtherNode_mu = int64(-1)
+        herald_attempt = 0
+
+        excitation_cycle = 0
+        for excitation_cycle in range(max_excitation_cycles):
+            self.core.break_realtime()
+
+            ############################### CW optical pumping, both nodes: F=1,m_F=0
+            if do_pumping:
+                self.core_dma.playback_handle(OP_handle)
+
+            ############################### excitation; a two-photon coincidence heralds
+            for excitation_attempt in range(n_excitation_attempts):
+                ### timestamp_mu below waits for the gate to close, so each
+                ### attempt starts with no slack
+                slack = now_mu() - self.core.get_rtio_counter_mu()
+                if slack < 1e5:
+                    self.core.break_realtime()
+
+                dma_start_mu = now_mu()
+                self.core_dma.playback_handle(excitation_handle)
+
+                t1 = dma_start_mu + self.core.seconds_to_mu(5 * us)
+                t_end_SPCM = t1 + gate_end_mu
+
+                SPCM0_click_time = self.ttl_SPCM0.timestamp_mu(t_end_SPCM)
+                SPCM1_click_time = self.ttl_SPCM1.timestamp_mu(t_end_SPCM)
+                SPCM0_OtherNode_click_time = self.ttl_SPCM0_OtherNode.timestamp_mu(t_end_SPCM)
+                SPCM1_OtherNode_click_time = self.ttl_SPCM1_OtherNode.timestamp_mu(t_end_SPCM)
+
+                n_clicked = 0
+                click_sum_mu = int64(0)
+                if SPCM0_click_time > 0:
+                    n_clicked += 1
+                    click_sum_mu += SPCM0_click_time
+                if SPCM1_click_time > 0:
+                    n_clicked += 1
+                    click_sum_mu += SPCM1_click_time
+                if SPCM0_OtherNode_click_time > 0:
+                    n_clicked += 1
+                    click_sum_mu += SPCM0_OtherNode_click_time
+                if SPCM1_OtherNode_click_time > 0:
+                    n_clicked += 1
+                    click_sum_mu += SPCM1_OtherNode_click_time
+
+                if n_clicked > 0:
+                    n_click_attempts += 1
+
+                if n_clicked == 2:
+                    ### HERALD. Nothing between the photon reads and this
+                    ### at_mu: no resync, no RPC, no input read. The mapping
+                    ### lead (t_start_MW_mapping_mu) is the slack it has.
+                    at_mu(click_sum_mu // 2 + mapping_lead_mu)
+                    self.core_dma.playback_handle(mapping_handle)
+                    heralded = True
+                    herald_t1_mu = t1
+                    herald_t_end_mu = t_end_SPCM
+                    herald_SPCM0_mu = SPCM0_click_time
+                    herald_SPCM1_mu = SPCM1_click_time
+                    herald_SPCM0_OtherNode_mu = SPCM0_OtherNode_click_time
+                    herald_SPCM1_OtherNode_mu = SPCM1_OtherNode_click_time
+                    herald_attempt = excitation_attempt
+                    break
+
+                ### No herald: drain every clicked channel's extra edges, or
+                ### they return as false early clicks in a later attempt
+                if SPCM0_click_time > 0: self.ttl_SPCM0.count(t_end_SPCM)
+                if SPCM1_click_time > 0: self.ttl_SPCM1.count(t_end_SPCM)
+                if SPCM0_OtherNode_click_time > 0: self.ttl_SPCM0_OtherNode.count(t_end_SPCM)
+                if SPCM1_OtherNode_click_time > 0: self.ttl_SPCM1_OtherNode.count(t_end_SPCM)
+
+                ### Any other click (one, three or four SPCMs) ends this
+                ### cycle's attempts too: the next attempt runs only after one
+                ### with no click at all, so both nodes' atom-photon
+                ### entanglement comes from the same attempt. On to
+                ### the atom check, recooling and the next pumping, as after
+                ### the last attempt.
+                if n_clicked > 0:
+                    break
+
+                delay(5 * us)
+
+            if heralded:
+                break
+
+            ############################# both atoms still there? every atom_check_every_n cycles
+            if (excitation_cycle + 1) % atom_check_every_n == 0:
+                self.core.break_realtime()
+                self.zotino0_Node1.set_dac(
+                    [self.AZ_bottom_volts_PGC_Node1, -self.AZ_bottom_volts_PGC_Node1, self.AX_volts_PGC_Node1, self.AY_volts_PGC_Node1],
+                    channels=self.coil_channels_Node1)
+                self.zotino0_Node2.set_dac(
+                    [self.AZ_bottom_volts_PGC_Node2, -self.AZ_bottom_volts_PGC_Node2, self.AX_volts_PGC_Node2, self.AY_volts_PGC_Node2],
+                    channels=self.coil_channels_Node2)
+                delay(0.4 * ms)
+
+                self.dds_cooling_DP_Node1.set(frequency=self.f_cooling_DP_RO_Node1, amplitude=self.ampl_cooling_DP_RO_Node1)
+                self.dds_cooling_DP_Node2.set(frequency=self.f_cooling_DP_RO_Node2, amplitude=self.ampl_cooling_DP_RO_Node2)
+                delay(5 * us)
+
+                ### fiber AOMs first, then the light reaches both atoms on one timestamp
+                self.dds_AOM_A1_Node1.sw.on()
+                self.dds_AOM_A1_Node2.sw.on()
+                self.dds_AOM_A2_Node1.sw.on()
+                self.dds_AOM_A2_Node2.sw.on()
+                delay(5 * us)
+                self.dds_AOM_A3_Node1.sw.on()
+                self.dds_AOM_A3_Node2.sw.on()
+                self.dds_AOM_A4_Node1.sw.on()
+                self.dds_AOM_A4_Node2.sw.on()
+                delay(5 * us)
+                if not self.PGC_and_RO_with_on_chip_beams_Node1:
+                    self.dds_AOM_A5_Node1.sw.on()
+                    self.dds_AOM_A6_Node1.sw.on()
+                else:
+                    self.dds_AOM_A5_Node1.sw.off()
+                    self.dds_AOM_A6_Node1.sw.off()
+                if not self.PGC_and_RO_with_on_chip_beams_Node2:
+                    self.dds_AOM_A5_Node2.sw.on()
+                    self.dds_AOM_A6_Node2.sw.on()
+                else:
+                    self.dds_AOM_A5_Node2.sw.off()
+                    self.dds_AOM_A6_Node2.sw.off()
+                delay(5 * us)
+                self.dds_cooling_DP_Node1.sw.on()
+                self.dds_cooling_DP_Node2.sw.on()
+                self.ttl_repump_switch_Node1.off()
+                self.ttl_repump_switch_Node2.off()
+                delay(1 * us)
+
+                with parallel:
+                    self.ttl_SPCM0_counter.gate_rising(t_atom_check)
+                    self.ttl_SPCM1_counter.gate_rising(t_atom_check)
+                    self.ttl_SPCM0_OtherNode_counter.gate_rising(t_atom_check)
+                    self.ttl_SPCM1_OtherNode_counter.gate_rising(t_atom_check)
+
+                AllSPCMs_RO_atom_check = int(self.ttl_SPCM0_counter.fetch_count()
+                                             + self.ttl_SPCM1_counter.fetch_count()
+                                             + self.ttl_SPCM0_OtherNode_counter.fetch_count()
+                                             + self.ttl_SPCM1_OtherNode_counter.fetch_count())
+                AllSPCMs_RO_atom_check_array[int(excitation_cycle / atom_check_every_n)] = AllSPCMs_RO_atom_check
+
+                ### stop once either atom is lost
+                if AllSPCMs_RO_atom_check / t_atom_check < self.two_atom_threshold:
+                    delay(100 * us)
+                    break
+
+                ### The gate read returns a few us before the switch-offs
+                ### below, which sit 10 us after the gate: 20 us lead first.
+                slack = now_mu() - self.core.get_rtio_counter_mu()
+                if slack < 20000:
+                    delay_mu(20000 - slack)
+                delay(10 * us)
+                self.dds_cooling_DP_Node1.sw.off()
+                self.dds_cooling_DP_Node2.sw.off()
+                self.ttl_repump_switch_Node1.on()
+                self.ttl_repump_switch_Node2.on()
+                delay(5 * us)
+                self.dds_AOM_A1_Node1.sw.off()
+                self.dds_AOM_A1_Node2.sw.off()
+                self.dds_AOM_A2_Node1.sw.off()
+                self.dds_AOM_A2_Node2.sw.off()
+                delay(5 * us)
+                self.dds_AOM_A3_Node1.sw.off()
+                self.dds_AOM_A3_Node2.sw.off()
+                self.dds_AOM_A4_Node1.sw.off()
+                self.dds_AOM_A4_Node2.sw.off()
+                delay(5 * us)
+                if not self.PGC_and_RO_with_on_chip_beams_Node1:
+                    self.dds_AOM_A5_Node1.sw.off()
+                    self.dds_AOM_A6_Node1.sw.off()
+                if not self.PGC_and_RO_with_on_chip_beams_Node2:
+                    self.dds_AOM_A5_Node2.sw.off()
+                    self.dds_AOM_A6_Node2.sw.off()
+
+                ### resync for the next cycle's pumping trace, which sets the
+                ### OP coils itself (the switch-offs above left little slack)
+                self.core.break_realtime()
+
+            ############################ recooling, both nodes
+            if do_recooling and (excitation_cycle + 1) % recool_every_n_OP == 0:
+                ### The last attempt's photon reads return only ~1-2 us before
+                ### this trace's first event (less after a click): 20 us lead.
+                slack = now_mu() - self.core.get_rtio_counter_mu()
+                if slack < 20000:
+                    delay_mu(20000 - slack)
+                self.core_dma.playback_handle(recooling_handle)
+                delay(5 * us)
+
+            delay(5 * us)
+
+        parity_RO_Node1 = 0
+        parity_RO_Node2 = 0
+        if heralded:
+            ### The mapping playback left the cursor at its end; resync only
+            ### if it fell behind, as parity_11 does.
+            self.core.break_realtime()
+            delay(5 * us)
+            self.core_dma.playback_handle(blow_away_handle)
+            delay(5 * us)
+            parity_RO_Node1, parity_RO_Node2 = two_node_alternating_windows(self)
+
+            ### The heralding channels' extra edges, drained only now, as in
+            ### parity_11, so the mapping jump above had no extra input reads
+            if herald_SPCM0_mu > 0: self.ttl_SPCM0.count(herald_t_end_mu)
+            if herald_SPCM1_mu > 0: self.ttl_SPCM1.count(herald_t_end_mu)
+            if herald_SPCM0_OtherNode_mu > 0: self.ttl_SPCM0_OtherNode.count(herald_t_end_mu)
+            if herald_SPCM1_OtherNode_mu > 0: self.ttl_SPCM1_OtherNode.count(herald_t_end_mu)
+            self.core.break_realtime()
+
+            ### one entry per herald
+            self.append_to_dataset('SPCM0_SinglePhoton', 1.0 if herald_SPCM0_mu > 0 else 0.0)
+            self.append_to_dataset('SPCM1_SinglePhoton', 1.0 if herald_SPCM1_mu > 0 else 0.0)
+            self.append_to_dataset('SPCM0_OtherNode_SinglePhoton', 1.0 if herald_SPCM0_OtherNode_mu > 0 else 0.0)
+            self.append_to_dataset('SPCM1_OtherNode_SinglePhoton', 1.0 if herald_SPCM1_OtherNode_mu > 0 else 0.0)
+            self.append_to_dataset('SPCM0_SinglePhoton_reduced_tStamps',
+                                   self.core.mu_to_seconds(herald_SPCM0_mu) if herald_SPCM0_mu > 0 else -1.0)
+            self.append_to_dataset('SPCM1_SinglePhoton_reduced_tStamps',
+                                   self.core.mu_to_seconds(herald_SPCM1_mu) if herald_SPCM1_mu > 0 else -1.0)
+            self.append_to_dataset('SPCM0_OtherNode_SinglePhoton_reduced_tStamps',
+                                   self.core.mu_to_seconds(herald_SPCM0_OtherNode_mu) if herald_SPCM0_OtherNode_mu > 0 else -1.0)
+            self.append_to_dataset('SPCM1_OtherNode_SinglePhoton_reduced_tStamps',
+                                   self.core.mu_to_seconds(herald_SPCM1_OtherNode_mu) if herald_SPCM1_OtherNode_mu > 0 else -1.0)
+            self.append_to_dataset('reference_tStamps_t1', self.core.mu_to_seconds(herald_t1_mu))
+            self.append_to_dataset('excitation_attempt_of_row', herald_attempt)
+            self.append_to_dataset('AllSPCMs_alternating_parity_RO_Node1', parity_RO_Node1)
+            self.append_to_dataset('AllSPCMs_alternating_parity_RO_Node2', parity_RO_Node2)
+            self.append_to_dataset('parity_angle_780_HWP_Node1', self.target_780_HWP_Node1)
+            self.append_to_dataset('parity_angle_780_HWP_Node2', self.target_780_HWP_Node2)
+            self.append_to_dataset('parity_angle_780_QWP_Node1', self.target_780_QWP_Node1)
+            self.append_to_dataset('parity_angle_780_QWP_Node2', self.target_780_QWP_Node2)
+
+            ### Actual programmed analysis settings, one row per two-click herald.
+            self.append_to_dataset('parity_MW_RF_phase_turns_Node1', self._atom_atom_phase_Node1)
+            self.append_to_dataset('parity_MW_RF_pulse_s_Node1', self.t_MW_RF_pulse_Node1)
+            self.append_to_dataset('parity_MW_RF_pi_pulse_s_Node1', self.t_MW_RF_pi_pulse_Node1)
+            self.append_to_dataset('parity_MW_RF_phase_turns_Node2', self._atom_atom_phase_Node2)
+            self.append_to_dataset('parity_MW_RF_pulse_s_Node2', self.t_MW_RF_pulse_Node2)
+            self.append_to_dataset('parity_MW_RF_pi_pulse_s_Node2', self.t_MW_RF_pi_pulse_Node2)
+
+        ### The traces baked in the A5/A6 amplitudes at record time and the
+        ### loader may have run feedback since: restore the live ones while
+        ### the RF switches are off.
+        self.core.break_realtime()
+        self.dds_AOM_A5_Node1.set(frequency=self.AOM_A5_freq_Node1, amplitude=self.stabilizer_AOM_A5_Node1.amplitude)
+        self.dds_AOM_A6_Node1.set(frequency=self.AOM_A6_freq_Node1, amplitude=self.stabilizer_AOM_A6_Node1.amplitude)
+        self.dds_AOM_A5_Node2.set(frequency=self.AOM_A5_freq_Node2, amplitude=self.stabilizer_AOM_A5_Node2.amplitude)
+        self.dds_AOM_A6_Node2.set(frequency=self.AOM_A6_freq_Node2, amplitude=self.stabilizer_AOM_A6_Node2.amplitude)
+        delay(5 * us)
+
+        self.dds_GRIN2_Node1.sw.off()
+        self.dds_GRIN2_Node2.sw.off()
+        delay(0.1 * ms)
+
+        second_shot(self)
+
+        self.dds_AOM_A1_Node1.sw.off()
+        self.dds_AOM_A1_Node2.sw.off()
+        self.dds_AOM_A2_Node1.sw.off()
+        self.dds_AOM_A2_Node2.sw.off()
+        delay(5 * us)
+        self.dds_AOM_A3_Node1.sw.off()
+        self.dds_AOM_A3_Node2.sw.off()
+        self.dds_AOM_A4_Node1.sw.off()
+        self.dds_AOM_A4_Node2.sw.off()
+        delay(5 * us)
+        self.dds_AOM_A5_Node1.sw.off()
+        self.dds_AOM_A5_Node2.sw.off()
+        self.dds_AOM_A6_Node1.sw.off()
+        self.dds_AOM_A6_Node2.sw.off()
+        delay(0.1 * ms)
+
+        ### end_measurement writes this pass's readouts at the current index
+        ### and steps it; only a herald keeps the step, as in parity_11, so
+        ### n_measurements counts heralded events.
+        measurement_this_pass = self.measurement
+        end_measurement(self)
+        if not heralded:
+            self.measurement = measurement_this_pass
+
+        self.core.break_realtime()
+
+        ### only the passed checks: the loop exits on a failed one or a herald
+        for val in AllSPCMs_RO_atom_check_array[0:int(excitation_cycle / atom_check_every_n)]:
+            self.append_to_dataset('AllSPCMs_RO_atom_check', val)
+
+        self.append_to_dataset('n_photon_events', n_click_attempts)
+        self.append_to_dataset('n_excitation_cycles', excitation_cycle)
+        self.core.break_realtime()
+
+    self.append_to_dataset('n_feedback_per_iteration', self.n_feedback_per_iteration)
+    self.append_to_dataset('n_atom_loaded_per_iteration', self.n_atom_loaded_per_iteration)
+    self.append_to_dataset('n_passes_per_iteration', n_passes)
+
+
+
+def Two_nodes_atom_atom_parity_experiment(self):
+    """Four-point atomic parity; host entry point called by the existing GVS.
+
+    Append-only interface: scan the EXISTING dummy_variable in turns.
+    Node1 RF phase is fixed at 0; Node2 RF phase is dummy_variable.
+    Use [0.0, 0.25, 0.5, 0.75], not [0, 90, 180, 270].
+    Both analysis pulses are half their own calibrated MW/RF pi time.
+    Both check/recooling intervals are forced to one in the kernel as well.
+    Do not add @kernel here: validation and metadata initialization are host-side.
+    """
+    import math
+
+    phase2 = float(self.dummy_variable)
+    if not math.isfinite(phase2) or not 0.0 <= phase2 < 1.0:
+        raise ValueError("dummy_variable is Node2 RF phase in TURNS: "
+                         "use 0, 0.25, 0.5, 0.75, not degrees.")
+    # Existing GVS resolves these names before calling the host entry point.
+    if getattr(self, "scan_variable1", None) not in (None, "dummy_variable"):
+        raise ValueError("For this entry point scan dummy_variable only.")
+    if getattr(self, "scan_variable2", None) is not None:
+        raise ValueError("Leave scan_variable2_name empty for the four-point scan.")
+
+    pi1 = float(self.t_MW_RF_pi_pulse_Node1)
+    pi2 = float(self.t_MW_RF_pi_pulse_Node2)
+    if (not math.isfinite(pi1) or pi1 <= 0.0
+            or not math.isfinite(pi2) or pi2 <= 0.0):
+        raise ValueError("Calibrate positive t_MW_RF_pi_pulse_Node1 and Node2 first.")
+    pulse1, pulse2 = 0.5 * pi1, 0.5 * pi2
+    if (self.core.seconds_to_mu(pulse1) <= 0
+            or self.core.seconds_to_mu(pulse2) <= 0):
+        raise ValueError("Each pi/2 analysis pulse must span at least one machine unit.")
+    cooling = float(self.t_recooling)
+    if not math.isfinite(cooling) or cooling <= 0.0:
+        raise ValueError("This experiment requires t_recooling > 0: recooling follows every passed atom check.")
+
+    metadata = (
+        "parity_MW_RF_phase_turns_Node1", "parity_MW_RF_phase_turns_Node2",
+        "parity_MW_RF_pulse_s_Node1", "parity_MW_RF_pulse_s_Node2",
+        "parity_MW_RF_pi_pulse_s_Node1", "parity_MW_RF_pi_pulse_s_Node2",
+    )
+    # These existing angle lists have NO leading dummy row in the current Base.
+    # Using their length distinguishes a new run/retry from the next scan point.
+    angles = self.get_dataset("parity_angle_780_HWP_Node1", archive=False)
+    n_before = len(angles)
+    if n_before == 0:
+        # Reset stale master-side phase arrays from any earlier RID as well.
+        # Do not change Base or the experiment-variable catalog for this version.
+        for key in metadata:
+            self.set_dataset(key, [], broadcast=True, persist=False, archive=True)
+    else:
+        for key in metadata:
+            value = self.get_dataset(key, default=None, archive=False)
+            if value is None or len(value) != n_before:
+                raise ValueError("Per-herald phase metadata is absent or misaligned: " + key)
+
+    settings = {
+        "t_MW_RF_pulse_Node1": pulse1,
+        "t_MW_RF_pulse_Node2": pulse2,
+        "atom_check_every_n": 1,
+        "recool_every_n_OP": 1,
+    }
+    saved = {key: getattr(self, key) for key in settings}
+    # Private, run-local inputs to the kernel/recorder; not persistent variables.
+    self._atom_atom_phase_Node1 = 0.0
+    self._atom_atom_phase_Node2 = phase2
+    try:
+        for key, value in settings.items():
+            setattr(self, key, value)
+            self.set_dataset(key, value, broadcast=False, persist=False, archive=True)
+        for key, value in (
+            ("atom_check_every_n_two_nodes", 1),
+            ("recool_every_n_OP_two_nodes", 1),
+            ("phase_MW_RF_turns_Node1", 0.0),
+            ("phase_MW_RF_turns_Node2", phase2),
+            ("atomic_parity_basis", "equatorial_phase_scan"),
+            ("atomic_parity_phase_source", "dummy_variable_in_turns"),
+            ("atomic_parity_code_version", "20261110_latest_ZZ_append_only_v1"),
+            ("atomic_parity_base_commit", "84332ec15c6c21265b8346c84cea18aa656b1401"),
+            ("recooling_reuses_atom_check_PGC_field", True),
+        ):
+            self.set_dataset(key, value, broadcast=False, persist=False, archive=True)
+        # Scalars describe the last point. The kernel appends all six fields
+        # above per herald AFTER BA and fluorescence, never on the herald path.
+        _run_atom_atom_phase_scan_latest_ZZ(self)
+    except _AtomAtomPhaseRTIOUnderflow:
+        # GVS snapshots list datasets BEFORE entering this function. During
+        # the first point these six arrays did not exist at that snapshot,
+        # so GVS alone cannot roll them back. Trim them here to the matching
+        # pre-point herald length; GVS rolls back the original herald arrays.
+        # On later points this is also safe: GVS sees arrays already trimmed.
+        if getattr(self, "enable_Catch_UnderFlow", False):
+            for key in metadata:
+                values = self.get_dataset(key, archive=False)
+                self.set_dataset(key, list(values[:n_before]),
+                                 broadcast=True, persist=False, archive=True)
+        raise
+    finally:
+        # Do not make pi/2 pulses or the forced intervals new live defaults.
+        for key, value in saved.items():
+            setattr(self, key, value)
