@@ -191,6 +191,47 @@ def _self_attributes(node):
     ]
 
 
+#: The atom-atom entry points. The original names run the earlier sequences,
+#: the _2 names the 2026-11-11 block (independent maintenance intervals and a
+#: per-herald cycle log). Until 2026-11-14 that block redefined the original
+#: names, and Python keeps the last definition. ZZ_3 (2026-11-16) is ZZ_2 with
+#: a parity_11 coil reset between excitation cycles.
+_ATOM_ATOM_ENTRY_POINTS = (
+    "Two_nodes_atom_atom_ZZ_experiment",
+    "Two_nodes_atom_atom_ZZ_2_experiment",
+    "Two_nodes_atom_atom_ZZ_3_experiment",
+    "Two_nodes_atom_atom_parity_experiment",
+    "Two_nodes_atom_atom_parity_2_experiment",
+)
+
+
+def _is_kernel(function):
+    return any(isinstance(decorator, ast.Name) and decorator.id == "kernel"
+               for decorator in function.decorator_list)
+
+
+def _functions_run_by(tree):
+    """Each top-level function -> the module functions it RUNS: itself and,
+    for a host wrapper (no @kernel), the module functions it calls by name.
+
+    Some entry points are host wrappers around a private kernel
+    (Two_nodes_atom_atom_ZZ_2_experiment -> _run_atom_atom_ZZ_with_cycle_log,
+    the parity entries -> _run_atom_atom_phase_scan_latest_ZZ and _ZZ_2), so
+    what such an entry point writes is what its kernel writes.
+    """
+    functions = {node.name: node for node in tree.body
+                 if isinstance(node, ast.FunctionDef)}
+    run = {}
+    for name, node in functions.items():
+        run[name] = {name}
+        if not _is_kernel(node):
+            run[name] |= {item.func.id for item in ast.walk(node)
+                          if isinstance(item, ast.Call)
+                          and isinstance(item.func, ast.Name)
+                          and item.func.id in functions}
+    return run
+
+
 class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -336,8 +377,16 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 "Two_nodes_alternating_retention_experiment",
                 # Port of the standalone Two_node_single_photon_2_experiment.
                 "Two_nodes_HOM_experiment",
-                # Two-photon herald, then each node's parity readout.
+                # Two-photon herald, then each node's atom read out: ZZ, and
+                # the four-point phase scan (parity).
+                "Two_nodes_atom_atom_ZZ_experiment",
                 "Two_nodes_atom_atom_parity_experiment",
+                # The 2026-11-11 versions of the two. A new version gets a
+                # suffix rather than redefining a name (user, 2026-11-14).
+                "Two_nodes_atom_atom_ZZ_2_experiment",
+                "Two_nodes_atom_atom_parity_2_experiment",
+                # ZZ_2 with a parity_11 coil reset between cycles (2026-11-16).
+                "Two_nodes_atom_atom_ZZ_3_experiment",
             },
         )
         module_functions = [
@@ -352,6 +401,123 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 f"{name} would be picked up by the registry; rename it or "
                 f"make it private.",
             )
+
+    def test_no_function_is_defined_twice(self):
+        """Python keeps the LAST of two same-named top-level definitions, so a
+        pasted new version silently runs under the old name and the old
+        version becomes unreachable. It did from 2026-11-11 to 11-14 for the
+        atom-atom ZZ and parity entries. A new version gets a suffix instead
+        (user, 2026-11-14: Two_nodes_atom_atom_ZZ_2_experiment).
+        """
+        names = [node.name for node in self.tree.body
+                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                      ast.ClassDef))]
+        self.assertEqual(
+            sorted({name for name in names if names.count(name) > 1}), [])
+
+    def test_atom_atom_versions_run_their_own_kernels(self):
+        """The original names run the earlier sequences, the _2 names the
+        2026-11-11 block, and each parity wrapper calls its OWN kernel: a host
+        wrapper looks the kernel up by name when it runs, so a wrong name
+        would compile and silently run the other version. The h5 tells the
+        versions apart by atomic_parity_code_version (parity) and
+        atom_atom_cycle_log_version (written by the _2 entries and ZZ_3).
+        """
+        functions = {node.name: node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)}
+        run = _functions_run_by(self.tree)
+        expected = {
+            # a kernel itself, called directly by GVS
+            "Two_nodes_atom_atom_ZZ_experiment": set(),
+            "Two_nodes_atom_atom_ZZ_2_experiment":
+                {"_run_atom_atom_ZZ_with_cycle_log"},
+            "Two_nodes_atom_atom_ZZ_3_experiment":
+                {"_run_atom_atom_ZZ_3_with_cycle_log"},
+            "Two_nodes_atom_atom_parity_experiment":
+                {"_run_atom_atom_phase_scan_latest_ZZ"},
+            "Two_nodes_atom_atom_parity_2_experiment":
+                {"_run_atom_atom_phase_scan_latest_ZZ_2"},
+        }
+        self.assertEqual(set(expected), set(_ATOM_ATOM_ENTRY_POINTS))
+        for entry_point, kernels in expected.items():
+            self.assertEqual(run[entry_point] - {entry_point}, kernels,
+                             entry_point)
+            self.assertEqual(_is_kernel(functions[entry_point]), not kernels,
+                             entry_point)
+            for kernel_name in kernels:
+                self.assertTrue(_is_kernel(functions[kernel_name]), kernel_name)
+
+        def strings(name):
+            return {item.value for item in ast.walk(functions[name])
+                    if isinstance(item, ast.Constant)
+                    and isinstance(item.value, str)}
+
+        self.assertIn("20261110_latest_ZZ_append_only_v1",
+                      strings("Two_nodes_atom_atom_parity_experiment"))
+        self.assertIn("20261111_independent_maintenance_cycle_log_v2",
+                      strings("Two_nodes_atom_atom_parity_2_experiment"))
+        for entry_point in _ATOM_ATOM_ENTRY_POINTS:
+            self.assertEqual(
+                "atom_atom_cycle_log_version" in strings(entry_point),
+                entry_point.endswith(("_2_experiment", "_3_experiment")), entry_point)
+        self.assertIn("coil_reset_every_cycle_then_periodic_recool_then_check_then_recool_if_passed",
+                      strings("Two_nodes_atom_atom_ZZ_3_experiment"))
+
+    def test_zz_3_resets_the_coils_after_every_non_herald_cycle(self):
+        """Two_nodes_atom_atom_ZZ_3_experiment (2026-11-16) is ZZ_2 with a
+        parity_11 coil reset (user: "modify ZZ experiment so that it mimics
+        what parity11 does - to reset the coils"). In its excitation-cycle loop
+        the PGC coils are loaded after EVERY non-herald cycle (ZZ_2: only when
+        a recool or a check is due), after 1 ms more at the OP field and before
+        a dark wait that brings the PGC dwell to ZZ_3_COIL_RESET_DWELL; the
+        rest of the loop is ZZ_2's, statement for statement.
+        """
+        functions = {node.name: node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)}
+
+        def cycle_loop(name):
+            return next(node for node in ast.walk(functions[name])
+                        if isinstance(node, ast.For)
+                        and isinstance(node.target, ast.Name)
+                        and node.target.id == "excitation_cycle").body
+
+        def calls(statements, function_name):
+            return [index for index, statement in enumerate(statements)
+                    if isinstance(statement, ast.Expr)
+                    and isinstance(statement.value, ast.Call)
+                    and isinstance(statement.value.func, ast.Name)
+                    and statement.value.func.id == function_name]
+
+        def dumps(statements):
+            return [ast.dump(statement) for statement in statements]
+
+        prepare = "_atom_atom_prepare_PGC_field_both_nodes"
+        zz2 = cycle_loop("_run_atom_atom_ZZ_with_cycle_log")
+        zz3 = cycle_loop("_run_atom_atom_ZZ_3_with_cycle_log")
+        # ZZ_2: the PGC coils only under `if recooling_due or atom_check_due`
+        self.assertEqual(calls(zz2, prepare), [])
+        zz2_if = next(index for index, statement in enumerate(zz2)
+                      if isinstance(statement, ast.If)
+                      and ast.unparse(statement.test) == "recooling_due or atom_check_due")
+        # ZZ_3: once, unconditionally, after break_realtime and 1 ms at the OP field
+        (index,) = calls(zz3, prepare)
+        self.assertEqual(ast.unparse(zz3[index - 2]), "self.core.break_realtime()")
+        self.assertEqual(ast.unparse(zz3[index - 1]), "delay(1 * ms)")
+        # ... then the dark wait (four statements), before the recool and the check
+        wait = "\n".join(ast.unparse(statement) for statement in zz3[index + 1:index + 5])
+        self.assertTrue(wait.startswith("t_coil_reset_wait = ZZ_3_COIL_RESET_DWELL - 0.4 * ms"), wait)
+        self.assertTrue(wait.endswith("if t_coil_reset_wait > 0.0:\n    delay(t_coil_reset_wait)"), wait)
+        # everything else in the loop is ZZ_2's
+        self.assertEqual(dumps(zz3[:index - 2]), dumps(zz2[:zz2_if]))
+        # the wait's '- 0.4 * ms' is the helper's own settle: it must stay its last statement
+        self.assertEqual(ast.unparse(functions[prepare].body[-1]), "delay(0.4 * ms)")
+        self.assertEqual(dumps(zz3[index + 5:]), dumps(zz2[zz2_if + 1:]))
+        # the dwell: parity_11's second-shot coil load -> next O.P. in RID 41301, in s
+        (dwell,) = [ast.literal_eval(node.value) for node in self.tree.body
+                    if isinstance(node, ast.Assign)
+                    and [getattr(target, "id", None) for target in node.targets]
+                    == ["ZZ_3_COIL_RESET_DWELL"]]
+        self.assertAlmostEqual(dwell, 42.9e-3)
 
     def test_every_gate_is_matched_by_exactly_one_fetch_per_counter(self):
         """Each gate_rising pushes one total; each fetch_count pops one.
@@ -723,7 +889,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
 
     def test_every_confirm_loop_records_its_first_shot_alive_time(self):
         """Each confirm loop writes Atom_loading_time_first_shot_alive, and the
-        applet is asked for by exactly those experiments.
+        applet is asked for by exactly the entry points that run one (a host
+        wrapper's loop lives in the kernel it calls), the ZZ entries excepted.
 
         A confirm loop is recognised by its n_first_shot_confirm_tries append.
         A new one that forgets the time would leave the applet showing the
@@ -751,16 +918,33 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                  if appends(node, "Atom_loading_time_first_shot_alive")}
         self.assertTrue(confirm, "found no confirm loop at all")
         self.assertEqual(timed, confirm)
-        self.assertEqual(set(applets.FIRST_SHOT_ALIVE_EXPERIMENTS), confirm)
+        run = _functions_run_by(self.tree)
+        entry_points = {name for name in build_two_node_function_registry()
+                        if run[name] & confirm}
+        # Every confirm loop is run by some entry point.
+        self.assertEqual(
+            confirm - set().union(*(run[name] for name in entry_points)),
+            set())
+        # Not in the list, as before the 2026-11-14 _2 rename: the ZZ entries
+        # write the time but never asked for the applet. Adding them changes
+        # which applets a ZZ run opens; decide that deliberately.
+        without_applet = {"Two_nodes_atom_atom_ZZ_experiment",
+                          "Two_nodes_atom_atom_ZZ_2_experiment",
+                          "Two_nodes_atom_atom_ZZ_3_experiment"}
+        self.assertLessEqual(without_applet, entry_points)
+        self.assertEqual(set(applets.FIRST_SHOT_ALIVE_EXPERIMENTS),
+                         entry_points - without_applet)
 
     def test_parity_passes_per_point_feed_the_retention_applet(self):
-        """The parity run counts heralds in n_measurements but writes the
-        shots once per pass, so it records each scan point's passes, and the
-        two-node retention applet groups the shots by them.
+        """The atom-atom runs (ZZ and parity, original and _2) count heralds
+        in n_measurements but write the shots once per pass, so they record
+        each scan point's passes, and the two-node retention applet groups
+        the shots by them.
 
-        Only the parity experiment appends n_passes_per_iteration; in every
-        other two-node experiment it stays at its seed and the applet groups
-        by n_measurements, as those write one shot per measurement.
+        Only those entry points (through the kernel a host wrapper calls)
+        append n_passes_per_iteration; in every other two-node experiment it
+        stays at its seed and the applet groups by n_measurements, as those
+        write one shot per measurement.
         """
         import applets_master_satellite as applets
 
@@ -777,10 +961,13 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
 
         functions = [node for node in self.tree.body
                      if isinstance(node, ast.FunctionDef)]
+        writers = {node.name for node in functions
+                   if appends(node, "n_passes_per_iteration")}
+        run = _functions_run_by(self.tree)
         self.assertEqual(
-            {node.name for node in functions
-             if appends(node, "n_passes_per_iteration")},
-            {"Two_nodes_atom_atom_parity_experiment"},
+            {name for name in build_two_node_function_registry()
+             if run[name] & writers},
+            set(_ATOM_ATOM_ENTRY_POINTS),
         )
         retention = next(spec for spec in applets.TWO_NODE_APPLET_SPECS
                          if spec.title == "retention and loading AllSPCMs")
@@ -796,16 +983,18 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
 
         Pinned structurally: the `for excitation_attempt` loop holds a
         `break` under an `if` that tests the click times (HOM) or n_clicked
-        (parity), and in parity that break comes after the herald's.
+        (atom-atom), and in every atom-atom entry point (ZZ and parity,
+        original and _2, through the kernel a host wrapper calls) that break
+        comes after the herald's.
         """
         def attempt_loop(function_name):
             function = next(node for node in self.tree.body
                             if isinstance(node, ast.FunctionDef)
                             and node.name == function_name)
-            return next(node for node in ast.walk(function)
-                        if isinstance(node, ast.For)
-                        and isinstance(node.target, ast.Name)
-                        and node.target.id == "excitation_attempt")
+            return next((node for node in ast.walk(function)
+                         if isinstance(node, ast.For)
+                         and isinstance(node.target, ast.Name)
+                         and node.target.id == "excitation_attempt"), None)
 
         def breaking_ifs(loop):
             """The ifs in the loop whose own body breaks, with the names
@@ -822,27 +1011,33 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
         self.assertTrue(any(clicks <= tested for _, tested in hom),
                         [tested for _, tested in hom])
 
-        parity = breaking_ifs(attempt_loop("Two_nodes_atom_atom_parity_experiment"))
-
-        def on_n_clicked(op):
+        def on_n_clicked(parity, op):
             return [node for node, _ in parity
                     if isinstance(node.test, ast.Compare)
                     and isinstance(node.test.left, ast.Name)
                     and node.test.left.id == "n_clicked"
                     and isinstance(node.test.ops[0], op)]
 
-        herald, any_click = on_n_clicked(ast.Eq), on_n_clicked(ast.Gt)
-        self.assertEqual(len(herald), 1)
-        self.assertEqual(len(any_click), 1)
-        self.assertLess(herald[0].lineno, any_click[0].lineno)
+        run = _functions_run_by(self.tree)
+        for entry_point in _ATOM_ATOM_ENTRY_POINTS:
+            loops = [loop for loop in map(attempt_loop, sorted(run[entry_point]))
+                     if loop is not None]
+            self.assertEqual(len(loops), 1, entry_point)
+            parity = breaking_ifs(loops[0])
+            herald = on_n_clicked(parity, ast.Eq)
+            any_click = on_n_clicked(parity, ast.Gt)
+            self.assertEqual(len(herald), 1, entry_point)
+            self.assertEqual(len(any_click), 1, entry_point)
+            self.assertLess(herald[0].lineno, any_click[0].lineno, entry_point)
 
     def test_photon_rows_record_their_excitation_attempt(self):
-        """HOM (per photon row) and parity (per herald) write each row's
-        attempt within its cycle beside its t1, so the analysis can keep the
-        first attempt only (2026-10-29). Pinned: exactly those two functions
-        append excitation_attempt_of_row, each as often as
-        reference_tStamps_t1, and the HOM row index stores the loop's
-        excitation_attempt.
+        """HOM (per photon row) and the atom-atom runs (per herald) write each
+        row's attempt within its cycle beside its t1, so the analysis can keep
+        the first attempt only (2026-10-29). Pinned: exactly those entry
+        points (HOM, and ZZ and parity, original and _2, through the kernel a
+        host wrapper calls) run an excitation_attempt_of_row append, each
+        writer as often as reference_tStamps_t1, and the HOM row index stores
+        the loop's excitation_attempt.
         """
         def appends(node, name):
             return sum(
@@ -858,8 +1053,11 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                      if isinstance(node, ast.FunctionDef)}
         writers = {name for name, node in functions.items()
                    if appends(node, "excitation_attempt_of_row")}
-        self.assertEqual(writers, {"Two_nodes_HOM_experiment",
-                                   "Two_nodes_atom_atom_parity_experiment"})
+        run = _functions_run_by(self.tree)
+        self.assertEqual(
+            {name for name in build_two_node_function_registry()
+             if run[name] & writers},
+            {"Two_nodes_HOM_experiment"} | set(_ATOM_ATOM_ENTRY_POINTS))
         for name in writers:
             self.assertEqual(appends(functions[name], "excitation_attempt_of_row"),
                              appends(functions[name], "reference_tStamps_t1"), name)

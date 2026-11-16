@@ -504,8 +504,16 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 "Two_nodes_alternating_retention_experiment",
                 # Port of the standalone Two_node_single_photon_2_experiment.
                 "Two_nodes_HOM_experiment",
-                # Two-photon herald, then each node's parity readout.
+                # Two-photon herald, then each node's atom read out: ZZ, and
+                # the four-point phase scan (parity).
+                "Two_nodes_atom_atom_ZZ_experiment",
                 "Two_nodes_atom_atom_parity_experiment",
+                # The 2026-11-11 versions of the two. A new version gets a
+                # suffix rather than redefining a name (user, 2026-11-14).
+                "Two_nodes_atom_atom_ZZ_2_experiment",
+                "Two_nodes_atom_atom_parity_2_experiment",
+                # ZZ_2 with a parity_11 coil reset between cycles (2026-11-16).
+                "Two_nodes_atom_atom_ZZ_3_experiment",
             },
         )
         # The two registries must stay disjoint: the single-node one is built
@@ -633,8 +641,16 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 "Two_nodes_alternating_retention_experiment",
                 # Port of the standalone Two_node_single_photon_2_experiment.
                 "Two_nodes_HOM_experiment",
-                # Two-photon herald, then each node's parity readout.
+                # Two-photon herald, then each node's atom read out: ZZ, and
+                # the four-point phase scan (parity).
+                "Two_nodes_atom_atom_ZZ_experiment",
                 "Two_nodes_atom_atom_parity_experiment",
+                # The 2026-11-11 versions of the two. A new version gets a
+                # suffix rather than redefining a name (user, 2026-11-14).
+                "Two_nodes_atom_atom_ZZ_2_experiment",
+                "Two_nodes_atom_atom_parity_2_experiment",
+                # ZZ_2 with a parity_11 coil reset between cycles (2026-11-16).
+                "Two_nodes_atom_atom_ZZ_3_experiment",
             },
         )
         self.assertIs(
@@ -1174,6 +1190,13 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             ("Two_nodes_alternating_retention_experiment", True, False),
             ("Two_nodes_atom_atom_parity_experiment", True, True),
             ("Two_nodes_atom_atom_parity_experiment", False, False),
+            ("Two_nodes_atom_atom_parity_2_experiment", True, True),
+            ("Two_nodes_atom_atom_parity_2_experiment", False, False),
+            # The ZZ entries never asked for it (see test_experiment_functions_
+            # two_nodes: test_every_confirm_loop_records_its_first_shot_alive_time).
+            ("Two_nodes_atom_atom_ZZ_experiment", True, False),
+            ("Two_nodes_atom_atom_ZZ_2_experiment", True, False),
+            ("Two_nodes_atom_atom_ZZ_3_experiment", True, False),
         )
         original = applets.create_two_node_applets_for
         try:
@@ -2013,7 +2036,8 @@ class GeneralVariableScanHealthCheckTests(unittest.TestCase):
 
     def _make_scan(self, scan_class=GeneralVariableScan_master_satellite_two_nodes,
                    selection="Node1", flags=("Frequency_11_Scan",), every_n=1,
-                   sequence=(1.0, 2.0, 3.0), plan=(), overrides=None, **scheduler):
+                   sequence=(1.0, 2.0, 3.0), plan=(), overrides=None,
+                   direct=False, **scheduler):
         scan = scan_class()
         scan.base = FakeBase("single_node", "Node2")
         scan.base.experiment = scan
@@ -2084,6 +2108,7 @@ class GeneralVariableScanHealthCheckTests(unittest.TestCase):
         scan._selected_experiment_function = selected_function
 
         scan.run_health_check = True
+        scan.health_check_optimize_directly = direct
         scan.health_check_every_n_ite = every_n
         scan.health_check_node_selection = selection
         for _, flag, _ in HEALTH_CHECK_SCANS:
@@ -2108,12 +2133,14 @@ class GeneralVariableScanHealthCheckTests(unittest.TestCase):
 
     @staticmethod
     def _points_and_checks(scan):
-        """('point', value) and ('check', node, flag) in the order they ran."""
+        """('point', value) and ('check', node, flag) in the order they ran
+        (a direct re-optimization scan counts as the check)."""
         order = []
         for entry in scan.log:
             if entry[0] == "point":
                 order.append(entry)
-            elif entry[0] == "submit" and entry[4]:
+            elif entry[0] == "submit" and (
+                    entry[4] or scan.health_check_optimize_directly):
                 order.append(("check", entry[2], entry[3][0]))
         return order
 
@@ -2138,6 +2165,9 @@ class GeneralVariableScanHealthCheckTests(unittest.TestCase):
         self.assertIs(defaults["run_health_check"], False)
         self.assertIs(GeneralVariableScan_master_satellite_two_nodes.run_health_check,
                       False)
+        self.assertIs(defaults["health_check_optimize_directly"], False)
+        self.assertIs(GeneralVariableScan_master_satellite_two_nodes
+                      .health_check_optimize_directly, False)
         self.assertEqual(defaults["health_check_every_n_ite"], 1)
         self.assertEqual(defaults["health_check_node_selection"], "Node1")
         for _, flag, _ in HEALTH_CHECK_SCANS:
@@ -2599,6 +2629,7 @@ class GeneralVariableScanHealthCheckTests(unittest.TestCase):
             "two_atom_threshold": 31000.0,           # plain global
             "n_measurements": 7,                     # never
             "t_MW_RF_pulse_Node1": 0.0,              # MW calibration: never
+            "t_MW_RF_pi_pulse_Node1": 265.7e-6,      # MW calibration: never
             "f_microwaves_dds_Node1": 1.0,           # the 00/01 scan variable
             "t_SPCM_first_shot_two_nodes": np.float64(0.02),
         })
@@ -2697,6 +2728,224 @@ class GeneralVariableScanHealthCheckTests(unittest.TestCase):
         self.assertEqual(arguments["target_fidelity"], 0.8)
         self.assertEqual(arguments["adaptive_half_range_linewidths"], 1.5)
         self.assertEqual(arguments["adaptive_points_per_linewidth"], 5.0)
+
+    # ---- health_check_optimize_directly (user, 2026-11-14) ----
+
+    def test_direct_expid_is_the_scan_a_failed_check_submits(self):
+        """The expid is the re-optimization scan itself, as
+        submit_opt_exp_general builds it after a failed check: scan mode, the
+        scan's n_measurements, one fixed list. Same keys as a check's, and
+        only those three values differ."""
+        scan = self._prepared_scan(selection="Node2",
+                                   flags=("Frequency_m10_Scan",), direct=True)
+        expid = scan._health_check_expid("Node2", "Frequency_m10_Scan", "{'a': 1}")
+        arguments = expid["arguments"]
+        self.assertEqual(expid["class_name"], _OPTIMIZER_CLASS)
+        self.assertEqual([k for k, v in arguments.items() if v is True],
+                         ["enable_fitting", "enable_node_specific_adaptive_scan",
+                          "Frequency_m10_Scan"])
+        self.assertIs(arguments["run_health_check_and_optimize"], False)
+        self.assertIs(arguments["enable_geometric_frequency_scan"], False)
+        self.assertEqual(arguments["n_measurements"], 20)
+        self.assertEqual(arguments["n_measurements_optimization_scan"], 20)
+        self.assertEqual(arguments["parent_rid"], 500)
+        self.assertIs(arguments["show_shared_applets"], False)
+        self.assertEqual(arguments["target_fidelity"], 0.8)
+        self.assertEqual(arguments["adaptive_half_range_linewidths"], 1.5)
+        self.assertEqual(arguments["adaptive_points_per_linewidth"], 5.0)
+        self.assertEqual(arguments["override_ExperimentVariables_Node2"], "{'a': 1}")
+        self.assertEqual(arguments["override_ExperimentVariables_Node1"], "{}")
+        scan.health_check_optimize_directly = False
+        check = scan._health_check_expid(
+            "Node2", "Frequency_m10_Scan", "{'a': 1}")["arguments"]
+        self.assertEqual(list(check), list(arguments))
+        self.assertEqual({k for k in arguments if arguments[k] != check[k]},
+                         {"run_health_check_and_optimize", "n_measurements",
+                          "enable_geometric_frequency_scan"})
+        # 0 = the check's n_measurements, the optimizer's own rule
+        scan.health_check_optimize_directly = True
+        scan.health_check_optimization_n_measurements = 0
+        arguments = scan._health_check_expid(
+            "Node2", "Frequency_m10_Scan", "{}")["arguments"]
+        self.assertEqual(arguments["n_measurements"], 50)
+        self.assertEqual(arguments["n_measurements_optimization_scan"], 0)
+
+    def test_direct_one_scan_per_transition_in_order_never_before_the_first_point(self):
+        scan = self._prepared_scan(
+            selection="both_nodes",
+            flags=("Frequency_11_Scan", "Frequency_01_Scan"), every_n=2,
+            sequence=(1.0, 2.0, 3.0), plan=["pass"] * 4, direct=True)
+        scan.run()
+        self.assertEqual(self._points_and_checks(scan), [
+            ("point", 1.0), ("point", 2.0),
+            ("check", "Node1", "Frequency_01_Scan"),
+            ("check", "Node1", "Frequency_11_Scan"),
+            ("check", "Node2", "Frequency_01_Scan"),
+            ("check", "Node2", "Frequency_11_Scan"),
+            ("point", 3.0)])
+        # one scan each: no check and no child
+        self.assertEqual(len(scan.scheduler.submitted), 4)
+        for _, pipeline, expid, priority in scan.scheduler.submitted:
+            self.assertEqual((pipeline, priority), ("main", 99))
+            self.assertIs(
+                expid["arguments"]["run_health_check_and_optimize"], False)
+            self.assertEqual(expid["arguments"]["parent_rid"], 500)
+        local = scan._HasEnvironment__dataset_mgr.local
+        self.assertEqual(local["gvs_health_check_scan_point"], [2] * 4)
+        self.assertEqual(local["gvs_health_check_resubmissions"], [0] * 4)
+
+    def test_direct_pass_stores_and_rereads_the_center(self):
+        """The scan stores its fit only when its fit check passes (here
+        339.271 MHz); the GVS re-reads it, as after a check chain."""
+        scan = self._prepared_scan(
+            selection="Node2", sequence=(1.0, 2.0), plan=["pass"],
+            new_center={("Node2", "Frequency_11_Scan"): 339.271e6},
+            direct=True)
+        before = scan.f_microwaves_11_dds_Node2
+        self.assertNotEqual(before, 339.271e6)
+        scan.run()
+        ran = [entry for entry in scan.log if entry[0] in ("optimizer", "point")]
+        self.assertEqual(ran, [("point", 1.0), ("optimizer", 501, "pass"),
+                               ("point", 2.0)])
+        self.assertEqual(scan.f_microwaves_11_dds_Node2, 339.271e6)
+        local = scan._HasEnvironment__dataset_mgr.local
+        self.assertEqual(local["gvs_health_check_center_before_Hz"], [before])
+        self.assertEqual(local["gvs_health_check_center_after_Hz"], [339.271e6])
+        self.assertEqual(local["gvs_health_check_fidelity"], [0.9])
+        self.assertEqual(local["gvs_health_check_resubmissions"], [0])
+        self.assertEqual(local["gvs_health_check_crashes"], [0])
+        self.assertEqual(local["gvs_health_check_chain_rids"],
+                         "scan point 1 Node2 freq11: 501")
+        self.assertIn("Node2 freq11 (direct re-optimization), forwarded",
+                      local["gvs_health_check_log"])
+
+    def _direct_outcomes(self, plan):
+        """Run a direct Node1 freq11 scan through *plan* with a 60 s crash
+        backoff and time.sleep patched; return the scan, the outcomes read
+        and the sleeps."""
+        from unittest import mock
+        scan = self._prepared_scan(sequence=(1.0, 2.0), plan=plan, direct=True)
+        scan.health_check_crash_backoff_s = 60
+        outcomes = []
+        original = scan._read_health_check_result
+
+        def read(*args):
+            outcome = original(*args)
+            outcomes.append(outcome)
+            return outcome
+
+        scan._read_health_check_result = read
+        sleeps = []
+        with mock.patch.object(gvs_mixin.time, "sleep",
+                               lambda s: sleeps.append(s)):
+            scan.run()
+        return scan, outcomes, [s for s in sleeps if s > 0]
+
+    def test_direct_failed_scan_is_resubmitted_at_once_at_99(self):
+        """With no check, the FIRST run's failure is the scan's own fit check:
+        a genuine failure, resubmitted at once at 99 -- not a crash, as it is
+        in check mode (test_a_failed_check_whose_scan_crashed_is_a_crash)."""
+        scan, outcomes, sleeps = self._direct_outcomes(["fail", "pass"])
+        self.assertEqual([o for o, _ in outcomes], ["failed", "passed"])
+        self.assertEqual(outcomes[0][1], 0.3)
+        self.assertEqual(sleeps, [])
+        self.assertEqual([priority for *_, priority in scan.scheduler.submitted],
+                         [99, 99])
+        first, second = (expid for _, _, expid, _ in scan.scheduler.submitted)
+        self.assertEqual(first, second)
+        local = scan._HasEnvironment__dataset_mgr.local
+        self.assertEqual(local["gvs_health_check_resubmissions"], [1])
+        self.assertEqual(local["gvs_health_check_crashes"], [0])
+        self.assertEqual(local["gvs_health_check_chain_rids"],
+                         "scan point 1 Node1 freq11: 501,502")
+        self.assertIn("Node1 freq11 did not pass (fidelity 0.300",
+                      local["gvs_health_check_log"])
+        status = scan._HasEnvironment__dataset_mgr._broadcaster.raw_view[
+            "health_check_status"][1]
+        self.assertIn("MW health check (direct re-optimization) every", status)
+        self.assertIn("Node1 freq11: 1 failed (at scan point 1), 0 crashed",
+                      status)
+
+    def test_direct_crashed_scan_waits_for_the_backoff(self):
+        """A direct scan with no result of its own (a FitError, an exception
+        in prepare or run) is a crash, as in check mode."""
+        scan, outcomes, sleeps = self._direct_outcomes(["crash", "pass"])
+        self.assertEqual([o for o, _ in outcomes], ["crashed", "passed"])
+        self.assertEqual(sum(sleeps), 60)
+        local = scan._HasEnvironment__dataset_mgr.local
+        self.assertEqual(local["gvs_health_check_resubmissions"], [1])
+        self.assertEqual(local["gvs_health_check_crashes"], [1])
+        self.assertEqual(scan._health_check_totals, {("Node1", "11"): 0})
+        self.assertEqual(scan._health_check_crash_totals, {("Node1", "11"): 1})
+
+    def test_direct_three_unsuccessful_scans_end_the_run(self):
+        """health_check_optimize_directly: after HEALTH_CHECK_DIRECT_MAX_ATTEMPTS
+        (3) direct scans of one (node, transition) without a pass -- failed or
+        crashed --, the GVS ends cleanly before the point (user, 2026-11-14:
+        "Cap at 3, then stop the run")."""
+        self.assertEqual(gvs_mixin.HEALTH_CHECK_DIRECT_MAX_ATTEMPTS, 3)
+        scan, outcomes, sleeps = self._direct_outcomes(
+            ["fail", "crash", "fail", "pass"])
+        self.assertEqual([o for o, _ in outcomes],
+                         ["failed", "crashed", "failed"])
+        self.assertEqual(sum(sleeps), 60)
+        self.assertEqual(len(scan.scheduler.submitted), 3)
+        self.assertEqual(scan.scheduler.deleted, [])
+        self.assertEqual([e[1] for e in scan.log if e[0] == "point"], [1.0])
+        local = scan._HasEnvironment__dataset_mgr.local
+        self.assertEqual(local["gvs_health_check_stopped_at_scan_point"], 1)
+        self.assertIn("Node1 freq11: 3 direct scans without a pass",
+                      local["gvs_health_check_stop_reason"])
+        self.assertIn("501, 502, 503", local["gvs_health_check_stop_reason"])
+        self.assertNotIn("gvs_health_check_terminated_at_scan_point", local)
+        self.assertEqual(scan.log[-1], ("save",))
+
+    def test_direct_two_unsuccessful_scans_then_a_pass_continue(self):
+        scan, outcomes, _ = self._direct_outcomes(["fail", "fail", "pass"])
+        self.assertEqual([o for o, _ in outcomes],
+                         ["failed", "failed", "passed"])
+        self.assertEqual([e[1] for e in scan.log if e[0] == "point"],
+                         [1.0, 2.0])
+        local = scan._HasEnvironment__dataset_mgr.local
+        self.assertNotIn("gvs_health_check_stopped_at_scan_point", local)
+        self.assertEqual(local["gvs_health_check_resubmissions"], [2])
+
+    def test_check_mode_is_not_capped(self):
+        """Check mode keeps resubmitting: four failed chains (a failed check
+        and its failed scan each), then a passing check."""
+        scan = self._prepared_scan(sequence=(1.0, 2.0),
+                                   plan=["fail"] * 8 + ["pass"])
+        scan.run()
+        self.assertEqual([e[1] for e in scan.log if e[0] == "point"],
+                         [1.0, 2.0])
+        local = scan._HasEnvironment__dataset_mgr.local
+        self.assertNotIn("gvs_health_check_stopped_at_scan_point", local)
+        self.assertEqual(local["gvs_health_check_resubmissions"], [4])
+
+    def test_direct_without_run_health_check_is_refused(self):
+        scan = self._make_scan(direct=True)
+        scan.run_health_check = False
+        with self.assertRaises(ValueError):
+            scan._prepare_health_check()
+
+    def test_direct_terminate_during_the_scan_ends_after_it(self):
+        """Terminate while the GVS is paused for a direct scan: ARTIQ runs the
+        prepared scan first, then pause() raises. A direct scan submits no
+        child, so nothing is left in the queue."""
+        scan = self._prepared_scan(sequence=(1.0, 2.0, 3.0),
+                                   plan=["fail", "pass"], direct=True)
+        scan.scheduler.terminate_at_pause = 1
+        scan.run()     # ends cleanly, no exception
+        self.assertEqual([e for e in scan.log if e[0] == "optimizer"],
+                         [("optimizer", 501, "fail")])
+        self.assertEqual(len(scan.scheduler.submitted), 1)
+        self.assertEqual(scan.scheduler.deleted, [])
+        self.assertEqual([e[1] for e in scan.log if e[0] == "point"], [1.0])
+        local = scan._HasEnvironment__dataset_mgr.local
+        self.assertEqual(local["gvs_health_check_terminated_at_scan_point"], 1)
+        self.assertIn("still queued [], running []",
+                      local["gvs_health_check_log"])
+        self.assertEqual(scan.log[-1], ("save",))
 
     def test_termination_deletes_nothing_and_logs_the_queue(self):
         """Terminate pressed as a chain run reaches prepare_done -- the check

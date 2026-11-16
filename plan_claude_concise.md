@@ -170,7 +170,10 @@ come before cleanup (sections 3.1, 3.3).
    status" applet), re-reads only that center, then republishes its own
    datasets; check runs 200 measurements, its optimization scans 100;
    Terminate ends the scan cleanly and deletes nothing from the queue;
-   priority < 99 and the main pipeline required.
+   priority < 99 and the main pipeline required. With
+   `health_check_optimize_directly` (2026-11-14) each event runs the
+   transition's re-optimization scan at once instead of the check (fit, fit
+   check, store on a pass), resubmitted until its fit check passes.
 
 ## 5. Essential invariants
 

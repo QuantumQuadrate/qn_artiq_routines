@@ -1674,7 +1674,9 @@ itself (the user's earlier workaround, patched together in analysis).
   the check run's), `health_check_optimization_n_measurements` (100, per
   point of the re-optimization scan a failed check submits; 0 = the
   check's), `health_check_adaptive_half_range_linewidths` (1.0),
-  `health_check_adaptive_points_per_linewidth` (4.0). No name collides with
+  `health_check_adaptive_points_per_linewidth` (4.0),
+  `health_check_optimize_directly` (False, also a class attribute;
+  2026-11-14, see "Direct re-optimization" below). No name collides with
   an ExperimentVariable. Class attributes (no GUI):
   `health_check_poll_interval` (0.5 s), `health_check_crash_backoff_s`
   (60 s); tests set both 0.
@@ -1794,6 +1796,24 @@ itself (the user's earlier workaround, patched together in analysis).
   reads; `submit_opt_exp_general` carries `target_fidelity` and
   `show_shared_applets` (hard-coded 0.80 / omitted before) and the new
   argument `n_measurements_optimization_scan` (section 11.1).
+- Direct re-optimization (`health_check_optimize_directly`, 2026-11-14; the
+  user: "F11 drift in node2 is mostly due to the FORT polarization drift due
+  to SM fiber", and long runs such as the ZZ "need to reoptimize for the
+  frequency 11 every ~5points"): the same events, order, wait, re-read,
+  records and status, but each (node, transition) submits the scan a failed
+  check would submit (`submit_opt_exp_general`) instead of the check:
+  `run_health_check_and_optimize` False, `n_measurements` =
+  `health_check_optimization_n_measurements` (0 =
+  `health_check_n_measurements`, the optimizer's rule),
+  `enable_geometric_frequency_scan` False (one fixed list sized from the
+  node's pi time), every other key as for a check. The scan fits, runs its
+  fit check at the rounded fit, stores the center only when that passes and
+  publishes the parent-keyed result either way. A failed fit check stores
+  and submits nothing and is "failed" (`_read_health_check_result`: the
+  first run's failure counts as a crash only in check mode), so the same
+  scan is resubmitted at once at 99; a scan with no result of its own is
+  "crashed" (backoff). No optimizer change. Status header and log line say
+  "(direct re-optimization)", the current line "re-optimizing since".
 - Tests: `GeneralVariableScanHealthCheckTests` (a scheduler that steps each
   chain through pending -> prepare_done -> gone and scripts the optimizer);
   the optimizer file runs the GVS-built expid through the optimizer's
@@ -3703,6 +3723,13 @@ files that are no longer true.
   `health_check_optimization_n_measurements` (100), passed to the
   optimizer's new `n_measurements_optimization_scan` (default 0 = same as
   `n_measurements`, so manual optimizer runs are unchanged).
+- **2026-11-14** GVS health check option `health_check_optimize_directly`
+  (section 8.9; the user: there was "no option in healthcheck to do
+  optimization right away without checking"; Node2 f11 follows the FORT
+  polarization drift in the SM fiber, and long ZZ runs should re-optimize
+  f11 every ~5 points): each event runs the optimizer's re-optimization scan
+  directly, resubmitted until its fit check passes. Default False, so every
+  saved expid stays check-first. GVS mixin only.
 
 Other superseded claims from the retired files:
 

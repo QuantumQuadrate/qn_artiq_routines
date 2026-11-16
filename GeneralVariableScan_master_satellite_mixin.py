@@ -197,6 +197,17 @@ HEALTH_CHECK_OPTIMIZER_CLASS = "MicrowaveScanOptimizer_master_satellite"
 #: The optimizer resubmits its own scan at 99 after a failed check, so the
 #: whole chain runs at 99; a GVS at 99 itself would never yield to it.
 HEALTH_CHECK_PRIORITY = 99
+#: health_check_optimize_directly: after this many direct scans of one
+#: (node, transition) in one event without a pass, the scan ends cleanly
+#: before the point (user, 2026-11-14: "Cap at 3, then stop the run").
+#: Check mode keeps resubmitting for as long as it takes.
+HEALTH_CHECK_DIRECT_MAX_ATTEMPTS = 3
+
+
+class _HealthCheckGaveUp(Exception):
+    """HEALTH_CHECK_DIRECT_MAX_ATTEMPTS direct scans without a pass."""
+
+
 
 #: label, the optimizer's scan flag (also the GVS argument name), and the
 #: center that scan checks and re-writes -- scan_dict[flag]["center"] of the
@@ -237,9 +248,10 @@ _HEALTH_CHECK_NOT_STARTED = frozenset(
 _HEALTH_CHECK_FINISHED = frozenset({"run_done", "analyzing", "deleting"})
 
 # The calibrations the optimizer measures or writes. Never forwarded: the
-# chain must start from, and write, the stored values.
+# chain must start from, and write, the stored values. t_MW_RF_pulse is the
+# MW+RF pulse played, t_MW_RF_pi_pulse its pi time (Time_m11 stores it).
 _MICROWAVE_CALIBRATION = re.compile(
-    r"^(f_microwaves_\w*dds|t_microwave_\w*pulse|t_MW_RF_pulse|health_check_uw_)")
+    r"^(f_microwaves_\w*dds|t_microwave_\w*pulse|t_MW_RF_(pi_)?pulse|health_check_uw_)")
 
 
 def republish_run_datasets(dataset_mgr, persistent_keys=("n_measurements",)):
@@ -313,6 +325,8 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
     pair_scan_sequences = False
     # Likewise for the microwave health check: off unless submitted on.
     run_health_check = False
+    # ... and checking first unless submitted with this on.
+    health_check_optimize_directly = False
     # Seconds between scheduler polls while a health check waits for a chain
     # that is not ready to run yet; tests set 0.
     health_check_poll_interval = 0.5
@@ -485,6 +499,18 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                     "Needs priority below 99 and the main pipeline.",
         )
         self.setattr_argument(
+            "health_check_optimize_directly",
+            BooleanValue(False),
+            group,
+            tooltip="Skip the check: each health check runs the optimizer's "
+                    "re-optimization scan at once (the scan a failed check "
+                    "submits: sized from the node's pi time, fit, fit check, "
+                    "stored if it passes), resubmitted until its fit check "
+                    "passes; after 3 scans without a pass the GVS ends before "
+                    "the point. health_check_optimization_n_measurements per "
+                    "point. Needs run_health_check.",
+        )
+        self.setattr_argument(
             "health_check_every_n_ite",
             NumberValue(1, ndecimals=0, step=1, type="int"),
             group,
@@ -512,15 +538,17 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             "health_check_n_measurements",
             NumberValue(200, ndecimals=0, step=1, type="int"),
             group,
-            tooltip="The check run's n_measurements.",
+            tooltip="The check run's n_measurements (a direct scan uses it "
+                    "only when the next is 0).",
         )
         self.setattr_argument(
             "health_check_optimization_n_measurements",
             NumberValue(100, ndecimals=0, step=1, type="int"),
             group,
             tooltip="n_measurements of each point of the re-optimization "
-                    "scan a failed check submits (the optimizer's "
-                    "n_measurements_optimization_scan; 0 = the check's).",
+                    "scan: the one a failed check submits, or the direct one "
+                    "(the optimizer's n_measurements_optimization_scan; 0 = "
+                    "the check's).",
         )
         self.setattr_argument(
             "health_check_adaptive_half_range_linewidths",
@@ -1191,14 +1219,17 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
     # each selected node, then each ticked transition in HEALTH_CHECK_SCANS
     # order, one at a time --
     #   1. submit MicrowaveScanOptimizer_master_satellite at 99 in this
-    #      pipeline, parent_rid = this RID (_health_check_expid);
+    #      pipeline, parent_rid = this RID (_health_check_expid). With
+    #      health_check_optimize_directly (user, 2026-11-14) that run is the
+    #      re-optimization scan itself, with no check first: its fit check
+    #      decides, and it stores the center only when that passes;
     #   2. release the core and pause() until every run of that chain (the
     #      check and the scan it submits when the check fails) is done;
-    #   3. passed? A failed check: submit the SAME expid again at once, at 99
-    #      so it runs next, without limit -- the growing count on the status
-    #      applet is the signal to relock lasers. A chain with no result of
-    #      its own (the optimizer crashed): the same, but only after
-    #      health_check_crash_backoff_s;
+    #   3. passed? A failed check (directly: a failed fit check): submit the
+    #      SAME expid again at once, at 99 so it runs next, without limit --
+    #      the growing count on the status applet is the signal to relock
+    #      lasers. A chain with no result of its own (the optimizer crashed):
+    #      the same, but only after health_check_crash_backoff_s;
     #   4. re-read that one center from the master DB.
     # Then put this run's datasets back on the dashboard and save. Terminate
     # ends the scan cleanly and deletes nothing from the queue.
@@ -1233,6 +1264,10 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         self._health_check_every_n = 0
         self._health_check_nodes = ()
         self._health_check_scans = ()
+        if self.health_check_optimize_directly and not self.run_health_check:
+            raise ValueError(
+                "health_check_optimize_directly needs run_health_check: with "
+                "it off no health check (and so no re-optimization) runs.")
         if not self.run_health_check:
             return
 
@@ -1375,18 +1410,25 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
     def _health_check_expid(self, node, scan_flag, forwarded_text):
         """The optimizer's expid for one check. Every key must be one of its
         arguments -- ARTIQ silently ignores any other, and a test runs this
-        expid through the optimizer. What is not named keeps its default."""
+        expid through the optimizer. What is not named keeps its default.
+
+        health_check_optimize_directly: the scan a failed check would submit
+        (submit_opt_exp_general) instead -- scan mode, the scan's
+        n_measurements (0 = the check's, the optimizer's rule) and one fixed
+        list; the same keys either way."""
+        direct = bool(self.health_check_optimize_directly)
+        check_n = int(self.health_check_n_measurements)
+        scan_n = int(self.health_check_optimization_n_measurements)
         arguments = {
             "which_node": node,
             "parent_rid": int(self.scheduler.rid),
-            "run_health_check_and_optimize": True,
+            "run_health_check_and_optimize": not direct,
             "target_fidelity": float(self.target_fidelity),
             "show_shared_applets": False,
-            "n_measurements": int(self.health_check_n_measurements),
-            "n_measurements_optimization_scan":
-                int(self.health_check_optimization_n_measurements),
+            "n_measurements": scan_n if direct and scan_n > 0 else check_n,
+            "n_measurements_optimization_scan": scan_n,
             "enable_fitting": True,
-            "enable_geometric_frequency_scan": True,
+            "enable_geometric_frequency_scan": not direct,
             "enable_node_specific_adaptive_scan": True,
             "adaptive_half_range_linewidths":
                 float(self.health_check_adaptive_half_range_linewidths),
@@ -1475,15 +1517,17 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         failed check and after a crashed chain counted apart."""
         totals = self._health_check_totals
         crash_totals = self._health_check_crash_totals
+        mode = (" (direct re-optimization)"
+                if self.health_check_optimize_directly else "")
         lines = [
-            f"GVS RID {self.scheduler.rid}: MW health check every "
+            f"GVS RID {self.scheduler.rid}: MW health check{mode} every "
             f"{self._health_check_every_n} scan point(s), "
             f"{', '.join(self._health_check_nodes)}: freq "
             f"{', '.join(label for label, _, _ in self._health_check_scans)}"
             f", target fidelity {float(self.target_fidelity):.2f}",
             current,
             "",
-            "Resubmissions this run (failed check / crashed chain):",
+            "Resubmissions this run (did not pass / crashed chain):",
         ]
 
         def at_points(points):
@@ -1601,7 +1645,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         CHECK's failure (chain_rids[0]): a failed check always submits a
         scan, and that scan (fitting on) always publishes its fit check, so
         the scan crashed (a FitError) or was never submitted. The fidelity is
-        then NaN, or the failed check's.
+        then NaN, or the failed check's. With health_check_optimize_directly
+        there is no check: chain_rids[0] is the scan, and its failed fit
+        check is "failed".
         """
         result = self.get_dataset(
             f"health_check_result_for_parent_{int(self.scheduler.rid)}", None,
@@ -1618,7 +1664,10 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             chain_rids.append(result_rid)
         if bool(passed):
             return "passed", float(fidelity)
-        if result_rid == chain_rids[0]:
+        # a lone failure of the FIRST run is the check's, whose scan must
+        # then have crashed -- unless there was no check
+        if (result_rid == chain_rids[0]
+                and not self.health_check_optimize_directly):
             return "crashed", float(fidelity)
         return "failed", float(fidelity)
 
@@ -1645,15 +1694,18 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         return float("nan") if value is None else float(value)
 
     def _run_one_health_check(self, iteration, node, label, scan_flag, center):
-        """One (node, transition): check, re-optimize until passed, re-read."""
+        """One (node, transition): check, re-optimize until passed, re-read.
+        health_check_optimize_directly: re-optimize until passed, re-read."""
         what = f"{node} freq{label}"
+        direct = bool(self.health_check_optimize_directly)
+        mode = " (direct re-optimization)" if direct else ""
         center_name = f"{center}_{node}"
         before = self._health_check_center_value(node, center_name)
         forwarded_text = format_override_dictionary(
             self._health_check_forwarded_overrides(node))
         expid = self._health_check_expid(node, scan_flag, forwarded_text)
         self._health_check_log_line(
-            f"scan point {iteration}: {what}, forwarded "
+            f"scan point {iteration}: {what}{mode}, forwarded "
             f"override_ExperimentVariables_{node} = {forwarded_text}")
 
         start = time.time()
@@ -1666,7 +1718,7 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 pipeline_name="main", expid=copy.deepcopy(expid),
                 priority=HEALTH_CHECK_PRIORITY, due_date=None, flush=False))]
             self._publish_health_check_status(
-                f"{what}: checking since "
+                f"{what}: {'re-optimizing' if direct else 'checking'} since "
                 f"{time.strftime('%H:%M:%S', time.localtime(start))}, "
                 f"RID {attempt_rids[0]}, resubmissions this check "
                 f"{resubmissions} ({crashes} after a crash)")
@@ -1685,6 +1737,11 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
                 points = self._health_check_resubmitted_points[key]
                 if iteration not in points:
                     points.append(iteration)
+                if direct and len(chain_rids) >= HEALTH_CHECK_DIRECT_MAX_ATTEMPTS:
+                    raise _HealthCheckGaveUp(
+                        f"{what}: {len(chain_rids)} direct scans without a pass "
+                        f"(the last did not pass, fidelity {fidelity:.3f}), "
+                        f"RIDs {chain_rids}")
                 self._health_check_log_line(
                     f"scan point {iteration}: {what} did not pass (fidelity "
                     f"{fidelity:.3f}, RIDs {attempt_rids}); resubmitting now, "
@@ -1697,6 +1754,10 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             points = self._health_check_crash_points[key]
             if iteration not in points:
                 points.append(iteration)
+            if direct and len(chain_rids) >= HEALTH_CHECK_DIRECT_MAX_ATTEMPTS:
+                raise _HealthCheckGaveUp(
+                    f"{what}: {len(chain_rids)} direct scans without a pass "
+                    f"(the last crashed), RIDs {chain_rids}")
             backoff = float(self.health_check_crash_backoff_s)
             self._health_check_log_line(
                 f"scan point {iteration}: {what} chain RIDs {attempt_rids} "
@@ -1768,6 +1829,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         except TerminationRequested:
             self._end_scan_on_health_check_termination(iteration)
             return False
+        except _HealthCheckGaveUp as gave_up:
+            self._end_scan_on_health_check_give_up(iteration, str(gave_up))
+            return False
 
         # single_node: the optimizer on the OTHER node left that node's
         # beams and coils as it finished; drive it safe again, as run() does
@@ -1790,6 +1854,25 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
         republish_run_datasets(self._HasEnvironment__dataset_mgr)
         self._create_node_applets()
         self._create_health_check_status_applet()
+
+    def _end_scan_on_health_check_give_up(self, iteration, reason):
+        ### health_check_optimize_directly: HEALTH_CHECK_DIRECT_MAX_ATTEMPTS
+        ### scans of one (node, transition) without a pass (user, 2026-11-14:
+        ### "Cap at 3, then stop the run"). A direct scan submits no child, so
+        ### nothing of the chain is left in the queue. End the scan cleanly,
+        ### as a Terminate does: run() returns, the h5 keeps every whole point.
+        self._health_check_log_line(
+            f"scan point {iteration}: {reason}; the scan ends before scan "
+            f"point {iteration}", warn=True)
+        self.set_dataset("gvs_health_check_stopped_at_scan_point",
+                         iteration, broadcast=False, persist=False)
+        self.set_dataset("gvs_health_check_stop_reason", reason,
+                         broadcast=False, persist=False)
+        self._publish_health_check_status(
+            f"STOPPED before scan point {iteration} at "
+            f"{time.strftime('%H:%M:%S')}: {reason}")
+        republish_run_datasets(self._HasEnvironment__dataset_mgr)
+        self._save_scan_point_results()
 
     def _end_scan_on_health_check_termination(self, iteration):
         ### TERMINATE PRESSED DURING (OR JUST BEFORE) A HEALTH CHECK
@@ -1861,8 +1944,9 @@ class _GeneralVariableScanMasterSatelliteMixin(_DatasetRedirectMixin):
             if self._health_check_due(iteration):
                 if not self._run_health_check_event(iteration):
                     print("**************** General Variable Scan "
-                          "master-satellite ENDED (terminated during the "
-                          "health check) ****************")
+                          "master-satellite ENDED during the health check "
+                          "(terminated, or the direct re-optimization gave "
+                          "up; see gvs_health_check_log) ****************")
                     return
             self._run_scan_point(variable1_value, variable2_value, iteration)
             iteration += 1

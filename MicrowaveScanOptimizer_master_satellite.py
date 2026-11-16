@@ -90,6 +90,26 @@ def _load_standalone_scan_definitions():
 
 scan_options, scan_dict = _load_standalone_scan_definitions()
 
+# MW+RF (m11) in master-satellite mode, since 2026-11-01: t_MW_RF_pulse is the
+# pulse the sequences PLAY (stored 0.0 = Z basis) and t_MW_RF_pi_pulse is the
+# calibrated pi time. The standalone definitions still hold the pi time in
+# t_MW_RF_pulse, so the two m11 scans are adapted here and nowhere else:
+# - Frequency_m11 plays t_MW_RF_pi_pulse (its self-mapped override_items
+#   played the stored 0.0, i.e. no MW+RF pulse at all);
+# - Time_m11 scans the played pulse and checks and stores the fitted pi time
+#   in t_MW_RF_pi_pulse (it stored it into t_MW_RF_pulse, which would have
+#   turned every later Z-basis mapping into an MW+RF pi pulse), and keeps its
+#   own health record instead of the MW11 one.
+scan_dict["Frequency_m11_Scan"] = dict(
+    scan_dict["Frequency_m11_Scan"],
+    override_items={"t_MW_RF_pulse": "t_MW_RF_pi_pulse"},
+)
+scan_dict["Time_m11_Scan"] = dict(
+    scan_dict["Time_m11_Scan"],
+    pi_pulse="t_MW_RF_pi_pulse",
+    health_check_dataset_name="health_check_uw_freqm11",
+)
+
 # The pulse each frequency scan PLAYS, which sets its linewidth: a square pi
 # pulse gives FWHM = 0.80/t_pi, and fits to every frequency scan since
 # 2026-06 gave 0.78/t_pi on both nodes. Frequency_00/01 play t_microwave_pulse,
@@ -100,7 +120,7 @@ ADAPTIVE_SCAN_PULSE = {
     "Frequency_01_Scan": "t_microwave_pulse",
     "Frequency_11_Scan": "t_microwave_11_pulse",
     "Frequency_m10_Scan": "t_microwave_m10_pulse",
-    "Frequency_m11_Scan": "t_MW_RF_pulse",
+    "Frequency_m11_Scan": "t_MW_RF_pulse",  # = t_MW_RF_pi_pulse, by its override_items
 }
 PI_PULSE_FWHM_TIMES_T_PI = 0.80
 
@@ -868,7 +888,14 @@ class MicrowaveScanOptimizer_master_satellite(
                         print("optimization failed - dataset not updated")
 
                 elif self.scan_type.startswith("Time"):
-                    if self.health_check_general(fit_check=True):
+                    # The fit models assume the scan contains the pi time. A
+                    # fit outside it (no flop: the period runs off to ms or
+                    # more) is not checked, since the check would play it.
+                    t_pi, t_scan_max = float(p["t_pi"]), float(np.max(self.scan_sequence1))
+                    if not (np.isfinite(t_pi) and 0.0 < t_pi <= t_scan_max):
+                        print(f"optimization failed - fitted t_pi {t_pi} s is outside the scan "
+                              f"(0, {t_scan_max} s], not checked - dataset not updated")
+                    elif self.health_check_general(fit_check=True):
                         print("optimization success - dataset updating to fitted value")
                         self.set_dataset(scan_dict[self.scan_type]["pi_pulse"], round(float(p["t_pi"]), 7), broadcast=True,
                                          persist=True)
@@ -1042,6 +1069,11 @@ class MicrowaveScanOptimizer_master_satellite(
         is above 0 (the GVS health check: 200 for the check, 100 per scan
         point), else this run's n_measurements, as before 2026-10-29. The
         argument itself is carried on too.
+
+        The scan is always sized from the node's pi time
+        (enable_node_specific_adaptive_scan) over one fixed list, never the
+        geometric re-centering search (enable_geometric_frequency_scan), whatever
+        the failed check had set (user, 2026-11-14).
         """
         print("submitting another experiment")
         ## 99 seems to be the highest priority that can be set to.
@@ -1067,7 +1099,7 @@ class MicrowaveScanOptimizer_master_satellite(
                 "override_ExperimentVariables_Node1": "{}",
                 "override_ExperimentVariables_Node2": "{}",
                 "enable_fitting": True,
-                "enable_geometric_frequency_scan": True,
+                "enable_geometric_frequency_scan": False,
 
                 # Scan type toggles
                 "Frequency_00_Scan": False,
@@ -1098,7 +1130,7 @@ class MicrowaveScanOptimizer_master_satellite(
                 "time_scan_sequence": 'np.arange(0,10,1)*us',
 
                 # Node-specific adaptive scan: the child derives its own ranges
-                "enable_node_specific_adaptive_scan": self.enable_node_specific_adaptive_scan,
+                "enable_node_specific_adaptive_scan": True,
                 "adaptive_half_range_linewidths": self.adaptive_half_range_linewidths,
                 "adaptive_points_per_linewidth": self.adaptive_points_per_linewidth,
                 "adaptive_time_scan_max_pi": self.adaptive_time_scan_max_pi,

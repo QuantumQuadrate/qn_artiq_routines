@@ -399,6 +399,7 @@ class BaseExperimentMasterSatellite:
         "t_microwave_11_pulse",
         "t_microwave_m10_pulse",
         "t_MW_RF_pulse",
+        "t_MW_RF_pi_pulse",
         "health_check_uw_freq00",
         "health_check_uw_freq01",
         "health_check_uw_freq11",
@@ -1808,6 +1809,11 @@ class BaseExperimentMasterSatellite:
                 # excitation cycle, 0 = the first. Lets the analysis keep the
                 # first attempt only (2026-10-29).
                 "excitation_attempt_of_row",
+                # One entry per herald of atom_photon_parity_12_AllSPCM_experiment,
+                # beside excitation_attempt_of_row: the heralding excitation
+                # cycle, 0 = the first after the first shot (2026-11-12).
+                # Two_nodes_atom_atom_ZZ_experiment resets it to [] (no seed).
+                "excitation_cycle_of_row",
                 # One entry per KEPT measurement of
                 # Two_nodes_atom_loading_2_experiment: how many
                 # load-plus-first-shot attempts that measurement needed.
