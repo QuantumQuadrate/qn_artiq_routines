@@ -35,6 +35,8 @@ widens the shared stub itself.
 """
 
 import ast
+import copy
+import difflib
 import sys
 import types
 import unittest
@@ -202,6 +204,7 @@ _ATOM_ATOM_ENTRY_POINTS = (
     "Two_nodes_atom_atom_ZZ_3_experiment",
     "Two_nodes_atom_atom_parity_experiment",
     "Two_nodes_atom_atom_parity_2_experiment",
+    "Two_nodes_atom_atom_parity_3_experiment",
 )
 
 
@@ -387,6 +390,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 "Two_nodes_atom_atom_parity_2_experiment",
                 # ZZ_2 with a parity_11 coil reset between cycles (2026-11-16).
                 "Two_nodes_atom_atom_ZZ_3_experiment",
+                # parity_2 with ZZ_3's coil reset (2026-11-17).
+                "Two_nodes_atom_atom_parity_3_experiment",
             },
         )
         module_functions = [
@@ -437,6 +442,8 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 {"_run_atom_atom_phase_scan_latest_ZZ"},
             "Two_nodes_atom_atom_parity_2_experiment":
                 {"_run_atom_atom_phase_scan_latest_ZZ_2"},
+            "Two_nodes_atom_atom_parity_3_experiment":
+                {"_run_atom_atom_phase_scan_latest_ZZ_3"},
         }
         self.assertEqual(set(expected), set(_ATOM_ATOM_ENTRY_POINTS))
         for entry_point, kernels in expected.items():
@@ -462,6 +469,10 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                 entry_point.endswith(("_2_experiment", "_3_experiment")), entry_point)
         self.assertIn("coil_reset_every_cycle_then_periodic_recool_then_check_then_recool_if_passed",
                       strings("Two_nodes_atom_atom_ZZ_3_experiment"))
+        self.assertIn("coil_reset_every_cycle_then_periodic_recool_then_check_then_recool_if_passed",
+                      strings("Two_nodes_atom_atom_parity_3_experiment"))
+        self.assertIn("20261117_parity_3_coil_reset_v1",
+                      strings("Two_nodes_atom_atom_parity_3_experiment"))
 
     def test_zz_3_resets_the_coils_after_every_non_herald_cycle(self):
         """Two_nodes_atom_atom_ZZ_3_experiment (2026-11-16) is ZZ_2 with a
@@ -518,6 +529,54 @@ class ExperimentFunctionsTwoNodesStructureTests(unittest.TestCase):
                     and [getattr(target, "id", None) for target in node.targets]
                     == ["ZZ_3_COIL_RESET_DWELL"]]
         self.assertAlmostEqual(dwell, 42.9e-3)
+
+    def test_parity_3_resets_the_coils_after_every_non_herald_cycle(self):
+        """Two_nodes_atom_atom_parity_3_experiment (2026-11-17) is parity_2 with
+        ZZ_3's coil reset (user: "make another version so that it follows how it
+        is being done in ZZ_3"): its excitation-cycle loop differs from
+        parity_2's exactly as ZZ_3's differs from ZZ_2's, statement for statement.
+        """
+        functions = {node.name: node for node in self.tree.body
+                     if isinstance(node, ast.FunctionDef)}
+
+        def cycle_loop(name):
+            return [ast.unparse(statement) for statement in next(
+                node for node in ast.walk(functions[name])
+                if isinstance(node, ast.For)
+                and isinstance(node.target, ast.Name)
+                and node.target.id == "excitation_cycle").body]
+
+        def change(old, new):
+            return [line for line in difflib.unified_diff(
+                cycle_loop(old), cycle_loop(new), lineterm="", n=0)
+                if not line.startswith(("---", "+++", "@@"))]
+
+        zz = change("_run_atom_atom_ZZ_with_cycle_log", "_run_atom_atom_ZZ_3_with_cycle_log")
+        parity = change("_run_atom_atom_phase_scan_latest_ZZ_2", "_run_atom_atom_phase_scan_latest_ZZ_3")
+        self.assertTrue(zz)
+        self.assertEqual(parity, zz)
+        self.assertIn("+t_coil_reset_wait = ZZ_3_COIL_RESET_DWELL - 0.4 * ms", parity)
+
+        # ... and over the WHOLE kernel (docstrings and print_async aside), so
+        # parity_3 keeps parity_2's phase mapping and per-herald phase records
+        def whole(name):
+            function = copy.deepcopy(functions[name])
+            function.name = "kernel"
+            for node in ast.walk(function):
+                if isinstance(getattr(node, "body", None), list):
+                    node.body = [statement for statement in node.body
+                                 if not (isinstance(statement, ast.Expr)
+                                         and isinstance(statement.value, ast.Constant)
+                                         and isinstance(statement.value.value, str))
+                                 and not ast.unparse(statement).startswith("self.print_async(")] or [ast.Pass()]
+            return ast.unparse(function).split("\n")
+
+        def whole_change(old, new):
+            return [line for line in difflib.unified_diff(whole(old), whole(new), lineterm="", n=0)
+                    if not line.startswith(("---", "+++", "@@"))]
+
+        self.assertEqual(whole_change("_run_atom_atom_phase_scan_latest_ZZ_2", "_run_atom_atom_phase_scan_latest_ZZ_3"),
+                         whole_change("_run_atom_atom_ZZ_with_cycle_log", "_run_atom_atom_ZZ_3_with_cycle_log"))
 
     def test_every_gate_is_matched_by_exactly_one_fetch_per_counter(self):
         """Each gate_rising pushes one total; each fetch_count pops one.

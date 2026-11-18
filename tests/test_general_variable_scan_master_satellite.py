@@ -514,6 +514,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 "Two_nodes_atom_atom_parity_2_experiment",
                 # ZZ_2 with a parity_11 coil reset between cycles (2026-11-16).
                 "Two_nodes_atom_atom_ZZ_3_experiment",
+                # parity_2 with ZZ_3's coil reset (2026-11-17).
+                "Two_nodes_atom_atom_parity_3_experiment",
             },
         )
         # The two registries must stay disjoint: the single-node one is built
@@ -651,6 +653,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
                 "Two_nodes_atom_atom_parity_2_experiment",
                 # ZZ_2 with a parity_11 coil reset between cycles (2026-11-16).
                 "Two_nodes_atom_atom_ZZ_3_experiment",
+                # parity_2 with ZZ_3's coil reset (2026-11-17).
+                "Two_nodes_atom_atom_parity_3_experiment",
             },
         )
         self.assertIs(
@@ -1192,6 +1196,8 @@ class GeneralVariableScanMasterSatelliteTests(unittest.TestCase):
             ("Two_nodes_atom_atom_parity_experiment", False, False),
             ("Two_nodes_atom_atom_parity_2_experiment", True, True),
             ("Two_nodes_atom_atom_parity_2_experiment", False, False),
+            ("Two_nodes_atom_atom_parity_3_experiment", True, True),
+            ("Two_nodes_atom_atom_parity_3_experiment", False, False),
             # The ZZ entries never asked for it (see test_experiment_functions_
             # two_nodes: test_every_confirm_loop_records_its_first_shot_alive_time).
             ("Two_nodes_atom_atom_ZZ_experiment", True, False),

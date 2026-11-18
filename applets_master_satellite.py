@@ -243,6 +243,8 @@ FIRST_SHOT_ALIVE_EXPERIMENTS = (
     "Two_nodes_HOM_experiment",
     "Two_nodes_atom_atom_parity_experiment",
     "Two_nodes_atom_atom_parity_2_experiment",
+    # parity_2 with ZZ_3's coil reset between excitation cycles (2026-11-17).
+    "Two_nodes_atom_atom_parity_3_experiment",
 )
 
 #: Applets that were defined but not enabled on Node1 (several were enabled
